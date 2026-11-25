@@ -454,6 +454,120 @@
    ],
    "why": "Canvas noise only where the drawing has edges, keyed per site and session (1.1.25): the noised canvas hash and the text width a page reads change on purpose; flat canvases read back exactly as Chrome does.",
    "accepted": "the owner asked for the 1.1.25 fingerprinting work on 2026-11-24; entry written by Claude from the values GitHub's runner measured on PR #162"
+  },
+  {
+   "key": "fingerprint/strict/canvas",
+   "base": [
+    "d570af30",
+    "5a63666b",
+    140.51592008281247
+   ],
+   "candidate": [
+    "d570af30",
+    "5a63666b",
+    140.515428278125
+   ],
+   "why": "A text's width noise is never none (fix/width-noise-never-zero): the factor 1 + k/10,000,000 now takes k in -30..-1 and 1..30 (k = 0 left one width in 61 real), so the noised widths, and the canvas text measure that reads them, take other values, still noised.",
+   "accepted": "the owner asked for every fingerprinting fix at Strict and Maximum (2026-11-24); entry written by Claude from the values GitHub's runner measured on PR #175"
+  },
+  {
+   "key": "fingerprint/strict/fonts_generic",
+   "base": [
+    953.6468162976563,
+    959.9418862207032,
+    1003.8509601890624
+   ],
+   "candidate": [
+    953.6469116625,
+    959.9400623320312,
+    1003.8538713585938
+   ],
+   "why": "A text's width noise is never none (fix/width-noise-never-zero): the factor 1 + k/10,000,000 now takes k in -30..-1 and 1..30 (k = 0 left one width in 61 real), so the noised widths, and the canvas text measure that reads them, take other values, still noised.",
+   "accepted": "the owner asked for every fingerprinting fix at Strict and Maximum (2026-11-24); entry written by Claude from the values GitHub's runner measured on PR #175"
+  },
+  {
+   "key": "fingerprint/strict/frame",
+   "base": [
+    4,
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    5,
+    1440,
+    [
+     "d570af30",
+     "5a63666b",
+     140.51592008281247
+    ]
+   ],
+   "candidate": [
+    4,
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    5,
+    1440,
+    [
+     "d570af30",
+     "5a63666b",
+     140.515428278125
+    ]
+   ],
+   "why": "A frame reads what the page reads: its canvas row carries the page's canvas text measure, changed by the width noise that is never none (fix/width-noise-never-zero).",
+   "accepted": "the owner asked for every fingerprinting fix at Strict and Maximum (2026-11-24); entry written by Claude from the values GitHub's runner measured on PR #175"
+  },
+  {
+   "key": "fingerprint/maximum/canvas",
+   "base": [
+    "d570af30",
+    "5a63666b",
+    140.51592008281247
+   ],
+   "candidate": [
+    "d570af30",
+    "5a63666b",
+    140.515428278125
+   ],
+   "why": "A text's width noise is never none (fix/width-noise-never-zero): the factor 1 + k/10,000,000 now takes k in -30..-1 and 1..30 (k = 0 left one width in 61 real), so the noised widths, and the canvas text measure that reads them, take other values, still noised.",
+   "accepted": "the owner asked for every fingerprinting fix at Strict and Maximum (2026-11-24); entry written by Claude from the values GitHub's runner measured on PR #175"
+  },
+  {
+   "key": "fingerprint/maximum/fonts_generic",
+   "base": [
+    953.6468162976563,
+    959.9418862207032,
+    1003.8509601890624
+   ],
+   "candidate": [
+    953.6469116625,
+    959.9400623320312,
+    1003.8538713585938
+   ],
+   "why": "A text's width noise is never none (fix/width-noise-never-zero): the factor 1 + k/10,000,000 now takes k in -30..-1 and 1..30 (k = 0 left one width in 61 real), so the noised widths, and the canvas text measure that reads them, take other values, still noised.",
+   "accepted": "the owner asked for every fingerprinting fix at Strict and Maximum (2026-11-24); entry written by Claude from the values GitHub's runner measured on PR #175"
+  },
+  {
+   "key": "fingerprint/maximum/frame",
+   "base": [
+    4,
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    5,
+    1440,
+    [
+     "d570af30",
+     "5a63666b",
+     140.51592008281247
+    ]
+   ],
+   "candidate": [
+    4,
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    5,
+    1440,
+    [
+     "d570af30",
+     "5a63666b",
+     140.515428278125
+    ]
+   ],
+   "why": "A frame reads what the page reads: its canvas row carries the page's canvas text measure, changed by the width noise that is never none (fix/width-noise-never-zero).",
+   "accepted": "the owner asked for every fingerprinting fix at Strict and Maximum (2026-11-24); entry written by Claude from the values GitHub's runner measured on PR #175"
   }
  ]
 }
