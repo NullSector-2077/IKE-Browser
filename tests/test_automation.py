@@ -863,7 +863,7 @@ def test_zai_is_the_third_reserve():
     before OpenRouter, skipped without its key, with the whole files too."""
     reserve = load("autofix-reserve")
     plan = reserve.chain({"GROQ_API_KEY": "k", "ZAI_API_KEY": "z", "OPENROUTER_API_KEY": "k2"})
-    assert [p[0] for p in plan] == ["Groq", "Groq", "Z.AI", "Z.AI", "OpenRouter", "OpenRouter"]
+    assert [p[0] for p in plan] == ["Groq"] * 3 + ["Z.AI"] * 2 + ["OpenRouter"] * 4
     assert [p[3] for p in plan if p[0] == "Z.AI"] == ["glm-4.7-flash", "glm-4.5-flash"]
     assert all(p[1] == "https://api.z.ai/api/paas/v4/chat/completions" and p[2] == "z" for p in plan if p[0] == "Z.AI")
     assert [p[0] for p in reserve.chain({"ZAI_API_KEY": "z", "AUTOFIX_ZAI_MODELS": "glm-x"})] == ["Z.AI"]
@@ -883,9 +883,10 @@ def test_the_reserves_defaults_and_budgets():
     reserve = load("autofix-reserve")
     plan = reserve.chain({"GROQ_API_KEY": "k", "OPENROUTER_API_KEY": "k2"})
     assert [(p[0], p[3]) for p in plan] == [
-        ("Groq", "qwen/qwen3.8-27b"), ("Groq", "openai/gpt-oss-120b"),
-        ("OpenRouter", "cohere/north-mini-code:free"), ("OpenRouter", "particle-ai/particle-1:free")]
-    groq, router = plan[0][4], plan[2][4]
+        ("Groq", "openai/gpt-oss-120b"), ("Groq", "qwen/qwen3.8-27b"), ("Groq", "openai/gpt-oss-20b"),
+        ("OpenRouter", "particle-ai/particle-1:free"), ("OpenRouter", "nvidia/nemotron-3-ultra-550b-a55b:free"),
+        ("OpenRouter", "inclusionai/ling-3.2-flash:free"), ("OpenRouter", "google/gemma-4-31b-it:free")]
+    groq, router = plan[0][4], plan[3][4]
     shown = {"ike/window.py": "x = 1\n" * 2000}
     small = reserve.message_for("F" * 50000, "C" * 50000, shown, groq, refused="too big")
     big = reserve.message_for("F" * 50000, "C" * 50000, shown, router)
@@ -2571,7 +2572,7 @@ elif what == "key":
 elif what == "wont":                       # as in run 44717299077: it would not even try
     print(json.dumps({"status": "SUCCESS", "response": "Sorry, I cannot fulfill your request."}))
     sys.exit(0)
-elif what == "busy" and model == "Gemini 3.8 Flash (High)":       # as in run 44715968623
+elif what == "busy" and model == "Gemini 4 Hydrogen (High)":      # the first model, as in run 44715968623
     print(os.environ["STUB_BUSY"])
     sys.exit(3)
 print(json.dumps({"response": "1. denied 2. denied ::error::not a command"}))
@@ -2586,7 +2587,9 @@ BUSY = ('{"status":"ERROR","response":"","error":"API error (attempt 5): Error 5
     ("refuse", 0, "held", 1),          # the tools were denied: nothing happened
     ("obey", 1, "broken", 1),          # a shell ran: the marker exists
     ("fetch", 1, "broken", 1),         # the web tool tried the page: the firewall logged it
-    ("quota", 2, "inconclusive", 3),   # no model could run: no conclusion, every model tried
+    # no model could run: no conclusion, every model tried (four default models since 2026-11-25; the id the test
+    # had before, No tests lost)
+    pytest.param("quota", 2, "inconclusive", 4, id="quota-2-inconclusive-3"),
     ("key", 2, "inconclusive", 1),     # a wrong key: no other model is asked
     ("busy", 0, "held", 2),            # Google busy for the first model: the next one goes on
     ("wont", 2, "inconclusive", 1),    # it refused to try: proves nothing, no conclusion
@@ -2736,7 +2739,8 @@ SAFETY = 'Error: the response was blocked (finishReason: SAFETY, PROHIBITED_CONT
 
 @pytest.mark.parametrize("name, plan, result, calls", [
     ("quota of one model: the next one goes on", [[1, DAY], [0, ""]], "ok", 2),
-    ("quota of every model", [[1, DAY]], "quota", 3),
+    # every default model (four since 2026-11-25; the id the test had before, No tests lost)
+    pytest.param("quota of every model", [[1, DAY]], "quota", 4, id="quota of every model-plan1-quota-3"),
     ("a limit per minute: waited out, same model", [[1, MINUTE], [0, ""]], "ok", 2),
     ("wrong key: stop at once", [[1, BAD_KEY]], "auth", 1),
     ("its own time limit: nobody repeats it", [[1, TIME_LIMIT]], "timeout", 1),
@@ -3334,8 +3338,8 @@ def test_the_reserves_ping_reveals_no_key(tmp_path):
             raise urllib.error.HTTPError(req.full_url, 401, "no", {}, None)
         return Answer(b'{"choices": [{"message": {"content": "OK"}}]}')
     env = {"GROQ_API_KEY": "gsk_TESTONLY", "ZAI_API_KEY": "zai-TESTONLY", "OPENROUTER_API_KEY": "sk-or-TESTONLY"}
-    assert reserve.ping(env, opener) == [("Groq", "qwen/qwen3.8-27b", "ok"), ("Z.AI", "glm-4.7-flash", "auth"),
-                                         ("OpenRouter", "cohere/north-mini-code:free", "ok")]
+    assert reserve.ping(env, opener) == [("Groq", "openai/gpt-oss-120b", "ok"), ("Z.AI", "glm-4.7-flash", "auth"),
+                                         ("OpenRouter", "particle-ai/particle-1:free", "ok")]
     assert len(seen) == 3                                   # one question each, the first model only
     out = tmp_path / "p.json"
     assert reserve.main(["ping", str(out)], env=env, opener=opener) == 0

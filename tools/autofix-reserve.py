@@ -55,6 +55,20 @@ Part 2 of AUTOMAT (each only with its option; without them nothing above changes
                    is never asked, the reviewers' reserve and the candidate's share are kept,
                    a limit per minute is waited out; every call's headers and 429s correct
                    the budget; the run's use is written as numbers to --quota-usage.
+                   No deadlock (2026-11-25, PR #111: three days and nobody asked):
+                   - a request larger than a provider's limit of tokens per minute is fitted
+                     to it (fitted: the rules, the failure with the refusal reasons, the files
+                     to change; the code around the failure as far as it fits) and asked;
+                     only when even that cannot fit is the provider skipped, with the reason;
+                   - a 429 of a minute or of concurrency (tools/ai-quota.py rate_limit_scope)
+                     is waited out and asked again (at most MINUTE_RETRIES times), never taken
+                     for the day's quota; a 503 is asked again after BACKOFF;
+                   - when the reviewers' reserve alone left every provider unasked, a second
+                     pass asks the one whose fix leaves the most reviewers (Budget.way_forward):
+                     the fix is written now and its two reviews come on a later day; it never
+                     reaches main without them (status "reviews_deferred");
+                   - the watchdog: a branch that asked nobody for UNASKED_DAYS days in a row is
+                     said in the message (tools/ai-quota.py stuck_text).
 --order A,B,C, --task KIND
                    the order of the providers for this kind of task (tools/automat-route.py),
                    and the cap of the answer; --tried FILE: the fingerprints of the patches
@@ -201,6 +215,15 @@ TOTAL_TIMEOUT = REGISTRY.RESERVES_TIMEOUT
 REQUEST_TIMEOUT = 150
 FILES_BUDGET = 60_000          # characters of whole files sent along
 MAX_TOKENS = 6000
+# fitting a request to a provider's limit of tokens per minute (fitted, 2026-11-25)
+FIT_SHARE = 0.9                # of the limit a fitted request may take (the estimate is careful already)
+MIN_USER = 1500                # characters: the smallest request worth sending (the failure and the files' names)
+MIN_ANSWER = 1500              # tokens: the smallest answer a fix fits in
+# a busy service (503) is asked again after these seconds; a limit per minute (429) is waited out this many times,
+# each wait at most MINUTE_WAIT seconds
+BACKOFF = (5, 15, 45)
+MINUTE_RETRIES = 2
+MINUTE_WAIT = 75
 
 MESSAGES = {
     "ok": "Una riserva (%s) ha preparato una correzione.",
@@ -219,6 +242,9 @@ MESSAGES = {
     "loop": "La riserva (%s) ha proposto due volte la stessa modifica: il tentativo si ferma qui e viene "
             "registrato, il prossimo parte da un altro assistente.",
 }
+# the way forward of the reviewers' reserve (2026-11-25): the fix is written now, its reviews come later
+DEFERRED = (" Oggi nessun'altra AI aveva quota per rivederla: la correzione è stata scritta lo stesso e aspetta le "
+            "revisioni indipendenti nei prossimi giorni; non entra in main senza di esse.")
 
 INSTRUCTIONS = """
 # How to answer (reserve assistant)
@@ -349,11 +375,10 @@ DISCOVERED = 2          # free models taken from OpenRouter's list when a listed
 MODEL_ID = re.compile(r"^[A-Za-z0-9._/:-]{3,100}:free$")
 
 
-def free_models(key, opener=urllib.request.urlopen, exclude=(), count=DISCOVERED):
-    """OpenRouter's free models at this moment, the largest context first (1.1.18).
-    Free models come and go: when one of the list answers 404 (it no longer
-    exists), the chain asks OpenRouter which ones there are instead of failing
-    until someone edits the list. Only ids of the usual shape are taken."""
+def free_catalog(key, opener=urllib.request.urlopen):
+    """OpenRouter's free models at this moment, from its own list (GET /api/v1/models): [(id, context)], the
+    largest context first, only ids of the usual shape and only at zero price in OpenRouter's own price list (the
+    Free Models Router too, FREE_ROUTER); None when the list cannot be read."""
     req = urllib.request.Request(OPENROUTER_MODELS, headers={
         "Authorization": "Bearer " + key, "User-Agent": "IKE-autofix"})
     try:
@@ -361,18 +386,57 @@ def free_models(key, opener=urllib.request.urlopen, exclude=(), count=DISCOVERED
             data = json.loads(r.read(8_000_000).decode("utf-8", "replace"))
         models = data.get("data") if isinstance(data, dict) else None
         if not isinstance(models, list):
-            return []
+            return None
         found = []
         for m in models:
             mid = m.get("id") if isinstance(m, dict) else None
             ctx = m.get("context_length") if isinstance(m, dict) else None
-            if (isinstance(mid, str) and MODEL_ID.match(mid) and mid not in exclude
-                    and isinstance(ctx, int) and ctx >= 32_000 and priced_free(m)):
+            if isinstance(mid, str) and isinstance(ctx, int) and priced_free(m) and (MODEL_ID.match(mid) or (
+                    mid == REGISTRY.FREE_ROUTER and isinstance(m.get("pricing"), dict))):
                 found.append((ctx, mid))
         found.sort(key=lambda t: (-t[0], t[1]))
-        return [mid for _ctx, mid in found[:count]]
+        return [(mid, ctx) for ctx, mid in found]
     except Exception:                       # no list: the chain simply goes on without it
-        return []
+        return None
+
+
+def free_models(key, opener=urllib.request.urlopen, exclude=(), count=DISCOVERED):
+    """OpenRouter's free models at this moment, the largest context first (1.1.18).
+    Free models come and go: when one of the list answers 404 (it no longer
+    exists), the chain asks OpenRouter which ones there are instead of failing
+    until someone edits the list. Only ids of the usual shape are taken."""
+    found = free_catalog(key, opener) or []
+    return [mid for mid, ctx in found if mid != REGISTRY.FREE_ROUTER and mid not in exclude
+            and ctx >= 32_000][:count]
+
+
+def refreshed(plan, opener=urllib.request.urlopen, listed=None):
+    """The chain with OpenRouter's models rebuilt from its own list of this run (2026-11-25: the free models of
+    the list were gone, and a paid fallback would cost money): the listed ones that are still free, in their
+    order; then the free ones OpenRouter offers now (DISCOVERED, the largest context first); then the Free Models
+    Router, the last resort. Nothing changes when the list cannot be read."""
+    mine = [p for p in plan if p[0] == "OpenRouter"]
+    if not mine:
+        return plan
+    name, url, key, _model, budget, tokens = mine[0]
+    found = free_catalog(key, opener)
+    if found is None:
+        return plan
+    if listed is not None:
+        listed["read"] = True               # the list of this moment is in the chain: not asked for again
+    free = {mid for mid, _ctx in found}
+    keep = [p for p in mine if p[3] in free]
+    for p in mine:
+        if p[3] not in free:
+            print("OpenRouter: %s is not a free model any more (its own list): not asked" % for_log(p[3]), flush=True)
+    have = {p[3] for p in keep}
+    more = [mid for mid, ctx in found if mid not in have and mid != REGISTRY.FREE_ROUTER and ctx >= 32_000]
+    keep += [(name, url, key, mid, budget, tokens) for mid in more[:DISCOVERED]]
+    if REGISTRY.FREE_ROUTER in free and REGISTRY.FREE_ROUTER not in have:
+        keep.append((name, url, key, REGISTRY.FREE_ROUTER, budget, tokens))
+    at = plan.index(mine[0])
+    rest = [p for p in plan if p[0] != "OpenRouter"]
+    return rest[:at] + keep + rest[at:]
 
 
 def priced_free(model):
@@ -400,6 +464,12 @@ BILLING = re.compile(r"payment[ _]required|insufficient[ _](?:balance|credits?|f
                      r"|\"code\"\s*:\s*\"?1113\b|BILLING_DISABLED|billing (?:is )?(?:not )?(?:enabled|required)"
                      r"|requires? billing|(?:paid|billing) (?:plan|tier|account) (?:is )?required"
                      r"|only available (?:on|for|to) (?:the )?paid", re.I)
+
+
+# OpenRouter: the privacy settings of the account allow no free endpoint (2026-11-25, openrouter.ai/docs)
+DATA_POLICY = re.compile(r"no endpoints found matching your data policy", re.I)
+POLICY = (" OpenRouter non può usare i modelli gratuiti: nelle impostazioni di privacy dell'account va permesso "
+          "l'uso degli endpoint gratuiti (\"No endpoints found matching your data policy\").")
 
 
 def billing_in(text):
@@ -467,7 +537,11 @@ def ask(url, key, model, messages, timeout=REQUEST_TIMEOUT, opener=urllib.reques
             meter(402 if billing_in(said) else e.code, e.headers, None, said[:2000])
         if billing_in(said):                # never a quota to wait for: money is asked
             raise Stop("unavailable", "HTTP %d, billing" % e.code, 0)
-        raise Stop(classify(e.code), "HTTP %d" % e.code, wait)
+        if e.code == 404 and DATA_POLICY.search(said):
+            # OpenRouter's account setting blocks the free endpoints (openrouter.ai/docs: "No endpoints found
+            # matching your data policy"): an owner's setting, never a quota and never a model that is gone
+            raise Stop("policy", "HTTP 404, the account's privacy setting", 0, 404)
+        raise Stop(classify(e.code), "HTTP %d" % e.code, wait, e.code)
     except (urllib.error.URLError, TimeoutError, OSError, ValueError, http.client.HTTPException) as e:
         # http.client's IncompleteRead (an answer cut off) is no OSError: until the
         # final review of 1.1.18 it skipped the retry of a server error
@@ -648,6 +722,98 @@ def message_for(failure, context, shown, budget, refused=""):
     return head + body + "\n\n# Files involved (full text)\n" + (files or "\n(not sent: see the code above)\n")
 
 
+def compact_message(failure, context, shown, room, refused="", to_change=()):
+    """The user message within `room` characters, for a provider whose limit per minute is small (fitted): what
+    must stay, deterministically: the failure (the end of the error and the plan's notes, the refusal reasons among
+    them, each cut to its share from its start), why an earlier fix was refused, the names of the files to change;
+    then whole files to change while they fit (the smallest first); the code around the failure takes the rest."""
+    room = max(MIN_USER, int(room))
+    names = [p for p in shown if p in to_change] or list(shown)
+    listing = "# Files to change\n\n" + "".join("- %s\n" % p for p in names) + "\n" if names else ""
+    refusal = ("# A fix already refused\n\nThe automatic checks refused an earlier fix for this failure:\n\n%s\n"
+               "Do not repeat it.\n\n" % refused[:max(300, room // 6)]) if refused else ""
+    head_room = max(400, room // 2 - len(refusal) - len(listing))
+    parts = NOTES.split(failure)
+    error, notes = parts[0], parts[1:]
+    if notes:
+        share = max(150, (head_room * 2 // 3) // len(notes))
+        kept = [n if len(n) <= share else n[:share].rstrip() + "\n(... cut)\n" for n in notes]
+        tail = error[-max(200, head_room - sum(len(k) + 1 for k in kept)):]
+        text_failure = tail.rstrip() + "\n\n" + "\n".join(kept)
+    else:
+        text_failure = failure[-head_room:]
+    text = "# The failure\n\n%s\n\n" % text_failure + refusal + listing
+    left = room - len(text) - 120
+    files = ""
+    for path in sorted(names, key=lambda n: (len(shown[n]), n)):
+        part = "\n## File `%s`\n\n```text\n%s\n```\n" % (path, shown[path])
+        if len(part) <= left:
+            files += part
+            left -= len(part)
+    text += "# Files involved (full text)\n" + (files or "\n(not sent, too large for this provider: see the code "
+                                                          "below)\n")
+    text += "\n# Code at the failure\n\n" + context[:max(0, room - len(text) - 40)]
+    return text[:room]
+
+
+def fitted(spend, provider, system, user, tokens, compact):
+    """(user, answer tokens, note) of a request that fits the provider's limit of tokens per minute (2026-11-25:
+    Groq's request of 7,678 tokens against its 6,000 a minute was skipped every day, so it could never help).
+    Unchanged when it fits; else compact(room) builds a smaller one, with a smaller answer when needed (never
+    below MIN_ANSWER). (None, tokens, why) only when even the smallest request cannot fit."""
+    quota = _tool("ai-quota")
+    limit = spend.minute_limit(provider, "tokens")
+
+    def size(text, answer):
+        return quota.estimate_tokens(len(system) + len(text), answer, spend.limits)
+    if not limit or size(user, tokens) <= limit:
+        return user, tokens, ""
+    per = spend.limits.get("chars_per_token") or 3
+    cap = int(limit * FIT_SHARE)
+    answer = tokens
+    room = int((cap - answer) * per) - len(system)
+    if room < MIN_USER and answer > MIN_ANSWER:
+        answer = max(MIN_ANSWER, cap - int((len(system) + MIN_USER) / float(per)) - 1)
+        room = int((cap - answer) * per) - len(system)
+    if room < MIN_USER:
+        return None, tokens, ("even the smallest request (the rules, the failure and the files to change: %d tokens) "
+                              "is larger than its limit per minute (%d tokens): not asked" % (
+                                  size("x" * MIN_USER, min(answer, MIN_ANSWER)), limit))
+    small = compact(room)
+    if size(small, answer) > limit:
+        return None, tokens, ("the request could not be made smaller than its limit per minute (%d tokens, %d a "
+                              "minute): not asked" % (size(small, answer), limit))
+    return small, answer, ("the request was fitted to its limit per minute: %d tokens instead of %d (%d a minute)"
+                           % (size(small, answer), size(user, tokens), limit))
+
+
+def fit_followup(messages, base, tokens, budget, provider):
+    """An answer told what the checks found (the inner loop) within the provider's limit per minute: the model's
+    earlier answer is cut first, then dropped, then the feedback is cut. The base request was fitted already."""
+    quota = _tool("ai-quota")
+    limit = budget.minute_limit(provider, "tokens")
+    if not limit or len(messages) <= len(base):
+        return messages
+
+    def size(ms):
+        return quota.estimate_tokens(sum(len(m.get("content") or "") for m in ms), tokens, budget.limits)
+    if size(messages) <= limit:
+        return messages
+    per = budget.limits.get("chars_per_token") or 3
+    free = int((int(limit * FIT_SHARE) - tokens) * per) - sum(len(m.get("content") or "") for m in base)
+    extra = [dict(m) for m in messages[len(base):]]
+    feedback = extra[-1]
+    others = extra[:-1]
+    keep = free - len(feedback.get("content") or "")
+    for m in others:
+        m["content"] = (m.get("content") or "")[:max(0, keep)]
+        keep -= len(m["content"])
+    others = [m for m in others if m["content"]]
+    if free < len(feedback.get("content") or ""):
+        feedback["content"] = (feedback.get("content") or "")[:max(200, free)]
+    return list(base) + others + [feedback]
+
+
 def diff_of(workdir):
     return _git(workdir, "diff", "--binary", "--no-ext-diff", "--no-textconv", "--", ".",
                 ":(exclude).autofix").stdout
@@ -743,10 +909,12 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
     messages, tries, waited = list(base), 0, False
     most = inner.INNER_TRIES if inner else 2
     answers, stops = 0, 0
+    busy, minute_waits = 0, 0
     while tries < most:
         tries += 1
         size = 0
         if budget is not None:
+            messages = fit_followup(messages, base, tokens, budget, provider)
             size = _tool("ai-quota").estimate_tokens(sum(len(m.get("content") or "") for m in messages), tokens,
                                                      budget.limits)
             ok, why = budget.allows(provider, size, "fix")
@@ -772,12 +940,38 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
         except Stop as s:
             if budget is not None and not seen:
                 budget.note(provider, 0, "fix", requests=1)        # asked, no answer read: one request all the same
+            kind = s.args[0]
+            wait = s.args[2] if len(s.args) > 2 else 0
+            code = s.args[3] if len(s.args) > 3 else 0
+            print("  stopped: %s (%s)" % (kind, for_log(s.args[1])), flush=True)
+            # a busy service (503): asked again after a growing pause (BACKOFF, or its own short Retry-After)
+            if kind == "temporary" and code == 503 and busy < len(BACKOFF):
+                pause = wait if 0 < wait <= 60 else BACKOFF[busy]
+                if time.monotonic() + pause < deadline:
+                    busy += 1
+                    print("  busy: asked again in %d s" % pause, flush=True)
+                    time.sleep(pause)
+                    tries -= 1
+                    continue
+            # a 429 the budget read as a limit per minute or of concurrency (tools/ai-quota.py rate_limit_scope),
+            # never the day's quota: waited out and asked again, a few times within the run's time
+            if kind == "quota" and budget is not None and not budget.spent(provider) and minute_waits < MINUTE_RETRIES:
+                pause = max(int(wait or 0), budget.wait_seconds(provider, size))
+                if pause <= MINUTE_WAIT and time.monotonic() + pause < deadline:
+                    minute_waits += 1
+                    waited = True
+                    print("  a limit per minute: asked again in %d s" % (pause + 1), flush=True)
+                    time.sleep(pause + 1)
+                    tries -= 1
+                    continue
+            # too large for its limit per minute, which its answer just told (the budget learned it): the request is
+            # fitted to it and asked again (the caller), never the provider skipped for its size
+            if kind == "toolarge" and budget is not None and (budget.minute_limit(provider, "tokens") or 0) < size \
+                    and not run.get("refitted"):
+                return "refit", "", refused
             stops += 1
             if inner and stops > 2:
                 return "quota", "", refused
-            kind = s.args[0]
-            wait = s.args[2] if len(s.args) > 2 else 0
-            print("  stopped: %s (%s)" % (kind, for_log(s.args[1])), flush=True)
             if kind == "temporary" and tries < 2:
                 time.sleep(10)
                 continue
@@ -788,7 +982,7 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
                 time.sleep(wait + 1)
                 tries -= 1                  # the wait does not use up a try
                 continue
-            if kind in ("auth", "toolarge", "config", "unavailable"):
+            if kind in ("auth", "toolarge", "config", "unavailable", "policy"):
                 return kind, "", refused
             return ("quota" if kind in ("quota", "temporary") else "error"), "", refused
         answers += 1
@@ -995,6 +1189,10 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
                                                  REGISTRY.OPENROUTER_KEY_INFO)):
             print("OpenRouter: %s free requests a day for all its free models together (read from the account)"
                   % spend.day_limit("OpenRouter", "requests"), flush=True)
+    # OpenRouter's free models of this moment, from its own list (refreshed), when it may be asked at all today
+    listed = {}
+    if spend is None or not (spend.spent("OpenRouter") or spend.priority_why("OpenRouter")):
+        plan = refreshed(plan, opener, listed)
     if a.task:
         route = _tool("automat-route")
         limits = limits or _tool("ai-quota").load_limits(a.quota_limits)
@@ -1006,84 +1204,136 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
             tried = []
     loop = _tool("automat-route").Loop(tried) if (a.inner or a.tried) else None
     looped = ""
-    discovered, refused_keys = False, []
+    discovered, refused_keys = bool(listed.get("read")), []
     # WP9: whether any model really answered; a chain where each model was busy,
     # out of quota or not free ends "no provider available" (the work waits:
     # tools/ai-work.py), not a question for the owner
     outcomes, not_free = [], []
-    for provider, url, key, model, budget, tokens in plan:      # the list may grow (free_models)
-        if provider in skip:
-            continue
-        base = [{"role": "system", "content": rules + "\n" + instructions(a.allow_adblock, a.lists, a.builder)},
-                {"role": "user", "content": message_for(failure, context, shown, budget, refused)}]
-        if time.monotonic() > deadline:
-            result = result if result != "nokey" else "quota"
-            break
-        used = "%s / %s" % (provider, model)
-        print("Reserve: %s" % for_log(used), flush=True)
-        applied = []
-        if route is not None:
-            tokens = route.answer_tokens(a.task, tokens, limits)
-        extra = {"provider": provider, "budget": spend, "loop": loop,
-                 "temperature": route.temperature(limits) if route is not None else 0.1}
-        try:
-            outcome, said, refused = one_model(url, key, model, base, tokens, deadline, opener,
-                                               workdir, shown, a, refused, applied, extra)
-        except Exception as e:                    # 1.1.18: a malformed answer never ends the chain
-            if applied:
-                undo(workdir, applied)
-            print("  answer not usable (%s): the next model goes on" % type(e).__name__, flush=True)
-            outcome, said = "error", ""
-        outcomes.append(outcome)
-        if outcome in ("ok", "refused"):
-            result, summary = outcome, said
-            break
-        if outcome == "unavailable":
-            # a billing error, a paid tier or a cost in the answer: this provider is
-            # not free here; none of its models is asked again in this run
-            not_free.append(provider)
-            skip.add(provider)
-            if spend is not None:
-                spend.mark_spent(provider, "not free (billing, or a cost in the answer)")
-        if outcome == "budget":
-            # the budget of the free quotas says no (spent today, the reviewers' reserve, this candidate's
-            # share): none of this provider's models is asked in this run
-            skip.add(provider)
-        if outcome == "loop":
-            # the same patch twice: the attempt stops and is recorded (tools/automat-route.py)
-            looped = used
-            result = "loop"
-            break
-        if outcome == "none":
-            # 1.1.18: one model's word is not enough (a weak free model gives up on
-            # a plain fix); the chain stops when two different models agree
-            said_none.append(used)
-            none_summary = said
-            # 1.1.19 (autofix trial 4): two models of one provider (Z.AI's two
-            # Flash models) stopped the chain before OpenRouter was asked
-            if len({u.split(" / ")[0] for u in said_none}) >= 2:
-                print("  two providers say it cannot be fixed in the code: no other model is asked", flush=True)
-                result = "none"
+    deferred, second, policy_blocked = "", False, []
+    system = rules + "\n" + instructions(a.allow_adblock, a.lists, a.builder)
+    while True:
+        for provider, url, key, model, budget, tokens in plan:      # the list may grow (free_models)
+            if provider in skip:
+                continue
+            if time.monotonic() > deadline:
+                result = result if result != "nokey" else "quota"
                 break
-            print("  says it cannot be fixed in the code: the next model is asked too", flush=True)
-        if outcome == "auth":
-            # final review of 1.1.18: a refused key read as "no fix found"; the
-            # message now says which key to check
-            refused_keys.append("%s (%s)" % (provider, next(p[2] for p in PROVIDERS if p[0] == provider)))
-        if outcome in ("auth", "toolarge"):
-            skip.add(provider)
-            outcome = "error"
-        if outcome == "config" and provider == "OpenRouter" and not discovered:
-            # a listed free model is gone: try the free ones OpenRouter has now
-            discovered = True
-            tried = {m for _p, _u, _k, m, _b, _t in plan}
-            for m in free_models(key, opener, exclude=tried):
-                print("  OpenRouter now offers %s: it is asked too" % for_log(m), flush=True)
-                plan.append((provider, url, key, m, budget, tokens))
-        if outcome == "config":
-            outcome = "error"
-        result = outcome or "error"
-    no_provider = bool(outcomes) and all(o in ("quota", "unavailable", "budget") for o in outcomes)
+            used = "%s / %s" % (provider, model)
+            print("Reserve: %s" % for_log(used), flush=True)
+            applied = []
+            if route is not None:
+                tokens = route.answer_tokens(a.task, tokens, limits)
+            extra = {"provider": provider, "budget": spend, "loop": loop,
+                     "temperature": route.temperature(limits) if route is not None else 0.1}
+            outcome = "refit"
+            while outcome == "refit":
+                user = message_for(failure, context, shown, budget, refused)
+                if spend is not None:
+                    # 2026-11-25: a request larger than the provider's limit per minute is fitted to it, never skipped
+                    # for its size (fitted)
+                    user, tokens, note = fitted(spend, provider, system, user, tokens, functools.partial(
+                        compact_message, failure, context, shown, refused=refused, to_change=related))
+                    if user is None:
+                        print("  not asked: %s" % for_log(note), flush=True)
+                        spend.skipped[provider] = note
+                        outcome = "budget"
+                        break
+                    if note:
+                        print("  %s" % for_log(note), flush=True)
+                base = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+                try:
+                    outcome, said, refused = one_model(url, key, model, base, tokens, deadline, opener,
+                                                       workdir, shown, a, refused, applied, extra)
+                except Exception as e:                    # 1.1.18: a malformed answer never ends the chain
+                    if applied:
+                        undo(workdir, applied)
+                    print("  answer not usable (%s): the next model goes on" % type(e).__name__, flush=True)
+                    outcome, said = "error", ""
+                if outcome == "refit":
+                    if extra.get("refitted"):
+                        outcome = "toolarge"
+                    else:
+                        extra["refitted"] = True
+                        print("  too large for the limit per minute it just told: fitted and asked again", flush=True)
+            outcomes.append(outcome)
+            if outcome in ("ok", "refused"):
+                result, summary = outcome, said
+                break
+            if outcome == "unavailable":
+                # a billing error, a paid tier or a cost in the answer: this provider is
+                # not free here; none of its models is asked again in this run
+                not_free.append(provider)
+                skip.add(provider)
+                if spend is not None:
+                    spend.mark_spent(provider, "not free (billing, or a cost in the answer)")
+            if outcome == "policy":
+                # an owner's setting of the account, said plainly; the other providers go on
+                policy_blocked.append(provider)
+                skip.add(provider)
+                outcome = "unavailable"
+            if outcome == "budget":
+                # the budget of the free quotas says no (spent today, the reviewers' reserve, this candidate's
+                # share): none of this provider's models is asked in this run
+                skip.add(provider)
+            if outcome == "loop":
+                # the same patch twice: the attempt stops and is recorded (tools/automat-route.py)
+                looped = used
+                result = "loop"
+                break
+            if outcome == "none":
+                # 1.1.18: one model's word is not enough (a weak free model gives up on
+                # a plain fix); the chain stops when two different models agree
+                said_none.append(used)
+                none_summary = said
+                # 1.1.19 (autofix trial 4): two models of one provider (Z.AI's two
+                # Flash models) stopped the chain before OpenRouter was asked
+                if len({u.split(" / ")[0] for u in said_none}) >= 2:
+                    print("  two providers say it cannot be fixed in the code: no other model is asked", flush=True)
+                    result = "none"
+                    break
+                print("  says it cannot be fixed in the code: the next model is asked too", flush=True)
+            if outcome == "auth":
+                # final review of 1.1.18: a refused key read as "no fix found"; the
+                # message now says which key to check
+                refused_keys.append("%s (%s)" % (provider, next(p[2] for p in PROVIDERS if p[0] == provider)))
+            if outcome in ("auth", "toolarge"):
+                skip.add(provider)
+                outcome = "error"
+            if outcome == "config" and provider == "OpenRouter" and not discovered:
+                # a listed free model is gone: try the free ones OpenRouter has now
+                discovered = True
+                tried = {m for _p, _u, _k, m, _b, _t in plan}
+                for m in free_models(key, opener, exclude=tried):
+                    print("  OpenRouter now offers %s: it is asked too" % for_log(m), flush=True)
+                    plan.append((provider, url, key, m, budget, tokens))
+            if outcome == "config":
+                outcome = "error"
+            result = outcome or "error"
+        # the way forward (2026-11-25, PR #111): when no fix was kept and the reviewers' reserve alone kept
+        # providers from being asked, the one whose fix leaves the most reviewers with room today is asked now
+        # (tools/ai-quota.py way_forward); its two independent reviews come on a later day, and the fix never
+        # reaches main without them. Only once, only for security fixes and real updates, only with time left.
+        if spend is None or second or result in ("ok", "refused", "loop") or (result == "none" and len(
+                {u.split(" / ")[0] for u in said_none}) >= 2) or time.monotonic() > deadline:
+            break
+        held = [n for n, why in spend.skipped.items() if str(why).startswith(_tool("ai-quota").RESERVE_WHY)]
+        names = [n for n in dict.fromkeys(p[0] for p in plan) if n in held]
+        choice, mode = spend.way_forward(names) if names else (None, "")
+        if choice is None:
+            break
+        second = True
+        # ("now" only when the day changed meanwhile: then the reserve holds as usual)
+        spend.defer_reviews = mode == "reviews-later"
+        deferred = choice if spend.defer_reviews else ""
+        ranked = sorted(names, key=lambda n: (n != choice, -len(spend.reviewers_left(n)), names.index(n)))
+        print("Nobody could be asked with the reviewers' reserve: %s writes the fix now, its reviews come on a "
+              "later day (it never reaches main without them)" % choice, flush=True)
+        for n in names:
+            skip.discard(n)
+            spend.skipped.pop(n, None)
+        skip.update(n for n in dict.fromkeys(p[0] for p in plan) if n not in names)
+        plan = sorted((p for p in plan if p[0] in names), key=lambda p: ranked.index(p[0]))
+    no_provider = bool(outcomes) and all(o in ("quota", "unavailable", "budget", "policy") for o in outcomes)
     if no_provider and not_free and result != "quota":
         result = "unavailable"
     if no_provider and outcomes and all(o == "budget" for o in outcomes):
@@ -1099,12 +1349,21 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     if result in ("ok", "none", "refused"):
         text = redact(summary.strip()[:3000], keys) or "La riserva non ha scritto un riassunto."
         (auto / "summary.md").write_text("%s\n\n_(%s)_\n" % (text, message), "utf-8")
+    if policy_blocked:
+        message += POLICY
     if not_free:
         message += " Non gratuite in questo run (fatturazione o costo nella risposta): %s." % ", ".join(
             sorted(set(not_free)))
+    if deferred and result == "ok":
+        message += DEFERRED
+        if (auto / "summary.md").is_file():
+            (auto / "summary.md").write_text((auto / "summary.md").read_text("utf-8") + "\n_(%s)_\n" % DEFERRED.strip(),
+                                             "utf-8")
     status = {"result": result, "model": used, "message": message,
               "no_provider": no_provider and result not in ("ok", "refused", "none", "loop"),
               "not_free": sorted(set(not_free))}
+    if deferred and result == "ok":
+        status["reviews_deferred"] = True
     if spend is not None:
         # the run's use of the free quotas, as numbers, for the job that writes the data branch
         spend.result = "no-provider" if status["no_provider"] else ("answered" if outcomes else "")
@@ -1113,6 +1372,17 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
             message += " Non interpellati per la quota gratuita: %s." % "; ".join(
                 "%s (%s)" % (n, for_log(w, 160)) for n, w in sorted(spend.skipped.items()))
             status["message"] = message
+        if status["no_provider"] and a.candidate:
+            # the watchdog (2026-11-25): this run asked nobody either; said plainly when it is the second day or more
+            quota = _tool("ai-quota")
+            seen = json.loads(json.dumps(spend.state))
+            quota.ran(seen, "no-provider", now=spend.now, component=a.candidate if a.candidate.startswith(
+                "automation/") else "automation/update/" + a.candidate)
+            warn = quota.stuck_text(seen, spend.now)
+            if warn:
+                status["watchdog"] = warn
+                status["message"] = message = message + " " + warn
+                print("::warning title=AUTOMAT watchdog::%s" % for_log(warn, 400), flush=True)
         if a.quota_usage:
             Path(a.quota_usage).write_text(json.dumps(spend.delta()) + "\n", "utf-8")
     if loop is not None and loop.stopped:

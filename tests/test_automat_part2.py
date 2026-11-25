@@ -647,7 +647,9 @@ def test_the_signing_notice_lists_an_ais_tier_b_change_first_and_the_quota():
         assert word in block, word
     assert "#124" not in text[text.index("Modifiche a file riservati (workflow"):]        # once, in its own place
     q = text[text.index("### Quota gratuita degli assistenti AI"):]
-    for word in ("**Groq**: oggi 7 su 200 richieste, 21000 su 100000 token", "restano 193 richieste e 79000 token",
+    groq = quota.load_limits()["providers"]["Groq"]          # the numbers of the data file (Groq's page)
+    for word in ("**Groq**: oggi 7 su %d richieste, 21000 su %d token" % (groq["requests_per_day"], groq["tokens_per_day"]),
+                 "restano %d richieste e %d token" % (groq["requests_per_day"] - 7, groq["tokens_per_day"] - 21000),
                  "**Finita per oggi**", "Limite **non verificato**", "**Antigravity**", "**Z.AI**", "**OpenRouter**"):
         assert word in q, word
     assert "Quota gratuita" not in notice.body("1.1.23", "o/r", "owner", dict(info, quota=None))
@@ -744,8 +746,10 @@ def test_one_candidate_cannot_drain_a_provider_and_the_day_has_an_end():
     assert other.remaining("OpenRouter")["requests"] == 0
     assert "used up" in other.allows("OpenRouter", 1000, "review")[1]
     # tokens too, and a request larger than a minute's limit never fits
-    assert "larger than its limit per minute" in budget().allows("Groq", 7000, "review")[1]
-    full = budget({"schema": 1, "days": {TODAY: {"providers": {"Groq": {"requests": 1, "tokens": 99000}}}}})
+    groq = quota.load_limits()["providers"]["Groq"]
+    assert "larger than its limit per minute" in budget().allows("Groq", groq["tokens_per_minute"] + 1000, "review")[1]
+    full = budget({"schema": 1, "days": {TODAY: {"providers": {"Groq": {"requests": 1,
+                                                                        "tokens": groq["tokens_per_day"] - 1000}}}}})
     assert "tokens of today are used up" in full.allows("Groq", 4000, "review")[1]
 
 
@@ -760,7 +764,7 @@ def test_the_live_headers_and_a_429_correct_the_budget():
     assert quota.observe({"headers": {"requests": {"limit": "X-Limit"}}}, {"x-limit": "not a number"}) == {}
     # what the provider says counts more than the file: a higher limit gives more room, its own count is used
     b = budget()
-    assert b.remaining("Groq")["requests"] == 200
+    assert b.remaining("Groq")["requests"] == quota.load_limits()["providers"]["Groq"]["requests_per_day"]
     b.note("Groq", 3000, "fix", headers=groq, usage={"total_tokens": 2511})
     assert b.used("Groq") == (1, 2511)                                   # the real token count, not the estimate
     assert b.day_limit("Groq", "requests") == 1000 and b.remaining("Groq")["requests"] == 990
@@ -927,11 +931,16 @@ def test_without_the_reviewers_reserve_the_fix_waits_and_nobody_is_called(tmp_pa
     state.write_text(json.dumps(used))
     usage = tmp_path / "usage.json"
     out, seen, repo = reserves(tmp_path, [GOOD], ["--quota-state", str(state), "--quota-usage", str(usage)])
-    # Groq and Z.AI could write a fix, but only one other provider could review it: nothing is asked
-    assert seen == [] and out["result"] == "budget" and out["no_provider"] is True
-    assert "la correzione aspetta" in out["message"] and "the reviewers' reserve" in out["budget"]["Groq"]
-    assert json.loads(usage.read_text())["calls"] == [] and (repo / "ike/window.py").read_text().endswith("return 10\n")
-    # a provider the weekly check marked unavailable is no reviewer (it names Gemini, behind Antigravity)
+    # Groq and Z.AI could write a fix, but only one other provider could review it today. Until 2026-11-25 nothing
+    # was asked, every day (the deadlock of PR #111); now the way forward (tools/ai-quota.py way_forward): the one
+    # whose fix leaves the most reviewers writes it, and its reviews come on a later day (never merged without
+    # them: tests/test_automat_deadlock.py)
+    assert [host for host, _body in seen] == ["api.groq.com"] and out["result"] == "ok"
+    assert out["reviews_deferred"] is True and out["no_provider"] is False and "revisioni indipendenti" in out["message"]
+    assert [c["provider"] for c in json.loads(usage.read_text())["calls"]] == ["Groq"]
+    assert (repo / "ike/window.py").read_text().endswith("return 11\n")
+    # a provider the weekly check marked unavailable is no reviewer (it names Gemini, behind Antigravity): with
+    # only two providers no fix could ever get two independent reviews, so the fix waits and nobody is called
     state.write_text(json.dumps(quota.empty_state()))
     marked = dict(ENV, AUTOFIX_UNAVAILABLE="Gemini,OpenRouter")
     out, seen, _repo = reserves(tmp_path / "u", [GOOD], ["--quota-state", str(state)], env=marked)

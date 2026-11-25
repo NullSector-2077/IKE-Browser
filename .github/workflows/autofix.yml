@@ -1153,7 +1153,8 @@ jobs:
               except (OSError, ValueError):
                   return None
           agent, reserve = read("status.json") or {}, read("reserve.json")
-          waiting = agent.get("result") in ("quota", "temporary", "unavailable", "nokey", "budget")
+          # (rotated: this attempt started with a reserve, so Antigravity was not asked either; 2026-11-25)
+          waiting = agent.get("result") in ("quota", "temporary", "unavailable", "nokey", "budget", "rotated")
           if reserve is not None:
               waiting = waiting and bool(reserve.get("no_provider"))
           elif agent.get("result") == "nokey":
@@ -2238,9 +2239,9 @@ jobs:
           python3 -I "$quota" merge --state quota.json $deltas || true
           if [ "$ADOPTED" != "true" ]; then
             if [ "$DEFERRED" = "true" ]; then
-              python3 -I "$quota" ran --state quota.json --result no-provider || true
+              python3 -I "$quota" ran --state quota.json --result no-provider --component "$COMPONENT" || true
             else
-              python3 -I "$quota" ran --state quota.json --result answered || true
+              python3 -I "$quota" ran --state quota.json --result answered --component "$COMPONENT" || true
             fi
           fi
           git add memory.json quota.json || return 1

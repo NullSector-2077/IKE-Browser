@@ -461,7 +461,7 @@ def provider_opener(seen, groq=None, zai=None, key_info=None, cost=0):
         seen.append((url, req.get_method(), (body or {}).get("model"), dict(req.header_items())))
         if "generativelanguage" in url:
             if url.endswith("pageSize=1000"):
-                return Answer({"models": [{"name": "models/gemini-3.8-flash"}, {"name": "models/gemini-pro"}]})
+                return Answer({"models": [{"name": "models/gemini-4-hydrogen"}, {"name": "models/gemini-pro"}]})
             return Answer({"candidates": [{"content": {"parts": [{"text": "OK"}]}}]})
         if "groq" in url:
             if groq:
@@ -487,12 +487,12 @@ def test_the_provider_check_refuses_paid_openrouter_models_and_billing(tmp_path)
     rows = check.check(env, provider_opener(seen))
     by = {(r["provider"], r["model"]): r for r in rows}
     # Gemini is asked too, the key in a header, never in the address
-    gem = by[("Antigravity", "Gemini 3.8 Flash (High)")]
+    gem = by[("Antigravity", "Gemini 4 Hydrogen (High)")]
     assert gem["state"] == "available" and "not provable" in gem["free"]
     gemini_calls = [s for s in seen if "generativelanguage" in s[0]]
     assert len(gemini_calls) == 2 and all("TESTONLY" not in s[0] for s in gemini_calls)
     assert all(s[3].get("X-goog-api-key") == KEYS["GEMINI_API_KEY"] for s in gemini_calls)
-    assert any(s[0].endswith("/models/gemini-3.8-flash:generateContent") for s in gemini_calls)
+    assert any(s[0].endswith("/models/gemini-4-hydrogen:generateContent") for s in gemini_calls)
     # OpenRouter: a model without ":free" is refused and never asked; a ":free" one
     # priced above zero by OpenRouter itself is refused too; the free one answers
     assert by[("OpenRouter", "paid/model")]["state"] == "unavailable"
@@ -502,7 +502,7 @@ def test_the_provider_check_refuses_paid_openrouter_models_and_billing(tmp_path)
     assert by[("OpenRouter", "good/model:free")]["free"].startswith("proven")
     asked = [s[2] for s in seen if s[1] == "POST" and "openrouter" in s[0]]
     assert asked == ["good/model:free"]
-    assert by[("Groq", "qwen/qwen3.8-27b")]["state"] == "available"
+    assert by[("Groq", "openai/gpt-oss-120b")]["state"] == "available"
     assert check.unavailable_of(rows) == []
     # a billing error marks a provider unavailable: Groq's 402, Z.AI's code 1113 (on a 429)
     seen = []

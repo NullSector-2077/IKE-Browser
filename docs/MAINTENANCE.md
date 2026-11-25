@@ -746,6 +746,93 @@ count). The signing notice shows, per provider, what real work and the backgroun
 **Antigravity and the background**: one session of the agent counts ten requests of Gemini's twenty a day,
 so a class 3 or 4 session fits only when real work left that much; it then waits like any other.
 
+### No deadlock of the free quotas (2026-11-25)
+
+A real jam, found on 2026-11-25: PR #111 (`automation/update/lists-2026-11-22`) was "retrying", yet for
+three days no attempt landed, because every provider was skipped for a reason of its own and so nobody
+was ever asked: Antigravity by the rotation (the attempt started with Z.AI), Z.AI as "spent today" (a
+429 of **concurrency**, Z.AI's code 1302, was one of its "day words"), OpenRouter by the reviewers'
+reserve (no other provider had room for a review that day), Groq because the request (7,678 tokens) was
+larger than its limit of 6,000 tokens a minute, which no later day could change. The owner's rule is
+that nothing stays behind, so none of these may hold forever. What changed (`tools/ai-quota.py`,
+`tools/ai-quota.json`, `tools/autofix-reserve.py`, `tools/autofix-agent.py`; the proofs, with a drill
+of that day's four reasons, are `tests/test_automat_deadlock.py`):
+
+- **A request is fitted to the provider's minute** (`fitted`, `compact_message`): when it is larger than
+  the provider's limit of tokens per minute, it is made smaller, deterministically: the rules stay
+  whole; the end of the failure and the plan's notes (the reasons earlier fixes were refused among them)
+  each keep their share; the names of the files to change, and whole files to change while they fit; the
+  code around the failure takes what is left; the answer may shrink to `MIN_ANSWER` tokens. Only when
+  even that cannot fit is the provider skipped, with that reason ("even the smallest request ...").
+  A follow-up of the inner loop is fitted the same way. A provider that answers 413 or 429 with its
+  limit per minute ("Limit 6000") teaches it (`learned_minute_tokens`): it is kept in the day's record
+  and the request is fitted to it and asked again.
+- **A 429 says which limit** (`rate_limit_scope`): the day's quota only when the provider says so in its
+  words and not of a minute, when its own headers say nothing is left of its day, or when it asks to
+  wait more than an hour; a limit per minute, of concurrency or a busy service (`minute_words`, and for
+  Z.AI its codes 1302 and 1305, matched only as its `"code"`) is waited out and asked again in
+  the same run (at most `MINUTE_RETRIES` times, each wait at most `MINUTE_WAIT` seconds). When nothing
+  says which, it is a minute: one more request tomorrow costs less than a provider lost for a day. A 503
+  is asked again after 5, 15 and 45 seconds (`BACKOFF`, or its own short `Retry-After`).
+- **The reviewers' reserve has a way forward** (`Budget.way_forward`): when the reserve alone would leave
+  every provider unasked, a second pass asks the one whose fix leaves the most reviewers with room today
+  (the attempt's order breaks a tie). The fix is written now and **its two independent reviews come on a
+  later day**: the reserve only decides when, never whether. The verified merge still requires the
+  status `ai-review` of two (three for tier B) independent providers on that very commit, so the fix
+  waits on its branch, and the review is asked again every day until it comes. The fix's summary
+  and the status of the run say so (`reviews_deferred`). Never for background work (classes 3 and 4
+  simply wait), and never when fewer providers than the reviews need could ever review it (a key, not
+  marked unavailable). A review now counts within the provider's own minute (`review_size`): Groq, with
+  6,000 tokens a minute against the reserve's 9,000, never counted as a reviewer.
+- **The rotation never skips the only provider with room**: a later attempt still starts with the next
+  provider, unless no reserve can be asked (now, or with its reviews later) and Antigravity can: then
+  Antigravity goes on. Not rotated, Antigravity keeps the reviewers' reserve as before while a reserve
+  can be asked, and takes the way forward itself only when none can.
+- **The watchdog** (`ran --component`, `days_unasked`, `stuck_text`): each run of the automatic fix
+  records its branch as asked or unasked for the day in `quota.json`; a branch that asked nobody for two
+  days in a row (`UNASKED_DAYS`) is said plainly, in Italian, in the reserves' message (which reaches the
+  pull request), as a warning of the run, by `ai-quota.py show`, and in bold in the signing notice
+  before the updates still being retried. Nobody is mailed for it. A run whose attempt started with a
+  reserve (rotated) and asked nobody now counts as a day with no provider too.
+
+**From the providers' own pages** (read on 2026-11-25 on each provider's own page or code: every
+provider in `tools/ai-quota.json` has `source_urls`, `source_verified_on` and a `signals_source` or
+`words_source` that says what each value rests on). `source_verified_on` is the day the value was read
+on the provider's page. It is not a person's check, so `"verified"` stays `false`: the file's rule is
+that a person verifies a number.
+
+- **Gemini** (`ai.google.dev/gemini-api/docs/rate-limits`): limits are per project, not per key; the
+  requests of a day reset at midnight Pacific; no free numbers are published for the text models any
+  more (careful values stay). Which limit a 429 is comes from Google's own gemini-cli code, not from
+  the documentation: a quotaId with `PerDay` or `Daily`, or `limit: 0`, is the day, read before a
+  short retryDelay; a retryDelay over 300 seconds is the day too (`day_wait_seconds`). The new
+  Interactions API names them (`rate_limit_exceeded`, `too_many_requests`: a minute; `quota_exceeded`:
+  the day). `MODEL_CAPACITY_EXHAUSTED` is a busy model (the next model).
+- **Groq** (`console.groq.com/docs/rate-limits`): `openai/gpt-oss-120b`, `openai/gpt-oss-20b` and
+  `qwen/qwen3.8-27b` take 30 requests and 8,000 tokens a minute, 1,000 requests and 200,000 tokens a
+  day on the free plan, per organisation; `x-ratelimit-*-requests` is always the day's,
+  `x-ratelimit-*-tokens` always the minute's; `retry-after` only on a 429. The wording of the 429's
+  message ("per minute (TPM)", "per day (RPD)") is not shown on the official pages.
+- **Z.AI** (`docs.z.ai/api-reference/api-code`): every limit is a 429 and only the string
+  `error.code` tells which: 1302 (rate limit) and 1305 (overloaded) wait; 1308, 1309, 1310, 1311,
+  1313 and 1314-1321 are not asked again today; 1113 asks for money. 1303 is not on Z.AI's list. The
+  free models are `glm-4.7-flash` (200K of context, 128K of output) and `glm-4.5-flash`; no number of
+  their limits is published.
+- **OpenRouter** (`openrouter.ai/docs/api-reference/limits`): 20 requests a minute and 50 a day for
+  all its free models together (1,000 a day only after 10 credits bought: none), failed requests
+  count, the day ends at 00:00 UTC. The documented 429 says only `error_type: rate_limit_exceeded`,
+  for a minute and a day alike; its `X-RateLimit-*` headers come only with a 429 (also inside
+  `error.metadata.headers`) and are read as the minute's. `limit_source`
+  (`openrouter_free_tier_per_minute`, `upstream_provider_shared_pool`: a minute;
+  `openrouter_free_tier_daily`: the day) is shown only on OpenRouter's blog: not verified. A 404 "No
+  endpoints found matching your data policy" is the account's privacy setting, not a quota and not a
+  model that is gone: the message says so plainly and the other providers go on.
+- **The default models** (`tools/ai-providers.py`): Antigravity and the Gemini API `Gemini 4 Hydrogen`,
+  then 3.8 Flash, 3.6 Flash, 3.5 Flash Lite (Antigravity's free plan keeps only Gemini 4 Hydrogen after
+  2026-11-30; a model that is no longer offered, `MODEL_GONE`, makes way for the next one instead of
+  stopping the agent); Groq `openai/gpt-oss-120b`, `qwen/qwen3.8-27b`, `openai/gpt-oss-20b`; Z.AI
+  `glm-4.7-flash`, `glm-4.5-flash`; OpenRouter rebuilt from its own list each run (see "Reserves" below).
+
 ## What runs by itself
 
 | When | What | Workflow | Result |
@@ -1844,18 +1931,25 @@ never touched.
    no fix it could keep (quota, Google down, an error, nothing changed, or a
    fix refused for its size or pertinence), the reserves are asked one after
    the other, never together, from the clean checkout: Groq (`GROQ_API_KEY`,
-   models in the variable `AUTOFIX_GROQ_MODELS`, default `qwen/qwen3.8-27b`
-   then `openai/gpt-oss-120b`; its free plan takes about 8,000 tokens a minute,
-   so it gets only the failure and the code around it), then Z.AI
+   models in the variable `AUTOFIX_GROQ_MODELS`, default `openai/gpt-oss-120b`,
+   then `qwen/qwen3.8-27b` (a preview that may vanish at short notice), then
+   `openai/gpt-oss-20b`; its free plan takes 8,000 tokens a minute, so it gets
+   only the failure and the code around it, fitted to its minute), then Z.AI
    (`ZAI_API_KEY`, models in `AUTOFIX_ZAI_MODELS`, default `glm-4.7-flash`
    then `glm-4.5-flash`, Z.AI's free GLM Flash models, another family than
    the others, with the whole files too; added in 1.1.19, the owner's
    choice; its free limits are shown only in the account), then OpenRouter
    (`OPENROUTER_API_KEY`, models in `AUTOFIX_OPENROUTER_MODELS`, default
-   `cohere/north-mini-code:free` then `particle-ai/particle-1:free`, which also
-   get the whole files; when a listed free model is gone (HTTP 404, as
-   `cohere/north-mini-code:free` on 2026-11-20), the two free models with the
-   largest context that OpenRouter lists at that moment are asked too). Each reserve's fix goes through the same checker
+   `particle-ai/particle-1:free`, `nvidia/nemotron-3-ultra-550b-a55b:free`,
+   `inclusionai/ling-3.2-flash:free`, `google/gemma-4-31b-it:free`, which also
+   get the whole files). Since 2026-11-25 each run rebuilds OpenRouter's list
+   from OpenRouter's own `GET /api/v1/models` (`refreshed`): the listed models
+   that are still there at zero price, then the two free models with the
+   largest context it offers now, then the Free Models Router `openrouter/free`
+   as the last resort (it picks a free model at random and falls back only to
+   free models). Never a paid model and never a paid fallback. When the list
+   cannot be read, the configured models are asked as they are, and a listed
+   model that answers 404 still brings in the free models of the moment. Each reserve's fix goes through the same checker
    before it is kept; the next model is told why one was refused, and a
    refusal for safety stops them all. A provider
    without its key is skipped; free models change often, so the names live in
