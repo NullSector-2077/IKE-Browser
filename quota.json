@@ -136,7 +136,10 @@
    "runs": 12
   },
   "2026-11-25": {
-   "answered": 5,
+   "answered": 6,
+   "answered_for": {
+    "automation/update/lists-2026-11-22": 1
+   },
    "no_provider": 2,
    "providers": {
     "OpenRouter": {
@@ -145,24 +148,28 @@
       "automation/autofix-main": {
        "requests": 4,
        "tokens": 173782
+      },
+      "automation/update/lists-2026-11-22": {
+       "requests": 21,
+       "tokens": 505553
       }
      },
      "classes": {
       "2": {
-       "requests": 4,
-       "tokens": 173782
+       "requests": 25,
+       "tokens": 679335
       }
      },
      "observed": {
       "requests": {
        "limit": 50,
-       "mark": 4,
+       "mark": 25,
        "window": "day"
       }
      },
-     "requests": 4,
+     "requests": 25,
      "spent": "",
-     "tokens": 173782
+     "tokens": 679335
     },
     "Z.AI": {
      "by": {
@@ -183,7 +190,7 @@
      "tokens": 27200
     }
    },
-   "runs": 7,
+   "runs": 8,
    "unasked": {
     "automation/update/drill-qt": 1
    }
