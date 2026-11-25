@@ -1337,18 +1337,37 @@ KNOWN_UNRUN_SCRIPTLETS = ("noeval", "nofab", "popads-dummy", "popads.net", "fing
 
 
 def ike_modules(root):
-    """ike.config and ike.scriptlets of this checkout (neither needs Qt)."""
+    """ike.config and ike.scriptlets of this checkout (neither needs Qt). Loaded on their own
+    when another copy of I.K.E. is already imported (a test that ran before in the same
+    process), which is put back afterwards: the check always reads the copy it was given."""
     root = Path(root).resolve()
-    # first on the path, also when it is already there further down (a test that ran before
-    # may have added it): otherwise "import ike" finds the copy in the working directory
+
+    def mine(mod):
+        return Path(mod.__file__).resolve().parent.parent == root
+
+    def ike_names():
+        return [k for k in sys.modules if k == "ike" or k.startswith("ike.")]
+
+    other = {k: sys.modules[k] for k in ike_names()}
+    if other and mine(other.get("ike") or next(iter(other.values()))):
+        other = {}
+    for k in other:
+        del sys.modules[k]
     if str(root) in sys.path:
         sys.path.remove(str(root))
     sys.path.insert(0, str(root))
-    import ike.config
-    import ike.scriptlets
-    if Path(ike.config.__file__).resolve().parent.parent != root:
-        raise RuntimeError("another copy of I.K.E. is imported: %s" % ike.config.__file__)
-    return ike.config, ike.scriptlets
+    try:
+        import importlib
+        config = importlib.import_module("ike.config")
+        scriptlets = importlib.import_module("ike.scriptlets")
+    finally:
+        if other:
+            for k in ike_names():
+                del sys.modules[k]
+            sys.modules.update(other)
+    if not mine(config):
+        raise RuntimeError("another copy of I.K.E. is imported: %s" % config.__file__)
+    return config, scriptlets
 
 
 def engine_module(root):
