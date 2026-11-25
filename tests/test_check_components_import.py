@@ -24,12 +24,14 @@ def test_the_check_reads_the_copy_it_is_given(tmp_path):
     check = load()
     before = {k: v for k, v in sys.modules.items() if k == "ike" or k.startswith("ike.")}
     first, _ = check.ike_modules(ROOT)                          # one copy imported first
+    assert first.__file__.startswith(str(ROOT)), first.__file__
+    current = sys.modules.get("ike.config")                      # whatever this process holds now
     config, scriptlets = check.ike_modules(other)                # then another asked for
     assert config.__file__.startswith(str(other.resolve())), config.__file__
     assert scriptlets.__file__.startswith(str(other.resolve())), scriptlets.__file__
-    assert sys.modules["ike.config"] is first                    # the first copy is put back
+    assert sys.modules.get("ike.config") is current              # the process is left as it was
     again, _ = check.ike_modules(ROOT)
-    assert again is first
+    assert again.__file__.startswith(str(ROOT)), again.__file__
     for k in [k for k in sys.modules if (k == "ike" or k.startswith("ike.")) and k not in before]:
         del sys.modules[k]
     sys.modules.update(before)
