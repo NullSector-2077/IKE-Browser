@@ -1,5 +1,8 @@
 """Prototype: names (Class.member) removed/added between two PyQt .pyi stubs."""
-import ast, sys
+import ast
+import sys
+
+
 def names(path):
     tree = ast.parse(open(path, encoding="utf-8").read())
     out = {}
