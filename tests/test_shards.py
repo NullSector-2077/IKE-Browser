@@ -673,3 +673,13 @@ def test_every_arch_part_installs_one_snapshot_of_arch():
     assert "pacman -Su --noconfirm --needed git" in after
     assert not re.search(r"pacman -S\w*y", after) and "pacman -Sy" not in after
     assert plan_tool.ARCH_INFRA_STEP.match("Arch's snapshot")
+
+
+def test_a_mirror_without_a_snapshot_file_falls_back_to_the_archive():
+    """2026-11-25: a mirror had already dropped zxing-cpp-3.1.1-1's signature, pacman gave
+    up and every Arch run of AUTOMAT's candidates failed. The packages and git steps retry
+    with the snapshot's own archive alone, which keeps every version."""
+    text = (ROOT / ".github/workflows/arch.yml").read_text("utf-8")
+    assert text.count("grep -m1 '^Server = https://archive.archlinux.org/' /etc/pacman.d/mirrorlist") == 2
+    assert 'pacman -S --noconfirm --needed "${pkgs[@]}"; then' in text
+    assert "if ! pacman -Su --noconfirm --needed git; then" in text
