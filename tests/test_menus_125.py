@@ -442,7 +442,11 @@ def steps(ike, qapp, out):
                 first = t.replace("&&", "&").lstrip("&")[:1]
                 if first.isascii() and first.isupper() and first not in "QJ":
                     fm = QFontMetrics(m.font())
-                    row["capital"] = ink(QRect(int(row["text_left"]) - 1, g.top() + 1, fm.horizontalAdvance(first) + 1,
+                    # the capital's own ink width (its tight box), not its advance: the advance
+                    # runs past the ink by the left side bearing and caught the next letter's
+                    # descender ("Update": the "p" in Noto Sans, Arch's runner)
+                    row["capital"] = ink(QRect(int(row["text_left"]) - 1, g.top() + 1,
+                                               fm.tightBoundingRect(first).width() + 1,
                                                g.height() - 2), 200 if a.isEnabled() else 60)
                 if "\t" in t or not a.shortcut().isEmpty():
                     end = g.right() - uistyle.MENU_PAD - uistyle.MENU_ARROW - 2

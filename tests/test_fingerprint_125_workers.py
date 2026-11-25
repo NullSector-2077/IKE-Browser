@@ -20,6 +20,7 @@ localhost are two sites, both secure contexts).
 
 import http.server
 import json
+import subprocess
 import threading
 import time
 from pathlib import Path
@@ -314,7 +315,13 @@ def test_every_context_finds_the_same_fonts(run_ike, site, level):
             # (a module worker has a seed of its own: its noise, 3 in a million, differs)
             assert abs(got[k]["generic"][g] - v) <= v * 1e-5, (k, g, got[k], got["page"])
     assert "monospace" not in [n.lower() for n in raw["findable"]], raw["findable"]
-    assert "Times New Roman" in got["page"]["fonts"] and "DejaVu Sans" not in got["page"]["fonts"], got
+    # Times New Roman is found only where a font answers for it (Liberation
+    # Serif, ttf-liberation); without one it measures as its fallback and is
+    # not found, as in Chrome (Arch's own runner has no ttf-liberation)
+    stand_in = "Liberation Serif" in subprocess.run(["fc-list", ":", "family"], capture_output=True,
+                                                    text=True).stdout
+    assert ("Times New Roman" in got["page"]["fonts"]) == stand_in, (stand_in, got)
+    assert "DejaVu Sans" not in got["page"]["fonts"], got
 
 
 @pytest.mark.parametrize("level", ["strict", "balanced"])

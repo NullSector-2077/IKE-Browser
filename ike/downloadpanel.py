@@ -365,7 +365,7 @@ class DownloadsPanel(QWidget):
 
         foot = QVBoxLayout()
         foot.setSpacing(0)
-        self.show_all = panelkit.link_button(self, _icon(("view-list-details", "view-list-text", "download")),
+        self.show_all = panelkit.link_button(self, _icon(("view-list-details", "view-list-text", "view-list-symbolic", "download")),
                                              T("Show all downloads"))
         self.open_folder = panelkit.link_button(self, _icon(("folder-download", "folder-download-symbolic", "document-open")),
                                                 T("Open the downloads folder"))
