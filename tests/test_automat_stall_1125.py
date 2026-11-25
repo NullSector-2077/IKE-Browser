@@ -133,3 +133,26 @@ def test_an_answer_cut_off_by_its_reasoning_says_so(reserve):
     assert stop.value.args[0] == "cutoff"
     whole = {"choices": [{"message": {"content": '{"edits": []}'}, "finish_reason": "stop"}]}
     assert reserve.ask(OPENROUTER, "k", "m:free", [], opener=lambda req, timeout=0: Answer(whole)) == '{"edits": []}'
+
+
+GEMINI_429 = json.dumps({"error": {"code": 429, "status": "RESOURCE_EXHAUSTED", "details": [
+    {"@type": "type.googleapis.com/google.rpc.QuotaFailure", "violations": [
+        {"quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+         "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+         "quotaDimensions": {"location": "global", "model": "gemini-4-hydrogen"}, "quotaValue": "250"}]},
+    {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "35s"}]}})
+
+
+def test_gemini_real_quota_is_learned_from_its_429(quota):
+    assert quota.learned_quotas(GEMINI_429) == {"day_requests": 250}
+    budget = quota.Budget(state=quota.empty_state(), candidate=CANDIDATE, now=NOW)
+    budget.note("Antigravity", 10, status=429, body=GEMINI_429)
+    assert budget.day_limit("Antigravity", "requests") == 250
+    state = quota.merge(quota.empty_state(), budget.delta(), now=NOW)
+    again = quota.Budget(state=state, candidate=CANDIDATE, now=NOW)
+    assert again.day_limit("Antigravity", "requests") == 250
+
+
+def test_nothing_is_learned_from_words_without_a_value(quota):
+    assert quota.learned_quotas('{"error": {"message": "quota exceeded PerDay"}}') == {}
+    assert quota.learned_quotas('quotaId: "GenerateRequestsPerDay-FreeTier", quotaValue: "0"') == {}

@@ -651,6 +651,28 @@ def learned_minute_tokens(body):
     return value if 100 <= value <= 10 ** 8 else None
 
 
+# Gemini's free tier publishes no numbers (ai.google.dev/gemini-api/docs/rate-limits, read on 2026-11-25: "can be
+# viewed in Google AI Studio"); its 429 names the limit it hit and its value (google.rpc.QuotaFailure: quotaId
+# "GenerateRequestsPerDayPerProjectPerModel-FreeTier", quotaValue "250"): the real quota of the project, learned
+QUOTA_FAILURE = re.compile(r'quotaId\W{1,6}([A-Za-z0-9_-]{3,120})(?:(?!quotaId).){0,600}?quotaValue\W{1,6}(\d{1,9})',
+                           re.S)
+
+
+def learned_quotas(body):
+    """{"day_requests", "minute_tokens"}: the limits a provider's own error names with their values (Gemini's
+    QuotaFailure), each only when it is plausible."""
+    out = {}
+    for quota_id, value in QUOTA_FAILURE.findall(str(body or "")[:20000]):
+        value, low = int(value), quota_id.lower()
+        if not 0 < value <= 10 ** 8:
+            continue
+        if "request" in low and ("perday" in low or "daily" in low):
+            out.setdefault("day_requests", value)
+        elif "token" in low and "perminute" in low and value >= 100:
+            out.setdefault("minute_tokens", value)
+    return out
+
+
 def body_headers(headers, body):
     """The headers of an answer with those its error body carries (OpenRouter puts X-RateLimit-* inside
     error.metadata.headers too: openrouter.ai/docs/api-reference/limits); the real headers count more."""
@@ -1072,6 +1094,7 @@ class Budget:
                 p["observed"]["tokens"] = {"limit": tpm, "window": "minute", "mark": p["tokens"], "learned": True,
                                            "at": int(self.now.timestamp() + max(0, self.clock() - self.started))}
         if status == 429:
+            self.learn(provider, body)
             scope, wait, why = rate_limit_scope(conf, headers, body)
             self.last_429[provider] = (scope, wait, why)
             if scope == "day":
@@ -1082,6 +1105,22 @@ class Budget:
                 self.blocked_until[provider] = max(self.blocked_until.get(provider, 0), self.clock() + wait)
         elif status == 402:
             self._set_mark(p, "spent", "it asked for money (not free)")
+
+    def learn(self, provider, body):
+        """The limits the provider's own error names with their values (learned_quotas), kept for the rest of its
+        day like a reading of its headers: Gemini's real quota of requests a day, and of tokens a minute."""
+        if provider not in self.limits["providers"]:
+            return {}
+        found = learned_quotas(body)
+        p = self._p(provider)
+        at = self.moment()
+        if found.get("day_requests"):
+            p["observed"]["requests"] = {"limit": found["day_requests"], "window": "day", "mark": p["requests"],
+                                         "learned": True, "at": at}
+        if found.get("minute_tokens") and (p["observed"].get("tokens") or {}).get("window") != "day":
+            p["observed"]["tokens"] = {"limit": found["minute_tokens"], "window": "minute", "mark": p["tokens"],
+                                       "learned": True, "at": at}
+        return found
 
     def mark_spent(self, provider, why):
         """Spent today: for everybody, except a quota answer (429) that work of class 3 or 4 got."""

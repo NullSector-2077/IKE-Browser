@@ -809,6 +809,12 @@ of that day's four reasons, are `tests/test_automat_deadlock.py`):
   says which limit it was. OpenRouter is asked for little reasoning, not sent back
   (`"reasoning": {"effort": "low", "exclude": true}`), and an answer cut off before its text says so
   (`cutoff`) instead of "no JSON object".
+- **Gemini's real quota, learned** (2026-11-25): Google publishes no numbers for the free tier ("can be
+  viewed in Google AI Studio"), so `requests_per_day` of Antigravity in `tools/ai-quota.json` is an
+  estimate. Gemini's 429 names the limit it hit and its value (`google.rpc.QuotaFailure`: `quotaId`
+  `GenerateRequestsPerDayPerProjectPerModel-FreeTier`, `quotaValue`): `learned_quotas` reads it,
+  `Budget.learn` keeps it for the rest of the provider's day as its day limit of requests (and a
+  `PerMinute` token limit as its minute), from the reviewers' calls and from Antigravity's errors alike.
 
 **From the providers' own pages** (read on 2026-11-25 on each provider's own page or code: every
 provider in `tools/ai-quota.json` has `source_urls`, `source_verified_on` and a `signals_source` or
