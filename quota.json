@@ -141,7 +141,7 @@
     "automation/update/darkreader": 1,
     "automation/update/lists-2026-11-22": 4
    },
-   "no_provider": 2,
+   "no_provider": 3,
    "providers": {
     "Antigravity": {
      "by": {
@@ -168,37 +168,37 @@
        "tokens": 10625
       },
       "automation/update/lists-2026-11-22": {
-       "requests": 14,
-       "tokens": 84238
+       "requests": 16,
+       "tokens": 96050
       }
      },
      "classes": {
       "2": {
-       "requests": 16,
-       "tokens": 94863
+       "requests": 18,
+       "tokens": 106675
       }
      },
      "observed": {
       "requests": {
-       "at": 1795631267,
+       "at": 1795634626,
        "limit": 1000,
-       "mark": 16,
-       "remaining": 997,
-       "reset": 260,
+       "mark": 18,
+       "remaining": 998,
+       "reset": 173,
        "window": "day"
       },
       "tokens": {
-       "at": 1795631267,
+       "at": 1795634626,
        "limit": 8000,
-       "mark": 94863,
-       "remaining": 3363,
-       "reset": 35,
+       "mark": 106675,
+       "remaining": 2992,
+       "reset": 38,
        "window": "minute"
       }
      },
-     "requests": 16,
+     "requests": 18,
      "spent": "",
-     "tokens": 94863
+     "tokens": 106675
     },
     "OpenRouter": {
      "account": "free",
@@ -252,9 +252,10 @@
      "tokens": 27200
     }
    },
-   "runs": 12,
+   "runs": 13,
    "unasked": {
-    "automation/update/drill-qt": 1
+    "automation/update/drill-qt": 1,
+    "automation/update/lists-2026-11-22": 1
    }
   }
  },
