@@ -175,6 +175,15 @@ def run_reserve(reserve, tmp_path, answers, env, extra, failure=None, files=None
     return json.loads(status.read_text()), seen
 
 
+def that_day(tmp_path):
+    """tools/ai-quota.json as it was on 2026-11-25 for Groq (6,000 tokens a minute; Groq's own page gives 8,000)."""
+    data = json.loads((ROOT / "tools/ai-quota.json").read_text("utf-8"))
+    data["providers"]["Groq"]["tokens_per_minute"] = 6000
+    path = tmp_path / "ai-quota-that-day.json"
+    path.write_text(json.dumps(data))
+    return path
+
+
 def size_of(body):
     """The tokens a request is counted as (tools/ai-quota.py estimate_tokens)."""
     return quota.estimate_tokens(sum(len(m["content"]) for m in body["messages"]), body["max_tokens"], LIMITS)
@@ -185,7 +194,8 @@ def test_a_request_larger_than_the_minute_is_fitted_and_asked(tmp_path, capsys):
     reserve.time = p2.QuietTime()
     env = {"GROQ_API_KEY": "gsk_TESTONLY", "AUTOFIX_GROQ_MODELS": "g1",
            "AUTOFIX_REVIEWERS": "Antigravity,Groq,Z.AI,OpenRouter"}
-    out, seen = run_reserve(reserve, tmp_path, [p2.GOOD], env, ["--quota-usage", str(tmp_path / "u.json")],
+    out, seen = run_reserve(reserve, tmp_path, [p2.GOOD], env, ["--quota-usage", str(tmp_path / "u.json"),
+                                                                "--quota-limits", str(that_day(tmp_path))],
                             failure=FAILURE, files=BIG, related="ike/window.py\nike/big.py\n", context=CONTEXT)
     assert out["result"] == "ok" and [h for h, _b in seen] == ["api.groq.com"]
     body = seen[0][1]
@@ -225,7 +235,8 @@ def test_only_a_request_that_cannot_fit_at_all_is_skipped_with_its_reason(tmp_pa
                                        lambda room: reserve.compact_message(FAILURE, "C" * 9000, BIG, room, "r",
                                                                             ["ike/big.py"]))
     assert user is not None and "fitted" in why and tokens >= reserve.MIN_ANSWER
-    assert quota.estimate_tokens(len(system) + len(user), tokens, LIMITS) <= 6000
+    assert quota.estimate_tokens(len(system) + len(user), tokens, LIMITS) <= LIMITS["providers"]["Groq"][
+        "tokens_per_minute"]
     assert "FAILED tests/test_window.py::test_width" in user
 
 
@@ -238,7 +249,11 @@ def test_the_way_forward_writes_the_fix_now_and_leaves_its_reviews_for_later():
     state = state_of(**{"Z.AI": {"spent": "429: the quota of the day (it says so)"}, "Antigravity": {"requests": 20}})
     b = quota.Budget(LIMITS, state, CANDIDATE)
     # Groq reviews within its own minute now (it never counted as a reviewer: 9,000 tokens against 6,000)
-    assert b.review_size("Groq") == 6000 and "Groq" in b.reviewers_left("OpenRouter")
+    assert b.review_size("Groq") == min(9000, LIMITS["providers"]["Groq"]["tokens_per_minute"])
+    assert "Groq" in b.reviewers_left("OpenRouter")
+    small = quota.load_limits()
+    small["providers"]["Groq"]["tokens_per_minute"] = 6000
+    assert quota.Budget(small, state, CANDIDATE).review_size("Groq") == 6000
     for name in ("OpenRouter", "Groq"):
         ok, why = b.allows(name, 4000)
         assert ok is False and why.startswith(quota.RESERVE_WHY)
@@ -289,7 +304,7 @@ def test_the_drill_of_the_deadlock_of_2026_11_25_asks_someone(tmp_path, capsys):
     reserve.time = p2.QuietTime()
     state, usage = todays_state(tmp_path), tmp_path / "usage.json"
     out, seen = run_reserve(reserve, tmp_path / "w", [p2.GOOD], ENV, [
-        "--quota-limits", str(ROOT / "tools/ai-quota.json"), "--quota-state", str(state), "--quota-usage", str(usage),
+        "--quota-limits", str(that_day(tmp_path)), "--quota-state", str(state), "--quota-usage", str(usage),
         "--candidate", CANDIDATE, "--first", "Z.AI", "--order", "Z.AI,OpenRouter,Antigravity,Groq", "--task", "lists"],
         failure=FAILURE, files=BIG, related="ike/window.py\nike/big.py\n", context=CONTEXT)
     printed = capsys.readouterr().out
@@ -510,3 +525,128 @@ def test_the_data_names_its_sources_and_what_is_not_verified():
     # nothing read only through a search excerpt is marked verified (a person verifies, the file says)
     assert all(p["verified"] is False for p in data.values())
     assert quota.load_limits()["providers"]["Groq"]["day_wait_seconds"] == quota.DAY_WAIT
+
+
+# =====================================================================================================
+# The values read on the providers' own pages on 2026-11-25, and the default models
+# =====================================================================================================
+
+@pytest.mark.parametrize("provider, body, headers, scope", [
+    # Z.AI's official list: every limit is a 429, the code tells which (docs.z.ai/api-reference/api-code)
+    ("Z.AI", '{"error": {"code": "1311", "message": "Your current subscription plan does not yet include access to '
+             'glm-5"}}', {}, "day"),
+    ("Z.AI", '{"error": {"code": "1314", "message": "Enterprise package expired"}}', {}, "day"),
+    ("Z.AI", '{"error": {"code": "1321", "message": "Usage limit reached. Resets at 2026-11-26 00:00"}}', {}, "day"),
+    ("Z.AI", '{"error": {"code": "1303", "message": "?"}}', {}, "minute"),          # not on the list: no day
+    # the Interactions API's own codes (ai.google.dev/gemini-api/docs/api-errors)
+    ("Antigravity", '{"error": {"code": "quota_exceeded", "message": "You exceeded your daily quota"}}', {}, "day"),
+    ("Antigravity", '{"error": {"code": "rate_limit_exceeded", "message": "per-minute token limit"}}', {}, "minute"),
+    # OpenRouter's documented 429 says the same for a minute and a day: no day without more
+    ("OpenRouter", '{"error": {"code": 429, "message": "Rate limit exceeded", "metadata": {"error_type": '
+                   '"rate_limit_exceeded"}}}', {}, "minute"),
+    # its X-RateLimit-* come only with a 429, also inside the body: the limiter of a minute (OpenRouter's blog)
+    ("OpenRouter", '{"error": {"message": "Rate limit exceeded: free-models-per-min. ", "code": 429, "metadata": '
+                   '{"headers": {"X-RateLimit-Limit": "20", "X-RateLimit-Remaining": "0", "X-RateLimit-Reset": '
+                   '"1792448640000"}, "limit_source": "openrouter_free_tier_per_minute"}}}', {}, "minute"),
+    ("OpenRouter", "", {"X-RateLimit-Limit": "20", "X-RateLimit-Remaining": "0"}, "minute"),
+])
+def test_the_official_signals_of_2026_11_25(provider, body, headers, scope):
+    assert quota.rate_limit_scope(LIMITS["providers"][provider], headers, body)[0] == scope, (provider, body)
+
+
+def test_the_values_read_on_the_providers_pages_are_in_the_data_with_their_sources():
+    data = json.loads((ROOT / "tools/ai-quota.json").read_text("utf-8"))
+    groq = data["providers"]["Groq"]
+    # console.groq.com/docs/rate-limits: 30 RPM, 1K RPD, 8K TPM, 200K TPD for the three free models
+    assert (groq["requests_per_minute"], groq["requests_per_day"], groq["tokens_per_minute"], groq["tokens_per_day"]) \
+        == (30, 1000, 8000, 200000)
+    assert groq["headers"]["requests"]["window"] == "day" and groq["headers"]["tokens"]["window"] == "minute"
+    router = data["providers"]["OpenRouter"]
+    assert (router["requests_per_minute"], router["requests_per_day"]) == (20, 50)
+    assert router["headers"]["requests"]["window"] == "minute" and router["reset"]["time"] == "00:00"
+    zai = data["providers"]["Z.AI"]
+    assert "code:1303" not in zai["minute_words"] + zai["day_words"]
+    assert {"1211", "1261", "1311", "1314-1321"} <= set(zai["error_codes"])
+    assert "Midnight Pacific".lower() in data["providers"]["Antigravity"]["reset"]["source"].lower()
+    # read on the provider's page that day, but not a person's check: "verified" stays the person's
+    for name, conf in data["providers"].items():
+        assert conf["source_verified_on"] == "2026-11-25" and conf["verified"] is False, name
+        assert conf["source_urls"] and all(u.startswith("https://") for u in conf["source_urls"]), name
+    assert len(LIMITS["providers"]["Z.AI"]["day_words"]) == len(zai["day_words"])        # none cut off
+
+
+def test_the_default_models_are_the_free_ones_of_2026_11_25():
+    registry = load("ai-providers")
+    rv = load("ai-review")
+    # Antigravity keeps only Gemini 4 Hydrogen on its free plan after 2026-11-30; the same names serve the API
+    assert registry.GEMINI_MODELS[0] == "Gemini 4 Hydrogen (High)"
+    assert [rv.gemini_id(m) for m in registry.GEMINI_MODELS] == [
+        "gemini-4-hydrogen", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
+    models = {r[0]: r[4] for r in registry.RESERVES}
+    assert models["Groq"] == ("openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b")
+    assert models["Z.AI"] == ("glm-4.7-flash", "glm-4.5-flash")
+    assert dict((r[0], r[1]) for r in registry.RESERVES)["Z.AI"] == "https://api.z.ai/api/paas/v4/chat/completions"
+    # OpenRouter: only free models that were in its own list at zero price that day; the gone ones never
+    listed = {m["id"]: m for m in OR_MODELS}
+    for model in models["OpenRouter"]:
+        assert model.endswith(":free") and registry.is_free_model("OpenRouter", model)
+        assert model in listed and load("autofix-reserve").priced_free(listed[model]), model
+    for gone in ("cohere/north-mini-code:free", "openai/gpt-oss-120b:free", "qwen/qwen3-coder:free"):
+        assert gone not in models["OpenRouter"]
+    # the Free Models Router is free, and only the last resort; a model without ":free" never is
+    assert registry.is_free_model("OpenRouter", registry.FREE_ROUTER) and registry.FREE_ROUTER == "openrouter/free"
+    assert not registry.is_free_model("OpenRouter", "openai/gpt-oss-120b")
+
+
+# a few rows of GET https://openrouter.ai/api/v1/models as read on 2026-11-25 (prices are strings of dollars a token)
+OR_MODELS = [
+    {"id": "particle-ai/particle-1:free", "context_length": 1048576, "pricing": {"prompt": "0", "completion": "0"}},
+    {"id": "nvidia/nemotron-3-ultra-550b-a55b:free", "context_length": 1000000,
+     "pricing": {"prompt": "0", "completion": "0"}},
+    {"id": "inclusionai/ling-3.2-flash:free", "context_length": 1048576, "pricing": {"prompt": "0", "completion": "0"}},
+    {"id": "google/gemma-4-31b-it:free", "context_length": 262144, "pricing": {"prompt": "0", "completion": "0"}},
+    {"id": "baidu/ernie-5.5-flash-preview:free", "context_length": 1024000,
+     "pricing": {"prompt": "0", "completion": "0"}},
+    {"id": "openrouter/free", "context_length": 200000, "pricing": {"prompt": "0", "completion": "0"}},
+    {"id": "openai/gpt-oss-120b", "context_length": 131072, "pricing": {"prompt": "0.0000001", "completion": "0.0000005"}},
+    {"id": "trap/model:free", "context_length": 999999, "pricing": {"prompt": "0.000001", "completion": "0"}},
+]
+
+
+def test_openrouters_models_are_rebuilt_from_its_own_list_each_run():
+    reserve = load("autofix-reserve")
+    seen = []
+
+    def opener(req, timeout=0):
+        seen.append((req.full_url, req.get_method()))
+        return _Listing({"data": OR_MODELS})
+    env = {"OPENROUTER_API_KEY": "sk-or-TESTONLY", "GROQ_API_KEY": "gsk_TESTONLY",
+           "AUTOFIX_OPENROUTER_MODELS": "cohere/north-mini-code:free, particle-ai/particle-1:free"}
+    plan = reserve.refreshed(reserve.chain(env), opener)
+    assert seen == [("https://openrouter.ai/api/v1/models", "GET")]
+    names = [(p[0], p[3]) for p in plan]
+    assert names[:3] == [("Groq", "openai/gpt-oss-120b"), ("Groq", "qwen/qwen3.8-27b"), ("Groq", "openai/gpt-oss-20b")]
+    # the gone one is left out, the listed free one first, then the largest free ones now, the router last
+    assert [m for p, m in names if p == "OpenRouter"] == [
+        "particle-ai/particle-1:free", "inclusionai/ling-3.2-flash:free", "baidu/ernie-5.5-flash-preview:free",
+        "openrouter/free"]
+    assert "trap/model:free" not in str(names) and "openai/gpt-oss-120b" not in [m for p, m in names if p != "Groq"]
+    # no list: the chain as it is (never an empty OpenRouter)
+    def down(req, timeout=0):
+        raise OSError("down")
+    assert reserve.refreshed(reserve.chain(env), down) == reserve.chain(env)
+    assert reserve.refreshed([p for p in reserve.chain(env) if p[0] == "Groq"], opener)[-1][0] == "Groq"
+
+
+class _Listing:
+    def __init__(self, data):
+        self.body = json.dumps(data).encode()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def read(self, n=-1):
+        return self.body

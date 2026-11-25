@@ -375,11 +375,10 @@ DISCOVERED = 2          # free models taken from OpenRouter's list when a listed
 MODEL_ID = re.compile(r"^[A-Za-z0-9._/:-]{3,100}:free$")
 
 
-def free_models(key, opener=urllib.request.urlopen, exclude=(), count=DISCOVERED):
-    """OpenRouter's free models at this moment, the largest context first (1.1.18).
-    Free models come and go: when one of the list answers 404 (it no longer
-    exists), the chain asks OpenRouter which ones there are instead of failing
-    until someone edits the list. Only ids of the usual shape are taken."""
+def free_catalog(key, opener=urllib.request.urlopen):
+    """OpenRouter's free models at this moment, from its own list (GET /api/v1/models): [(id, context)], the
+    largest context first, only ids of the usual shape and only at zero price in OpenRouter's own price list (the
+    Free Models Router too, FREE_ROUTER); None when the list cannot be read."""
     req = urllib.request.Request(OPENROUTER_MODELS, headers={
         "Authorization": "Bearer " + key, "User-Agent": "IKE-autofix"})
     try:
@@ -387,18 +386,57 @@ def free_models(key, opener=urllib.request.urlopen, exclude=(), count=DISCOVERED
             data = json.loads(r.read(8_000_000).decode("utf-8", "replace"))
         models = data.get("data") if isinstance(data, dict) else None
         if not isinstance(models, list):
-            return []
+            return None
         found = []
         for m in models:
             mid = m.get("id") if isinstance(m, dict) else None
             ctx = m.get("context_length") if isinstance(m, dict) else None
-            if (isinstance(mid, str) and MODEL_ID.match(mid) and mid not in exclude
-                    and isinstance(ctx, int) and ctx >= 32_000 and priced_free(m)):
+            if isinstance(mid, str) and isinstance(ctx, int) and priced_free(m) and (MODEL_ID.match(mid) or (
+                    mid == REGISTRY.FREE_ROUTER and isinstance(m.get("pricing"), dict))):
                 found.append((ctx, mid))
         found.sort(key=lambda t: (-t[0], t[1]))
-        return [mid for _ctx, mid in found[:count]]
+        return [(mid, ctx) for ctx, mid in found]
     except Exception:                       # no list: the chain simply goes on without it
-        return []
+        return None
+
+
+def free_models(key, opener=urllib.request.urlopen, exclude=(), count=DISCOVERED):
+    """OpenRouter's free models at this moment, the largest context first (1.1.18).
+    Free models come and go: when one of the list answers 404 (it no longer
+    exists), the chain asks OpenRouter which ones there are instead of failing
+    until someone edits the list. Only ids of the usual shape are taken."""
+    found = free_catalog(key, opener) or []
+    return [mid for mid, ctx in found if mid != REGISTRY.FREE_ROUTER and mid not in exclude
+            and ctx >= 32_000][:count]
+
+
+def refreshed(plan, opener=urllib.request.urlopen, listed=None):
+    """The chain with OpenRouter's models rebuilt from its own list of this run (2026-11-25: the free models of
+    the list were gone, and a paid fallback would cost money): the listed ones that are still free, in their
+    order; then the free ones OpenRouter offers now (DISCOVERED, the largest context first); then the Free Models
+    Router, the last resort. Nothing changes when the list cannot be read."""
+    mine = [p for p in plan if p[0] == "OpenRouter"]
+    if not mine:
+        return plan
+    name, url, key, _model, budget, tokens = mine[0]
+    found = free_catalog(key, opener)
+    if found is None:
+        return plan
+    if listed is not None:
+        listed["read"] = True               # the list of this moment is in the chain: not asked for again
+    free = {mid for mid, _ctx in found}
+    keep = [p for p in mine if p[3] in free]
+    for p in mine:
+        if p[3] not in free:
+            print("OpenRouter: %s is not a free model any more (its own list): not asked" % for_log(p[3]), flush=True)
+    have = {p[3] for p in keep}
+    more = [mid for mid, ctx in found if mid not in have and mid != REGISTRY.FREE_ROUTER and ctx >= 32_000]
+    keep += [(name, url, key, mid, budget, tokens) for mid in more[:DISCOVERED]]
+    if REGISTRY.FREE_ROUTER in free and REGISTRY.FREE_ROUTER not in have:
+        keep.append((name, url, key, REGISTRY.FREE_ROUTER, budget, tokens))
+    at = plan.index(mine[0])
+    rest = [p for p in plan if p[0] != "OpenRouter"]
+    return rest[:at] + keep + rest[at:]
 
 
 def priced_free(model):
@@ -1151,6 +1189,10 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
                                                  REGISTRY.OPENROUTER_KEY_INFO)):
             print("OpenRouter: %s free requests a day for all its free models together (read from the account)"
                   % spend.day_limit("OpenRouter", "requests"), flush=True)
+    # OpenRouter's free models of this moment, from its own list (refreshed), when it may be asked at all today
+    listed = {}
+    if spend is None or not (spend.spent("OpenRouter") or spend.priority_why("OpenRouter")):
+        plan = refreshed(plan, opener, listed)
     if a.task:
         route = _tool("automat-route")
         limits = limits or _tool("ai-quota").load_limits(a.quota_limits)
@@ -1162,7 +1204,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
             tried = []
     loop = _tool("automat-route").Loop(tried) if (a.inner or a.tried) else None
     looped = ""
-    discovered, refused_keys = False, []
+    discovered, refused_keys = bool(listed.get("read")), []
     # WP9: whether any model really answered; a chain where each model was busy,
     # out of quota or not free ends "no provider available" (the work waits:
     # tools/ai-work.py), not a question for the owner

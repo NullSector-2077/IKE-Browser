@@ -1,7 +1,7 @@
 {
  "schema": 1,
- "about": "The free quota of each AI provider of AUTOMAT, as data (docs/MAINTENANCE.md, \"The budget of the free quotas\"). tools/ai-quota.py reads it; change a number here, never in code. Every number has its source. \"verified\": false means the number could not be checked against the provider's documentation on the day it was written: it is a conservative value (lower than what the provider is believed to allow), and the live rate-limit headers and 429 answers of each call correct the budget at run time. A person who checks a number against the provider's page sets it, with the date, and \"verified\": true.",
- "checked": "2026-11-23",
+ "about": "The free quota of each AI provider of AUTOMAT, as data (docs/MAINTENANCE.md, \"The budget of the free quotas\"). tools/ai-quota.py reads it; change a number here, never in code. Every number has its source. \"verified\": false means the number could not be checked against the provider's documentation on the day it was written: it is a conservative value (lower than what the provider is believed to allow), and the live rate-limit headers and 429 answers of each call correct the budget at run time. A person who checks a number against the provider's page sets it, with the date, and \"verified\": true. \"source_verified_on\" (2026-11-25) is the day a value was read on the provider's own page named in \"source_urls\": it is not a person's check, so \"verified\" stays false until a person sets it.",
+ "checked": "2026-11-25",
  "chars_per_token": 3,
  "reserve": {
   "reviews": 2,
@@ -65,35 +65,48 @@
    "tokens_per_minute": 100000,
    "session_requests": 10,
    "verified": false,
-   "source": "requests_per_day and session_requests: this repository's own note of 2026-11-19 (.github/autofix/prompt.md: \"about 20 model requests a day\", \"at most 10 steps\"). The others: ai.google.dev/gemini-api/docs/rate-limits could not be reached on 2026-11-23; conservative values",
+   "source": "ai.google.dev/gemini-api/docs/rate-limits (read on 2026-11-25): limits are per project, not per API key; no free-tier numbers are published for the text models any more (\"can be viewed in Google AI Studio\"). requests_per_day and session_requests stay this repository's own careful note of 2026-11-19; the others are careful guesses",
    "headers": {},
    "day_words": [
     "PerDay",
     "Daily",
     "per day",
-    "limit: 0"
+    "limit: 0",
+    "quota_exceeded",
+    "exceeded your daily quota"
    ],
    "minute_words": [
     "PerMinute",
-    "per minute"
+    "per minute",
+    "rate_limit_exceeded",
+    "too_many_requests"
    ],
    "day_wait_seconds": 300,
-   "signals_source": "how a 429 is read, checked on 2026-11-25 against Google's own code (google-gemini/gemini-cli packages/core/src/utils/googleQuotaErrors.ts @08e9a20f: a quotaId with PerDay or Daily, or 'limit: 0', is the day; PerMinute is a minute; a retryDelay over 300 s is the day, and PerDay is read before the delay) and ai.google.dev/gemini-api/docs/rate-limits (seen only through a search excerpt). The numbers above are not published for the free tier any more: not verified",
+   "signals_source": "read on 2026-11-25. Google's own gemini-cli code (packages/core/src/utils/googleQuotaErrors.ts @08e9a20f, not Google's documentation): a QuotaFailure quotaId with PerDay or Daily, or 'limit: 0', is the day, read before a short retryDelay; PerMinute is a minute; a retryDelay over 300 s is the day (day_wait_seconds). The documentation lists no quotaId strings. The Interactions API (ai.google.dev/gemini-api/docs/api-errors) names them: rate_limit_exceeded and too_many_requests (a minute, a burst), quota_exceeded ('exceeded your daily quota'). generateContent's 429 RESOURCE_EXHAUSTED alone says only 'one of the API's rate limits (RPM, TPM, RPD, spend)' (aistudio.google.com/docs/api-errors.md)",
    "reset": {
     "time": "00:00",
     "zone": "America/Los_Angeles",
     "verified": false,
-    "source": "the Gemini API's quotas per day reset at midnight Pacific time, as remembered from ai.google.dev/gemini-api/docs/rate-limits; the page could not be reached on 2026-11-24"
-   }
+    "source": "ai.google.dev/gemini-api/docs/rate-limits, read on 2026-11-25: \"Requests per day (RPD) quotas reset at midnight Pacific time\" (read on the provider's page, not checked by a person)",
+    "source_verified_on": "2026-11-25"
+   },
+   "source_verified_on": "2026-11-25",
+   "source_urls": [
+    "https://ai.google.dev/gemini-api/docs/rate-limits",
+    "https://ai.google.dev/gemini-api/docs/pricing",
+    "https://aistudio.google.com/docs/api-errors.md?generate-content=true",
+    "https://ai.google.dev/gemini-api/docs/api-errors",
+    "https://antigravity.google/docs/plans/"
+   ]
   },
   "Groq": {
    "what": "Groq's free plan (OpenAI-compatible)",
-   "requests_per_day": 200,
-   "requests_per_minute": 20,
-   "tokens_per_day": 100000,
-   "tokens_per_minute": 6000,
+   "requests_per_day": 1000,
+   "requests_per_minute": 30,
+   "tokens_per_day": 200000,
+   "tokens_per_minute": 8000,
    "verified": false,
-   "source": "tokens_per_minute: below this repository's own note (tools/ai-providers.py: \"about 8,000 tokens a minute\"). The others: console.groq.com/docs/rate-limits could not be reached on 2026-11-23; conservative values",
+   "source": "console.groq.com/docs/rate-limits, read on 2026-11-25: the table gives openai/gpt-oss-120b, openai/gpt-oss-20b and qwen/qwen3.8-27b 30 requests and 8K tokens a minute, 1K requests and 200K tokens a day (the free plan's level: the models page gives the Developer plan 1K RPM and 250K TPM). Limits are per organisation; cached tokens do not count; some organisations also have input and output caps a minute. The organisation's own values: console.groq.com/settings/limits; read on the provider's page, not a person's check: conservative where the page gives no number",
    "headers": {
     "requests": {
      "limit": "x-ratelimit-limit-requests",
@@ -119,13 +132,19 @@
     "(RPM)",
     "(TPM)"
    ],
-   "signals_source": "console.groq.com/docs/rate-limits (2026-11-25, seen only through a search excerpt): the message says 'per minute (RPM)' / 'per minute (TPM)' or 'per day (RPD)' / 'per day (TPD)'; x-ratelimit-*-requests is the day's (RPD), x-ratelimit-*-tokens the minute's (TPM); retry-after only on a 429. Third-party copies of Groq's table give 30 RPM, 1,000 RPD, 8,000 TPM, 200,000 TPD for the free plan: not verified, so the careful values above stay and the live headers correct them",
+   "signals_source": "console.groq.com/docs/rate-limits, read on 2026-11-25: x-ratelimit-*-requests 'always refers to Requests Per Day (RPD)', x-ratelimit-*-tokens 'always refers to Tokens Per Minute (TPM)', retry-after (seconds) only on a 429, the other headers always. No header for RPM or TPD: only the 429's message, whose wording ('per minute (TPM)', 'per day (RPD)') is not shown on the official pages (not verified)",
    "reset": {
     "time": "00:00",
     "zone": "UTC",
     "verified": false,
-    "source": "console.groq.com/docs/rate-limits could not be reached on 2026-11-24; Groq's own headers give the time to its next reset (x-ratelimit-reset-requests), which counts more; until a person checks it, the repository's own day (UTC)"
-   }
+    "source": "console.groq.com/docs/rate-limits (2026-11-25) names no reset time: the headers give the time to the next reset ('2m59.56s'), which counts more; until a person checks it, the repository's own day (UTC) (read on the provider's page, not checked by a person)"
+   },
+   "source_verified_on": "2026-11-25",
+   "source_urls": [
+    "https://console.groq.com/docs/rate-limits",
+    "https://console.groq.com/docs/models",
+    "https://console.groq.com/docs/errors"
+   ]
   },
   "Z.AI": {
    "what": "Z.AI's free GLM Flash models (OpenAI-compatible)",
@@ -134,7 +153,7 @@
    "tokens_per_day": 400000,
    "tokens_per_minute": 60000,
    "verified": false,
-   "source": "docs.z.ai could not be reached on 2026-11-23, and no number of its free models is recorded in this repository; conservative values",
+   "source": "docs.z.ai/guides/overview/pricing, read on 2026-11-25: GLM-4.7-Flash and GLM-4.5-Flash are free (input, output, cached), GLM-4.7-Flash with 200K of context and 128K of output; no number of their limits is published (docs.z.ai/guides/overview/concept-param: the concurrency 'varies by user or plan'; the console's page needs a login): careful values; read on the provider's page, not a person's check: conservative where the page gives no number",
    "headers": {
     "requests": {
      "limit": "x-ratelimit-limit-requests",
@@ -155,23 +174,54 @@
     "code:1308",
     "code:1309",
     "code:1310",
-    "code:1313"
+    "code:1311",
+    "code:1313",
+    "code:1314",
+    "code:1315",
+    "code:1316",
+    "code:1317",
+    "code:1318",
+    "code:1319",
+    "code:1320",
+    "code:1321"
    ],
    "minute_words": [
     "code:1302",
-    "code:1303",
     "code:1305",
     "concurrency",
     "per minute",
     "overloaded"
    ],
-   "words_source": "2026-11-25, a real deadlock (PR #111): Z.AI's codes 1302 (rate limit of requests: too fast or too many at once) and 1305 (the service is overloaded, not your quota) were taken as the day's quota, so Z.AI was 'spent today' every morning. docs.z.ai/api-reference/api-code (seen only through a search excerpt on 2026-11-25): a 429 alone means nothing, always read error.code; 1302 and 1305 are retried after a pause, 1308 (a usage limit until its next_flush_time), 1309 (a plan expired), 1310 (the week's or month's limit) and 1313 (a fair-use restriction, not verified) are not; 1303 (frequency) is not in the excerpt: not verified, read like 1302. The free Flash models have no documented daily cap and no published numbers (concurrency about 1, third-party, not verified). A \"code:N\" word matches only Z.AI's own \"code\" field, never a number anywhere in the text",
+   "words_source": "docs.z.ai/api-reference/api-code, read on 2026-11-25. Z.AI answers every limit with HTTP 429 and a string error.code: 1302 'Rate limit reached for requests' and 1305 'temporarily overloaded' wait and are asked again (the deadlock of PR #111: they were taken as the day's quota); 1308, 1310 and 1314-1321 are usage limits that reset at their next_flush_time (hours or days), 1309 a plan expired, 1311 a model the plan does not include, 1313 the fair use policy: none is asked again today. 1113 asks for money (tools/autofix-reserve.py BILLING). 1303 is not on the official list. A \"code:N\" word matches only Z.AI's own \"code\" field, never a number anywhere in the text",
    "reset": {
     "time": "00:00",
     "zone": "UTC",
     "verified": false,
     "source": "docs.z.ai could not be reached on 2026-11-24 and no reset time of its free models is recorded in this repository; the repository's own day (UTC)"
-   }
+   },
+   "error_codes": {
+    "1113": "429 insufficient balance or no resource package (money: never asked again)",
+    "1211": "400 unknown model (the next model)",
+    "1221": "400 API taken offline",
+    "1234": "500 network error, retry",
+    "1261": "400 prompt too long",
+    "1301": "400 unsafe content",
+    "1302": "429 rate limit of requests (a minute)",
+    "1305": "429 temporarily overloaded (a minute)",
+    "1308": "429 usage limit until next_flush_time",
+    "1309": "429 Coding Plan expired",
+    "1310": "429 weekly or monthly limit until next_flush_time",
+    "1311": "429 the plan does not include this model",
+    "1313": "429 fair use policy: restricted",
+    "1314-1321": "429 enterprise package or 5-hour / 7-day usage limits until next_flush_time"
+   },
+   "source_verified_on": "2026-11-25",
+   "source_urls": [
+    "https://docs.z.ai/api-reference/api-code",
+    "https://docs.z.ai/guides/overview/pricing",
+    "https://docs.z.ai/guides/llm/glm-4.7",
+    "https://docs.z.ai/guides/overview/concept-param"
+   ]
   },
   "OpenRouter": {
    "what": "OpenRouter's \":free\" models only (tools/ai-providers.py FREE_SUFFIX)",
@@ -180,13 +230,13 @@
    "tokens_per_day": null,
    "tokens_per_minute": null,
    "verified": false,
-   "source": "openrouter.ai/docs/api-reference/limits could not be reached on 2026-11-23; conservative values (the lower daily limit of an account without purchased credits, as remembered, not checked)",
+   "source": "openrouter.ai/docs/api-reference/limits, read on 2026-11-25: free models, credits bought ever 'Less than 10': 20 requests a minute and 50 a day ('At least 10': 1,000 a day), one limit for the account whatever the keys; failed requests count; a negative balance blocks free models too; read on the provider's page, not a person's check: conservative where the page gives no number",
    "headers": {
     "requests": {
      "limit": "x-ratelimit-limit",
      "remaining": "x-ratelimit-remaining",
      "reset": "x-ratelimit-reset",
-     "window": "day"
+     "window": "minute"
     }
    },
    "day_words": [
@@ -201,19 +251,28 @@
     "openrouter_free_tier_per_minute",
     "upstream_provider_shared_pool"
    ],
-   "signals_source": "openrouter.ai/docs/api_reference/limits and /errors-and-debugging (2026-11-25, seen only through a search excerpt): 20 requests a minute and 50 a day for the :free models of an account that never bought credits, all keys and all :free models together; failed requests count. A 429's error.metadata.limit_source says which: openrouter_free_tier_per_minute (wait for X-RateLimit-Reset), upstream_provider_shared_pool (the model's provider is busy: a minute), openrouter_free_tier_daily (the day; this name only in OpenRouter's tutorial code: not verified). The day resets at 00:00 UTC: OpenRouter's own OpenAPI spec (OpenRouterTeam/python-sdk .speakeasy/in.openapi.yaml @faf973f9, FreeModelDailyRequests)",
+   "signals_source": "read on 2026-11-25. The documented 429 body is {\"error\": {\"code\": 429, \"metadata\": {\"error_type\": \"rate_limit_exceeded\"}}} for a minute and a day alike (openrouter.ai/docs/api-reference/limits), so that type says nothing of which. error.metadata.limit_source (openrouter_free_tier_per_minute, upstream_provider_shared_pool, openrouter_free_tier_daily) and the messages free-models-per-min / free-models-per-day are shown only on OpenRouter's blog (openrouter.ai/blog/tutorials/llm-api-rate-limits, 2026-11-11), not in its reference: not verified. A 404 'No endpoints found matching your data policy' is the account's privacy setting (openrouter.ai/docs/faq), never a quota",
    "reset": {
     "time": "00:00",
     "zone": "UTC",
     "verified": false,
-    "source": "openrouter.ai/docs/api-reference/limits could not be reached on 2026-11-24; the daily cap of the :free models (\"free-models-per-day\") resets at midnight UTC, as remembered, not checked"
+    "source": "openrouter.ai/docs/api-reference/limits, read on 2026-11-25: GET /api/v1/key gives free_model_daily_requests {used, limit, remaining} for 'the current UTC day'; OpenRouter's own OpenAPI spec: 'the counter resets at UTC midnight' (read on the provider's page, not checked by a person)",
+    "source_verified_on": "2026-11-25"
    },
    "shared_free_models": true,
    "account": {
     "free_tier_requests_per_day": 50,
     "verified": false,
-    "source": "every :free model of OpenRouter counts against ONE daily cap of the account, not one per model: 50 requests a day for an account that never bought credits, as remembered from openrouter.ai/docs/api-reference/limits (not reachable on 2026-11-24). tools/ai-quota.py reads only is_free_tier of GET /api/v1/key (the address is tools/ai-providers.py OPENROUTER_KEY_INFO), with the key, at the start of each run that holds it, following no redirect: true confirms this value; anything else keeps it too, and the signing notice says the account is not on the free tier. The count of the day comes from OpenRouter's own headers and its 429 \"free-models-per-day\""
-   }
+    "source": "openrouter.ai/docs/api-reference/limits, read on 2026-11-25: 50 free requests a day for an account that bought less than 10 credits ever (1,000 from 10). tools/ai-quota.py reads only is_free_tier (whether credits were ever bought) of GET /api/v1/key (tools/ai-providers.py OPENROUTER_KEY_INFO), with the key, at the start of each run that holds it, following no redirect: true confirms this value; anything else keeps it too, and the signing notice says the account is not on the free tier. The same answer has free_model_daily_requests {used, limit, remaining} for the current UTC day (documented, not read yet); rate_limit is deprecated, and money (limit, usage) is never read as requests. The count of the day comes from OpenRouter's 429s and their words"
+   },
+   "headers_source": "openrouter.ai/docs/api-reference/limits, read on 2026-11-25: 'Successful inference responses do not include X-RateLimit-* headers'; a 429 of OpenRouter's own free-model limit carries X-RateLimit-Limit, -Remaining and -Reset (Unix milliseconds), also inside error.metadata.headers. OpenRouter's blog (2026-11-11) shows them for the limiter of a minute (Limit 20), so they are read as a minute's; the day is read from the 429's words",
+   "source_verified_on": "2026-11-25",
+   "source_urls": [
+    "https://openrouter.ai/docs/api-reference/limits",
+    "https://openrouter.ai/docs/api_reference/errors-and-debugging",
+    "https://openrouter.ai/docs/faq",
+    "https://openrouter.ai/api/v1/models"
+   ]
   }
  }
 }

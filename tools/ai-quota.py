@@ -151,7 +151,7 @@ def load_limits(path=None):
             conf["headers"] = raw.get("headers") if isinstance(raw.get("headers"), dict) else {}
             for field in ("day_words", "minute_words"):
                 words = raw.get(field)
-                conf[field] = [str(w) for w in words][:12] if isinstance(words, list) else FALLBACK[field]
+                conf[field] = [str(w) for w in words][:24] if isinstance(words, list) else FALLBACK[field]
             # how a 429 is read is data too (rate_limit_scope): the wait above which it is the day's quota
             wait = raw.get("day_wait_seconds")
             conf["day_wait_seconds"] = wait if isinstance(wait, int) and not isinstance(wait, bool) and \
@@ -627,6 +627,24 @@ def learned_minute_tokens(body):
     return value if 100 <= value <= 10 ** 8 else None
 
 
+def body_headers(headers, body):
+    """The headers of an answer with those its error body carries (OpenRouter puts X-RateLimit-* inside
+    error.metadata.headers too: openrouter.ai/docs/api-reference/limits); the real headers count more."""
+    out = {}
+    try:
+        meta = ((json.loads(body or "{}") or {}).get("error") or {}).get("metadata") or {}
+        inner = meta.get("headers") if isinstance(meta, dict) else None
+        if isinstance(inner, dict):
+            out.update({str(k): str(v) for k, v in list(inner.items())[:20]})
+    except (ValueError, AttributeError, TypeError):
+        pass
+    try:
+        out.update({str(k): str(v) for k, v in (headers or {}).items()})
+    except AttributeError:
+        pass
+    return out
+
+
 def rate_limit_scope(conf, headers, body):
     """What a 429 means (2026-11-25: a limit of concurrency taken for the day's quota left Z.AI unused for days):
     ("minute", seconds to wait, why) for a limit per minute, of concurrency or a busy service, which is waited out
@@ -635,6 +653,7 @@ def rate_limit_scope(conf, headers, body):
     DAY_WAIT when the file has none). The words are data too (day_words, minute_words). When nothing
     says which, a minute: one more request tomorrow costs less than a provider lost for a whole day."""
     conf = conf or {}
+    headers = body_headers(headers, body)
     wait = retry_after(headers)
     daily = said(conf.get("day_words") or FALLBACK["day_words"], body)
     minute = said(conf.get("minute_words") or FALLBACK["minute_words"], body)
