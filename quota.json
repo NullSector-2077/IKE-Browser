@@ -136,10 +136,10 @@
    "runs": 12
   },
   "2026-11-25": {
-   "answered": 7,
+   "answered": 8,
    "answered_for": {
     "automation/update/darkreader": 1,
-    "automation/update/lists-2026-11-22": 1
+    "automation/update/lists-2026-11-22": 2
    },
    "no_provider": 2,
    "providers": {
@@ -166,35 +166,39 @@
       "automation/update/darkreader": {
        "requests": 2,
        "tokens": 10625
+      },
+      "automation/update/lists-2026-11-22": {
+       "requests": 4,
+       "tokens": 23125
       }
      },
      "classes": {
       "2": {
-       "requests": 2,
-       "tokens": 10625
+       "requests": 6,
+       "tokens": 33750
       }
      },
      "observed": {
       "requests": {
-       "at": 1795617752,
+       "at": 1795625475,
        "limit": 1000,
-       "mark": 2,
+       "mark": 6,
        "remaining": 998,
        "reset": 173,
        "window": "day"
       },
       "tokens": {
-       "at": 1795617752,
+       "at": 1795625475,
        "limit": 8000,
-       "mark": 10625,
-       "remaining": 4421,
-       "reset": 27,
+       "mark": 33750,
+       "remaining": 3146,
+       "reset": 37,
        "window": "minute"
       }
      },
-     "requests": 2,
+     "requests": 6,
      "spent": "",
-     "tokens": 10625
+     "tokens": 33750
     },
     "OpenRouter": {
      "account": "free",
@@ -208,26 +212,26 @@
        "tokens": 373232
       },
       "automation/update/lists-2026-11-22": {
-       "requests": 21,
-       "tokens": 505553
+       "requests": 25,
+       "tokens": 605096
       }
      },
      "classes": {
       "2": {
-       "requests": 43,
-       "tokens": 1052567
+       "requests": 47,
+       "tokens": 1152110
       }
      },
      "observed": {
       "requests": {
        "limit": 50,
-       "mark": 43,
+       "mark": 47,
        "window": "day"
       }
      },
-     "requests": 43,
+     "requests": 47,
      "spent": "",
-     "tokens": 1052567
+     "tokens": 1152110
     },
     "Z.AI": {
      "by": {
@@ -248,7 +252,7 @@
      "tokens": 27200
     }
    },
-   "runs": 9,
+   "runs": 10,
    "unasked": {
     "automation/update/drill-qt": 1
    }
