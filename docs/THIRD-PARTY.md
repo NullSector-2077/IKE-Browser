@@ -191,7 +191,7 @@ phf v0.11.3 — MIT — https://github.com/rust-phf/rust-phf
 phf_shared v0.11.3 — MIT — https://github.com/rust-phf/rust-phf
 potential_utf v0.1.6 — Unicode-3.0 — https://github.com/unicode-org/icu4x
 precomputed-hash v0.1.1 — MIT — https://github.com/emilio/precomputed-hash
-psl v2.1.261 — MIT OR Apache-2.0 — https://github.com/addr-rs/psl
+psl v2.1.263 — MIT OR Apache-2.0 — https://github.com/addr-rs/psl
 psl-types v2.0.11 — MIT OR Apache-2.0 — https://github.com/addr-rs/psl-types
 pyo3 v0.30.1 — MIT OR Apache-2.0 — https://github.com/pyo3/pyo3
 pyo3-ffi v0.30.1 — MIT OR Apache-2.0 — https://github.com/pyo3/pyo3

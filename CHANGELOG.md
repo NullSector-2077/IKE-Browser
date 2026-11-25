@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.26
+
+- Rust crates of the AdBlock engine: 88 crates -> 88 crates (psl 2.1.261 -> 2.1.263)
+
 ## 1.1.25
 
 - **Weather units you can choose** (the owner): in Settings, next to the
