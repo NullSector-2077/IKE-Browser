@@ -137,7 +137,7 @@
   },
   "2026-11-25": {
    "answered": 5,
-   "no_provider": 1,
+   "no_provider": 2,
    "providers": {
     "OpenRouter": {
      "account": "free",
@@ -183,7 +183,10 @@
      "tokens": 27200
     }
    },
-   "runs": 6
+   "runs": 7,
+   "unasked": {
+    "automation/update/drill-qt": 1
+   }
   }
  },
  "schema": 1
