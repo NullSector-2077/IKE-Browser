@@ -225,18 +225,6 @@
     "outcome": "no-fix",
     "provider": "",
     "sig": "bf8bb9289850a76b",
-    "summary": "La correzione automatica non pu\u00f2 essere applicata: il guard statico (fix-guard) rifiuta ogni modifica a ike/scriptlets.py che tocca righe esistenti (es. la riga 153, def entry(self, name):), perch\u00e9 quel file pu\u00f2 ricevere solo righe nuove. Il tentativo precedente \u00e8 stato rifiuto p",
-    "task": "lists"
-   },
-   {
-    "attempt": 2,
-    "date": "2026-11-24",
-    "detail": "rotated",
-    "files": [],
-    "model": "",
-    "outcome": "no-fix",
-    "provider": "",
-    "sig": "bf8bb9289850a76b",
     "summary": "Il fallimento non \u00e8 un errore del codice di I.K.E.: il guard statico (fix-guard) rifiuta ogni modifica a ike/scriptlets.py che tocca righe esistenti (es. la riga 153, def entry(self, name):), perch\u00e9 quel file pu\u00f2 ricevere solo righe nuove. Il tentativo precedente \u00e8 stato rifiuto ",
     "task": "lists"
    },
@@ -287,6 +275,18 @@
     "sig": "bf8bb9289850a76b",
     "summary": "Non \u00e8 stato possibile individuare n\u00e9 ripristinare la funzione entry di ike/scriptlets.py n\u00e9 correggere l'analisi delle liste di filtro senza accedere al contenuto originale del file. Senza il testo esatto del codice non \u00e8 possibile aggiungere o ripristinare il comportamento richi",
     "task": "lists"
+   },
+   {
+    "attempt": 2,
+    "date": "2026-11-25",
+    "detail": "rotated",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "bf8bb9289850a76b",
+    "summary": "Il problema non \u00e8 nel codice di I.K.E. ma nel file PKGBUILD (versione 1.1.22\u21921.1.23), che non posso modificare: le modifiche automatiche precedenti lo hanno toccato e sono state rifiutate. Le liste di filtro non sono state aggiornate in questo commit, quindi non c'\u00e8 nulla da corr",
+    "task": "lists"
    }
   ]
  },
@@ -315,9 +315,9 @@
    "since": "2026-11-25"
   },
   "automation/update/lists-2026-11-22": {
-   "at": "2026-11-25T16:53:21Z",
+   "at": "2026-11-25T17:48:38Z",
    "date": "2026-11-25",
-   "n": 10,
+   "n": 11,
    "sig": "bf8bb9289850a76b",
    "since": "2026-11-23"
   }
