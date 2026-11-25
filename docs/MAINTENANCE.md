@@ -197,22 +197,62 @@ covers. Where an older paragraph below still says "waits for a person" or
    The rules on lines stay for what they add: the old lines in order, no
    always-true condition, nothing that reaches out, no site named, no new
    address.
-   *What it accepts and refuses*, measured on 2026-11-25. Every one of the 38
-   weakened copies made in the reviews is refused, the three forms of the
-   gated re-wrap among them (by the re-wrap). Of Fable's 15 additive forms of
-   an AI's honest fix (a new wrap, a helper, a counter, a listener, a
-   timer...), 11 pass (`main`'s guard: 12, round 5's: 11). Of the six reads
-   of the environment no matrix covers (`navigator.userAgent`,
-   `document.cookie`, `visibilityState`, `document.URL`, `baseURI`,
-   `window['loc' + 'ation']`), none passes (`main`'s and round 5's: 4). Of the
-   33 commits of `main`'s history that added lines to `fingerprint.js`
-   (their added lines alone), it refuses all 33 (`main`'s guard 28, round
-   5's 31). Those are a person's feature work: each changes old objects,
-   wraps protected properties again, branches on page data or feature
-   detection, or reads the environment, and only one of them is refused
-   for a branch alone. So the automatic fix can add a new disguise with
-   conditions on the users' configurations and the level, a helper, a new
-   wrap; changing what the old script protects stays a person's.
+   **Round 7** (Fable's third review of the guard) added these rules:
+   - *Where new code goes.* New code comes **after the last old statement of
+     its block**, never before or between old statements and never ahead of
+     a directive (`0;` before `'use strict'` turned strict mode off).
+   - *What it may be.* There it is either a declaration that cannot throw
+     (a new function; a `var` given a literal, a function, a list or object
+     of such, or a covered read compared with a literal), or
+     `try { ... } catch (e) {}` with an empty `catch`. A throw without
+     `throw` — a property of `undefined`, a call of no function, a recursion,
+     `new Array(-1)`, `1n + 1`, a `let` read too early — otherwise stopped
+     the old code after it, so the protection never installed. A new
+     statement inside an old block, swallowed by an old `catch`, otherwise
+     skipped the rest of that block.
+   - *No wraps of the language's own objects.* No new wrap or definition on
+     `String`, `Function`, `Array`, `Math`, `Reflect`, `Date`, `Intl`, typed
+     arrays and the like, or their prototypes, which the old script relies
+     on (`String.prototype.charCodeAt` reached its hashing).
+   - *Old functions.* New code calls only the old script's pure helpers and
+     its property helpers (`PAGE_HELPERS` in `tools/fix-guard.py`: `hash`,
+     `sslice`, `rng`... and `wrap`, `getter`, `setter`, which rule (f)
+     judges). `install(window)` again, or any other old function, is a
+     person's to call.
+   - *A measured value, as the matrix measures it.* It may be compared with
+     a literal, negated, or be a condition's own test. A value kept in a name
+     and compared later is not measured. The touch points are compared only
+     with 0 to 5.
+   - *One re-wrap opening.* A property the old script protects may be wrapped
+     again only as a copy of one of its old calls with exactly the names the
+     engine renamed changed (`tools/engine-renames.json`, written by
+     AUTOMAT's recipes from the engine's interfaces, tier B; empty today):
+     never a changed body, and every other name must mean what it meant.
+
+   *What it accepts and refuses*, measured on 2026-11-25:
+   - **Weakened copies:** all 46 made in the reviews are refused. These
+     include Fable's twelve forms of round 7 and the gated re-wraps.
+   - **Fable's honest fixes:** of 15 additive forms of an AI's honest fix
+     (a new wrap, a helper, a counter, a listener, a timer...), written where
+     round 7 puts new code (at the end, what runs in `try`), 10 pass. Round
+     6 passed 11; the wrap of a `Date` method is refused now, `Date` being
+     one of the language's own objects. Written in the middle of the script,
+     as the review wrote them, none passes.
+   - **Uncovered environment reads:** of the six (`navigator.userAgent`,
+     `document.cookie`, `visibilityState`, `document.URL`, `baseURI`,
+     `window['loc' + 'ation']`), none passes (`main`'s guard and round 5's:
+     4).
+   - **History:** of the 33 commits of `main`'s history that added lines to
+     `fingerprint.js` (their added lines alone), it refuses all 33 (`main`'s
+     guard 28, round 5's 31). Those are a person's feature work: each changes
+     old objects, wraps protected properties again, branches on page data or
+     feature detection, or reads the environment. None of them was an
+     engine's rename, so the rename opening would have accepted none of them;
+     it is for the engine's next renames.
+
+   So the automatic fix can add a new disguise with conditions on the users'
+   configurations and the level, a helper, a new wrap, or follow a rename of
+   the engine's. Changing what the old script protects stays a person's.
 6. *Small*: 5 files and 150 lines per attempt, 8 files and 400 lines for all
    the AI commits of a pull request; no file added, removed or renamed.
 7. *The component manifest*: only a new entry, a plain download of a file
@@ -2774,7 +2814,17 @@ computer) and without a display, with the real browser of each commit:
   all-pairs cover, about 50 sessions). Added to them are the corners: each
   level with every axis at its first value and at its last. The seed is the
   run's own, the same on both sides of a check, so different runs meet
-  different triples.
+  different triples. Since round 7 (no session of 20 seeds had a screen 1600
+  wide) each run also has 8 sessions at random real-world values off the
+  grid: widths 1024 to 5120, scale 1 to 3 in steps of 0.05, zoom 50 % to
+  200 %, 2 to 64 GB, 1 to 64 processors. A change whose new conditions
+  compare a configuration with values (`tools/fix-guard.py axis_literals`:
+  `screen.width === 1600`, `navigator.hardwareConcurrency > 6`, a time zone,
+  a language, a `matchMedia` width or resolution) gets sessions at each value
+  and beside it (1599, 1600, 1601: a threshold measured on both sides), at
+  every level, the zoom at 100 % so the page reads exactly that value. The
+  same values join the pairs, and both sides measure them alike. More than
+  24 such values make the run not verified.
 
   Each session is a page of its own in one browser run, with a noise key of
   its own (the run's keys in turn), so every one of the few values `main`
@@ -2785,7 +2835,11 @@ computer) and without a display, with the real browser of each commit:
   - the time zone and the locale;
   - the processors.
 
-  The browser gives the zoom. I.K.E.'s setting gives the languages. A small
+  The zoom is given the same way, as it reaches the page: the scale times
+  the zoom, the window divided by it. The browser's own zoom took effect
+  before the page's first reads in some runs and after them in others, so
+  the same code read two values (round 7). I.K.E.'s setting gives the
+  languages. A small
   preloaded library gives the memory, read by each page's new process. A
   touch screen is a second browser run whose engine has the touch settings,
   because each navigation undoes the engine's touch emulation. The page
@@ -3083,10 +3137,15 @@ before, had one red: the storage estimate at Off ran out of its 3 s on a busy
 computer; it now has 10 s), 6 more with round 5's measures (2026-11-25,
 `main` 8176b12) gave 6 passes, and 6 more with round 6's matrix gave 6
 passes; the 240 pairs of 16 snapshots with independent keys, each with its
-56 sessions of the matrix, gave none worse. A check takes about 350 s on a
-4-core computer running two at once (the late read and the brands add about
-55 s a side, the matrix about 30 s a side: two browser starts and 20 s of
-sessions); `--runs 3` about 18 minutes, within its step's 45.
+56 sessions of the matrix, gave none worse. With round 7's matrix (64
+sessions, off-grid values included) 6 more gave 6 passes, and of 240 more
+pairs one was worse. That one came from the hidden extensions' list on the
+first machine, fewer names changed than on `main` in the sessions' mean
+(4.62 against 3.12), a chance the estimate above allows, not the matrix. A
+check takes about 365 s on a 4-core computer running two at once (the late
+read and the brands add about 55 s a side, the matrix about 30 s a side: two
+browser starts and 25 s of sessions); `--runs 3` about 18 minutes, within
+its step's 45.
 
 **Code that recognises the measurement** and behaves differently there
 is only partly guarded: the probe's address, title, global, the frame's host,

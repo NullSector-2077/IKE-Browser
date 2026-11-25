@@ -147,7 +147,7 @@ FORBIDDEN_FILES = {
     "tools/no-regression.py", "tests/test_full_auto.py", "tests/test_inventory_guard.py",
     # round 6 of "Nothing gets worse" (2026-11-25): the static guard's parser of the page scripts, and the
     # users' configurations the measurement covers and the guard's conditions may read
-    "tools/js-parse.py", "tools/env-axes.py",
+    "tools/js-parse.py", "tools/env-axes.py", "tools/engine-renames.json",
     # part 2 of AUTOMAT: the narrow form of tier B, the budget of the free quotas and its data, AUTOMAT's
     # memory, the notice for ChatGPT, the recipes, the routing, the inner loop, the upstream change, and
     # their proofs: an agent never changes what judges it, feeds it or counts it

@@ -868,7 +868,15 @@ def page_script_problems(name, run, had, known=(), structural=True):
 #  (f) define or re-wrap a property through an I.K.E. helper (wrap, getter, setter... any old function
 #      that defines properties) or Object.defineProperty and the like, unless every name it gives is a
 #      literal the old script never has (a new disguise, never a second wrap of a protected one) and its
-#      target is a prototype.
+#      target is a prototype, never one of the language's own objects (BUILTINS); the one exception is a
+#      copy of an old call with only the engine's renamed names changed (tools/engine-renames.json);
+#  (g) round 7 (Fable's third review): run where it can stop the old code. New code comes after the last
+#      old statement of its block (before it, a throw without `throw` stopped the old statements after it,
+#      an old `catch` swallowed it and skipped the rest of its block, `0;` before 'use strict' demoted the
+#      directive), and is a declaration that cannot throw or `try { ... } catch (e) {}`; it calls only the
+#      old script's pure helpers and its property helpers (PAGE_HELPERS: install(window) again is a
+#      person's); a measured value counts as measured only compared with a literal (the probe adds sessions
+#      at that value and beside it: axis_literals, tools/env-axes.py derive).
 # A text that does not parse is refused (and the rules on lines say what they see).
 
 ENV_NAMES = frozenset("""
@@ -899,6 +907,65 @@ OBJECT_MUTATORS = {("Object", "defineProperty"), ("Object", "defineProperties"),
 DEFINERS = {("Object", "defineProperty"), ("Reflect", "defineProperty"), ("Reflect", "set"),
             ("Reflect", "deleteProperty")}
 CONSTANT_GLOBALS = {"undefined", "NaN", "Infinity"}
+# round 7 (Fable's third review): the language's own objects, which the old script relies on (its hashing,
+# its seeds, its collections): no new wrap or definition on them or their prototypes
+BUILTINS = frozenset("""Object Function Array String Number Boolean Symbol BigInt Math JSON Reflect Proxy Map Set
+WeakMap WeakSet WeakRef FinalizationRegistry Promise RegExp Date Intl Error TypeError RangeError SyntaxError
+ReferenceError EvalError URIError AggregateError ArrayBuffer SharedArrayBuffer DataView Atomics Int8Array
+Uint8Array Uint8ClampedArray Int16Array Uint16Array Int32Array Uint32Array Float32Array Float64Array
+BigInt64Array BigUint64Array Iterator globalThis eval isNaN isFinite parseInt parseFloat encodeURI
+encodeURIComponent decodeURI decodeURIComponent escape unescape""".split())
+# the old functions of a page script new code may call (round 7: a call of an old function runs old code
+# again, install(window) twice, or code that stores the new code in old state): pure helpers that read
+# their arguments and give a value, and the helpers that define a property (wrap, getter, setter: rule (f)
+# judges what they are given). Any other old function is a person's to call
+PAGE_HELPERS = {
+    "ike/resources/fingerprint.js": frozenset("""getterOf setterOf sslice sindex lower isBlob majorOf LEN TAG pixels
+mul32 hash sha256 rng siteOf inPsl isIndex word nativeText mqValue mqCompare mqFeature hardSet hardMap
+hardStrongMap wrap getter setter""".split()),
+}
+# what a new statement in the old code's own lists may be outside `try { ... } catch (e) {}`: a declaration
+SAFE_UNARY = {"-", "+", "!", "~", "void"}
+COMPARE = {"==", "===", "!=", "!==", "<", "<=", ">", ">="}
+
+
+def _renames():
+    """tools/engine-renames.json beside this file (round 7): the engine's renamed page APIs, from the
+    comparison of its old and new interfaces (AUTOMAT's recipes write it; tier B). A re-wrap of a protected
+    property is accepted only as a copy of an old wrap with these names changed and nothing else."""
+    try:
+        data = json.loads((Path(__file__).resolve().parent / "engine-renames.json").read_text("utf-8"))
+        return {(str(r["from"]), str(r["to"])) for r in data.get("renames") or () if r.get("from") and r.get("to")}
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        return set()
+
+
+def _equal_renamed(a, b, renames, used, idents=None):
+    """The same tree, positions aside, but texts and names changed as a rename of the engine's says (idents:
+    the pairs of names met, for their bindings)."""
+    if isinstance(a, dict) and isinstance(b, dict):
+        if a.get("type") != b.get("type"):
+            return False
+        if a.get("type") == "Identifier" and idents is not None:
+            idents.append((a, b))
+        if a.get("type") == "Literal" and isinstance(a.get("value"), str) and isinstance(b.get("value"), str) \
+                and a["value"] != b["value"]:
+            if (a["value"], b["value"]) in renames:
+                used.append((a["value"], b["value"]))
+                return True
+            return False
+        if a.get("type") == "Identifier" and a["name"] != b["name"]:
+            if (a["name"], b["name"]) in renames:
+                used.append((a["name"], b["name"]))
+                return True
+            return False
+        ka = [k for k in a if k not in ("start", "end")]
+        if set(ka) != {k for k in b if k not in ("start", "end")}:
+            return False
+        return all(_equal_renamed(a[k], b[k], renames, used, idents) for k in ka)
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(_equal_renamed(x, y, renames, used, idents) for x, y in zip(a, b))
+    return type(a) is type(b) and a == b
 COVERED_HINT = ("only literals, the change's own names set from them, the level and the configurations "
                 "\"Nothing gets worse\" measures: tools/env-axes.py")
 
@@ -1018,7 +1085,7 @@ def _clean(e, scopes, clean, axes):
     if t == "Identifier":
         key = scopes.refs.get(id(e), 0)
         if key is None:
-            return e["name"] in CONSTANT_GLOBALS or _covered(e, scopes, axes)
+            return e["name"] in CONSTANT_GLOBALS or (_covered(e, scopes, axes) and _measured_use(e, scopes))
         if key in clean:
             return True
         return axes is not None and e["name"] in axes.PROTECTION_STATE and key != 0
@@ -1037,7 +1104,7 @@ def _clean(e, scopes, clean, axes):
                    for p in e["properties"])
     if t == "MemberExpression":
         if _covered(e, scopes, axes):
-            return True
+            return _measured_use(e, scopes)
         if e["computed"] and _prop_name(e) is None and not _clean(e["property"], scopes, clean, axes):
             return False
         return _clean(e["object"], scopes, clean, axes)
@@ -1056,6 +1123,96 @@ def _clean(e, scopes, clean, axes):
     if t == "ChainExpression":
         return _clean(e["expression"], scopes, clean, axes)
     return False
+
+
+def _const_value(e):
+    """A literal number or text (a negative number too), or None."""
+    if e["type"] == "Literal" and isinstance(e.get("value"), (int, float, str)) and not isinstance(e.get("value"), bool) \
+            and "bigint" not in e:
+        return e["value"]
+    if e["type"] == "UnaryExpression" and e["operator"] == "-" and e["argument"]["type"] == "Literal" and \
+            isinstance(e["argument"].get("value"), (int, float)):
+        return -e["argument"]["value"]
+    if e["type"] == "TemplateLiteral" and not e["expressions"]:
+        return e["quasis"][0]["value"].get("cooked")
+    return None
+
+
+TOUCH_READS = ("maxTouchPoints", "navigator.maxTouchPoints")
+
+
+def _measured_use(node, scopes):
+    """A covered read used as the matrix of "Nothing gets worse" measures it (round 7): compared with a
+    literal (the probe adds sessions at that value and beside it: tools/env-axes.py derive), negated, or as
+    a condition's own test. The touch points only against 0 to 5 (a touch screen has 5 there): a value the
+    probe cannot give is no condition. Used otherwise (in arithmetic, kept in a name) it is not measured."""
+    key = _env_key(node, scopes) or ""
+    node = _use_node(node, scopes)
+    par = scopes.parent.get(id(node))
+    if par is None:
+        return False
+    if par["type"] == "BinaryExpression" and par["operator"] in COMPARE:
+        other = par["right"] if par["left"] is node else par["left"]
+        v = _const_value(other)
+        if v is None:
+            return False
+        if key in TOUCH_READS:
+            return isinstance(v, (int, float)) and (v in (0, 5) if par["operator"] in ("==", "===", "!=", "!==")
+                                                     else 0 <= v <= 4)
+        return True
+    if par["type"] == "UnaryExpression" and par["operator"] == "!":
+        return True
+    if par["type"] in ("IfStatement", "ConditionalExpression", "WhileStatement", "DoWhileStatement", "ForStatement") \
+            and par.get("test") is node:
+        return True
+    return par["type"] == "LogicalExpression"
+
+
+def _use_node(node, scopes):
+    """The whole read a covered name starts (`screen.width`, `screen.orientation.type` from `screen`)."""
+    while True:
+        par = scopes.parent.get(id(node))
+        if par is None or par["type"] != "MemberExpression" or par["object"] is not node or par["computed"]:
+            return node
+        node = par
+
+
+def axis_literals(name, old, new):
+    """What a change's new conditions compare the users' configurations with (round 7): [{"read", "op",
+    "value"}] and [{"media": query}], for the probe to add sessions at those values (tools/env-axes.py
+    derive). Empty when the scripts do not parse or the change adds nothing."""
+    if name not in PROTECTED_JS:
+        return []
+    told, tnew = _js_parse(old), _js_parse(new)
+    if told[0] is None or tnew[0] is None:
+        return []
+    r = _embed(told[0], tnew[0])
+    if r is None:
+        return []
+    sn, axes = _Scopes(tnew[0]), _env_axes()
+    added_ids = set()
+    for s in r[1]:
+        added_ids.update(id(n) for n in _walk(s))
+    out = []
+    for s in r[1]:
+        for node in _walk(s):
+            if node["type"] in ("Identifier", "MemberExpression") and _covered(node, sn, axes):
+                key = _env_key(node, sn)
+                par = sn.parent.get(id(_use_node(node, sn)))
+                if key and par is not None and par["type"] == "BinaryExpression" and par["operator"] in COMPARE:
+                    other = par["right"] if par["left"] is _use_node(node, sn) else par["left"]
+                    v = _const_value(other)
+                    if v is not None:
+                        item = {"read": key, "op": par["operator"], "value": v}
+                        if item not in out:
+                            out.append(item)
+            if node["type"] == "CallExpression" and node["arguments"] and \
+                    _chain(node["callee"]) and _chain(node["callee"])[-1] == "matchMedia" and \
+                    node["arguments"][0]["type"] == "Literal" and isinstance(node["arguments"][0].get("value"), str):
+                item = {"media": node["arguments"][0]["value"]}
+                if item not in out:
+                    out.append(item)
+    return out
 
 
 def _root(node):
@@ -1688,10 +1845,56 @@ def page_tree_problems(name, old, new):
                 say(node, "a new line assigns to %s, an object the change did not make (the old script's, the "
                           "page's or a global)%s" % (".".join(c) if c else "a property", how))
 
+    renames = _renames()
+
+    def renamed_copy(call):
+        """A copy of an old call with only the engine's renamed names changed (tools/engine-renames.json)."""
+        if not renames:
+            return False
+        for c in _walk(t_old):
+            if c["type"] == "CallExpression":
+                used, idents = [], []
+                if not (_equal_renamed(c, call, renames, used, idents) and used):
+                    continue
+                # every name means what it meant in the old call: the same binding outside it, the copy's own
+                # declaration where the old call declared its own
+                mine = {}
+                for a, b in idents:
+                    if id(a) in so.decl_of and id(b) in sn.decl_of:
+                        mine[so.decl_of[id(a)]] = sn.decl_of[id(b)]
+                if all(sn.refs.get(id(b)) == mine.get(so.refs[id(a)], object()) or
+                       same_binding(so.refs[id(a)], sn.refs.get(id(b)))
+                       for a, b in idents if id(a) in so.refs and a["name"] == b["name"]):
+                    return True
+        return False
+
+    def builtin_target(a, seen=()):
+        """A target that is one of the language's own objects or its prototype (BUILTINS), by its names or
+        an old name given only such a chain."""
+        a = _strip(a)
+        if a["type"] == "LogicalExpression":
+            return builtin_target(a["left"], seen) or builtin_target(a["right"], seen)
+        if a["type"] in ("Identifier", "MemberExpression"):
+            ch = _chain(a) or []
+            if any(x in BUILTINS for x in ch):
+                return True
+            if a["type"] == "Identifier":
+                key = sn.binding(a)
+                if key is not None and key not in seen:
+                    return any(isinstance(v, dict) and builtin_target(v, seen + (key,))
+                               for v in sn.values.get(key, []) if v is not None)
+        return False
+
     def defining_call(call, how):
         """(f): a call that defines a property (an I.K.E. helper or Object.defineProperty and the like)."""
         args = call["arguments"]
         if how == "native" and args and root_ok(args[0]):
+            return
+        if any(builtin_target(a) for a in args if a["type"] not in FUNCTIONS):
+            say(call, "a new call defines or wraps a property of the language's own objects (String, Function, "
+                      "Math, Reflect, Array...), which the old script relies on: only page interfaces")
+            return
+        if renamed_copy(call):
             return
         texts = []
         for a in args:
@@ -1718,8 +1921,27 @@ def page_tree_problems(name, old, new):
                 say(call, "a new call defines or wraps %s again, which the old script already protects or "
                           "names: only a person changes a protection" % s)
 
+    helpers = PAGE_HELPERS.get(name, frozenset())
+
+    def old_function(key):
+        """An old binding that holds one of the old script's own functions."""
+        if not old_binding(key):
+            return False
+        decl = sn.decls.get(key) or []
+        if any((sn.parent.get(id(d)) or {}).get("type") == "FunctionDeclaration" and
+               sn.parent[id(d)].get("id") is d for d in decl):
+            return True
+        return any(isinstance(v, dict) and v.get("type") in FUNCTIONS for v in sn.values.get(key, []))
+
     def visit(node, in_new_fn, loops, switches, labels):
         t = node["type"]
+        if t == "CallExpression" and renamed_copy(node):
+            return                       # an old wrap again, only the engine's renamed names changed
+        if t == "Identifier" and id(node) in sn.refs:
+            key = sn.refs[id(node)]
+            if key is not None and old_function(key) and node["name"] not in helpers:
+                say(node, "a new use of the old function %s (it runs old code again, or keeps new code in old "
+                          "state): new code calls only the pure helpers and wrap, getter, setter" % node["name"])
         if t in ("FunctionDeclaration", "ClassDeclaration") and node.get("id"):
             key = sn.decl_of.get(id(node["id"]))
             if key is not None and old_binding(key):
@@ -1879,7 +2101,97 @@ def page_tree_problems(name, old, new):
         for _, c in _kids(node):
             visit(c, in_new_fn, loops, switches, labels)
 
+    def primitive(e, seen=()):
+        """A value that cannot throw when read or combined: a literal (no BigInt), a covered read of the
+        environment, a var of the change's or the old script's given only such values."""
+        e = _strip(e)
+        tt = e["type"]
+        if tt == "Literal":
+            return "bigint" not in e
+        if tt == "TemplateLiteral":
+            return all(primitive(x, seen) for x in e["expressions"])
+        if _covered(e, sn, axes) or (tt == "CallExpression" and _covered(e["callee"], sn, axes)):
+            return True
+        if tt == "MemberExpression" and _prop_name(e) == "matches" and e["object"]["type"] == "CallExpression" \
+                and _covered(e["object"]["callee"], sn, axes):
+            return True
+        if tt == "MemberExpression" and e["object"]["type"] == "Identifier" and _covered(e["object"], sn, axes):
+            return True                  # screen.width: the read is named by the global and its member
+        if tt == "Identifier":
+            key = sn.refs.get(id(e), 0)
+            if key is None:
+                return e["name"] in CONSTANT_GLOBALS
+            if key in (0,) or key in seen or binding_kind(key) not in ("var", "function"):
+                return False
+            vals = sn.values.get(key, [])
+            return all(v is None or (isinstance(v, dict) and v["type"] in FUNCTIONS) or
+                       (isinstance(v, dict) and primitive(v, seen + (key,))) for v in vals)
+        if tt == "UnaryExpression":
+            return e["operator"] in SAFE_UNARY and primitive(e["argument"], seen) or \
+                e["operator"] == "typeof" and (e["argument"]["type"] == "Identifier" or primitive(e["argument"], seen))
+        if tt in ("BinaryExpression", "LogicalExpression"):
+            return e["operator"] not in ("in", "instanceof") and primitive(e["left"], seen) and primitive(e["right"], seen)
+        if tt == "ConditionalExpression":
+            return all(primitive(e[k], seen) for k in ("test", "consequent", "alternate"))
+        return False
+
+    def safe_init(e):
+        """What a new declaration among the old statements may be given: it cannot throw."""
+        if e is None or e["type"] in FUNCTIONS:
+            return True
+        if e["type"] == "ArrayExpression":
+            return all(x is None or (x["type"] != "SpreadElement" and safe_init(x)) for x in e["elements"])
+        if e["type"] == "ObjectExpression":
+            return all(q["type"] == "Property" and not q["computed"] and
+                       (q["kind"] != "init" or q["method"] or safe_init(q["value"])) for q in e["properties"])
+        return primitive(e)
+
+    def binding_kind(key):
+        decl = (sn.decls.get(key) or [None])[0]
+        par = sn.parent.get(id(decl)) if decl is not None else None
+        if par is None:
+            return None
+        if par["type"] == "VariableDeclarator":
+            return (sn.parent.get(id(par)) or {}).get("kind")
+        if par["type"] == "FunctionDeclaration":
+            return "function"
+        if par["type"] in FUNCTIONS:
+            return "param"
+        return par["type"]
+
+    def placed(s):
+        """Round 7 (Fable's third review): a new statement in a list of the old code's own runs in the old
+        code's flow, where a throw without `throw` (a property of undefined, a call of no function, a
+        recursion, new Array(-1), 1n + 1, a let read too early) stops the old statements after it, or an old
+        `catch` swallows it and skips the rest of its block; before the first statement it demotes a
+        directive ('use strict'). So it comes after the last old statement of its list, and is a declaration
+        that cannot throw, or `try { ... } catch (e) {}`."""
+        par = sn.parent.get(id(s))
+        if par is None or id(par) in added_ids:
+            return
+        lst = par.get("body") if par["type"] in ("Program", "BlockStatement", "StaticBlock") else \
+            par.get("consequent") if par["type"] == "SwitchCase" else None
+        if not isinstance(lst, list):
+            return
+        at = next((i for i, x in enumerate(lst) if x is s), None)
+        olds = [i for i, x in enumerate(lst) if id(x) not in added_ids]
+        if at is not None and olds and at < max(olds):
+            say(s, "a new statement before an old one of its block (it can stop or skip the old ones after it, "
+                   "or demote a directive): new code comes after the last old statement")
+        kind = s["type"]
+        if kind in ("FunctionDeclaration", "EmptyStatement"):
+            return
+        if kind == "VariableDeclaration" and s["kind"] == "var" and all(safe_init(d["init"]) for d in s["declarations"]):
+            return
+        if kind == "TryStatement" and s.get("handler") is not None and not s["handler"]["body"]["body"] and \
+                s.get("finalizer") is None:
+            return
+        say(s, "a new statement that runs in the old code's flow and may throw (a throw without `throw` stops "
+               "the old code): there only declarations that cannot throw; what runs goes in "
+               "`try { ... } catch (e) {}` after the last old statement")
+
     for s in added:
+        placed(s)
         visit(s, False, 0, 0, ())
     return out, True
 

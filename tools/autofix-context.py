@@ -46,7 +46,7 @@ MAX_RECENT = 6
 NOT_RECENT = {
     "tools/fix-guard.py", "tools/ai-review.py", "tools/component-manifest.py", "tools/release-notice.py",
     "tools/no-regression.py", "tests/test_full_auto.py", "tests/test_inventory_guard.py", "tools/js-parse.py",
-    "tools/env-axes.py",
+    "tools/env-axes.py", "tools/engine-renames.json",
     "tools/tier-b.py", "tools/ai-quota.py", "tools/ai-quota.json", "tools/automat-memory.py",
     "tools/automat-help.py", "tools/automat-recipes.py", "tools/automat-route.py", "tools/autofix-inner.py",
     "tools/upstream-diff.py", "tests/test_automat_part2.py",

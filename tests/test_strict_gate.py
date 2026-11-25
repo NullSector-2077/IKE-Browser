@@ -40,8 +40,8 @@ merge = mm.merge
 
 # an AI's new helper (since round 6 of "Nothing gets worse" a page script's new code holds no branch on data:
 # tests/test_full_auto.py shows the guard refusing one)
-NEW_JS = fa.JS.replace("  protect(level());\n", "  function extra(a) {\n    var b = a + 1;\n    return b * 2;\n  }\n"
-                       "  protect(level());\n")
+NEW_JS = fa.JS.replace("  protect(level());\n", "  protect(level());\n  function extra(a) {\n    var b = a + 1;\n"
+                       "    return b * 2;\n  }\n")
 THREE = ("Antigravity", "Z.AI", "OpenRouter")          # none of them the author (Groq)
 
 

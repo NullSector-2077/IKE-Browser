@@ -204,8 +204,10 @@ def test_a_page_script_declares_nothing_again(added, word):
     name = "ike/resources/fingerprint.js"
     found = fg.file_problems(name, JS, JS.replace("  protect(level());\n", added + "  protect(level());\n"))
     assert any(word in p for p in found), found
-    fine = JS.replace("  protect(level());\n", "  function extra(a) {\n    let level = a;\n    level = level + 1;\n"
-                      "    return level;\n  }\n  var seen = 0;\n  seen = seen + 1;\n  protect(level());\n")
+    # round 7: after the last old statement, what runs inside try { ... } catch (e) {}
+    fine = JS.replace("  protect(level());\n", "  protect(level());\n  function extra(a) {\n    let level = a;\n"
+                      "    level = level + 1;\n    return level;\n  }\n  var seen = 0;\n"
+                      "  try {\n    seen = seen + 1;\n  } catch (e) {}\n")
     assert fg.file_problems(name, JS, fine) == []
     rs = "fn check(a: &str) -> bool {\n    let ok = a.is_empty();\n    if ok {\n        return false;\n    }\n    true\n}\n"
     hidden = rs.replace("    if ok {\n", "    let ok = a.len() > 9000;\n    if ok {\n")

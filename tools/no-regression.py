@@ -214,6 +214,35 @@ def env_axes():
     return mod
 
 
+def _fix_guard():
+    """tools/fix-guard.py beside this file (its parser reads what a change's conditions compare with)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ike_fix_guard_nr", Path(__file__).resolve().parent / "fix-guard.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def matrix_literals(base_repo, candidate_repo):
+    """Round 7: the values the candidate's new conditions in I.K.E.'s page scripts compare the users'
+    configurations with (tools/fix-guard.py axis_literals): the matrix measures them and beside them, on both
+    sides (tools/env-axes.py derive)."""
+    try:
+        guard = _fix_guard()
+    except Exception:
+        return []
+    out = []
+    for name in guard.PROTECTED_JS:
+        try:
+            old = (Path(base_repo) / name).read_text("utf-8")
+            new = (Path(candidate_repo) / name).read_text("utf-8")
+        except OSError:
+            continue
+        if old != new:
+            out += [x for x in guard.axis_literals(name, old, new) if x not in out]
+    return out
+
+
 def _memory_shim(workdir, machine=None):
     """The other machine's memory library, built in workdir; None when no compiler builds it."""
     machine = machine or OTHER_MACHINE
@@ -1224,13 +1253,18 @@ class _Emulation:
 
 
 def _matrix_commands(s, viewport):
+    """The engine's emulation of a session. The page's zoom is given as a zoom gives it to the page (round 7:
+    the browser's zoom took effect after the page's first reads in some sessions and before them in others,
+    so the same code read two values): the scale times the zoom, the window divided by it."""
     w, h = s["screen"]
+    z = float(s.get("zoom") or 1)
     media = [{"name": "prefers-color-scheme", "value": s["scheme"]},
              {"name": "prefers-reduced-motion", "value": s["motion"]},
              {"name": "forced-colors", "value": "active" if s["contrast"] == "forced" else "none"},
              {"name": "prefers-contrast", "value": "more" if s["contrast"] == "forced" else "no-preference"}]
     return [("Emulation.setDeviceMetricsOverride", {
-                "width": viewport[0], "height": viewport[1], "deviceScaleFactor": s["scale"], "mobile": False,
+                "width": int(round(viewport[0] / z)), "height": int(round(viewport[1] / z)),
+                "deviceScaleFactor": round(float(s["scale"]) * z, 4), "mobile": False,
                 "screenWidth": w, "screenHeight": h,
                 "screenOrientation": {"type": "landscapePrimary" if w >= h else "portraitPrimary", "angle": 0}}),
             ("Emulation.setEmulatedMedia", {"features": media}),
@@ -1289,13 +1323,11 @@ def _matrix():
                 rec["error"] = "emulation: %s" % (em.error or "no answer")
                 continue
             rec["emulation"] = [m for m, r in em.results if r != "ok"]
-            page.setZoomFactor(float(s["zoom"]))
             page.loadFinished.connect(lambda ok, state=state: state.setdefault("ok", ok))
             page.setUrl(QUrl("%s/%s?%s=%s.m%d" % (PLAN["base"], PLAN["matrix_page"], PLAN["param"], s["level"], n)))
             end = time.monotonic() + 20
             while "ok" not in state and time.monotonic() < end:
                 yield 20
-            page.setZoomFactor(float(s["zoom"]))
             for world, code, key in ((0, "window[%s] || ''" % g, "prot"),
                                      (77, PLAN["matrix_real"], None), (77, "window.__mr || ''", "real")):
                 end = time.monotonic() + 20
@@ -2285,13 +2317,20 @@ def run_matrix(repo, plan, settings, server, workdir, keys):
     the same on both sides), measured in two browser runs (without and with a touch screen), each session a
     page of its own."""
     axes = env_axes()
-    rows = axes.sessions(server.names.get("matrix_seed", 1))
+    literals = server.names.get("matrix_literals") or []
+    errors = []
+    if axes.too_many(literals):
+        errors.append({"section": "fingerprint", "error": "the change compares the users' configurations with more "
+                       "values than a run measures (%d at most): not verified" % axes.MAX_DERIVED})
+        literals = []
+    rows = axes.sessions(server.names.get("matrix_seed", 1), literals=literals)
     for n, s in enumerate(rows):
         s["n"] = n
         s["screen"] = list(s["screen"])
         # the page's window before the zoom (the browser's own bars aside); the page sees it at its zoom
         s["window"] = [s["screen"][0], s["screen"][1] - axes.CHROME_HEIGHT]
-    data = {"matrix": [], "sessions": rows, "errors": [], "matrix_seconds": 0, "python_hosts": []}
+    data = {"matrix": [], "sessions": rows, "errors": errors, "matrix_seconds": 0, "python_hosts": [],
+            "derived": axes.derive(literals)}
     for touch in (False, True):
         part = [s for s in rows if bool(s["touch"]) == touch]
         if not part:
@@ -2322,10 +2361,13 @@ def run_matrix(repo, plan, settings, server, workdir, keys):
 
 def _matrix_label(s):
     w, h = s["screen"]
-    return "%s, %dx%d at %sx, zoom %s%%, %s%s%s%s, %s, %s, %d cores, %d GB" % (
+    label = "%s, %dx%d at %sx, zoom %s%%, %s%s%s%s, %s, %s, %d cores, %d GB" % (
         s["level"], w, h, s["scale"], int(round(s["zoom"] * 100)), "touch " if s["touch"] else "",
         "dark " if s["scheme"] == "dark" else "", "reduced motion " if s["motion"] == "reduce" else "",
         "forced colours" if s["contrast"] == "forced" else "", s["language"], s["timezone"], s["cores"], s["memory"])
+    if s.get("derived"):
+        return label + " (the change's own value: %s)" % s["derived"]
+    return label + (" (off the grid)" if s.get("fuzz") else "")
 
 
 def _matrix_obs(m, errors):
@@ -4329,11 +4371,15 @@ def main(argv=None):
     reports, runs = [], max(1, int(args.runs or 1))
     # main's names of the masked fonts, tested on both sides (N4: a name taken out is still tested)
     fonts_main = masked_fonts(args.base_repo)
+    literals = matrix_literals(args.base_repo, args.candidate_repo)
     for run in range(runs):
         # the same noise keys and the same shape of the probe for both sides, random: the code measured
         # cannot know them in advance
         keys = [secrets.token_hex(16) for _ in range(SESSIONS + PICK_DRAWS)]
         shape, names = random_shape(), run_names()
+        # round 7: the values the candidate's new conditions compare the configurations with, measured on
+        # both sides (and beside them)
+        names["matrix_literals"] = literals
         where = out if run == 0 else out / ("run%d" % (run + 1))
         base = snapshot(args.base_repo, fixtures=args.fixtures, keys=keys, shape=shape, fonts_main=fonts_main,
                         names=names)

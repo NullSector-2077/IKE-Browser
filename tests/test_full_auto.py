@@ -207,15 +207,18 @@ def test_a_page_script_keeps_every_line_and_its_protections(old, new, word):
     assert old in JS
     found = fg.file_problems(name, JS, JS.replace(old, new, 1))
     assert found and any(word in p for p in found), found
-    added = JS.replace("  protect(level());\n", "  function extra(a) {\n    var b = a + 1;\n    return b * 2;\n  }\n"
-                       "  protect(level());\n")
+    # round 7: new code after the last old statement (before an old one it could stop or skip the old ones)
+    added = JS.replace("  protect(level());\n", "  protect(level());\n  function extra(a) {\n    var b = a + 1;\n"
+                       "    return b * 2;\n  }\n")
     assert fg.file_problems(name, JS, added) == []
     # since round 6 of "Nothing gets worse" (2026-11-25) a new condition in a page script reads only what is
     # measured: literals, the change's own names (its parameters too), the level and the users' configurations
     # (tools/env-axes.py). A condition no measurement makes true is what hid a weakening (the real cores behind
     # devicePixelRatio !== 1): on the old configuration's other data it is refused
-    branchy = JS.replace("  protect(level());\n", "  function extra(a) {\n    if (a) { return 1; }\n    return 2;\n  }\n"
-                         "  protect(level());\n")
+    branchy = JS.replace("  protect(level());\n", "  protect(level());\n  function extra(a) {\n    if (a) { return 1; }\n"
+                         "    return 2;\n  }\n")
+    before = JS.replace("  protect(level());\n", "  function extra(a) {\n    return a;\n  }\n  protect(level());\n")
+    assert any("before an old one" in p for p in fg.file_problems(name, JS, before))
     assert fg.file_problems(name, JS, branchy) == []
     on_config = branchy.replace("    if (a) {", "    if (CFG.extra) {")
     assert any("condition on data" in p for p in fg.file_problems(name, JS, on_config))
