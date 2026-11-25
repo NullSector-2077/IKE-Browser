@@ -921,8 +921,9 @@ def test_the_reserves_ask_only_whom_the_budget_allows_and_leave_their_use(tmp_pa
 def test_without_the_reviewers_reserve_the_fix_waits_and_nobody_is_called(tmp_path):
     state = tmp_path / "quota.json"
     used = quota.empty_state()
-    for name in ("Antigravity", "OpenRouter"):
-        quota._prov(used, quota.day_of(), name)["spent"] = "429: the quota of the day"
+    limits = quota.load_limits()["providers"]
+    for name in ("Antigravity", "OpenRouter"):       # each on its own day (Antigravity's ends in California)
+        quota._prov(used, quota.provider_day(limits[name]), name)["spent"] = "429: the quota of the day"
     state.write_text(json.dumps(used))
     usage = tmp_path / "usage.json"
     out, seen, repo = reserves(tmp_path, [GOOD], ["--quota-state", str(state), "--quota-usage", str(usage)])
