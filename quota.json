@@ -136,7 +136,7 @@
    "runs": 12
   },
   "2026-11-25": {
-   "answered": 4,
+   "answered": 5,
    "no_provider": 1,
    "providers": {
     "OpenRouter": {
@@ -183,7 +183,7 @@
      "tokens": 27200
     }
    },
-   "runs": 5
+   "runs": 6
   }
  },
  "schema": 1
