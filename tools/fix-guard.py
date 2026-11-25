@@ -61,7 +61,14 @@ The rules of a tier-A file, each one testable:
    where or when the page is (PAGE_ENV), or change an object the old script has by a method or delete
    from it (PAGE_MUTATE, PAGE_DELETE); since round 5 (2026-11-25) also not assign anywhere in the line to a
    name the change does not declare (PAGE_ASSIGN, PAGE_INCDEC), run something later outside a function the
-   change adds (PAGE_LATER), or name sites in a pattern or a text (PAGE_BRANDS).
+   change adds (PAGE_LATER), or name sites in a pattern or a text (PAGE_BRANDS). Since round 6 (2026-11-25)
+   a page script is read by its syntax tree (page_tree_problems, the guard's own parser tools/js-parse.py;
+   a script that does not parse is refused): every old statement still in its place, and what is added
+   writes nothing the old script has, reads none of the page's environment, reaches no property by a
+   computed name, leaves no old code, branches only on what "Nothing gets worse" measures (literals, its own
+   names, the level, the users' configurations of tools/env-axes.py) and wraps no property the old script
+   already names; the rules on lines keep only the old lines, the always-true conditions, what reaches out,
+   the named sites and the new addresses there.
 7. **The component manifest** (components.json) may get a new entry for a file from upstream that has
    none (the inventory guard says which): only added entries, a plain download from an allowed host of
    a file that is already in the repository with the sha256 the entry declares, never a build command
@@ -748,9 +755,11 @@ def _declared_list(bare):
     return out
 
 
-def page_script_problems(name, run, had, known=()):
+def page_script_problems(name, run, had, known=(), structural=True):
     """The rules of a page script's new lines (PROTECTED_JS): (problems). `run` is a run of new lines,
-    `had` what the old script declares, `known` every name the old script has (its parameters too)."""
+    `had` what the old script declares, `known` every name the old script has (its parameters too).
+    structural=False: the script parsed, so its syntax trees judge writes, exits, reads and branches
+    (page_tree_problems): only the sites named in patterns and texts are judged here."""
     out, stack, mine = [], [], set()
     known = set(known) | set(had)
     for line in run:
@@ -768,6 +777,9 @@ def page_script_problems(name, run, had, known=()):
                 if re.match(r"^[A-Za-z_$][\w$]*$", p):
                     mine.add(p)
         in_fn = "fn" in stack
+        if not structural:
+            out += _named_sites(name, line)
+            continue
         # (i) an assignment anywhere in the line to a name the change did not declare itself (round 5, F5:
         # `seed = 1` inside a timer's callback; F1, F2, F3: lv, cores, n set under a new condition)
         targets = [m.group(1) for m in PAGE_ASSIGN.finditer(bare)] + \
@@ -788,17 +800,7 @@ def page_script_problems(name, run, had, known=()):
             out.append("%s: a new condition on %s decides what the protection does (%s)" % (
                 name, ", ".join(state[:4]), line[:70]))
         # (iv) a site named in a pattern or a text
-        code = re.sub(r"//.*$", "", line) if "//" in line and not re.search(r"[\"'`/][^\"'`]*//", line) else line
-        for m in REGEX_LITERAL.finditer(code):
-            if PAGE_BRANDS.search(m.group(1)):
-                out.append("%s: a new pattern names sites (/%s/): a protection may not depend on the site" % (
-                    name, m.group(1)[:50]))
-                break
-        for s in re.findall(r"'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"|`(?:\\.|[^`\\])*`", code):
-            if re.search(r"(?:google|youtube|facebook|instagram|amazon|cloudflare|captcha|microsoft|apple|paypal"
-                          r"|twitter|tiktok)\.", s, re.I) or re.search(r"\(\s*(?:com|org|net)\s*\|", s):
-                out.append("%s: a new text names a site (%s)" % (name, s[:50]))
-                break
+        out += _named_sites(name, line)
         # what the line itself opens before an exit word: a function written on the same line
         head = re.split(r"(?<![\w$.])(?:return|throw|break|continue)(?![\w$])", bare, maxsplit=1)[0]
         if EXIT_WORD.search(bare) and not in_fn and not re.search(r"\bfunction\b|=>", head):
@@ -831,6 +833,1165 @@ def page_script_problems(name, run, had, known=()):
     return out
 
 
+# --- I.K.E.'s page scripts by their syntax trees (round 6 of "Nothing gets worse", 2026-11-25) -----------
+#
+# Rules on lines kept leaking: a destructuring, a loop's target or a second declarator wrote to old
+# names; Object.defineProperty, Reflect.set and Object.assign changed old objects; document.URL,
+# window['loc' + 'ation'] or devicePixelRatio read where the page is; and a new call of an old helper
+# re-wrapped what the old script protects, under a condition no measurement makes true (the real cores
+# for every screen whose devicePixelRatio is not 1). So a page script (PROTECTED_JS) is read by its syntax
+# tree (tools/js-parse.py, no dependency) and every statement of the old tree must still be in the new one,
+# in order and at the same place (statements may only be added to a list of statements). What is added
+# is the change; in it nothing may:
+#  (a) write to what the old script has: a binding (any assignment or pattern, ++/--, a for-in/of's
+#      target, a declaration of an old name, a parameter's too, one that hides an old name from old code),
+#      an object (its properties, delete, a method that changes it, Object.defineProperty, assign,
+#      setPrototypeOf, freeze..., Reflect.set, defineProperty, deleteProperty..., __proto__), a page
+#      object or a global (new code changes only objects it makes itself, `{}`, `[]`, `new Map()`);
+#  (b) read the page's environment (where, when, the screen, the device, chance, timers, events):
+#      ENV_NAMES, as a global or a property, unless the matrix of "Nothing gets worse" measures it
+#      (tools/env-axes.py COVERED_READS; matchMedia with a literal query of covered features), or the old
+#      script reads exactly that too and the new code is inside a function the change adds (an interface's
+#      prototype, `Date.prototype`, is no read);
+#  (c) reach a property by a computed name (only a literal, or a number: arithmetic, a length, a counter),
+#      call eval or Function, use `with`, `import()` or `.constructor`;
+#  (d) leave code: return or throw outside a function the change adds, break or continue out of a loop
+#      or switch the change did not add;
+#  (e) branch on what no measurement covers: an if, ?:, &&, ||, ??, switch, a loop's test, an optional chain
+#      `?.`, a default value, a for-in/of, a catch that does more than give a value back, whose test reads
+#      anything but literals, the change's own clean names (set in their own function from clean values; a
+#      parameter when every call gives clean values), the level (PROTECTION_STATE) and the users'
+#      configurations "Nothing gets worse" measures in its matrix (tools/env-axes.py COVERED_READS, one list
+#      for the probe and the guard: an axis added there is measured and allowed at once). A condition no
+#      measurement makes true is exactly what hides a weakening (the owner's direction of 2026-11-25: the
+#      configurations are measured up front, so the automatic fix needs no person for a condition on them);
+#  (f) define or re-wrap a property through an I.K.E. helper (wrap, getter, setter... any old function
+#      that defines properties) or Object.defineProperty and the like, unless every name it gives is a
+#      literal the old script never has (a new disguise, never a second wrap of a protected one) and its
+#      target is a prototype.
+# A text that does not parse is refused (and the rules on lines say what they see).
+
+ENV_NAMES = frozenset("""
+location top parent opener frames frameElement self Date performance Intl navigator screen devicePixelRatio
+innerWidth innerHeight outerWidth outerHeight screenX screenY screenLeft screenTop scrollX scrollY pageXOffset
+pageYOffset visualViewport matchMedia getComputedStyle setTimeout setInterval requestAnimationFrame
+requestIdleCallback queueMicrotask crypto origin history localStorage sessionStorage indexedDB caches
+MessageChannel BroadcastChannel postMessage Notification Worker SharedWorker fetch XMLHttpRequest WebSocket
+EventSource orientation ontouchstart PointerEvent TouchEvent
+URL baseURI documentURI referrer domain cookie visibilityState hidden hasFocus ancestorOrigins hostname host
+href pathname protocol search port hash maxTouchPoints userAgent userAgentData platform language languages
+hardwareConcurrency deviceMemory connection onLine webdriver plugins mimeTypes vendor oscpu timeZone
+resolvedOptions getTimezoneOffset now random getRandomValues randomUUID timeOrigin availWidth availHeight
+colorDepth pixelDepth then addEventListener lastModified readyState activeElement fonts pointerEnabled
+msMaxTouchPoints standalone
+""".split())
+STMT_LISTS = {("Program", "body"), ("BlockStatement", "body"), ("StaticBlock", "body"),
+              ("SwitchCase", "consequent")}
+FUNCTIONS = ("FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression")
+LOOPS = ("ForStatement", "ForInStatement", "ForOfStatement", "WhileStatement", "DoWhileStatement")
+# what changes an object given as the first argument (and Object/Reflect's functions that do)
+MUTATING_METHODS = {"splice", "pop", "shift", "unshift", "push", "fill", "copyWithin", "reverse", "sort",
+                    "clear", "delete", "add", "set", "setPrototypeOf", "__defineGetter__", "__defineSetter__"}
+OBJECT_MUTATORS = {("Object", "defineProperty"), ("Object", "defineProperties"), ("Object", "assign"),
+                   ("Object", "setPrototypeOf"), ("Object", "freeze"), ("Object", "seal"),
+                   ("Object", "preventExtensions"), ("Reflect", "set"), ("Reflect", "defineProperty"),
+                   ("Reflect", "deleteProperty"), ("Reflect", "setPrototypeOf"), ("Reflect", "preventExtensions")}
+DEFINERS = {("Object", "defineProperty"), ("Reflect", "defineProperty"), ("Reflect", "set"),
+            ("Reflect", "deleteProperty")}
+CONSTANT_GLOBALS = {"undefined", "NaN", "Infinity"}
+COVERED_HINT = ("only literals, the change's own names set from them, the level and the configurations "
+                "\"Nothing gets worse\" measures: tools/env-axes.py")
+
+
+def _js_parse(source):
+    """The syntax tree of a page script (tools/js-parse.py beside this file), or (None, why)."""
+    try:
+        jsp = _tool("js-parse")
+    except Exception as e:                               # the parser missing beside the guard: refuse
+        return None, "the parser (tools/js-parse.py) could not be loaded: %s" % e
+    try:
+        return jsp.parse(source or ""), ""
+    except jsp.JSSyntaxError as e:
+        return None, str(e)
+
+
+def _env_axes():
+    """tools/env-axes.py beside this file: what "Nothing gets worse" measures of the users' configurations
+    (COVERED_READS, COVERED_MEDIA, PROTECTION_STATE); None when it cannot be loaded (nothing is covered)."""
+    try:
+        return _tool("env-axes")
+    except Exception:
+        return None
+
+
+MEDIA_FEATURE = re.compile(r"\(\s*([a-z-]+)\s*[:)]")
+
+
+def _covered(node, scopes, axes):
+    """A read of the page's environment that the matrix of "Nothing gets worse" measures (tools/env-axes.py):
+    its key among COVERED_READS; matchMedia only with a literal query whose every feature is covered."""
+    if axes is None:
+        return False
+    key = _env_key(node, scopes)
+    if not key or key not in axes.COVERED_READS:
+        return False
+    name = node.get("name") if node["type"] == "Identifier" else _prop_name(node)
+    if name == "matchMedia":
+        par = scopes.parent.get(id(node))
+        call = par if par is not None and par["type"] == "CallExpression" and par["callee"] is node else None
+        if call is None or not call["arguments"] or call["arguments"][0]["type"] != "Literal" or \
+                not isinstance(call["arguments"][0].get("value"), str):
+            return False
+        feats = MEDIA_FEATURE.findall(call["arguments"][0]["value"])
+        return bool(feats) and all(f in axes.COVERED_MEDIA for f in feats)
+    return True
+
+
+PURE_CALLS = {("Math",), ("parseInt",), ("parseFloat",), ("Number",), ("String",), ("Boolean",), ("isNaN",),
+              ("isFinite",), ("Array", "isArray")}
+
+
+def _clean_bindings(tree, scopes, added_ids, axes):
+    """The change's own names whose every value is clean (_clean): set only in their own function from
+    literals, covered reads of the environment, the level and other clean names; a parameter of a new
+    function is clean when every call of it in the change gives clean values (a function given to other code,
+    a callback, is called with what that code gives: its parameters only shape what the new function does)."""
+    own = {key for key, decl in scopes.decls.items() if key is not None and decl and
+           all(id(d) in added_ids for d in decl)}
+    params, calls, passed = {}, {}, set()
+    for node in _walk(tree):
+        if node["type"] in FUNCTIONS and id(node) in added_ids:
+            fkey = None
+            if node["type"] == "FunctionDeclaration" and node.get("id"):
+                fkey = scopes.decl_of.get(id(node["id"]))
+            else:
+                par = scopes.parent.get(id(node))
+                if par is not None and par["type"] == "VariableDeclarator" and par["init"] is node and \
+                        par["id"]["type"] == "Identifier":
+                    fkey = scopes.decl_of.get(id(par["id"]))
+            for i, p in enumerate(node["params"]):
+                for ident in _js_target_names(p):
+                    k = scopes.decl_of.get(id(ident))
+                    if k is not None:
+                        params[k] = (fkey, i if p["type"] in ("Identifier", "AssignmentPattern") else None)
+        if node["type"] == "Identifier" and scopes.refs.get(id(node)) is not None:
+            par = scopes.parent.get(id(node))
+            if par is not None and par["type"] == "CallExpression" and par["callee"] is node:
+                calls.setdefault(scopes.refs[id(node)], []).append(par)
+            else:
+                passed.add(scopes.refs[id(node)])
+    clean = set(own)
+    changed = True
+    while changed:
+        changed = False
+        for key in list(clean):
+            if key in params:
+                fkey, i = params[key]
+                ok = fkey is not None and fkey not in passed and i is not None and all(
+                    i >= len(c["arguments"]) or _clean(c["arguments"][i], scopes, clean, axes)
+                    for c in calls.get(fkey, []))
+                ok = ok or (fkey is None or fkey in passed) and i is not None
+                # what the function gives it later (after the declaration's own unknown value)
+                ok = ok and all(v is not None and _clean(v, scopes, clean, axes)
+                                for v in scopes.values.get(key, [])[1:])
+            else:
+                vals = scopes.values.get(key, [])
+                ok = all(v is not None and (v["type"] in FUNCTIONS or _clean(v, scopes, clean, axes)) for v in vals)
+            if not ok:
+                clean.discard(key)
+                changed = True
+    return clean
+
+
+def _clean(e, scopes, clean, axes):
+    """A value a measurement covers: built only from literals, the change's own clean names, the level
+    (PROTECTION_STATE) and reads of the environment the matrix covers (COVERED_READS)."""
+    if e is None:
+        return False
+    t = e["type"]
+    if t in ("Literal", "_Update"):
+        return True
+    if t == "_Compound":
+        return _clean(e["right"], scopes, clean, axes)
+    if t == "TemplateLiteral":
+        return all(_clean(x, scopes, clean, axes) for x in e["expressions"])
+    if t == "Identifier":
+        key = scopes.refs.get(id(e), 0)
+        if key is None:
+            return e["name"] in CONSTANT_GLOBALS or _covered(e, scopes, axes)
+        if key in clean:
+            return True
+        return axes is not None and e["name"] in axes.PROTECTION_STATE and key != 0
+    if t in ("UnaryExpression", "AwaitExpression"):
+        return t == "UnaryExpression" and e["operator"] != "delete" and _clean(e["argument"], scopes, clean, axes)
+    if t in ("BinaryExpression", "LogicalExpression"):
+        return _clean(e["left"], scopes, clean, axes) and _clean(e["right"], scopes, clean, axes)
+    if t == "ConditionalExpression":
+        return all(_clean(e[k], scopes, clean, axes) for k in ("test", "consequent", "alternate"))
+    if t == "SequenceExpression":
+        return all(_clean(x, scopes, clean, axes) for x in e["expressions"])
+    if t == "ArrayExpression":
+        return all(x is not None and _clean(x, scopes, clean, axes) for x in e["elements"])
+    if t == "ObjectExpression":
+        return all(p["type"] == "Property" and not p["computed"] and _clean(p["value"], scopes, clean, axes)
+                   for p in e["properties"])
+    if t == "MemberExpression":
+        if _covered(e, scopes, axes):
+            return True
+        if e["computed"] and _prop_name(e) is None and not _clean(e["property"], scopes, clean, axes):
+            return False
+        return _clean(e["object"], scopes, clean, axes)
+    if t == "CallExpression":
+        callee = e["callee"]
+        if not all(a["type"] != "SpreadElement" and _clean(a, scopes, clean, axes) for a in e["arguments"]):
+            return False
+        ch = _chain(callee) if callee["type"] in ("Identifier", "MemberExpression") else None
+        if ch and scopes.refs.get(id(_root(callee)), 0) is None and (tuple(ch[:1]) in PURE_CALLS or
+                                                                    tuple(ch[:2]) in PURE_CALLS):
+            return True
+        if callee["type"] == "MemberExpression" and (_covered(callee, scopes, axes) or
+                                                     _clean(callee["object"], scopes, clean, axes)):
+            return True
+        return callee["type"] == "Identifier" and _covered(callee, scopes, axes)
+    if t == "ChainExpression":
+        return _clean(e["expression"], scopes, clean, axes)
+    return False
+
+
+def _root(node):
+    while node["type"] == "MemberExpression":
+        node = node["object"]
+    return node
+
+
+def _kids(node):
+    """(key, child) for every child node."""
+    for k, v in node.items():
+        if k in ("start", "end", "type"):
+            continue
+        if isinstance(v, dict) and "type" in v:
+            yield k, v
+        elif isinstance(v, list):
+            for x in v:
+                if isinstance(x, dict) and "type" in x:
+                    yield k, x
+
+
+def _walk(node):
+    yield node
+    for _, c in _kids(node):
+        yield from _walk(c)
+
+
+def _equal(a, b):
+    """The same tree, positions aside."""
+    if isinstance(a, dict) and isinstance(b, dict):
+        ka = [k for k in a if k not in ("start", "end")]
+        if len(ka) != len([k for k in b if k not in ("start", "end")]):
+            return False
+        return all(k in b and _equal(a[k], b[k]) for k in ka)
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(_equal(x, y) for x, y in zip(a, b))
+    return type(a) is type(b) and a == b
+
+
+def _embed(o, n):
+    """The new tree holds the old one, with statements only added to lists of statements: (pairs of old
+    and new nodes, the added statements) or None."""
+    if not (isinstance(o, dict) and isinstance(n, dict)) or o.get("type") != n.get("type"):
+        return None
+    pairs, added = [(o, n)], []
+    keys = [k for k in o if k not in ("start", "end")]
+    if set(keys) != {k for k in n if k not in ("start", "end")}:
+        return None
+    for k in keys:
+        a, b = o[k], n[k]
+        if (o["type"], k) in STMT_LISTS:
+            j = 0
+            for x in a:
+                while j < len(b):
+                    r = _embed(x, b[j])
+                    if r is not None:
+                        pairs += r[0]
+                        added += r[1]
+                        j += 1
+                        break
+                    added.append(b[j])
+                    j += 1
+                else:
+                    return None
+            added += b[j:]
+        elif isinstance(a, dict) and "type" in a:
+            r = _embed(a, b)
+            if r is None:
+                return None
+            pairs += r[0]
+            added += r[1]
+        elif isinstance(a, list):
+            if not isinstance(b, list) or len(a) != len(b):
+                return None
+            for x, y in zip(a, b):
+                if isinstance(x, dict) and "type" in x:
+                    r = _embed(x, y)
+                    if r is None:
+                        return None
+                    pairs += r[0]
+                    added += r[1]
+                elif not _equal(x, y):
+                    return None
+        elif not _equal(a, b):
+            return None
+    return pairs, added
+
+
+class _Scopes:
+    """The bindings of a script (strict code: let, const, class and functions in their block, var in the
+    function) and what every name used refers to."""
+
+    def __init__(self, tree):
+        self.parent = {}                 # id(node) -> parent node
+        self.refs = {}                   # id(identifier used) -> binding (scope id, name) or None (global)
+        self.decls = {}                  # binding -> [identifier nodes that declare it]
+        self.decl_of = {}                # id(declaring identifier) -> binding
+        self.values = {}                 # binding -> [value nodes given to it] (None: unknown)
+        self._pending, self._assigned, self._by_id = [], [], {}
+        self._visit(tree, None, None)
+        for node, scope in self._pending:
+            self.refs[id(node)] = self._resolve(scope, node["name"])
+        # what is given to a name later: `x = value` (a value), a pattern, `+=`, ++, a loop's target (unknown);
+        # given inside another function than the one that declares the name, at an unknown time (a timer's
+        # callback, a listener): unknown
+        for value, scope, name in self._assigned:
+            key = self._resolve(scope, name)
+            if key is not None and self._func_scope(self._by_id[key[0]]) is not self._func_scope(scope):
+                value = None
+            self.values.setdefault(key or (None, name), []).append(value)
+
+    def _scope(self, node, parent, function):
+        s = {"id": id(node), "node": node, "parent": parent, "names": {}, "function": function}
+        self._by_id[id(node)] = s
+        return s
+
+    def _resolve(self, scope, name):
+        while scope is not None:
+            if name in scope["names"]:
+                return scope["names"][name]
+            scope = scope["parent"]
+        return None
+
+    def _func_scope(self, scope):
+        while not scope["function"]:
+            scope = scope["parent"]
+        return scope
+
+    def _declare(self, ident, scope, value=None):
+        key = scope["names"].setdefault(ident["name"], (scope["id"], ident["name"]))
+        self.decls.setdefault(key, []).append(ident)
+        self.decl_of[id(ident)] = key
+        if value is not False:
+            self.values.setdefault(key, []).append(value)
+        return key
+
+    def _pattern(self, p, scope, value, parent):
+        """Declares the names of a binding pattern (value: what is given to a plain name, None: unknown)."""
+        if p is None:
+            return
+        self.parent[id(p)] = parent
+        t = p["type"]
+        if t == "Identifier":
+            self._declare(p, scope, value)
+        elif t == "ObjectPattern":
+            for q in p["properties"]:
+                self.parent[id(q)] = p
+                if q["type"] == "RestElement":
+                    self._pattern(q["argument"], scope, None, q)
+                else:
+                    if q.get("computed"):
+                        self._visit(q["key"], q, scope)
+                    self._pattern(q["value"], scope, None, q)
+        elif t == "ArrayPattern":
+            for q in p["elements"]:
+                self._pattern(q, scope, None, p)
+        elif t == "RestElement":
+            self._pattern(p["argument"], scope, None, p)
+        elif t == "AssignmentPattern":
+            self._pattern(p["left"], scope, None, p)
+            self._visit(p["right"], p, scope)
+
+    def _function(self, fn, scope):
+        fs = self._scope(fn, scope, True)
+        if fn["type"] == "FunctionExpression" and fn.get("id"):
+            self.parent[id(fn["id"])] = fn
+            self._declare(fn["id"], fs, fn)
+        for p in fn["params"]:
+            self._pattern(p, fs, None, fn)
+        body = fn["body"]
+        self.parent[id(body)] = fn
+        if body["type"] == "BlockStatement":
+            self._hoist(body["body"], fs, fs)
+            for s in body["body"]:
+                self._visit(s, body, fs)
+        else:
+            self._visit(body, fn, fs)
+
+    def _hoist(self, stmts, scope, fscope):
+        """Declarations a list of statements makes before it runs: functions in this block, `var` (in
+        nested blocks and loops too) in the function."""
+        for s in stmts:
+            if s["type"] == "FunctionDeclaration" and s.get("id"):
+                self._declare(s["id"], scope, s)
+            elif s["type"] == "ClassDeclaration" and s.get("id"):
+                self._declare(s["id"], scope, s)
+            elif s["type"] == "VariableDeclaration" and s["kind"] != "var":
+                for d in s["declarations"]:
+                    self._names_only(d["id"], scope)
+
+    def _names_only(self, p, scope):
+        """let/const names known in their block from its start (the values come at the declaration)."""
+        if p is None:
+            return
+        t = p["type"]
+        if t == "Identifier":
+            scope["names"].setdefault(p["name"], (scope["id"], p["name"]))
+        elif t == "ObjectPattern":
+            for q in p["properties"]:
+                self._names_only(q["argument"] if q["type"] == "RestElement" else q["value"], scope)
+        elif t == "ArrayPattern":
+            for q in p["elements"]:
+                self._names_only(q, scope)
+        elif t in ("RestElement",):
+            self._names_only(p["argument"], scope)
+        elif t == "AssignmentPattern":
+            self._names_only(p["left"], scope)
+
+    def _block(self, node, stmts, scope):
+        bs = self._scope(node, scope, False)
+        self._hoist(stmts, bs, self._func_scope(scope))
+        for s in stmts:
+            self._visit(s, node, bs)
+
+    def _visit(self, node, parent, scope):
+        if node is None:
+            return
+        self.parent[id(node)] = parent
+        t = node["type"]
+        if t == "Program":
+            ps = self._scope(node, None, True)
+            self._hoist(node["body"], ps, ps)
+            for s in node["body"]:
+                self._visit(s, node, ps)
+            return
+        if t == "VariableDeclaration":
+            target = self._func_scope(scope) if node["kind"] == "var" else scope
+            for d in node["declarations"]:
+                self.parent[id(d)] = node
+                if node["kind"] != "var" and d["id"]["type"] == "Identifier":
+                    # a let or const named in its block by _hoist: the declaration itself
+                    self._declare(d["id"], target, d["init"])
+                    self.parent[id(d["id"])] = d
+                else:
+                    self._pattern(d["id"], target, d["init"] if d["id"]["type"] == "Identifier" else None, d)
+                    if d["init"] is None and d["id"]["type"] == "Identifier":
+                        self.values[self.decl_of[id(d["id"])]].pop()
+                self._visit(d["init"], d, scope)
+            return
+        if t == "FunctionDeclaration":
+            if node.get("id"):
+                self.parent[id(node["id"])] = node
+                if id(node["id"]) not in self.decl_of:
+                    self._declare(node["id"], scope, node)
+            self._function(node, scope)
+            return
+        if t in ("FunctionExpression", "ArrowFunctionExpression"):
+            self._function(node, scope)
+            return
+        if t in ("ClassDeclaration", "ClassExpression"):
+            cs = self._scope(node, scope, False)
+            if node.get("id"):
+                self.parent[id(node["id"])] = node
+                if t == "ClassDeclaration" and id(node["id"]) not in self.decl_of:
+                    self._declare(node["id"], scope, node)
+                elif t == "ClassExpression":
+                    self._declare(node["id"], cs, node)
+            self._visit(node.get("superClass"), node, scope)
+            self.parent[id(node["body"])] = node
+            for m in node["body"]["body"]:
+                self.parent[id(m)] = node["body"]
+                if m["type"] == "StaticBlock":
+                    self._block(m, m["body"], self._scope(m, cs, True))
+                    continue
+                if m.get("computed"):
+                    self._visit(m["key"], m, cs)
+                else:
+                    self.parent[id(m["key"])] = m
+                self._visit(m.get("value"), m, cs)
+            return
+        if t == "BlockStatement":
+            self._block(node, node["body"], scope)
+            return
+        if t in ("ForStatement", "ForInStatement", "ForOfStatement"):
+            hs = self._scope(node, scope, False)
+            for k in ("init", "left"):
+                if node.get(k) is not None and node[k]["type"] == "VariableDeclaration" and node[k]["kind"] != "var":
+                    for d in node[k]["declarations"]:
+                        self._names_only(d["id"], hs)
+            for k, c in _kids(node):
+                self._visit(c, node, hs)
+            if t != "ForStatement":
+                left, right = node["left"], node["right"]
+                pats = [d["id"] for d in left["declarations"]] if left["type"] == "VariableDeclaration" else [left]
+                # over a literal list, a plain name takes its elements (of) or its indexes (in); else unknown
+                given = [None]
+                if right["type"] == "ArrayExpression" and len(pats) == 1 and pats[0]["type"] == "Identifier":
+                    given = list(right["elements"]) if t == "ForOfStatement" else \
+                        [{"type": "Literal", "value": str(i)} for i in range(len(right["elements"]))]
+                for p in pats:
+                    for ident in _js_target_names(p):
+                        for v in given:
+                            self._assigned.append((v, hs, ident["name"]))
+            return
+        if t == "SwitchStatement":
+            self._visit(node["discriminant"], node, scope)
+            ss = self._scope(node, scope, False)
+            self._hoist([s for c in node["cases"] for s in c["consequent"]], ss, self._func_scope(scope))
+            for c in node["cases"]:
+                self.parent[id(c)] = node
+                self._visit(c.get("test"), c, ss)
+                for s in c["consequent"]:
+                    self._visit(s, c, ss)
+            return
+        if t == "CatchClause":
+            cs = self._scope(node, scope, False)
+            self._pattern(node.get("param"), cs, None, node)
+            self.parent[id(node["body"])] = node
+            self._block(node["body"], node["body"]["body"], cs)
+            return
+        if t == "Identifier":
+            self._pending.append((node, scope))
+            return
+        if t == "MemberExpression":
+            self._visit(node["object"], node, scope)
+            if node["computed"]:
+                self._visit(node["property"], node, scope)
+            else:
+                self.parent[id(node["property"])] = node
+            return
+        if t == "Property":
+            if node["computed"]:
+                self._visit(node["key"], node, scope)
+            else:
+                self.parent[id(node["key"])] = node
+            self._visit(node["value"], node, scope)
+            return
+        if t in ("LabeledStatement", "BreakStatement", "ContinueStatement"):
+            if node.get("label"):
+                self.parent[id(node["label"])] = node
+            self._visit(node.get("body"), node, scope)
+            return
+        if t == "MetaProperty":
+            return
+        if t == "AssignmentExpression":
+            if node["left"]["type"] == "Identifier":
+                value = node["right"] if node["operator"] == "=" else \
+                    {"type": "_Compound", "operator": node["operator"][:-1], "right": node["right"]}
+                self._assigned.append((value, scope, node["left"]["name"]))
+            else:
+                for ident in _js_target_names(node["left"]):
+                    self._assigned.append((None, scope, ident["name"]))
+        if t == "UpdateExpression" and node["argument"]["type"] == "Identifier":
+            self._assigned.append(({"type": "_Update"}, scope, node["argument"]["name"]))
+        for _, c in _kids(node):
+            self._visit(c, node, scope)
+
+    def binding(self, ident):
+        """The binding a name refers to or declares (None: a global)."""
+        return self.decl_of.get(id(ident)) or self.refs.get(id(ident))
+
+
+def _js_target_names(p):
+    """The plain names a target or pattern writes."""
+    if p is None:
+        return
+    t = p["type"]
+    if t == "Identifier":
+        yield p
+    elif t == "ObjectPattern":
+        for q in p["properties"]:
+            yield from _js_target_names(q["argument"] if q["type"] == "RestElement" else q["value"])
+    elif t == "ArrayPattern":
+        for q in p["elements"]:
+            yield from _js_target_names(q)
+    elif t == "RestElement":
+        yield from _js_target_names(p["argument"])
+    elif t == "AssignmentPattern":
+        yield from _js_target_names(p["left"])
+
+
+def _chain(node):
+    """The names of a member chain without calls (`Object.defineProperty` -> ["Object", "defineProperty"],
+    `w.Navigator.prototype` -> ["w", "Navigator", "prototype"]), or None."""
+    out = []
+    while node["type"] == "MemberExpression":
+        p = _prop_name(node)
+        if p is None:
+            return None
+        out.append(p)
+        node = node["object"]
+    if node["type"] == "Identifier":
+        return [node["name"]] + out[::-1]
+    if node["type"] == "ThisExpression":
+        return ["this"] + out[::-1]
+    return None
+
+
+def _prop_name(member):
+    """A member's property name (a literal text or number in brackets too), or None (computed)."""
+    p = member["property"]
+    if not member["computed"]:
+        return p.get("name")
+    if p["type"] == "Literal" and isinstance(p.get("value"), (str, int, float)) and not p.get("regex"):
+        return str(p["value"])
+    if p["type"] == "TemplateLiteral" and not p["expressions"]:
+        return p["quasis"][0]["value"].get("cooked")
+    return None
+
+
+def _strip(node):
+    while node is not None and node["type"] in ("ChainExpression",):
+        node = node["expression"]
+    return node
+
+
+def _source_names(tree):
+    """Every name and text a script has (for "a name the old script never has")."""
+    out = set()
+    for n in _walk(tree):
+        if n["type"] in ("Identifier", "PrivateIdentifier"):
+            out.add(n["name"])
+        elif n["type"] == "Literal" and isinstance(n.get("value"), str):
+            out.add(n["value"])
+        elif n["type"] == "TemplateElement":
+            out.add(n["value"].get("cooked") or "")
+    return out
+
+
+def _env_key(node, scopes):
+    """What of the page's environment a node reads (ENV_NAMES), as `name` or `name.member`, or None: a
+    global of that name or a property of that name, not on the way to an interface's prototype."""
+    if node["type"] == "Identifier":
+        if scopes.refs.get(id(node), 0) is not None or node["name"] not in ENV_NAMES:
+            return None
+        name, cur = node["name"], node
+    elif node["type"] == "MemberExpression":
+        name, cur = _prop_name(node), node
+        if name not in ENV_NAMES:
+            return None
+    else:
+        return None
+    key, nxt, first = name, cur, None
+    while True:
+        par = scopes.parent.get(id(nxt))
+        if par is None or par["type"] != "MemberExpression" or par["object"] is not nxt:
+            break
+        pn = _prop_name(par)
+        if pn == "prototype":
+            return None
+        if first is None:
+            first = pn
+        nxt = par
+    return key + ("." + first if first else "")
+
+
+def _old_reads(tree, scopes):
+    return {k for k in (_env_key(n, scopes) for n in _walk(tree)) if k}
+
+
+def _function_info(tree, scopes):
+    """The old functions that define properties (they or a function they call give an object a property
+    by Object.defineProperty or the like): the bindings of their names. And the bindings that hold one
+    of Object's or Reflect's functions that change an object (an alias such as DEFPROP)."""
+    aliases = {}
+    for key, values in scopes.values.items():
+        for v in values:
+            c = _chain(v) if isinstance(v, dict) and v["type"] == "MemberExpression" else None
+            if c and tuple(c[-2:]) in OBJECT_MUTATORS:
+                aliases[key] = tuple(c[-2:])
+    funcs = {}
+    for key, values in scopes.values.items():
+        for v in values:
+            if isinstance(v, dict) and v["type"] in FUNCTIONS:
+                funcs.setdefault(key, []).append(v)
+
+    def calls(fn):
+        for n in _walk(fn["body"]):
+            if n["type"] == "CallExpression":
+                yield n
+
+    definers = set()
+    changed = True
+    while changed:
+        changed = False
+        for key, fns in funcs.items():
+            if key in definers:
+                continue
+            for fn in fns:
+                for c in calls(fn):
+                    callee = _strip(c["callee"])
+                    ch = _chain(callee) if callee["type"] in ("MemberExpression", "Identifier") else None
+                    target = scopes.binding(callee) if callee["type"] == "Identifier" else None
+                    if (ch and tuple(ch[-2:]) in DEFINERS) or target in definers or \
+                            aliases.get(target) in DEFINERS:
+                        definers.add(key)
+                        changed = True
+                        break
+                if key in definers:
+                    break
+    return definers, aliases
+
+
+def _fresh(value, scopes):
+    """A value that is a new object of the change's own: a literal object or list, a function, a class,
+    `new` of a global constructor."""
+    if value is None:
+        return True
+    t = value["type"]
+    if t in ("ObjectExpression", "ArrayExpression", "ClassExpression") or t in FUNCTIONS:
+        return True
+    if t == "NewExpression" and value["callee"]["type"] == "Identifier" and \
+            scopes.refs.get(id(value["callee"]), 0) is None:
+        return True
+    return False
+
+
+def _prototype_like(value, scopes, seen=()):
+    """A page interface's prototype (`X.prototype`, `w.X && w.X.prototype`) or a name given only that."""
+    if value is None:
+        return False
+    t = value["type"]
+    if t == "MemberExpression":
+        c = _chain(value)
+        return bool(c) and c[-1] == "prototype"
+    if t == "LogicalExpression" and value["operator"] == "&&":
+        return _prototype_like(value["right"], scopes, seen)
+    if t == "Identifier":
+        key = scopes.binding(value)
+        if key is None or key in seen:
+            return False
+        vals = scopes.values.get(key) or []
+        return bool(vals) and all(_prototype_like(v, scopes, seen + (key,)) for v in vals)
+    return False
+
+
+def page_tree_problems(name, old, new):
+    """The rules (a) to (g) above on what a change adds to a page script, read by the syntax trees."""
+    told = _js_parse(old)
+    tnew = _js_parse(new)
+    if told[0] is None or tnew[0] is None:
+        which = "the old file" if told[0] is None else "the new file"
+        return ["%s: %s does not parse as this guard reads JavaScript (%s): a page script must parse to be "
+                "judged" % (name, which, (told[1] or tnew[1])[:120])], False
+    t_old, t_new = told[0], tnew[0]
+    r = _embed(t_old, t_new)
+    if r is None:
+        return ["%s: a statement of the old script is changed, moved or removed (only new statements may be "
+                "added between the old ones)" % name], True
+    pairs, added = r
+    so, sn = _Scopes(t_old), _Scopes(t_new)
+    match = {id(a): b for a, b in pairs}
+    added_ids = set()
+    for s in added:
+        added_ids.update(id(n) for n in _walk(s))
+    out = []
+
+    def say(node, why):
+        snippet = re.sub(r"\s+", " ", new[node["start"]:node["end"]])[:70]
+        msg = "%s: %s (%s)" % (name, why, snippet)
+        if msg not in out:
+            out.append(msg)
+
+    # bindings: the old code's names refer to what they did (a new declaration hides none of them)
+    def same_binding(key_old, key_new):
+        if key_old is None or key_new is None:
+            return key_old is None and key_new is None
+        scope = match.get(key_old[0])
+        return scope is not None and id(scope) == key_new[0] and key_old[1] == key_new[1]
+    for a, b in pairs:
+        if a["type"] == "Identifier" and id(a) in so.refs:
+            if not same_binding(so.refs[id(a)], sn.refs.get(id(b))):
+                say(b, "a new declaration changes what the old code's %s refers to" % a["name"])
+
+    def old_binding(key):
+        return key is not None and any(id(d) not in added_ids for d in sn.decls.get(key, []))
+
+    old_reads = _old_reads(t_old, so)
+    old_names = _source_names(t_old)
+    definers, aliases = _function_info(t_new, sn)
+    consts = _constant_bindings(t_new, sn, added_ids)
+    axes = _env_axes()
+    clean_keys = _clean_bindings(t_new, sn, added_ids, axes)
+
+    def constant(e):
+        return _constant(e, sn, consts)
+
+    def clean(e):
+        return _clean(e, sn, clean_keys, axes)
+
+    def root_ok(target):
+        """A member chain changed by new code: its object is one the change made itself."""
+        node = _strip(target)
+        while node["type"] == "MemberExpression":
+            if _prop_name(node) == "__proto__":
+                return False
+            node = _strip(node["object"])
+        if node["type"] != "Identifier":
+            return False
+        key = sn.refs.get(id(node))
+        if key is None or old_binding(key):
+            return False
+        return all(_fresh(v, sn) for v in sn.values.get(key, [None]))
+
+    def write_targets(p):
+        """The names and members a pattern or a target writes."""
+        p = _strip(p)
+        t = p["type"]
+        if t in ("Identifier", "MemberExpression"):
+            yield p
+        elif t == "ObjectPattern":
+            for q in p["properties"]:
+                yield from write_targets(q["argument"] if q["type"] == "RestElement" else q["value"])
+        elif t == "ArrayPattern":
+            for q in p["elements"]:
+                if q is not None:
+                    yield from write_targets(q)
+        elif t == "RestElement":
+            yield from write_targets(p["argument"])
+        elif t == "AssignmentPattern":
+            yield from write_targets(p["left"])
+
+    def check_write(target, node):
+        value = node.get("right") if node["type"] == "AssignmentExpression" else None
+        how = " (it gives a constant: a protection switched off?)" if value is not None and \
+            value["type"] == "Literal" else ""
+        if target["type"] == "Identifier":
+            key = sn.binding(target)
+            if key is None:
+                say(node, "a new line assigns to the global %s%s: new code may only set names it declares" %
+                    (target["name"], how))
+            elif old_binding(key):
+                say(node, "a new line assigns to %s, which the old script has%s: new code may only set names it "
+                          "declares" % (target["name"], how))
+        elif target["type"] == "MemberExpression":
+            if target["computed"] and _prop_name(target) is None and not _numeric(target["property"], sn, consts):
+                say(node, "a new line assigns to a property by a computed name")
+            if not root_ok(target):
+                c = _chain(target)
+                say(node, "a new line assigns to %s, an object the change did not make (the old script's, the "
+                          "page's or a global)%s" % (".".join(c) if c else "a property", how))
+
+    def defining_call(call, how):
+        """(f): a call that defines a property (an I.K.E. helper or Object.defineProperty and the like)."""
+        args = call["arguments"]
+        if how == "native" and args and root_ok(args[0]):
+            return
+        texts = []
+        for a in args:
+            s = _fold_text(a, sn, consts)
+            if s is not None:
+                texts.append(s)
+                continue
+            if a["type"] in FUNCTIONS:
+                continue
+            if a["type"] == "ObjectExpression" and all(
+                    p["type"] == "Property" and not p["computed"] and
+                    (p["value"]["type"] in FUNCTIONS or p["value"]["type"] == "Literal") for p in a["properties"]):
+                continue
+            if _prototype_like(a, sn):
+                continue
+            say(call, "a new call that defines a property takes something that is neither a prototype nor a "
+                      "literal name (%s): new code defines new properties only" %
+                re.sub(r"\s+", " ", new[a["start"]:a["end"]])[:40])
+            return
+        if not texts:
+            say(call, "a new call that defines a property names none by a literal")
+        for s in texts:
+            if s in old_names:
+                say(call, "a new call defines or wraps %s again, which the old script already protects or "
+                          "names: only a person changes a protection" % s)
+
+    def visit(node, in_new_fn, loops, switches, labels):
+        t = node["type"]
+        if t in ("FunctionDeclaration", "ClassDeclaration") and node.get("id"):
+            key = sn.decl_of.get(id(node["id"]))
+            if key is not None and old_binding(key):
+                say(node, "a new line declares %s again, which the old script already has" % node["id"]["name"])
+        if t in FUNCTIONS:
+            if node.get("async") or node.get("generator"):
+                say(node, "a new async function or generator (code that runs later)")
+            for p in node["params"]:
+                for q in _walk(p):
+                    if q["type"] == "AssignmentPattern" and not clean(q["right"]):
+                        say(q, "a new default value that is not a measured one (%s)" % COVERED_HINT)
+            body = node["body"]
+            for _, c in _kids(node):
+                if c is not body and c not in node["params"]:
+                    visit(c, in_new_fn, loops, switches, labels)
+            for p in node["params"]:
+                visit(p, True, 0, 0, ())
+            visit(body, True, 0, 0, ())
+            return
+        if t in ("ReturnStatement", "ThrowStatement") and not in_new_fn:
+            say(node, "a new line leaves the old code (%s outside a function the change adds)" %
+                ("return" if t == "ReturnStatement" else "throw"))
+        if t in ("BreakStatement", "ContinueStatement"):
+            lab = node.get("label")
+            if lab is not None:
+                if lab["name"] not in labels:
+                    say(node, "a new line leaves the old code (%s %s, a label the change did not add)" %
+                        (t[:-9].lower(), lab["name"]))
+            elif not (loops or (t == "BreakStatement" and switches)):
+                say(node, "a new line leaves the old code (%s out of a loop or switch the change did not add)" %
+                    t[:-9].lower())
+        if t == "WithStatement":
+            say(node, "a new with statement")
+        if t == "ImportExpression":
+            say(node, "a new import()")
+        if t in ("IfStatement", "ConditionalExpression") and not clean(node["test"]):
+            say(node, "a new condition on data no measurement covers (%s): a condition the measurement cannot "
+                      "make true is what hides a weakening" % COVERED_HINT)
+        if t == "LogicalExpression" and not clean(node["left"]):
+            say(node, "a new %s on data no measurement covers (%s)" % (node["operator"], COVERED_HINT))
+        if t == "SwitchStatement" and not (clean(node["discriminant"]) and
+                                           all(c["test"] is None or clean(c["test"]) for c in node["cases"])):
+            say(node, "a new switch on data no measurement covers (%s)" % COVERED_HINT)
+        if t in ("WhileStatement", "DoWhileStatement", "ForStatement"):
+            test = node.get("test")
+            if test is None or (test["type"] == "Literal" and test.get("value")):
+                say(node, "a new loop that never ends")
+            elif not clean(test):
+                say(node, "a new loop whose end depends on data no measurement covers (%s)" % COVERED_HINT)
+        if t in ("ForInStatement", "ForOfStatement"):
+            if not clean(node["right"]):
+                say(node, "a new loop over data no measurement covers (%s)" % COVERED_HINT)
+            if node["left"]["type"] != "VariableDeclaration":
+                for tg in write_targets(node["left"]):
+                    check_write(tg, node)
+        if t == "ChainExpression":
+            for q in _walk(node["expression"]):
+                if q.get("optional") and not clean(q.get("object") or q.get("callee")):
+                    say(node, "a new optional chain ?. on data no measurement covers (%s)" % COVERED_HINT)
+                    break
+        if t == "AssignmentPattern" and sn.parent.get(id(node), {}).get("type") not in FUNCTIONS and \
+                not clean(node["right"]):
+            say(node, "a new default value that is not a measured one (%s)" % COVERED_HINT)
+        if t == "TryStatement" and (node.get("finalizer") or node.get("handler") and not all(
+                s["type"] == "ReturnStatement" and (s["argument"] is None or clean(s["argument"]))
+                for s in node["handler"]["body"]["body"])):
+            say(node, "a new catch or finally that does something (a branch on an error; a catch may only give a "
+                      "measured value back: %s)" % COVERED_HINT)
+        if t == "AssignmentExpression":
+            for tg in write_targets(node["left"]):
+                check_write(tg, node)
+            if node["operator"] in ("||=", "&&=", "??=") and not clean(node["left"]):
+                say(node, "a new %s on data no measurement covers (%s)" % (node["operator"], COVERED_HINT))
+        if t == "UpdateExpression":
+            check_write(_strip(node["argument"]), node)
+        if t == "UnaryExpression" and node["operator"] == "delete":
+            arg = _strip(node["argument"])
+            if arg["type"] == "MemberExpression":
+                check_write(arg, node)
+            else:
+                say(node, "a new delete")
+        if t == "VariableDeclarator":
+            for q in _walk(node["id"]):
+                if q["type"] == "Identifier" and id(q) in sn.decl_of and old_binding(sn.decl_of[id(q)]):
+                    say(node, "a new line declares %s again, which the old script already has" % q["name"])
+        if t == "MemberExpression":
+            pn = _prop_name(node)
+            if node["computed"] and pn is None and not _numeric(node["property"], sn, consts):
+                say(node, "a new property reached by a computed name (only a literal, or a number from the "
+                          "change's own counters)")
+            if pn in ("constructor", "__proto__", "caller", "callee"):
+                say(node, "a new reach of .%s" % pn)
+        if t in ("Property", "MethodDefinition", "PropertyDefinition") and node.get("computed") and not (
+                node["key"]["type"] == "Literal" or _numeric(node["key"], sn, consts)):
+            say(node, "a new property with a computed name")
+        if t == "Identifier" and sn.refs.get(id(node), 0) is None and node["name"] in ("eval", "Function"):
+            par = sn.parent.get(id(node))
+            if not (par and par["type"] == "MemberExpression" and par["object"] is node and
+                    _prop_name(par) == "prototype"):
+                say(node, "a new use of %s (code from a text)" % node["name"])
+        if t in ("Identifier", "MemberExpression"):
+            key = _env_key(node, sn)
+            if key and not _covered(node, sn, axes) and not (in_new_fn and key in old_reads):
+                say(node, "a new line reads the page's environment (%s): where or when the page is, its screen, "
+                          "device or chance, timers and events (inside a function the change adds, only what the "
+                          "old script reads too)" % key)
+        if t == "AwaitExpression":
+            say(node, "a new await (code that runs later)")
+        if t == "CallExpression":
+            callee = _strip(node["callee"])
+            ch = _chain(callee) if callee["type"] in ("MemberExpression", "Identifier") else None
+            key = sn.binding(callee) if callee["type"] == "Identifier" else None
+            pair = tuple(ch[-2:]) if ch and len(ch) >= 2 else None
+            native = pair in OBJECT_MUTATORS or aliases.get(key) in OBJECT_MUTATORS
+            if native:
+                kind = pair if pair in OBJECT_MUTATORS else aliases.get(key)
+                if kind in DEFINERS:
+                    defining_call(node, "native")
+                elif not (node["arguments"] and root_ok(node["arguments"][0])):
+                    say(node, "a new call of %s.%s changes an object the change did not make" % kind)
+            elif key is not None and key in definers:
+                defining_call(node, "helper")
+            if callee["type"] == "MemberExpression":
+                m = _prop_name(callee)
+                if m in MUTATING_METHODS and not root_ok(callee["object"]):
+                    say(node, "a new call of .%s changes an object the change did not make" % m)
+                if m in ("call", "apply") and callee["object"]["type"] == "MemberExpression" and \
+                        _prop_name(callee["object"]) in MUTATING_METHODS and \
+                        not (node["arguments"] and root_ok(node["arguments"][0])):
+                    say(node, "a new call of .%s on an object the change did not make" % _prop_name(callee["object"]))
+            # Reflect.apply (or an old name for it) of a method that changes its object
+            applied = pair == ("Reflect", "apply") or any(
+                v is not None and v["type"] == "MemberExpression" and _chain(v) and tuple(_chain(v)[-2:]) ==
+                ("Reflect", "apply") for v in (sn.values.get(key) or []) if isinstance(v, dict))
+            if applied and len(node["arguments"]) >= 2:
+                fn = _strip(node["arguments"][0])
+                names = []
+                if fn["type"] == "MemberExpression":
+                    names = [_prop_name(fn)]
+                elif fn["type"] == "Identifier":
+                    for v in sn.values.get(sn.binding(fn), []) or []:
+                        if isinstance(v, dict) and v["type"] == "MemberExpression":
+                            names.append(_prop_name(v))
+                if any(n in MUTATING_METHODS for n in names) and not root_ok(node["arguments"][1]):
+                    say(node, "a new call applies a method that changes an object the change did not make")
+        if t in LOOPS:
+            for k, c in _kids(node):
+                visit(c, in_new_fn, loops + (1 if k == "body" else 0), switches, labels)
+            return
+        if t == "SwitchStatement":
+            for _, c in _kids(node):
+                visit(c, in_new_fn, loops, switches + 1, labels)
+            return
+        if t == "LabeledStatement":
+            visit(node["body"], in_new_fn, loops, switches, labels + (node["label"]["name"],))
+            return
+        for _, c in _kids(node):
+            visit(c, in_new_fn, loops, switches, labels)
+
+    for s in added:
+        visit(s, False, 0, 0, ())
+    return out, True
+
+
+def _constant_bindings(tree, scopes, added_ids):
+    """The change's own names given only constants (literals and other such names): its counters."""
+    keys = {}
+    for key, decl in scopes.decls.items():
+        if key is not None and decl and all(id(d) in added_ids for d in decl):
+            keys[key] = scopes.values.get(key, [])
+    consts = set(keys)
+    changed = True
+    while changed:
+        changed = False
+        for key in list(consts):
+            vals = keys[key]
+            if not all(v is not None and _constant(v, scopes, consts) for v in vals):
+                consts.discard(key)
+                changed = True
+    return consts
+
+
+def _constant(e, scopes, consts):
+    """Built only from literals and the change's own constant names."""
+    if e is None:
+        return False
+    t = e["type"]
+    if t in ("Literal", "_Update"):
+        return True
+    if t == "_Compound":
+        return e["operator"] not in ("||", "&&", "??") and _constant(e["right"], scopes, consts)
+    if t == "TemplateLiteral":
+        return all(_constant(x, scopes, consts) for x in e["expressions"])
+    if t == "Identifier":
+        key = scopes.refs.get(id(e), 0)
+        if key is None:
+            return e["name"] in CONSTANT_GLOBALS
+        return key in consts
+    if t in ("UnaryExpression",):
+        return e["operator"] != "delete" and _constant(e["argument"], scopes, consts)
+    if t in ("BinaryExpression", "LogicalExpression"):
+        return e["operator"] not in ("in", "instanceof") and _constant(e["left"], scopes, consts) and \
+            _constant(e["right"], scopes, consts)
+    if t == "ConditionalExpression":
+        return all(_constant(e[k], scopes, consts) for k in ("test", "consequent", "alternate"))
+    if t == "SequenceExpression":
+        return all(_constant(x, scopes, consts) for x in e["expressions"])
+    if t == "ArrayExpression":
+        return all(x is not None and _constant(x, scopes, consts) for x in e["elements"])
+    return False
+
+
+NUMERIC_OPS = {"-", "*", "/", "%", "**", "|", "&", "^", "<<", ">>", ">>>"}
+
+
+def _numeric(e, scopes, consts, seen=()):
+    """A number, whatever its operands: a numeric literal, arithmetic (-, *, /, %, **, bit operations, unary
+    -, + and ~ always give a number; + only of numbers), a length, an update, or the change's own name given
+    only such numbers in its own function. A computed property's name built so is an index, never a text
+    built from parts (`window['loc' + 'ation']`)."""
+    t = e["type"]
+    if t == "Literal":
+        return isinstance(e.get("value"), (int, float)) and not isinstance(e.get("value"), bool)
+    if t == "Identifier":
+        key = scopes.refs.get(id(e), 0)
+        if key in (0, None) or key in seen or not scopes.decls.get(key):
+            return False
+        vals = scopes.values.get(key, [])
+        return bool(vals) and all(v is not None and _numeric(v, scopes, consts, seen + (key,)) for v in vals)
+    if t == "UnaryExpression":
+        return e["operator"] in ("-", "+", "~")
+    if t == "BinaryExpression":
+        if e["operator"] in NUMERIC_OPS:
+            return True
+        return e["operator"] == "+" and _numeric(e["left"], scopes, consts, seen) and \
+            _numeric(e["right"], scopes, consts, seen)
+    if t == "MemberExpression":
+        return not e["computed"] and _prop_name(e) == "length"
+    if t in ("UpdateExpression", "_Update"):
+        return True
+    if t == "_Compound":
+        if e["operator"] in NUMERIC_OPS:
+            return True
+        return e["operator"] == "+" and _numeric(e["right"], scopes, consts, seen)
+    if t == "ConditionalExpression":
+        return _numeric(e["consequent"], scopes, consts, seen) and _numeric(e["alternate"], scopes, consts, seen)
+    if t == "SequenceExpression":
+        return _numeric(e["expressions"][-1], scopes, consts, seen)
+    return False
+
+
+def _fold_text(e, scopes, consts):
+    """The text a constant expression gives (a literal, a template without names, `+` of such), or None."""
+    t = e["type"]
+    if t == "Literal" and isinstance(e.get("value"), str):
+        return e["value"]
+    if t == "TemplateLiteral" and not e["expressions"]:
+        return e["quasis"][0]["value"].get("cooked")
+    if t == "BinaryExpression" and e["operator"] == "+":
+        a, b = _fold_text(e["left"], scopes, consts), _fold_text(e["right"], scopes, consts)
+        if a is not None and b is not None:
+            return a + b
+        return None
+    if t == "Identifier":
+        key = scopes.refs.get(id(e), 0)
+        if key in consts:
+            vals = scopes.values.get(key, [])
+            if len(vals) == 1 and vals[0] is not None:
+                return _fold_text(vals[0], scopes, consts)
+    return None
+
+
 def declared(text):
     """The names a script declares (function, var, let, const, fn, static)."""
     return {m.group(2) for m in (DECLARES.match(_strip_strings(ln)) for ln in (text or "").split("\n")) if m}
@@ -852,9 +2013,28 @@ def _strip_strings(line):
     return re.sub(r"'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"|`(?:\\.|[^`\\])*`|//.*$", "''", line)
 
 
-def line_additive(name, old, new, risky):
+def _named_sites(name, line):
+    """A site named in a pattern or a text of a new line of a page script (round 5, F1)."""
+    out = []
+    code = re.sub(r"//.*$", "", line) if "//" in line and not re.search(r"[\"'`/][^\"'`]*//", line) else line
+    for m in REGEX_LITERAL.finditer(code):
+        if PAGE_BRANDS.search(m.group(1)):
+            out.append("%s: a new pattern names sites (/%s/): a protection may not depend on the site" % (
+                name, m.group(1)[:50]))
+            break
+    for s in re.findall(r"'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"|`(?:\\.|[^`\\])*`", code):
+        if re.search(r"(?:google|youtube|facebook|instagram|amazon|cloudflare|captcha|microsoft|apple|paypal"
+                      r"|twitter|tiktok)\.", s, re.I) or re.search(r"\(\s*(?:com|org|net)\s*\|", s):
+            out.append("%s: a new text names a site (%s)" % (name, s[:50]))
+            break
+    return out
+
+
+def line_additive(name, old, new, risky, structural=True):
     """Rule 5: every old line of code is still there, in order; the new lines do not leave old code,
-    switch something off or reach out."""
+    switch something off or reach out. structural=False (a page script whose syntax trees judge it,
+    page_tree_problems): only the old lines, the blocks, the always-true conditions, what reaches out,
+    the named sites and the new addresses are judged here."""
     a, b = _code_lines(old), _code_lines(new)
     out, j, runs, run = [], 0, [], []
     for line in a:
@@ -874,7 +2054,7 @@ def line_additive(name, old, new, risky):
     before = hosts_in(_strings(old))
     for run in runs:
         if name in PROTECTED_JS:
-            out += page_script_problems(name, run, had, known)
+            out += page_script_problems(name, run, had, known, structural)
         depth = 0
         mine = set()                              # what the new lines themselves declare inside their own blocks
         for line in run:
@@ -887,16 +2067,18 @@ def line_additive(name, old, new, risky):
             # `function level()` replaces the first, a `let blocked` hides the old one), and nothing the
             # old file declares is assigned to (its value, a property, an index)
             d = DECLARES.match(bare)
+            if not structural:
+                d = None
             if d and d.group(2) in had and (level <= 0 or d.group(1).startswith("var")):
                 out.append("%s: a new line declares %s again, which the old file already declares (%s)"
                            % (name, d.group(2), line[:60]))
             elif d and level > 0:
                 mine.add(d.group(2))
-            a = None if d else ASSIGNS.match(bare)
+            a = None if d or not structural else ASSIGNS.match(bare)
             if a and a.group(1) in had and a.group(1) not in mine and a.group(1) not in ("self", "this"):
                 out.append("%s: a new line assigns to %s, which the old file declares (%s)"
                            % (name, (a.group(1) + a.group(2)).replace(" ", "")[:40], line[:60]))
-            if EXIT_WORD.search(bare) and level <= 0 and not re.search(
+            if structural and EXIT_WORD.search(bare) and level <= 0 and not re.search(
                     r"\b(?:function\b|fn\s|=>)", bare.split("return")[0].split("throw")[0]):
                 out.append("%s: a new line leaves the old code (%s): only inside a block the change itself opens"
                            % (name, line[:70]))
@@ -904,7 +2086,7 @@ def line_additive(name, old, new, risky):
                 out.append("%s: a new condition that is always true (%s)" % (name, line[:70]))
             if risky.search(bare):
                 out.append("%s: a new line reaches out or loads code (%s)" % (name, line[:70]))
-            m = CONSTANT_ASSIGN.match(bare)
+            m = CONSTANT_ASSIGN.match(bare) if structural else None
             if m and re.match(r"[A-Za-z_$][\w$]*", m.group(1)) and \
                     re.match(r"[A-Za-z_$][\w$]*", m.group(1)).group(0) in known and \
                     not re.match(r"\s*(?:var|let|const)\s", bare):
@@ -970,6 +2152,9 @@ def file_problems(name, old, new, status="modified", engine_candidate=False, sha
         out = ["%s: a new line reaches out or loads code (%s)" % (name, ln[:70]) for ln in added if risky.search(ln)]
         return out + ["%s: the change adds %s" % (name, w)
                       for w in sorted(hosts_in(_strings(new)) - hosts_in(_strings(old)))]
+    if name in PROTECTED_JS:
+        tree, parsed = page_tree_problems(name, old, new)
+        return line_additive(name, old, new, risky, structural=not parsed) + tree
     return line_additive(name, old, new, risky)
 
 

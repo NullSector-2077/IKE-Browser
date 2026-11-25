@@ -419,6 +419,10 @@ jobs:
           git show "origin/main:tools/builder-anchor.py" > "$RUNNER_TEMP/builder-anchor.py"
           # AUTOMAT: the static guard and the component manifest's rules, which the checker reads beside itself
           for f in fix-guard.py component-manifest.py; do git show "origin/main:tools/$f" > "$RUNNER_TEMP/$f"; done
+          # round 6 of "Nothing gets worse": the guard reads page scripts with its own parser and the
+          # configurations the measurement covers (tools/env-axes.py), beside itself
+          git show "origin/main:tools/js-parse.py" > "$RUNNER_TEMP/js-parse.py"
+          git show "origin/main:tools/env-axes.py" > "$RUNNER_TEMP/env-axes.py"
           # AUTOMAT part 2: the narrow form of tier B (and the pins' rule it reuses), the budget of the free
           # quotas with its data, the routing, AUTOMAT's memory, the inner loop and the recipes
           for f in tier-b.py ci-pins.py ai-quota.py ai-quota.json automat-route.py automat-memory.py \
@@ -1288,6 +1292,9 @@ jobs:
                    tier-b.py ci-pins.py; do
             git show "origin/main:tools/$f" > "$RUNNER_TEMP/trusted/$f"
           done
+          # the static guard's own parser of page scripts and the configurations measured (round 6), beside it
+          git show "origin/main:tools/js-parse.py" > "$RUNNER_TEMP/trusted/js-parse.py"
+          git show "origin/main:tools/env-axes.py" > "$RUNNER_TEMP/trusted/env-axes.py"
       - name: Check and apply the patch
         env:
           ALLOW_ADBLOCK: ${{ needs.plan.outputs.allow_adblock }}
