@@ -137,7 +137,7 @@
   },
   "2026-11-25": {
    "answered": 1,
-   "no_provider": 0,
+   "no_provider": 1,
    "providers": {
     "OpenRouter": {
      "account": "free",
@@ -183,7 +183,7 @@
      "tokens": 27200
     }
    },
-   "runs": 1
+   "runs": 2
   }
  },
  "schema": 1
