@@ -59,7 +59,9 @@ The rules of a tier-A file, each one testable:
    own page scripts (PROTECTED_JS: page_script_problems, the fourth review of "Nothing gets worse",
    2026-11-24) a new line also may not leave code anywhere but inside a function the change adds, read
    where or when the page is (PAGE_ENV), or change an object the old script has by a method or delete
-   from it (PAGE_MUTATE, PAGE_DELETE).
+   from it (PAGE_MUTATE, PAGE_DELETE); since round 5 (2026-11-25) also not assign anywhere in the line to a
+   name the change does not declare (PAGE_ASSIGN, PAGE_INCDEC), run something later outside a function the
+   change adds (PAGE_LATER), or name sites in a pattern or a text (PAGE_BRANDS).
 7. **The component manifest** (components.json) may get a new entry for a file from upstream that has
    none (the inventory guard says which): only added entries, a plain download from an allowed host of
    a file that is already in the repository with the sha256 the entry declares, never a build command
@@ -687,18 +689,116 @@ PAGE_ENV = re.compile(r"(?<![\w$])(location|hostname|protocol|origin|top|parent|
 PAGE_MUTATE = re.compile(r"(?<![\w$.])([A-Za-z_$][\w$]*)((?:\s*\.\s*[\w$]+|\s*\[[^\]]*\])*)\s*\.\s*"
                          r"(splice|pop|shift|unshift|push|fill|copyWithin|reverse|sort|clear|delete|add|set)\s*\(")
 PAGE_DELETE = re.compile(r"(?<![\w$.])delete\s+([A-Za-z_$][\w$]*)")
+# round 5 of the review of "Nothing gets worse" (2026-11-25): one-line weakenings that passed both layers.
+# An assignment anywhere in a line (inside a callback, a loop, after a ";"), not only at its start
+PAGE_ASSIGN = re.compile(r"(?<![\w$.])([A-Za-z_$][\w$]*)((?:\s*\.\s*[\w$]+|\s*\[[^\]]*\])*)\s*"
+                         r"(?:\*\*|[-+*/%|&^]|\|\||&&|\?\?|<<|>>>?)?=(?![=>])")
+PAGE_INCDEC = re.compile(r"(?:\+\+|--)\s*([A-Za-z_$][\w$]*)|(?<![\w$.])([A-Za-z_$][\w$]*)\s*(?:\+\+|--)")
+# what declares a name in the new lines themselves: a var, let or const anywhere in the line, a new
+# function's name and parameters, an arrow function's parameters
+PAGE_DECLS = re.compile(r"(?<![\w$.])(?:var|let|const)\s+([A-Za-z_$][\w$]*)|\bfunction\s*\*?\s*([A-Za-z_$][\w$]*)")
+PAGE_PARAMS = re.compile(r"\bfunction\s*\*?\s*[\w$]*\s*\(([^)]*)\)|\(([^()]*)\)\s*=>|(?<![\w$.])([A-Za-z_$][\w$]*)\s*=>")
+# what runs later than the page's first script: a timer, a frame or idle callback, a microtask, a promise's
+# continuation, a listener (a change deferred past the measurement's window: the noise key changed after 90 s)
+PAGE_LATER = re.compile(r"(?<![\w$.])(setTimeout|setInterval|requestAnimationFrame|requestIdleCallback|queueMicrotask)"
+                        r"(?![\w$])|\.\s*then\s*\(|\.\s*addEventListener\s*\(|(?<![\w$])await(?![\w$])")
+# a site named in a pattern (a regular expression of brand names or top-level domains: hosts_in reads texts,
+# not patterns) or a brand's host in a text
+PAGE_BRANDS = re.compile(r"google|youtube|youtu\.be|facebook|instagram|whatsapp|amazon|cloudflare|captcha|microsoft"
+                         r"|live\.com|apple|icloud|paypal|stripe|twitter|tiktok|baidu|yandex|bing|github|netflix"
+                         r"|akamai|fastly|doubleclick|adsystem|\(\s*(?:com|org|net|io|it|de|fr|uk)\s*\||\\\.(?:com|org|net"
+                         r"|io|co|uk)\b", re.I)
+REGEX_LITERAL = re.compile(r"(?:^|[(,=:!&|?{;]|\breturn)\s*/((?:\\.|\[(?:\\.|[^\]\\])*\]|[^/\\\n*])(?:\\.|\[(?:\\.|"
+                           r"[^\]\\])*\]|[^/\\\n])*)/[a-z]*")
+# the protection's own state and where the page is: a new condition on them that guards an assignment of an
+# old name or an early exit is refused with its own reason (the assignment and the exit are refused anyway)
+PAGE_STATE = {"host", "lv", "level", "cores", "realCores", "n", "W", "H", "width", "height", "seed", "strict",
+              "maximum", "CFG", "SITE_KEY", "MASKED", "hiddenExt", "usual", "langs", "rng", "me", "site", "key"}
+PAGE_CONDITION = re.compile(r"(?<![\w$])(?:if|while|switch)\s*\(|\?[^?.:]|&&|\|\|")
 
 
-def page_script_problems(name, run, had):
+def _declared_list(bare):
+    """Every name a `var`, `let` or `const` statement of the line declares, the ones after a comma too
+    (`var a = 1, b = f(x, y);`): the parts at bracket depth 0 up to the statement's end."""
+    out = []
+    for m in re.finditer(r"(?<![\w$.])(?:var|let|const)\s+", bare):
+        depth, part, i = 0, "", m.end()
+        while i < len(bare):
+            ch = bare[i]
+            if ch in "([{":
+                depth += 1
+            elif ch in ")]}":
+                if depth == 0:
+                    break
+                depth -= 1
+            elif ch in ",;" and depth == 0:
+                n = re.match(r"\s*([A-Za-z_$][\w$]*)", part)
+                if n:
+                    out.append(n.group(1))
+                part = ""
+                if ch == ";":
+                    break
+                i += 1
+                continue
+            part += ch
+            i += 1
+        n = re.match(r"\s*([A-Za-z_$][\w$]*)", part)
+        if n:
+            out.append(n.group(1))
+    return out
+
+
+def page_script_problems(name, run, had, known=()):
     """The rules of a page script's new lines (PROTECTED_JS): (problems). `run` is a run of new lines,
-    `had` what the old script declares."""
+    `had` what the old script declares, `known` every name the old script has (its parameters too)."""
     out, stack, mine = [], [], set()
+    known = set(known) | set(had)
     for line in run:
         bare = _strip_strings(line)
         d = DECLARES.match(bare)
         if d:
             mine.add(d.group(2))
+        for m in PAGE_DECLS.finditer(bare):
+            mine.add(m.group(1) or m.group(2))
+        for part in _declared_list(bare):
+            mine.add(part)
+        for m in PAGE_PARAMS.finditer(bare):
+            for p in re.split(r"[,\s]+", m.group(1) or m.group(2) or m.group(3) or ""):
+                p = p.split("=")[0].strip(" .{}[]")
+                if re.match(r"^[A-Za-z_$][\w$]*$", p):
+                    mine.add(p)
         in_fn = "fn" in stack
+        # (i) an assignment anywhere in the line to a name the change did not declare itself (round 5, F5:
+        # `seed = 1` inside a timer's callback; F1, F2, F3: lv, cores, n set under a new condition)
+        targets = [m.group(1) for m in PAGE_ASSIGN.finditer(bare)] + \
+            [m.group(1) or m.group(2) for m in PAGE_INCDEC.finditer(bare)]
+        for t in targets:
+            if t not in mine and t not in ("this",) and not re.match(r"^(?:var|let|const)$", t):
+                out.append("%s: a new line assigns to %s, which the change does not declare (%s): in a page "
+                           "script new code may only set its own names" % (name, t, line[:70]))
+                break
+        # (ii) code that runs later, outside a function the change adds
+        if PAGE_LATER.search(bare) and not in_fn and not re.search(r"\bfunction\b|=>", bare.split("(")[0]):
+            out.append("%s: a new line runs something later (%s): in a page script a timer, a promise's "
+                       "continuation or a listener only inside a function the change adds" % (name, line[:70]))
+        # (iii) a new condition on the protection's state or where the page is, guarding an assignment or an exit
+        state = sorted({w for w in re.findall(r"(?<![\w$.])([A-Za-z_$][\w$]*)", bare)} & PAGE_STATE & known)
+        if state and PAGE_CONDITION.search(bare) and (targets and any(t not in mine for t in targets)
+                                                      or EXIT_WORD.search(bare)):
+            out.append("%s: a new condition on %s decides what the protection does (%s)" % (
+                name, ", ".join(state[:4]), line[:70]))
+        # (iv) a site named in a pattern or a text
+        code = re.sub(r"//.*$", "", line) if "//" in line and not re.search(r"[\"'`/][^\"'`]*//", line) else line
+        for m in REGEX_LITERAL.finditer(code):
+            if PAGE_BRANDS.search(m.group(1)):
+                out.append("%s: a new pattern names sites (/%s/): a protection may not depend on the site" % (
+                    name, m.group(1)[:50]))
+                break
+        for s in re.findall(r"'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"|`(?:\\.|[^`\\])*`", code):
+            if re.search(r"(?:google|youtube|facebook|instagram|amazon|cloudflare|captcha|microsoft|apple|paypal"
+                          r"|twitter|tiktok)\.", s, re.I) or re.search(r"\(\s*(?:com|org|net)\s*\|", s):
+                out.append("%s: a new text names a site (%s)" % (name, s[:50]))
+                break
         # what the line itself opens before an exit word: a function written on the same line
         head = re.split(r"(?<![\w$.])(?:return|throw|break|continue)(?![\w$])", bare, maxsplit=1)[0]
         if EXIT_WORD.search(bare) and not in_fn and not re.search(r"\bfunction\b|=>", head):
@@ -774,7 +874,7 @@ def line_additive(name, old, new, risky):
     before = hosts_in(_strings(old))
     for run in runs:
         if name in PROTECTED_JS:
-            out += page_script_problems(name, run, had)
+            out += page_script_problems(name, run, had, known)
         depth = 0
         mine = set()                              # what the new lines themselves declare inside their own blocks
         for line in run:
