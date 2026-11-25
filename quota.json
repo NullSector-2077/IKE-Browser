@@ -136,18 +136,76 @@
    "runs": 12
   },
   "2026-11-25": {
-   "answered": 6,
+   "answered": 7,
    "answered_for": {
+    "automation/update/darkreader": 1,
     "automation/update/lists-2026-11-22": 1
    },
    "no_provider": 2,
    "providers": {
+    "Antigravity": {
+     "by": {
+      "automation/update/darkreader": {
+       "requests": 40,
+       "tokens": 0
+      }
+     },
+     "classes": {
+      "2": {
+       "requests": 40,
+       "tokens": 0
+      }
+     },
+     "observed": {},
+     "requests": 40,
+     "spent": "",
+     "tokens": 0
+    },
+    "Groq": {
+     "by": {
+      "automation/update/darkreader": {
+       "requests": 2,
+       "tokens": 10625
+      }
+     },
+     "classes": {
+      "2": {
+       "requests": 2,
+       "tokens": 10625
+      }
+     },
+     "observed": {
+      "requests": {
+       "at": 1795617752,
+       "limit": 1000,
+       "mark": 2,
+       "remaining": 998,
+       "reset": 173,
+       "window": "day"
+      },
+      "tokens": {
+       "at": 1795617752,
+       "limit": 8000,
+       "mark": 10625,
+       "remaining": 4421,
+       "reset": 27,
+       "window": "minute"
+      }
+     },
+     "requests": 2,
+     "spent": "",
+     "tokens": 10625
+    },
     "OpenRouter": {
      "account": "free",
      "by": {
       "automation/autofix-main": {
        "requests": 4,
        "tokens": 173782
+      },
+      "automation/update/darkreader": {
+       "requests": 18,
+       "tokens": 373232
       },
       "automation/update/lists-2026-11-22": {
        "requests": 21,
@@ -156,20 +214,20 @@
      },
      "classes": {
       "2": {
-       "requests": 25,
-       "tokens": 679335
+       "requests": 43,
+       "tokens": 1052567
       }
      },
      "observed": {
       "requests": {
        "limit": 50,
-       "mark": 25,
+       "mark": 43,
        "window": "day"
       }
      },
-     "requests": 25,
+     "requests": 43,
      "spent": "",
-     "tokens": 679335
+     "tokens": 1052567
     },
     "Z.AI": {
      "by": {
@@ -190,7 +248,7 @@
      "tokens": 27200
     }
    },
-   "runs": 8,
+   "runs": 9,
    "unasked": {
     "automation/update/drill-qt": 1
    }

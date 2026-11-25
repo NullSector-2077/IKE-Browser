@@ -80,6 +80,18 @@
     "sig": "e2bc2dd6dd0c696d",
     "summary": "Il controllo \"Nothing gets worse\" segnala che la superficie di fingerprinting \u00e8 peggiorata: il campo fingerprint-config/maximum/fonts ha un hash diverso da main (709716953735f119 su main, 74234e98afe7498f qui). Questo \u00e8 un problema di regressione reale nel comportamento del brows",
     "task": "rust"
+   },
+   {
+    "attempt": 1,
+    "date": "2026-11-25",
+    "detail": "config",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "e2bc2dd6dd0c696d",
+    "summary": "Il test di regressione del fingerprinting ha mostrato valori leggermente diversi (canvas, fonts_generic, frame) rispetto a main, indicando una variazione non deterministica nel calcolo del fingerprint. Non \u00e8 stato possibile individuare nel codice la fonte esatta di questa variazi",
+    "task": "rust"
    }
   ],
   "automation/update/drill-qt@19bd99de16c06f44": [
@@ -293,6 +305,13 @@
    "date": "2026-11-25",
    "n": 1,
    "sig": "12c104ff9231a16b",
+   "since": "2026-11-25"
+  },
+  "automation/update/darkreader": {
+   "at": "2026-11-25T14:44:47Z",
+   "date": "2026-11-25",
+   "n": 1,
+   "sig": "e2bc2dd6dd0c696d",
    "since": "2026-11-25"
   },
   "automation/update/drill-qt": {
