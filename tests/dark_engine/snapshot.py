@@ -31,9 +31,17 @@ SITES = {
     "eff-cyt": "https://coveryourtracks.eff.org/",
     "eff-learn": "https://coveryourtracks.eff.org/learn",
     "creepjs": "https://abrahamjuliot.github.io/creepjs/",
+    # big sites (round 3): their pictures and style sheets of other hosts may be
+    # missing where the network refuses those hosts (say so with the results)
+    "wiki-article": "https://en.wikipedia.org/wiki/Arch_Linux",
+    "github-repo": "https://github.com/NullSector-2077/IKE-Browser",
+    "mdn-page": "https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/color",
+    "hn-front": "https://news.ycombinator.com/",
+    "youtube-watch": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+    "pydocs-real": "https://docs.python.org/3/library/re.html",
 }
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
-MAX_FILES, MAX_BYTES = 250, 4 << 20
+MAX_FILES, MAX_BYTES = 250, 16 << 20
 CTX = ssl.create_default_context()
 for ca in ("/root/.ccr/ca-bundle.crt",):
     if Path(ca).exists():
@@ -52,9 +60,19 @@ def local_path(url):
     rest = u.path or "/"
     if rest.endswith("/"):
         rest += "index"
+    elif "." not in rest.rsplit("/", 1)[-1]:
+        rest += "/index"                   # /a/b and /a/b/c can both be pages (MDN): b is a folder
     if u.query:
         rest += "@" + urllib.parse.quote(u.query, safe="")
-    return u.hostname + "/" + urllib.parse.quote(rest.lstrip("/"), safe="/@.-_")
+    path = urllib.parse.quote(rest.lstrip("/"), safe="/@.-_")
+    # a name too long for the disk (Wikipedia's load.php?modules=...): its hash, the extension kept
+    parts = path.split("/")
+    for i, part in enumerate(parts):
+        if len(part) > 120:
+            import hashlib
+            ext = ".css" if "only%3Dstyles" in part or part.endswith(".css") else ""
+            parts[i] = "h" + hashlib.sha1(part.encode()).hexdigest() + ext
+    return u.hostname + "/" + "/".join(parts)
 
 
 class Snap:

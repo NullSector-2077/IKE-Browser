@@ -292,6 +292,19 @@ class WebPage(QWebEnginePage):
         engine = cfg["dark_engine"]
         reader_on = on and engine == "reader"
         native_on = on and engine == "engine"
+        # the I.K.E. Dark Engine experiment (darkengine.py), on only by hand in
+        # settings.json: it takes Dark Reader's place at the levels Off to
+        # Balanced; at Strict and Maximum no script darkens the page, Chromium's
+        # own dark mode does (the owner's privacy rule)
+        from . import darkengine
+        experiment = engine == "reader" and darkengine.wanted(cfg)
+        own_on = False
+        if experiment and reader_on:
+            reader_on = False
+            if cfg.level_for(host) in ("strict", "maximum"):
+                native_on = True
+            else:
+                own_on = True
 
         # Qt 6.7+ exposes ForceDarkMode as a page-level WebAttribute.  This lets
         # users exempt a single site instead of forcing Chromium's filter over
@@ -306,7 +319,7 @@ class WebPage(QWebEnginePage):
         # white flash. The new tab page's own colour for the new tab page,
         # whatever the dark mode (1.1.23: white for about 0.1 s at every start
         # and every new tab, the owner's "white flash")
-        if reader_on or blank:
+        if reader_on or own_on or blank:
             self.set_backdrop(DARK_BLANK)
         elif is_newtab(url):
             self.set_backdrop(self.app.shields.newtab_background())
@@ -317,10 +330,16 @@ class WebPage(QWebEnginePage):
         # Dark Reader: scripts of the profile (darkpages.py), as the extension does it
         from . import darkpages
         profile = self.profile()
-        if engine != "reader" or not (cfg["dark_mode"] == "on" or cfg["dark_sites"]) \
+        if engine != "reader" or experiment or not (cfg["dark_mode"] == "on" or cfg["dark_sites"]) \
                 or not cfg.get("comp_dark", True):
             darkpages.forget(profile)
+        if not experiment or not cfg.get("comp_dark", True):
+            darkengine.forget(profile)
         if not page_url:
+            return
+        if experiment:
+            darkengine.prepare(profile, url.toString(), host or url.scheme() + ":", own_on,
+                               self.app.shields.dark_chosen(host))
             return
         theme = dict(cfg["dark_theme"]) if isinstance(cfg["dark_theme"], dict) else {}
         darkpages.prepare(profile, url.toString(), host or url.scheme() + ":", theme, reader_on,
