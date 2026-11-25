@@ -795,6 +795,21 @@ of that day's four reasons, are `tests/test_automat_deadlock.py`):
   before the updates still being retried. Nobody is mailed for it. A run whose attempt started with a
   reserve (rotated) and asked nobody now counts as a day with no provider too.
 
+- **The stall of 2026-11-25 afternoon** (run 45625320020, PR #111 again): Z.AI was still "spent today"
+  from a mark written before the reading of its codes was fixed, and every OpenRouter model failed: five
+  answered 429 (the run waited 61 s on each, model after model, as if the whole account were blocked) and
+  the reasoning models gave no text ("no JSON object in the answer"). It was **not** the account's privacy
+  setting: that answers 404 "No endpoints found matching your data policy", which the reserve says
+  plainly (`DATA_POLICY`). What changed: a mark "spent today" carries the time it was written
+  (`spent_at`) and is **checked again with one request after `SPENT_RECHECK` (3 hours)**; a mark with
+  no time is checked at once; only "it asked for money" never expires (`mark_expired`). A 429 of one
+  free model's pool upstream (`model_words` in `tools/ai-quota.json`: "rate-limited upstream") moves to
+  the next model at once and holds back none of OpenRouter's other models (`per_model`). Every error now
+  shows the provider's own words in the log (`error_words`, URLs and keys removed), so the next stall
+  says which limit it was. OpenRouter is asked for little reasoning, not sent back
+  (`"reasoning": {"effort": "low", "exclude": true}`), and an answer cut off before its text says so
+  (`cutoff`) instead of "no JSON object".
+
 **From the providers' own pages** (read on 2026-11-25 on each provider's own page or code: every
 provider in `tools/ai-quota.json` has `source_urls`, `source_verified_on` and a `signals_source` or
 `words_source` that says what each value rests on). `source_verified_on` is the day the value was read

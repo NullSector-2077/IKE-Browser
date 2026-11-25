@@ -152,6 +152,9 @@ def load_limits(path=None):
             for field in ("day_words", "minute_words"):
                 words = raw.get(field)
                 conf[field] = [str(w) for w in words][:24] if isinstance(words, list) else FALLBACK[field]
+            # a 429 of one free model's own pool, busy upstream (per_model): data too, none by default
+            words = raw.get("model_words")
+            conf["model_words"] = [str(w) for w in words][:24] if isinstance(words, list) else []
             # how a 429 is read is data too (rate_limit_scope): the wait above which it is the day's quota
             wait = raw.get("day_wait_seconds")
             conf["day_wait_seconds"] = wait if isinstance(wait, int) and not isinstance(wait, bool) and \
@@ -615,6 +618,27 @@ def said(words, text):
 
 # a long wait the provider asks for: more than this is the day's quota, not a limit per minute
 DAY_WAIT = 3600
+# a mark "spent today" is checked again after this many seconds with one request (2026-11-25: a wrong mark,
+# written before the reading of Z.AI's codes was fixed, kept Z.AI unasked for the rest of the day). A mark of
+# money asked (not free) never expires; a mark with no time (written before this rule) is checked again at once
+SPENT_RECHECK = 3 * 3600
+NEVER_EXPIRES = ("money", "not free")
+
+
+def mark_expired(why, at, now):
+    """True when a mark "spent today" may be checked again (SPENT_RECHECK): never for money asked."""
+    why = str(why or "")
+    if not why or any(w in why for w in NEVER_EXPIRES):
+        return False
+    if not isinstance(at, int) or isinstance(at, bool) or at <= 0:
+        return True
+    return now - at >= SPENT_RECHECK
+
+
+def per_model(conf, body):
+    """True when a 429 is one free model's own pool, busy upstream (OpenRouter: "temporarily rate-limited
+    upstream"): the next model is asked at once, and the provider's other models are not held back."""
+    return said((conf or {}).get("model_words") or (), body)
 # what a provider says of its limit per minute when a request is too large for it (Groq: "on tokens per minute
 # (TPM): Limit 6000, Requested 7678"): the limit is learned and the next request is fitted to it
 TPM_LIMIT = re.compile(r"(?:tokens per minute|\bTPM\b)\D{0,40}?\blimit\W{0,3}(\d{3,9})", re.I)
@@ -716,13 +740,29 @@ class Budget:
         p = self._p(provider)
         return p["requests"], p["tokens"]
 
+    def moment(self):
+        """Now, in seconds since 1970 (the run's start and the time it has run)."""
+        return int(self.now.timestamp() + max(0, self.clock() - self.started))
+
+    def _mark(self, p, field):
+        """The mark of the field, or "" once it is old enough to be checked again (mark_expired)."""
+        why = p.get(field) or ""
+        if why and mark_expired(why, p.get(field + "_at"), self.moment()):
+            return ""
+        return why
+
     def spent(self, provider):
         """Why the provider is spent today for this run's class ("" when it is not): a 429 that work of class 3
-        or 4 got spends it only for classes 3 and 4 (spent_low), never for security fixes and real updates."""
+        or 4 got spends it only for classes 3 and 4 (spent_low), never for security fixes and real updates.
+        A mark older than SPENT_RECHECK is checked again with one request (mark_expired)."""
         p = self._p(provider)
-        if self.priority >= CI and p.get("spent_low"):
-            return p.get("spent") or p["spent_low"]
-        return p.get("spent") or ""
+        if self.priority >= CI and self._mark(p, "spent_low"):
+            return self._mark(p, "spent") or self._mark(p, "spent_low")
+        return self._mark(p, "spent")
+
+    def _set_mark(self, p, field, why):
+        p[field] = str(why)[:120]
+        p[field + "_at"] = self.moment()
 
     def day_limit(self, provider, kind):
         """Today's limit of requests or tokens: what the provider's own headers said, else the data file."""
@@ -1021,7 +1061,7 @@ class Budget:
             obs["at"] = int(self.now.timestamp() + max(0, self.clock() - self.started))
             p["observed"][kind] = obs
             if obs.get("window") == "day" and obs.get("remaining") == 0:
-                p["spent"] = "its own headers say nothing is left today"
+                self._set_mark(p, "spent", "its own headers say nothing is left today")
             if obs.get("window") == "minute" and obs.get("remaining") == 0 and obs.get("reset"):
                 self.blocked_until[provider] = self.clock() + min(obs["reset"], 120)
         if status in (413, 429):
@@ -1036,17 +1076,18 @@ class Budget:
             self.last_429[provider] = (scope, wait, why)
             if scope == "day":
                 # work of class 3 or 4 spends it only for itself: security fixes and real updates still ask
-                p["spent_low" if self.priority >= CI else "spent"] = why
-            else:
+                self._set_mark(p, "spent_low" if self.priority >= CI else "spent", why)
+            elif not per_model(conf, body):
+                # one free model busy upstream holds back only that model, never the provider's others
                 self.blocked_until[provider] = max(self.blocked_until.get(provider, 0), self.clock() + wait)
         elif status == 402:
-            p["spent"] = "it asked for money (not free)"
+            self._set_mark(p, "spent", "it asked for money (not free)")
 
     def mark_spent(self, provider, why):
         """Spent today: for everybody, except a quota answer (429) that work of class 3 or 4 got."""
         if provider in self.limits["providers"]:
             low = self.priority >= CI and "429" in str(why)
-            self._p(provider)["spent_low" if low else "spent"] = str(why)[:120]
+            self._set_mark(self._p(provider), "spent_low" if low else "spent", why)
 
     def delta(self):
         """What this run adds, for the job that writes the data branch (numbers and known names only); each
@@ -1056,6 +1097,8 @@ class Budget:
                 "candidate": self.candidate, "calls": self.calls,
                 "spent": {n: p.get("spent") for n, p in mine.items() if p.get("spent")},
                 "spent_low": {n: p.get("spent_low") for n, p in mine.items() if p.get("spent_low")},
+                "spent_at": {n: {f: p.get(f + "_at") for f in ("spent", "spent_low") if p.get(f + "_at")}
+                             for n, p in mine.items() if p.get("spent_at") or p.get("spent_low_at")},
                 "accounts": {n: p.get("account") for n, p in mine.items() if p.get("account") in ("free", "not-free")},
                 "observed": {n: p.get("observed") for n, p in mine.items() if p.get("observed")},
                 "skipped": dict(self.skipped), "result": self.result}
@@ -1106,10 +1149,15 @@ def merge(state, delta, now=None):
             mine["tokens"] = _count(mine.get("tokens")) + tokens
             if len(p["by"]) > 40:
                 del p["by"][sorted(p["by"])[0]]
+    marks_at = delta.get("spent_at") if isinstance(delta.get("spent_at"), dict) else {}
     for field in ("spent", "spent_low"):
         for name, why in (delta.get(field) or {}).items() if isinstance(delta.get(field), dict) else ():
             if name in NAMES and why:
-                _prov(state, day_of_provider(name), name)[field] = _text(why, 120)
+                p = _prov(state, day_of_provider(name), name)
+                p[field] = _text(why, 120)
+                at = (marks_at.get(name) or {}).get(field) if isinstance(marks_at.get(name), dict) else None
+                if isinstance(at, int) and not isinstance(at, bool) and 0 < at < 10 ** 11:
+                    p[field + "_at"] = at
     for name, tier in (delta.get("accounts") or {}).items() if isinstance(delta.get("accounts"), dict) else ():
         if name in NAMES and tier in ("free", "not-free"):
             _prov(state, day_of_provider(name), name)["account"] = tier

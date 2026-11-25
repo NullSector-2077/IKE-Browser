@@ -472,6 +472,27 @@ POLICY = (" OpenRouter non può usare i modelli gratuiti: nelle impostazioni di 
           "l'uso degli endpoint gratuiti (\"No endpoints found matching your data policy\").")
 
 
+# the provider's own words of an error, for the log (2026-11-25: "stopped: quota (HTTP 429)" alone did not say
+# whether the account, the model's pool upstream or the minute was spent)
+def error_words(said):
+    """error.message (and OpenRouter's error.metadata.limit_source or raw) of an error body, one short line."""
+    try:
+        err = (json.loads(said or "{}") or {}).get("error")
+    except (ValueError, AttributeError, TypeError):
+        err = None
+    parts = []
+    if isinstance(err, dict):
+        meta = err.get("metadata") if isinstance(err.get("metadata"), dict) else {}
+        for value in (err.get("message"), meta.get("limit_source"), meta.get("raw")):
+            if isinstance(value, str) and value.strip():
+                parts.append(value.strip())
+    elif isinstance(err, str):
+        parts.append(err)
+    text = " / ".join(parts)
+    text = re.sub(r"https?://\S+", "", text)
+    return re.sub(r"[^\w .,:;'()/@+=-]+", " ", text).strip()[:160]
+
+
 def billing_in(text):
     return bool(BILLING.search(text or ""))
 
@@ -511,6 +532,10 @@ def ask(url, key, model, messages, timeout=REQUEST_TIMEOUT, opener=urllib.reques
     """The model's answer text, or raises (kind, detail). meter(status, headers, usage, body): what
     the answer says about the quota (tools/ai-quota.py), also for an error."""
     request = {"model": model, "messages": messages, "temperature": 0.1, "max_tokens": max_tokens}
+    if "openrouter.ai/" in url:
+        # 2026-11-25: free reasoning models spent the whole answer on their reasoning and gave no text ("no JSON
+        # object in the answer"): little reasoning, not sent back (openrouter.ai/docs, reasoning tokens)
+        request["reasoning"] = {"effort": "low", "exclude": True}
     if temperature != 0.1:
         request["temperature"] = min(0.3, max(0.0, float(temperature)))      # always low: never above 0.3
     body = json.dumps(request).encode()
@@ -541,7 +566,12 @@ def ask(url, key, model, messages, timeout=REQUEST_TIMEOUT, opener=urllib.reques
             # OpenRouter's account setting blocks the free endpoints (openrouter.ai/docs: "No endpoints found
             # matching your data policy"): an owner's setting, never a quota and never a model that is gone
             raise Stop("policy", "HTTP 404, the account's privacy setting", 0, 404)
-        raise Stop(classify(e.code), "HTTP %d" % e.code, wait, e.code)
+        words = redact(error_words(said), [key])
+        if e.code == 429 and "openrouter.ai/" in url and model_busy(said):
+            # one free model's own pool, busy upstream: the next model at once, nothing waited
+            raise Stop("quota", "HTTP 429, this model is busy upstream" + (": " + words if words else ""), 0, 429,
+                       "model")
+        raise Stop(classify(e.code), "HTTP %d" % e.code + (": " + words if words else ""), wait, e.code)
     except (urllib.error.URLError, TimeoutError, OSError, ValueError, http.client.HTTPException) as e:
         # http.client's IncompleteRead (an answer cut off) is no OSError: until the
         # final review of 1.1.18 it skipped the retry of a server error
@@ -551,12 +581,26 @@ def ask(url, key, model, messages, timeout=REQUEST_TIMEOUT, opener=urllib.reques
         raise Stop("unavailable", "the answer reports a cost")
     try:
         content = data["choices"][0]["message"]["content"] or ""
-    except (KeyError, IndexError, TypeError):
+        finish = data["choices"][0].get("finish_reason")
+    except (KeyError, IndexError, TypeError, AttributeError):
         raise Stop("temporary", "no answer")
+    if not content and finish == "length":
+        # the room for the answer went to the model's reasoning: no text at all (the next model)
+        raise Stop("cutoff", "the answer was cut off before its text (its reasoning took all the room)")
     if isinstance(content, list):          # content given in parts: their text
         content = "".join(p.get("text", "") for p in content if isinstance(p, dict) and
                           isinstance(p.get("text"), str))
     return content if isinstance(content, str) else ""
+
+
+def model_busy(said):
+    """A 429 of one free model's pool upstream (tools/ai-quota.json, OpenRouter's model_words)."""
+    try:
+        quota = _tool("ai-quota")
+        conf = quota.load_limits()["providers"].get("OpenRouter") or {}
+    except Exception:
+        return False
+    return quota.per_model(conf, said)
 
 
 def parse(text):
@@ -944,6 +988,8 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
             wait = s.args[2] if len(s.args) > 2 else 0
             code = s.args[3] if len(s.args) > 3 else 0
             print("  stopped: %s (%s)" % (kind, for_log(s.args[1])), flush=True)
+            if len(s.args) > 4 and s.args[4] == "model":
+                return "quota", "", refused             # this model's pool upstream: the next model, no wait
             # a busy service (503): asked again after a growing pause (BACKOFF, or its own short Retry-After)
             if kind == "temporary" and code == 503 and busy < len(BACKOFF):
                 pause = wait if 0 < wait <= 60 else BACKOFF[busy]

@@ -251,6 +251,11 @@
     "openrouter_free_tier_per_minute",
     "upstream_provider_shared_pool"
    ],
+   "model_words": [
+    "rate-limited upstream",
+    "upstream_provider_shared_pool"
+   ],
+   "model_words_source": "openrouter.ai/blog/tutorials/llm-api-rate-limits (2026-11-11, not in the reference: not verified): a free model busy at its upstream provider answers 429 \"temporarily rate-limited upstream\" (limit_source upstream_provider_shared_pool); that is the model's own pool, shared by every free user, not the account's limit: the next free model is asked at once. Run 45625320020 (2026-11-25) waited 61 s on such 429s model after model; its log did not show their text, which the reserve prints since",
    "signals_source": "read on 2026-11-25. The documented 429 body is {\"error\": {\"code\": 429, \"metadata\": {\"error_type\": \"rate_limit_exceeded\"}}} for a minute and a day alike (openrouter.ai/docs/api-reference/limits), so that type says nothing of which. error.metadata.limit_source (openrouter_free_tier_per_minute, upstream_provider_shared_pool, openrouter_free_tier_daily) and the messages free-models-per-min / free-models-per-day are shown only on OpenRouter's blog (openrouter.ai/blog/tutorials/llm-api-rate-limits, 2026-11-11), not in its reference: not verified. A 404 'No endpoints found matching your data policy' is the account's privacy setting (openrouter.ai/docs/faq), never a quota",
    "reset": {
     "time": "00:00",
