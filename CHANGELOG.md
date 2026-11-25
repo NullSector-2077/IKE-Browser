@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.26
+
+- Dark Reader (engine and lists): 4.9.135, lists 586f4b900d (2026-11-24) -> 4.9.135, lists 26d0621d65 (2026-11-25) (lists changed)
+
 ## 1.1.25
 
 - **Weather units you can choose** (the owner): in Settings, next to the
