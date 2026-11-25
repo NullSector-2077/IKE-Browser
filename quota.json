@@ -39,6 +39,24 @@
    "answered": 11,
    "no_provider": 1,
    "providers": {
+    "Antigravity": {
+     "by": {
+      "automation/autofix-main": {
+       "requests": 30,
+       "tokens": 0
+      }
+     },
+     "classes": {
+      "2": {
+       "requests": 30,
+       "tokens": 0
+      }
+     },
+     "observed": {},
+     "requests": 30,
+     "spent": "",
+     "tokens": 0
+    },
     "Groq": {
      "by": {
       "automation/update/crates": {
@@ -116,6 +134,56 @@
     }
    },
    "runs": 12
+  },
+  "2026-11-25": {
+   "answered": 1,
+   "no_provider": 0,
+   "providers": {
+    "OpenRouter": {
+     "account": "free",
+     "by": {
+      "automation/autofix-main": {
+       "requests": 4,
+       "tokens": 173782
+      }
+     },
+     "classes": {
+      "2": {
+       "requests": 4,
+       "tokens": 173782
+      }
+     },
+     "observed": {
+      "requests": {
+       "limit": 50,
+       "mark": 4,
+       "window": "day"
+      }
+     },
+     "requests": 4,
+     "spent": "",
+     "tokens": 173782
+    },
+    "Z.AI": {
+     "by": {
+      "automation/autofix-main": {
+       "requests": 1,
+       "tokens": 27200
+      }
+     },
+     "classes": {
+      "2": {
+       "requests": 1,
+       "tokens": 27200
+      }
+     },
+     "observed": {},
+     "requests": 1,
+     "spent": "429: the quota of the day (it says so)",
+     "tokens": 27200
+    }
+   },
+   "runs": 1
   }
  },
  "schema": 1
