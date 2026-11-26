@@ -259,92 +259,92 @@
    }
   },
   "2026-11-26": {
-   "answered": 1,
+   "answered": 2,
    "answered_for": {
-    "automation/update/lists-2026-11-22": 1
+    "automation/update/lists-2026-11-22": 2
    },
    "no_provider": 0,
    "providers": {
     "Groq": {
      "by": {
       "automation/update/lists-2026-11-22": {
-       "requests": 1,
-       "tokens": 6436
+       "requests": 3,
+       "tokens": 18727
       }
      },
      "classes": {
       "2": {
-       "requests": 1,
-       "tokens": 6436
+       "requests": 3,
+       "tokens": 18727
       }
      },
      "observed": {
       "requests": {
-       "at": 1795674329,
+       "at": 1795680398,
        "limit": 1000,
-       "mark": 1,
-       "remaining": 999,
-       "reset": 87,
+       "mark": 3,
+       "remaining": 998,
+       "reset": 173,
        "window": "day"
       },
       "tokens": {
-       "at": 1795674329,
+       "at": 1795680398,
        "limit": 8000,
-       "mark": 6436,
-       "remaining": 3368,
-       "reset": 35,
+       "mark": 18727,
+       "remaining": 3114,
+       "reset": 37,
        "window": "minute"
       }
      },
-     "requests": 1,
+     "requests": 3,
      "spent": "",
-     "tokens": 6436
+     "tokens": 18727
     },
     "OpenRouter": {
      "account": "free",
      "by": {
       "automation/update/lists-2026-11-22": {
-       "requests": 12,
-       "tokens": 288901
+       "requests": 25,
+       "tokens": 615403
       }
      },
      "classes": {
       "2": {
-       "requests": 12,
-       "tokens": 288901
+       "requests": 25,
+       "tokens": 615403
       }
      },
      "observed": {
       "requests": {
        "limit": 50,
-       "mark": 12,
+       "mark": 25,
        "window": "day"
       }
      },
-     "requests": 12,
+     "requests": 25,
      "spent": "",
-     "tokens": 288901
+     "tokens": 615403
     },
     "Z.AI": {
      "by": {
       "automation/update/lists-2026-11-22": {
-       "requests": 6,
-       "tokens": 128785
+       "requests": 9,
+       "tokens": 199579
       }
      },
      "classes": {
       "2": {
-       "requests": 6,
-       "tokens": 128785
+       "requests": 9,
+       "tokens": 199579
       }
      },
      "observed": {},
-     "requests": 6,
+     "requests": 9,
      "spent": "",
-     "tokens": 128785
+     "tokens": 199579
     }
    },
-   "runs": 1
+   "runs": 2
   }
  },
  "schema": 1

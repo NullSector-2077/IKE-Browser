@@ -225,18 +225,6 @@
     "outcome": "no-fix",
     "provider": "",
     "sig": "bf8bb9289850a76b",
-    "summary": "Il fallimento riguarda le liste filtro CSP (Content Security Policy) che I.K.E. non legge correttamente. I file sorgente da modificare (ike/scriptlets.py, ike/blocker.py) non sono stati forniti nel contesto, solo i file di test. Senza vedere il codice attuale non \u00e8 possibile scri",
-    "task": "lists"
-   },
-   {
-    "attempt": 2,
-    "date": "2026-11-25",
-    "detail": "rotated",
-    "files": [],
-    "model": "",
-    "outcome": "no-fix",
-    "provider": "",
-    "sig": "bf8bb9289850a76b",
     "summary": "Non \u00e8 stato possibile individuare n\u00e9 ripristinare la funzione entry di ike/scriptlets.py n\u00e9 correggere l'analisi delle liste di filtro senza accedere al contenuto originale del file. Senza il testo esatto del codice non \u00e8 possibile aggiungere o ripristinare il comportamento richi",
     "task": "lists"
    },
@@ -287,6 +275,18 @@
     "sig": "bf8bb9289850a76b",
     "summary": "L'agente non ha scritto un riassunto. **Riserve: Le riserve hanno esaurito la quota o non rispondono: riprova pi\u00f9 tardi.**",
     "task": "lists"
+   },
+   {
+    "attempt": 2,
+    "date": "2026-11-26",
+    "detail": "rotated",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "bf8bb9289850a76b",
+    "summary": "L'agente non ha scritto un riassunto. **Riserve: Le riserve hanno esaurito la quota o non rispondono: riprova pi\u00f9 tardi. Non interpellati per la quota gratuita: OpenRouter (this candidate already used its share of today's requests (25 of 50; while another real update is pending, ",
+    "task": "lists"
    }
   ]
  },
@@ -308,9 +308,9 @@
    "since": "2026-11-25"
   },
   "automation/update/lists-2026-11-22": {
-   "at": "2026-11-26T06:25:39Z",
+   "at": "2026-11-26T08:06:53Z",
    "date": "2026-11-26",
-   "n": 14,
+   "n": 15,
    "sig": "bf8bb9289850a76b",
    "since": "2026-11-23"
   }
