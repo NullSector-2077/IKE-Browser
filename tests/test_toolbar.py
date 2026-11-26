@@ -248,8 +248,8 @@ def steps(ike, qapp, out):
     yield from drag(win, "split", centre(win.nav.widgetForAction(win.act_back)))
     out["after_drop_on_back"] = keys(win)
     acts = win.nav.actions()
-    out["fixed"] = [acts.index(win.act_back), acts.index(win.act_fwd), acts.index(win.act_home),
-                    acts.index(win.act_reload), acts.index(win.home_sep_act), acts[4].isSeparator(),
+    out["fixed"] = [acts.index(win.act_back), acts.index(win.act_fwd), acts.index(win.act_reload),
+                    acts.index(win.act_home), acts.index(win.home_sep_act), acts[4].isSeparator(),
                     (win.shield_btn.parentWidget() is win.urlbar and win.shield_btn.geometry().right() > win.urlbar.width() - 20),
                     acts.index(win.win_sep_act) > acts.index(win.urlbar_act),
                     acts.index(win.menu_act) == acts.index(win.win_sep_act) + 1 == acts.index(win._win_btns[0]) - 1,
@@ -344,11 +344,11 @@ def steps(ike, qapp, out):
     yield 200
     choose.aboutToShow.emit()
     entries = {a.data(): a for a in choose.actions()}
-    entries["home"].setChecked(False)
-    choose.triggered.emit(entries["home"])
+    entries["back"].setChecked(False)
+    choose.triggered.emit(entries["back"])
     yield 200
     out["shown_dark"] = "pip" in keys(win)[0]
-    out["home_hidden"] = [win.act_home.isVisible(), win.home_sep_act.isVisible(), win.act_back.isVisible()]
+    out["back_hidden"] = [win.act_home.isVisible(), win.act_reload.isVisible(), win.act_back.isVisible()]
     out["outlines_with_dark"] = len(m.overlay.outlines)
     out["saved"] = [list(ike.config["toolbar_order"]), list(ike.config["toolbar_left"]),
                     sorted(ike.config["toolbar_hidden"])]
@@ -397,11 +397,11 @@ def steps(ike, qapp, out):
     assert out["entries"] == sorted(k for k, _h in TOOLBAR_ITEMS)
     assert "bookmark" not in out["entries"]                     # fixed: neither moved nor hidden (1.1.25)
     assert out["shown_dark"] and out["outlines_with_dark"] == 8
-    assert out["home_hidden"] == [False, True, True]
+    assert out["back_hidden"] == [True, True, False]
     order, left, hidden = out["saved"]
     assert left == ["private", "cleansite", "screenshot", "split", "pip"]
     assert [k for k in order if k not in NEW_KEYS][-1] == "dark"          # (the hidden new ones stay after it)
-    assert sorted(order) == sorted(KEYS + NEW_KEYS) and hidden == sorted(["home"] + NEW_KEYS)
+    assert sorted(order) == sorted(KEYS + NEW_KEYS) and hidden == sorted(["back"] + NEW_KEYS)
     assert out["second"] == [["private", "cleansite", "screenshot", "split", "pip"],
                              ["reader", "downloads", "dark"]]
     assert out["second_mode"] == [False, False]
@@ -435,7 +435,7 @@ def check(win, least=180):
     acts = [a for _n, _r, a in items]
     def at(a):
         return acts.index(a) if a in acts else None
-    fixed = [at(a) for a in (win.act_back, win.act_fwd, win.act_home, win.act_reload, win.home_sep_act)]
+    fixed = [at(a) for a in (win.act_back, win.act_fwd, win.act_reload, win.act_home, win.home_sep_act)]
     if fixed != [0, 1, 2, 3, 4]:
         bad.append("fixed %s" % fixed)
     if at(win.urlbar_act) is None:
@@ -558,7 +558,7 @@ def test_toolbar_reads_old_and_damaged_settings(run_ike):
     for settings in ({"toolbar_order": ["menu", "reader", "nothing", "reader"], "toolbar_left": ["menu", "nothing"],
                       "toolbar_hidden": ["shield", "menu", "nothing"]},
                      {"toolbar_order": "reload", "toolbar_left": 5, "toolbar_hidden": []},
-                     {"toolbar_order": [], "toolbar_left": [], "toolbar_hidden": ["back", "forward", "home"]}):
+                     {"toolbar_order": [], "toolbar_left": [], "toolbar_hidden": ["back", "forward", "home", "reload"]}):
         out = run_ike(HELPERS + r'''
 def steps(ike, qapp, out):
     yield 500
@@ -575,6 +575,6 @@ def steps(ike, qapp, out):
         if settings["toolbar_left"] == ["menu", "nothing"]:
             assert left == [] and right[0] == "reader"     # the menu of old settings: fixed now (1.1.16)
         if "back" in settings["toolbar_hidden"]:
-            assert out["fixed"] == [False, False, False, True, True, True]     # Reload is still there
+            assert out["fixed"] == [False, False, True, True, True, True]
         else:
             assert out["fixed"] == [True, True, True, True, True, True]

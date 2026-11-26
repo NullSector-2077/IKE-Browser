@@ -48,7 +48,8 @@ def paint_shield(p, rect, level, grow=1.0):
     p.setBrush(QColor("#BAC1CC" if off else "#1494F2"))
     p.drawPolygon(polygon(radius))
     p.setBrush(QColor("#363B43" if off else "#0D2043"))
-    p.drawPolygon(polygon(radius * 0.78914))
+    # The approved reference has inner and outer heights of 18.15 and 23.
+    p.drawPolygon(polygon(radius * (18.15 / 23)))
     p.restore()
 
 

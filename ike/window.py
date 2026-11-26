@@ -314,7 +314,7 @@ class BookmarksBar(QToolBar):
         bounds = QRegion(arrow.mask()).boundingRect()
         if not bounds.isEmpty():
             arrow = arrow.copy(bounds)
-        if forward.name().endswith("-rtl"):
+        if "rtl" in forward.name().split("-"):
             arrow = QPixmap.fromImage(arrow.toImage().flipped(Qt.Orientation.Horizontal))
             arrow.setDevicePixelRatio(ratio)
         gap = round(4 * ratio)

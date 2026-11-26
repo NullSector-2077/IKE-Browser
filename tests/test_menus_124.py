@@ -41,7 +41,7 @@ ENTRIES_1123 = [
     "Downloads", "Passwords…", "Fill login on this page", "Search open tabs…", "Translate page…",
     "Video in floating window", "Mute tab", "Suspend inactive tabs now", "Site resources…",
     "Watched pages…", "Search engines…", "Chrome Web Store", "Settings…", "Keyboard shortcuts",
-    "Check for I.K.E. updates", "About I.K.E.", "About Qt",
+    "Check for I.K.E. updates", "About Qt",
     # filled when their menu opens
     "Reopen closed tab", "Show all history", "Bookmark this page", "Manage bookmarks", "Manage containers…",
     "New profile…", "New workspace…", "Rename workspace…", "Delete workspace",
