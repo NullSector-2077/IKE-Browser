@@ -16,6 +16,7 @@ SMALL = (16, 22, 24, 32, 48, 64)
 # Hashes of the approved assets as supplied by the project owner.
 ASSET_SHA256 = {'ike.svg': 'a268eb2d75fb19e53eb6b63381f2fcdec55ab4a86c54d3fc1c14517b30d0c6b9',
  'newtab-background.webp': '1a19c03e487fe347e80aea413cf8fc71d85811523904a6e96c93c37aa1d50583',
+ 'newtab-preview.png': '8f4ff86982dc2dcaa94b360831e73aba5f4122369dd89023d5116aa8b322f6fd',
  'wordmark.svg': 'f99217d41284572167342b11490ee23cf1b48af2e6512e13e316ab48e1d36b50'}
 PNG_SHA256 = {16: 'f2fde5e746d450cf8794d28c68cf9af975be29eb589ff5c55a1a487d6bcce0fb',
  22: 'd7a6c8c16f717d3539823e17e1e4afed17b5c3369265acde5cd9af8db7aa73e7',

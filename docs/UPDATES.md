@@ -41,8 +41,8 @@ uses it from the next start. A version that fails to start is rolled back
 automatically and never installed again. Nothing under `/usr` is touched.
 
 For I.K.E. 1.1.27, install the Arch package to refresh the desktop launcher
-icons and install the Qt WebP preview plugin. The in-app update already
-contains the new artwork used in browser windows and on the new tab page.
+icons. The in-app update contains the new artwork used in browser windows
+and on the new tab page.
 
 `min_system` is `__min_system__` from `ike/__init__.py`: the oldest installed
 system part (`ike_boot.py`, the launcher, the desktop entry and its icons) the
