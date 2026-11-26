@@ -257,6 +257,94 @@
     "automation/update/drill-qt": 1,
     "automation/update/lists-2026-11-22": 1
    }
+  },
+  "2026-11-26": {
+   "answered": 1,
+   "answered_for": {
+    "automation/update/lists-2026-11-22": 1
+   },
+   "no_provider": 0,
+   "providers": {
+    "Groq": {
+     "by": {
+      "automation/update/lists-2026-11-22": {
+       "requests": 1,
+       "tokens": 6436
+      }
+     },
+     "classes": {
+      "2": {
+       "requests": 1,
+       "tokens": 6436
+      }
+     },
+     "observed": {
+      "requests": {
+       "at": 1795674329,
+       "limit": 1000,
+       "mark": 1,
+       "remaining": 999,
+       "reset": 87,
+       "window": "day"
+      },
+      "tokens": {
+       "at": 1795674329,
+       "limit": 8000,
+       "mark": 6436,
+       "remaining": 3368,
+       "reset": 35,
+       "window": "minute"
+      }
+     },
+     "requests": 1,
+     "spent": "",
+     "tokens": 6436
+    },
+    "OpenRouter": {
+     "account": "free",
+     "by": {
+      "automation/update/lists-2026-11-22": {
+       "requests": 12,
+       "tokens": 288901
+      }
+     },
+     "classes": {
+      "2": {
+       "requests": 12,
+       "tokens": 288901
+      }
+     },
+     "observed": {
+      "requests": {
+       "limit": 50,
+       "mark": 12,
+       "window": "day"
+      }
+     },
+     "requests": 12,
+     "spent": "",
+     "tokens": 288901
+    },
+    "Z.AI": {
+     "by": {
+      "automation/update/lists-2026-11-22": {
+       "requests": 6,
+       "tokens": 128785
+      }
+     },
+     "classes": {
+      "2": {
+       "requests": 6,
+       "tokens": 128785
+      }
+     },
+     "observed": {},
+     "requests": 6,
+     "spent": "",
+     "tokens": 128785
+    }
+   },
+   "runs": 1
   }
  },
  "schema": 1
