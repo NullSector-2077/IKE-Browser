@@ -82,6 +82,7 @@ are **not verified**.
 | qt6-webengine | Qt WebEngine, The Qt Company, with Chromium (The Chromium Authors) | LGPL-3.0 / GPL (Qt); BSD-3-Clause and others (Chromium) |
 | qt6-webchannel | Qt WebChannel, The Qt Company | LGPL-3.0 / GPL |
 | qt6-svg | Qt SVG, The Qt Company | LGPL-3.0 / GPL |
+| qt6-imageformats | Qt Image Formats (WebP preview), The Qt Company | LGPL-3.0 / GPL |
 | python-cryptography | cryptography (signature of the self-update, password vault) | Apache-2.0 OR BSD-3-Clause (PyPI) |
 | python-jeepney | jeepney (D-Bus: desktop integration, secret storage) | MIT (PyPI) |
 | hicolor-icon-theme | the standard icon folders | GPL-2.0 (freedesktop.org) |

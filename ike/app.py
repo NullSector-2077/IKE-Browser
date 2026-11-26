@@ -565,6 +565,7 @@ class IkeApp(QObject):
             return darktheme.for_page(t) if has else None
         profiles = {}
         for w in self.windows:
+            w.sync_dark_icon()
             views = [v for vs in getattr(w, "workspaces", {}).values() for v in vs] or list(w.views)
             for v in views:
                 self.push_dark_theme(v)
