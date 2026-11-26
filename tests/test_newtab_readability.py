@@ -105,7 +105,13 @@ def steps(ike, qapp, out):
         ike.config["newtab_bg_veil"] = VEIL
         view.load(QUrl("ike:newtab"))
         yield 1800
-        out[name] = yield from js(view, GATHER)
+        for _ in range(10):
+            state = yield from js(view, GATHER)
+            if state is not None:
+                break
+            yield 250
+        assert state is not None, name
+        out[name] = state
         yield 300
         view.grab().save(os.path.join(shots, SCHEME.replace(":", "-") + "-" + name + ".png"))
 '''
@@ -118,7 +124,8 @@ def run_scheme(run_ike, tmp_path, scheme, veil=35, names=("white", "black", "bus
     script = (STEPS.replace("PHOTOS", repr([(n, photos.get(n, "")) for n in names]))
               .replace("GATHER", repr(GATHER)).replace("SHOTS", repr(str(shots))).replace("SCHEME", repr(scheme)).replace("VEIL", str(veil)))
     out = run_ike(script, settings={"ui_scheme": scheme, "newtab_bg": ""}, timeout=240,
-                  env={"IKE_TEST_WEATHER": "http://127.0.0.1:9"})          # never the real weather service
+                  env={"IKE_TEST_WEATHER": "http://127.0.0.1:9",
+                       "QTWEBENGINE_CHROMIUM_FLAGS": "--disable-dev-shm-usage"})
     keep = os.environ.get("IKE_TEST_SHOTS")
     if keep:
         os.makedirs(keep, exist_ok=True)
