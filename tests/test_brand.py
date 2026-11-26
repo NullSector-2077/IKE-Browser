@@ -8,6 +8,8 @@ import struct
 import subprocess
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 APP = Path(os.environ.get("IKE_TEST_APP") or ROOT)
 SHOTS = os.environ.get("IKE_TEST_SHOTS", "")
@@ -208,7 +210,8 @@ def test_no_earlier_name_left():
     assert not (APP / "ike/legacy.py").exists()
 
 
-def test_new_tab_and_home_at_desktop_resolutions(run_ike, tmp_path):
+@pytest.mark.parametrize("width,height", [(1920, 1080), (2560, 1440), (3840, 2160), (3440, 1440)])
+def test_new_tab_and_home_at_desktop_resolutions(run_ike, tmp_path, width, height):
     import textwrap
 
     from conftest import screen
@@ -220,51 +223,52 @@ def test_new_tab_and_home_at_desktop_resolutions(run_ike, tmp_path):
 
         def steps(ike, qapp, out):
             win = ike.windows[0]
-            win.showNormal()
             view = win.current_view()
-            yield 700
-            view.load(QUrl("about:blank"))
-            yield 250
-            win.act_home.trigger()
-            yield 550
-            out["home"] = view.url().toString()
-            win.act_reload.trigger()
-            yield 500
-            out["reloaded"] = view.url().toString()
-            win.act_new_tab.trigger()
-            view = win.current_view()
-            yield 650
+            yield 1300
+            if WIDTH == 1920:
+                view.load(QUrl("about:blank"))
+                yield 250
+                win.act_home.trigger()
+                yield 550
+                out["home"] = view.url().toString()
+                win.act_reload.trigger()
+                yield 500
+                out["reloaded"] = view.url().toString()
+                win.act_new_tab.trigger()
+                view = win.current_view()
+                yield 600
 
-            out["views"] = []
-            for width, height in ((1920, 1080), (2560, 1440), (3840, 2160), (3440, 1440)):
-                win.resize(width, height)
-                view.reload()
-                for _ in range(12):
-                    yield 350
-                    check = yield from js(view, '''(() => {
-                      const mark = document.querySelector("h1 img");
-                      const logo = document.querySelector(".logo");
-                      if (!mark || !logo || !mark.complete || !logo.complete) return null;
-                      const css = getComputedStyle(document.documentElement);
-                      const box = mark.getBoundingClientRect();
-                      const img = logo.getBoundingClientRect();
-                      return [innerWidth, innerHeight, css.backgroundSize, css.backgroundImage,
-                              box.x + box.width / 2, img.x + img.width / 2, box.width / box.height, img.width / img.height];
-                    })()''')
-                    if check and check[0] == width:
-                        break
-                yield 400
-                out["views"].append(check)
-                shots = os.environ.get("IKE_TEST_SHOTS")
-                if shots:
-                    win.grab().save(os.path.join(shots, f"newtab-{width}x{height}.png"))
-    """), settings={
-        "newtab_bg": "default", "newtab_bg_fit": "fill", "start_maximized": False, "ui_scheme": "theme:ike"
-    }, env=screen(tmp_path, 4300, 2400) | {"IKE_TEST_SHOTS": SHOTS})
-    assert out["home"] == out["reloaded"] == "ike:newtab"
-    for expected, result in zip((1920, 2560, 3840, 3440), out["views"]):
-        width, height, fit, background, word_centre, logo_centre, word_ratio, logo_ratio = result
-        assert width == expected and height >= 950
-        assert "cover" in fit and "ike:background?" in background
-        assert abs(word_centre - width / 2) <= 1 and abs(logo_centre - width / 2) <= 1
-        assert abs(word_ratio - 1834 / 160) < 0.02 and logo_ratio == 1
+            for _ in range(10):
+                result = yield from js(view, '''(() => {
+                  const mark = document.querySelector("h1 img");
+                  const logo = document.querySelector(".logo");
+                  if (!mark || !logo || !mark.complete || !logo.complete) return null;
+                  const css = getComputedStyle(document.documentElement);
+                  const box = mark.getBoundingClientRect();
+                  const img = logo.getBoundingClientRect();
+                  return [innerWidth, innerHeight, css.backgroundSize, css.backgroundImage,
+                          box.x + box.width / 2, img.x + img.width / 2, box.width / box.height, img.width / img.height];
+                })()''')
+                if result and abs(result[0] - WIDTH) <= 4:
+                    break
+                yield 350
+            out["view"] = result
+            shots = os.environ.get("IKE_TEST_SHOTS")
+            if shots:
+                yield 500
+                win.grab().save(os.path.join(shots, "newtab-%dx%d.png" % (WIDTH, HEIGHT)))
+    """).replace("WIDTH", str(width)).replace("HEIGHT", str(height)), settings={
+        "newtab_bg": "default", "newtab_bg_fit": "fill", "start_maximized": True, "ui_scheme": "theme:ike"
+    }, env=screen(tmp_path, width, height) | {
+        "IKE_TEST_SHOTS": SHOTS,
+        # A 4K frame can exhaust the default 64 MiB /dev/shm of a test container.
+        "QTWEBENGINE_CHROMIUM_FLAGS": "--disable-dev-shm-usage",
+    })
+    if width == 1920:
+        assert out["home"] == out["reloaded"] == "ike:newtab"
+    assert out["view"], out
+    viewport, page_height, fit, background, word_centre, logo_centre, word_ratio, logo_ratio = out["view"]
+    assert abs(viewport - width) <= 4 and page_height >= height - 140
+    assert "cover" in fit and "ike:background?" in background
+    assert abs(word_centre - viewport / 2) <= 1 and abs(logo_centre - viewport / 2) <= 1
+    assert abs(word_ratio - 1834 / 160) < 0.02 and logo_ratio == 1
