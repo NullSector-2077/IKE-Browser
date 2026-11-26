@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.27
+
+- Dark Reader (engine and lists): 4.9.135, lists 26d0621d65 (2026-11-25) -> 4.9.135, lists 2bd262585f (2026-11-25) (lists changed)
+
 ## 1.1.26
 
 - Rust crates of the AdBlock engine: 88 crates -> 88 crates (psl 2.1.261 -> 2.1.263)
