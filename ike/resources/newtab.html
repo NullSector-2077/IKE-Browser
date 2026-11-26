@@ -1,14 +1,13 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><title>I.K.E.</title>
 <style>
-:root{--bg:{{bg}};--fg:{{fg}};--mute:{{mute}};--card:{{card}};--line:{{line}};--acc:{{acc}};--k:{{k}}}
+:root{--bg:{{bg}};--fg:{{fg}};--mute:{{mute}};--card:{{card}};--line:{{line}};--acc:{{acc}}}
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
  background:var(--bg);color:var(--fg);font-family:system-ui,"Noto Sans",sans-serif}
-img{width:132px;height:132px}
-h1{font-size:0;line-height:0;color:var(--mute);margin:16px 0 32px}
-h1 svg{display:block;height:12px;width:auto;max-width:88vw}
-h1 svg .k{fill:var(--k)}
+img.logo{display:block;width:clamp(94px,22vh,164px);height:auto;aspect-ratio:1;object-fit:contain}
+h1{line-height:0;margin:8px 0 26px;padding:9px 16px;border-radius:8px;background:#081427}
+h1 img{display:block;width:min(400px,calc(88vw - 32px));height:auto;aspect-ratio:1834 / 160}
 .search{width:min(620px,88vw)}
 form{width:100%}
 .tile.add{width:92px}
@@ -69,8 +68,7 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
 /* 1.1.24: the labels of the two buttons are never cut: they wrap to a second centred line when a language needs it */
 .nt-btn .name{text-align:center;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 /* with a photo behind the page the logo and the name stay readable */
-.photo img.logo,.photo h1 svg{filter:drop-shadow(0 1px 3px rgba(0,0,0,.55))}
-.photo h1{color:var(--fg)}
+.photo img.logo{filter:drop-shadow(0 1px 3px rgba(0,0,0,.55))}
 /* 1.1.24: over a photo every group of text sits on a soft pane in the page's colour, under a stronger
    shadow. How strong the pane is (--scrim) is worked out for each group by the script at the end from
    the photo under it, so that the text reads at 4.5:1 (the large figures at 3:1) on the worst bit of it;
@@ -79,12 +77,11 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
 .glass{--scrim:60%}
 .photo .nt-btn,.photo .corner,.photo .greet,.photo .tile .name,.photo .stats{
  text-shadow:0 0 2px var(--bg),0 1px 5px color-mix(in srgb,var(--bg) 80%,transparent)}
-.glass .greet,.glass .corner,.glass .stats,.glass h1,.glass .nt-btn .name,.glass .tile .name{
+.glass .greet,.glass .corner,.glass .stats,.glass .nt-btn .name,.glass .tile .name{
  background:color-mix(in srgb,var(--bg) var(--scrim),transparent);
  -webkit-backdrop-filter:blur(16px) saturate(135%);backdrop-filter:blur(16px) saturate(135%);border-radius:10px}
 .glass .greet,.glass .corner{padding:8px 14px;margin:-8px -14px}
 .glass .stats{padding:8px 18px}
-.glass h1{padding:12px 20px;margin:4px 0 20px}
 .glass .nt-btn .name,.glass .tile .name{padding:1px 6px}
 /* 1.1.24: the greeting, top left; it stops short of the Settings button (120px wide, 30px from the right) */
 .greet{position:fixed;top:26px;left:30px;max-width:max(96px,calc(100vw - 120px - 30px - 30px - 16px));
@@ -171,7 +168,7 @@ function ikeIconLater(img) {
 {{buttons}}
 {{greeting}}
 <img class="logo" src="ike:logo" alt="I.K.E.">
-<h1>{{wordmark}}</h1>
+<h1><img src="ike:wordmark" alt="Internet Kontrol Experience"></h1>
 <div class="search"><form action="ike:search" method="get"><input name="q" autofocus autocomplete="off" placeholder="{{placeholder}}"></form>{{engines}}</div>
 {{tiles}}
 <div class="stats">{{stats}}</div>
@@ -370,7 +367,6 @@ function ikeIconLater(img) {
       [".corner", [[".clock", 4.5, "color"], [".date", 4.5, "color"], [".weather", 4.5, "color"],
                    [".wx-more", 4.5, "color"]]],
       [".stats", [[".stats b", 3, "color"], [".stats span", 4.5, "color"]]],
-      ["h1", [["h1 svg path:not(.k)", 4.5, "fill"], ["h1 svg .k", 3, "fill"]]],
       [".nt-settings .name", [[".nt-settings .name", 4.5, "color"]]],
       [".nt-photo .name", [[".nt-photo .name", 4.5, "color"]]]
     ];

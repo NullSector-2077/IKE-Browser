@@ -18,7 +18,7 @@ from . import APP_ID, APP_LONG_NAME, APP_NAME, __version__, background
 from .config import CACHE_DIR, CONFIG_DIR, PROFILE, RES_DIR, Config, ensure_dirs
 
 # the application icon's pictures in resources/icons (ike-browser-N.png)
-ICON_SIZES = (16, 22, 24, 32, 48, 64, 128, 256)
+ICON_SIZES = (16, 22, 24, 32, 48, 64, 128, 256, 512, 1024)
 
 def find_widevine(home=None):
     """Path of the Widevine library I.K.E. may use, or None (see drm.py)."""
@@ -89,8 +89,7 @@ class IkeApp(QObject):
         self.weather.changed.connect(self._weather_changed)
         # Built from our own files: a theme lookup can return an empty icon on
         # Plasma, which then also blanks the task-bar entry. The sizes up to 64
-        # are drawn for their own pixel grid (tools/make-small-icons.py), so a
-        # panel or title bar shows readable letters instead of a scaled-down logo.
+        # are supplied as dedicated artwork for panels and title bars.
         from PyQt6.QtCore import QSize
         self.icon = QIcon()
         for size in ICON_SIZES:

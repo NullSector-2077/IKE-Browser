@@ -755,7 +755,7 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
 
 
 class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
-    """Serves ike:newtab, ike:search?q=..., ike:logo and ike:background.
+    """Serves ike:newtab, ike:search?q=..., ike:logo, ike:wordmark and ike:background.
 
     Only to I.K.E. itself: a request that comes from a web page (a picture,
     a frame, a form, a link) is refused. Otherwise any site could recognise
@@ -830,6 +830,9 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
         elif path == "logo":
             data = (RES_DIR / "ike.svg").read_bytes()
             mime = b"image/svg+xml"
+        elif path == "wordmark":
+            data = (RES_DIR / "wordmark.svg").read_bytes()
+            mime = b"image/svg+xml"
         elif path == "background":
             from . import newtabbg
             data, mime = newtabbg.content(self.s.config)         # the user's own photo
@@ -883,10 +886,8 @@ class Shields(QObject):
         self._fp_src = (RES_DIR / "fingerprint.js").read_text("utf-8")
         self._media_src = (RES_DIR / "mediahook.js").read_text("utf-8")
         self._consent_src = (RES_DIR / "consent.js").read_text("utf-8")
-        # the full name is drawn as paths (tools/make-brand.py), in the colour of the page text
         self._greeting_js = None
-        self._newtab_src = (RES_DIR / "newtab.html").read_text("utf-8").replace(
-            "{{wordmark}}", (RES_DIR / "wordmark.svg").read_text("utf-8").strip())
+        self._newtab_src = (RES_DIR / "newtab.html").read_text("utf-8")
         self._videoads_src = (RES_DIR / "videoads.js").read_text("utf-8")
         self._videorelay_src = (RES_DIR / "videorelay.js").read_text("utf-8")
         self._site_lru = {}              # id(profile) -> [host, ...] most recent last
@@ -1010,9 +1011,6 @@ class Shields(QObject):
         bg, fg = colors["{{bg}}"], colors["{{fg}}"]
         colors["{{mute}}"] = readable(colors["{{mute}}"], bg, fg)
         colors["{{acc}}"] = readable(colors["{{acc}}"], bg, fg, 3.0)
-        # 1.1.24: the K of "Kontrol" in the wordmark, a light cyan of the shield's family
-        from PyQt6.QtGui import QColor
-        colors["{{k}}"] = readable(QColor("#7df3ff"), bg, fg, 3.0)
         for k, c in colors.items():
             html = html.replace(k, c.name())
         import html as _html

@@ -16,6 +16,7 @@ own picture, "" = none),
 """
 
 import os
+from functools import lru_cache
 from pathlib import Path
 
 from .config import DATA_DIR, RES_DIR
@@ -24,7 +25,7 @@ MAX_SIDE = 3840                  # longest side of the stored copy, in pixels
 MAX_FILE = 200 * 1024 * 1024     # larger files are refused without being opened
 NAME = "newtab-background"
 DEFAULT = "default"              # I.K.E.'s own picture, kept with the program
-DEFAULT_FILE = RES_DIR / "newtab-background.jpg"
+DEFAULT_FILE = RES_DIR / "newtab-background.webp"
 VEIL_MAX = 90
 _CSS_SIZE = {"fill": "cover", "fit": "contain", "centre": "auto"}     # the three placements
 _MIME = {".jpg": b"image/jpeg", ".png": b"image/png"}
@@ -162,12 +163,19 @@ def current(config, folder=None):
         return None
 
 
+@lru_cache(maxsize=1)
+def _default_content():
+    return DEFAULT_FILE.read_bytes()
+
+
 def content(config, folder=None):
     """(bytes, mime type) of the stored photo, or (None, None)."""
     path = current(config, folder)
     if path is None:
         return None, None
     try:
+        if is_default(config):
+            return _default_content(), b"image/webp"
         return path.read_bytes(), _MIME[path.suffix]
     except OSError:
         return None, None
