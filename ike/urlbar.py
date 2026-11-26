@@ -3,7 +3,7 @@
 import json
 import re
 
-from PyQt6.QtCore import QCoreApplication, QEvent, QStringListModel, Qt, QTimer, QUrl
+from PyQt6.QtCore import QCoreApplication, QEvent, QSize, QStringListModel, Qt, QTimer, QUrl
 from PyQt6.QtGui import QAction, QColor, QInputMethodEvent, QPalette, QResizeEvent, QTextCharFormat, QTextFormat
 from PyQt6.QtNetwork import QNetworkReply, QNetworkRequest
 from PyQt6.QtWidgets import QCompleter, QLabel, QLineEdit, QStyle
@@ -151,7 +151,10 @@ class UrlBar(QLineEdit):
         w = self._end
         if w is None:
             return
-        h = max(16, min(w.sizeHint().height(), self.height() - 4))
+        frame = self.style().pixelMetric(QStyle.PixelMetric.PM_DefaultFrameWidth, None, self) if self.hasFrame() else 0
+        h = max(1, self.height() - 2 * max(2, frame + 1))
+        if w.iconSize().height() != h:
+            w.setIconSize(QSize(h, h))
         width = w.sizeHint().width()
         # the end of the field: the left one in a right-to-left language (1.1.20)
         x = self.END_MARGIN if self.isRightToLeft() else self.width() - self.END_MARGIN - width

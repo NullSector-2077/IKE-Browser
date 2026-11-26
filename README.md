@@ -1,5 +1,7 @@
 # I.K.E. — Internet Kontrol Experience
 
+<img src="data/icons/ike-browser.svg" width="112" height="112" alt="I.K.E.">
+
 A light, independent web browser for Arch Linux focused on privacy: no
 telemetry, no accounts, no sponsored content, with ad blocking and
 fingerprinting protection built in.

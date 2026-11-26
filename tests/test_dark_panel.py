@@ -471,3 +471,54 @@ def test_the_other_tabs_get_the_colours_when_the_slider_is_let_go(run_ike, site)
     assert out["before"][1] == "kept"
     assert out["during"] == out["before"], out
     assert out["after"][1] == "kept" and out["after"][0] != out["before"][0], out
+
+
+def test_toolbutton_marks_effective_dark_mode(run_ike, site):
+    out = run_ike("""
+        from PyQt6.QtCore import QUrl
+        from ike import darktheme, icons
+        from ike.dialogs import SettingsDialog
+
+        def steps(ike, qapp, out):
+            win = ike.windows[0]
+            light = ("weather-clear", "weather-clear-symbolic")
+            dark = ("weather-clear-night", "weather-clear-night-symbolic")
+            modes = out["modes"] = []
+
+            def check(expected):
+                modes.append(win.act_dark.icon().cacheKey() == icons.themed(expected).cacheKey())
+
+            first = win.current_view()
+            first.load(QUrl("%s/one"))
+            yield 500
+            check(light)
+            win.m_dark.aboutToShow.emit()
+            win.act_dark_all.trigger()
+            check(dark)
+            ike.set_site_dark("127.0.0.1", False)
+            check(light)
+            second = win.add_tab("%s/two")
+            yield 500
+            check(dark)
+            win.stack.setCurrentWidget(first)
+            win._current_changed()
+            check(light)
+            win.stack.setCurrentWidget(second)
+            win._current_changed()
+            check(dark)
+            ike.config["dark_site_themes"] = {"localhost": dict(darktheme.DEFAULTS, mode=0)}
+            ike.dark_theme_changed()
+            check(light)
+            settings = SettingsDialog(ike, win)
+            settings.icon_theme.setCurrentIndex(settings.icon_theme.findData("set:lucide"))
+            settings.dark_engine.setCurrentIndex(settings.dark_engine.findData("engine"))
+            settings.apply()
+            yield 400
+            check(dark)
+            out["theme"] = icons.seen[dark][0]
+            win.m_dark.aboutToShow.emit()
+            win.act_dark_all.trigger()
+            check(light)
+    """ % (site, site.replace("127.0.0.1", "localhost")), settings={"dark_mode": "off", "dark_engine": "reader", "icon_theme": "set:breeze"})
+    assert out["modes"] == [True] * 9
+    assert out["theme"] == "set"

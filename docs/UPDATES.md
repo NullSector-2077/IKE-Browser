@@ -40,6 +40,10 @@ user's data folder (`~/.local/share/ike-browser/updates`), runs a self-test, and
 uses it from the next start. A version that fails to start is rolled back
 automatically and never installed again. Nothing under `/usr` is touched.
 
+For I.K.E. 1.1.27, install the Arch package to refresh the desktop launcher
+icons. The in-app update contains the new artwork used in browser windows
+and on the new tab page.
+
 `min_system` is `__min_system__` from `ike/__init__.py`: the oldest installed
 system part (`ike_boot.py`, the launcher, the desktop entry and its icons) the
 new `ike/` folder goes with. The project's rule is that every release reaches

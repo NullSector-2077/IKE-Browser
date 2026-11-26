@@ -4,7 +4,6 @@
 
 def test_shield_icon_levels(run_ike):
     out = run_ike("""
-        from PyQt6.QtGui import QColor
 
         def steps(ike, qapp, out):
             yield 500
@@ -14,8 +13,8 @@ def test_shield_icon_levels(run_ike):
                 for size in (16, 22):
                     img = shield_icon(level, size).pixmap(size, size).toImage()
                     w, h = img.width(), img.height()
-                    # a pixel of the centre, off the letter (left of it)
-                    c = QColor(img.pixel(int(w * 0.30), int(h * 0.55)))
+                    # the centre is a solid colour at every protection level
+                    c = img.pixelColor(w // 2, h // 2)
                     res["%s-%d" % (level, size)] = [c.red(), c.green(), c.blue(), c.alpha()]
             out["pixels"] = res
             win = ike.windows[0]
@@ -26,10 +25,7 @@ def test_shield_icon_levels(run_ike):
     """)
     for key, (r, g, b, a) in out["pixels"].items():
         assert a > 200, key
-        if key.startswith("off"):
-            continue
-        # dark-blue centre like the I.K.E. icon
-        assert b >= r and b >= g and max(r, g, b) < 90, (key, r, g, b)
+        assert (r, g, b) == ((54, 59, 67) if key.startswith("off") else (13, 32, 67)), key
     assert out["button_icon"] and out["menu_icon"]
 
 
@@ -71,7 +67,7 @@ def test_toolbar_shield_is_larger_in_the_same_button(run_ike):
                     plain = shield_icon(level).pixmap(QSize(side, side), dpr).toImage()
                     big = shield_icon(level, grow=TOOLBAR_SHIELD_GROW).pixmap(QSize(side, side), dpr).toImage()
                     out["scales"]["%s@%s" % (level, dpr)] = {
-                        "size": [big.width(), big.height(), round(side * dpr)],
+                        "size": [big.width(), big.height(), int(side * dpr + 0.5)],
                         "plain": box(plain), "big": box(big), "soft": soft_edge(big)}
             # what the button really shows: the rows of its left part that are not background
             win.update_shield()
@@ -87,6 +83,20 @@ def test_toolbar_shield_is_larger_in_the_same_button(run_ike):
                         rows.append(y)
                         break
             out["shown"] = [min(rows) / ratio, (max(rows) + 1) / ratio, btn.height()]
+            out["margin"] = win.urlbar.height() - btn.height()
+            out["counter"] = []
+            for n in ("7", "123", "9876"):
+                btn.setText(n)
+                win.urlbar.place_end()
+                yield 50
+                img = btn.grab().toImage()
+                bg = img.pixelColor(img.width() - 1, 0)
+                rows = [y for y in range(img.height())
+                        if any(abs(img.pixelColor(x, y).lightness() - bg.lightness()) > 70
+                               for x in range(round((side + btn.INSET + btn.GAP) * ratio), img.width() - 1))]
+                out["counter"].append((min(rows) + max(rows) + 1 - img.height()) / (2 * ratio))
+            btn.setText("")
+            win.urlbar.place_end()
             from PyQt6.QtWidgets import QWidget
             out["heights"] = [btn.height() <= win.urlbar.height()]
             # neighbours: nothing of the button overlaps the field's buttons beside it
@@ -123,6 +133,8 @@ def test_toolbar_shield_is_larger_in_the_same_button(run_ike):
     # the drawing nearly fills the toolbar's icon box and stays inside the button
     assert 0.9 * out["side"] <= bottom - top <= out["side"], out["shown"]
     assert top >= 0 and bottom <= height, out["shown"]
+    assert 4 <= out["margin"] <= 10
+    assert all(abs(offset) <= 1.5 for offset in out["counter"]), out["counter"]
     assert out["inside_toolbar"]
     assert out["heights"] == [True], out["heights"]
     assert not out["overlap"], out["overlap"]
@@ -226,7 +238,7 @@ def test_window_buttons_and_centred_address_bar(run_ike):
 
 
 def test_fixed_toolbar_buttons_and_private_badge(run_ike):
-    """Back, Forward, Home and Reload at the start with their separator, the
+    """Back, Forward, Reload and Home at the start with their separator, the
     shield inside the address bar at its right end (moving the
     other buttons is in test_toolbar.py); the badge of a private window."""
     out = run_ike("""
@@ -234,7 +246,7 @@ def test_fixed_toolbar_buttons_and_private_badge(run_ike):
             win = ike.windows[0]
             actions = win.nav.actions()
             out["fixed_order"] = [actions.index(win.act_back), actions.index(win.act_fwd),
-                                  actions.index(win.act_home), actions.index(win.act_reload),
+                                  actions.index(win.act_reload), actions.index(win.act_home),
                                   actions.index(win.home_sep_act),
                                   int(win.shield_btn.parentWidget() is win.urlbar)]
             out["home_separator"] = win.home_sep_act.isSeparator()

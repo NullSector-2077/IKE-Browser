@@ -42,6 +42,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from . import APP_LONG_NAME
 from .config import (
     DEFAULT_ENGINES,
     DEFAULT_LISTS,
@@ -50,6 +51,7 @@ from .config import (
     LEVEL_NAMES,
     LEVELS,
     PERMISSION_KINDS,
+    RES_DIR,
     TOOLBAR_ITEMS,
 )
 from .i18n import T
@@ -987,8 +989,7 @@ class SettingsDialog(QDialog):
         self.tb_btns = {}
         from PyQt6.QtWidgets import QGridLayout
         tb_row = QGridLayout()
-        labels = {"back": T("Back"), "forward": T("Forward"), "reload": T("Reload"),
-                  "home": T("Home"), "downloads": T("Downloads"),
+        labels = {"back": T("Back"), "forward": T("Forward"), "downloads": T("Downloads"),
                   "bookmark": T("Bookmark"), "reader": T("Reader mode"),
                   "screenshot": T("Screenshot"), "pip": T("Video in floating window"),
                   "split": T("Split view"), "dark": T("Dark mode for pages"),
@@ -2739,7 +2740,7 @@ class ClearHistoryDialog(QDialog):
 
 
 class AboutDialog(QDialog):
-    """Help → About I.K.E. (1.1.21: in a scroll area, at most the size of the
+    """Main menu → About I.K.E. (1.1.21: in a scroll area, at most the size of the
     screen; the message box of earlier versions could run past its bottom)."""
 
     WIDTH = 600
@@ -2749,6 +2750,13 @@ class AboutDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(T("About I.K.E."))
         lay = QVBoxLayout(self)
+        wordmark = QLabel(self)
+        wordmark.setAccessibleName(APP_LONG_NAME)
+        mark = QIcon(str(RES_DIR / "wordmark.svg"))
+        wordmark.setPixmap(mark.pixmap(QSize(330, 29), self.devicePixelRatioF()))
+        wordmark.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        wordmark.setStyleSheet("background:#081427;border-radius:8px;padding:8px 12px;")
+        lay.addWidget(wordmark, 0, Qt.AlignmentFlag.AlignHCenter)
         body = QHBoxLayout()
         pic = QLabel(self)
         pic.setPixmap(icon.pixmap(QSize(64, 64), self.devicePixelRatioF()))
@@ -2786,6 +2794,6 @@ class AboutDialog(QDialog):
         width = min(self.WIDTH, area.width() - 140)
         bar = self.area.verticalScrollBar().sizeHint().width()
         need = self.label.heightForWidth(width - bar)
-        chrome = 80 + self.fontMetrics().height() * 2
+        chrome = 125 + self.fontMetrics().height() * 2
         height = min(need + chrome, area.height() - 60)
         self.resize(width + 110, max(220, height))
