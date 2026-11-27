@@ -591,6 +591,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         from .loadingline import LoadingLine
         self.chrome_edge = polish.ChromeEdge(self.content)       # a thin line between the bars and the page
         self.toast_pill = polish.Toast(self.content, self.app.config)  # short messages over the page
+        self.link_preview = polish.LinkPreview(self.content)     # the address of the link under the mouse
         self.loading_line = LoadingLine(self.content)
         self.loading_line.config = self.app.config
         self.loading_line.quiet = self._own_page_loading
@@ -1286,6 +1287,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     # ------------------------------------------------------------------
     # tabs
     # ------------------------------------------------------------------
+    def _link_hovered(self, view, url):
+        """The address of the link under the mouse, over the page (1.1.30)."""
+        self.link_preview.show_url(url if view is self.current_view() else "")
+
     def current_view(self):
         if self.split is not None and self._split_active:
             return self.split
@@ -1356,6 +1361,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         view.loadProgress.connect(lambda pc, v=view: self._load_progress(v, pc))
         page.windowCloseRequested.connect(lambda v=view: self.close_tab(v))
         page.recentlyAudibleChanged.connect(lambda _a, v=view: self._tab_changed(v))
+        page.linkHovered.connect(lambda url, v=view: self._link_hovered(v, url))
         if not self.private:
             self.app.desktop.watch_view(view)       # media controls of the desktop
         first = len(self.views) == 1
@@ -1404,6 +1410,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             return
         i = self.views.index(view)
         view.last_active = time.time()
+        self.link_preview.hide()            # the link's address of the tab left
         self.app.resources.wake(view)       # a tab frozen for using too much CPU
         if view.pending_url and not self._restoring:
             url, view.pending_url = view.pending_url, None

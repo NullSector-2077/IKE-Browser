@@ -1407,6 +1407,91 @@ class Toast(QWidget):
         p.end()
 
 
+# --- where a link goes (1.1.30, the owner) ----------------------------------------
+class LinkPreview(QWidget):
+    """The address of the link under the mouse, in a small box at the bottom
+    corner of the page, as other browsers show it (the owner, 1.1.30).
+
+    1.0 showed it in the window's status bar, which took room from the page
+    when it appeared: the whole page moved up and down ("it shook"). This box
+    lies over the page and takes no room from it: nothing moves. It never
+    takes the mouse nor the keyboard; when the mouse comes to its corner it
+    goes to the other one. Drawn as KDE's Breeze draws a tooltip: the
+    window's colours, a thin line around it, its corners slightly rounded."""
+
+    MARGIN = 0               # px from the page's edges (in the corner, as other browsers)
+    WAIT = 120               # ms before it goes: moving from a link to the next does not blink it
+
+    def __init__(self, anchor):
+        super().__init__(anchor.parentWidget())
+        from PyQt6.QtCore import QEvent, QTimer
+        self._events = QEvent.Type.Resize, QEvent.Type.Move
+        self.anchor = anchor
+        self.text = ""
+        self.right = False
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self._hide = QTimer(self)
+        self._hide.setSingleShot(True)
+        self._hide.timeout.connect(self.hide)
+        anchor.installEventFilter(self)
+        self.hide()
+
+    def show_url(self, url):
+        """The address (a QUrl or text) of the link under the mouse; empty: it goes."""
+        from PyQt6.QtCore import QUrl
+        text = url.toDisplayString() if isinstance(url, QUrl) else str(url or "")
+        if not text:
+            self._hide.start(self.WAIT)
+            return
+        self._hide.stop()
+        if text == self.text and self.isVisible():
+            return
+        self.text = text
+        from PyQt6.QtGui import QCursor, QFontMetrics
+        fm = QFontMetrics(self.font())
+        most = max(160, int(self.anchor.width() * 0.6))
+        self.resize(min(fm.horizontalAdvance(text) + 18, most), fm.height() + 8)
+        # the corner away from the mouse
+        local = self.anchor.mapFromGlobal(QCursor.pos())
+        g = self.anchor.rect()
+        self.right = local.y() > g.height() - self.height() - 30 and (
+            local.x() < self.width() + 30 if not self.isRightToLeft() else local.x() > g.width() - self.width() - 30)
+        self._place()
+        self.show()
+        self.raise_()
+        self.update()
+
+    def _place(self):
+        g = self.anchor.geometry()
+        left = (not self.right) != self.isRightToLeft()
+        x = g.x() + self.MARGIN if left else g.x() + g.width() - self.width() - self.MARGIN
+        self.move(x, g.y() + g.height() - self.height() - self.MARGIN)
+
+    def eventFilter(self, obj, event):
+        if obj is self.anchor and event.type() in self._events and self.isVisible():
+            self._place()
+        return False
+
+    def paintEvent(self, _event):
+        from PyQt6.QtGui import QFontMetrics
+        pal = self.palette()
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        p.setPen(QPen(separator(pal), 1.0))
+        p.setBrush(pal.color(QPalette.ColorRole.Window))
+        p.drawRoundedRect(r, LINK_RADIUS, LINK_RADIUS)
+        p.setPen(pal.color(QPalette.ColorRole.WindowText))
+        area = self.rect().adjusted(9, 0, -9, 0)
+        # the middle shortened: the site and the end of the address stay readable
+        p.drawText(area, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
+                   QFontMetrics(self.font()).elidedText(self.text, Qt.TextElideMode.ElideMiddle, area.width()))
+        p.end()
+
+
 # --- "+N" over the shield (1.1.7) ---------------------------------------------------
 class ShieldCount(QWidget):
     """When the shield's number grows, a small "+N" in the accent colour rises
@@ -1691,6 +1776,7 @@ def ghost_out(view, rect, config, ms=170, name="vtab_close"):
 
 HOVER_RADIUS = RADIUS    # 1.1.16: flat on top and bottom, soft corners (1.1.23: Breeze's radius, was 6)
 TOAST_RADIUS = RADIUS    # 1.1.23: was 8
+LINK_RADIUS = 3.0        # 1.1.30: the link's address, slightly rounded as Breeze's tooltips
 
 
 def separator(palette):

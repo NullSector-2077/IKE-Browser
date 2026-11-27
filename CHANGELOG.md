@@ -35,6 +35,14 @@
   for one already seen (Python's id() of a short-lived Qt wrapper reused).
 - The note on Chrome extensions no longer names uBlock Origin, Dark Reader
   and Consent-O-Matic: I.K.E. has all three built in (the owner).
+- **Where a link goes, again** (the owner): the address of the link under the
+  mouse in a small box at the page's bottom corner, as other browsers show it
+  (the other corner when the mouse is there). 1.0 had put it in the status
+  bar, which took room from the page each time: the whole page shook, and
+  1.0.1 removed it. The box lies over the page and moves nothing; KDE's
+  tooltip look, its corners slightly rounded.
+- Icons and texts aligned: the extensions' cards (icon and bold name in the
+  middle of the card) and the containers' dots in the menus (the owner).
 
 ## 1.1.29
 
