@@ -45,6 +45,7 @@ os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox")
 # else "without dark mode" is the engine's own forced dark, and the Dark Engine
 # runs on top of it
 from ike.app import _strip_dark_flags, split_flags  # noqa: E402
+
 _flags, FORCED_DARK = _strip_dark_flags(split_flags(os.environ["QTWEBENGINE_CHROMIUM_FLAGS"]))
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(_flags)
 if FORCED_DARK:

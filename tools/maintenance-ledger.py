@@ -132,6 +132,12 @@ def vkey(version):
     return tuple(int(n) for n in re.findall(r"\d+", str(version or "")))
 
 
+def commit(version):
+    """A commit hash (a component followed on a branch, 1.1.29): its digits say nothing about
+    which is newer."""
+    return re.fullmatch(r"[0-9a-f]{40}", str(version or "")) is not None
+
+
 # --- the ledger itself (no network) -------------------------------------------------
 
 def empty():
@@ -431,7 +437,8 @@ def update(ledger, inv, status=None, report=None, cand_inv=None, now=None, notic
                 if e["to"] == inst:
                     set_state(e, "passed", "in main since %s" % stamp(now)[:10], now)
                     e["via"] = "main"
-                elif e["state"] != "passed" and vkey(e["to"]) and vkey(e["to"]) <= vkey(inst):
+                elif e["state"] != "passed" and not (commit(e["to"]) or commit(inst)) \
+                        and vkey(e["to"]) and vkey(e["to"]) <= vkey(inst):
                     del entries[key]
     # a new dependency is passed once main's tests are green with it
     tests_main = (status or {}).get("main_tests") or {}

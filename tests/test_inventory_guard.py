@@ -78,8 +78,10 @@ def test_dark_reader_and_ublock_origin_moved_into_the_manifest_unchanged():
     assert "darkreader" not in candidates.SPECS and components.family_of("darkreader") == "darkreader"
     for rec in inventory.inventory(ROOT, offline=True)["components"]:
         if rec["kind"] == "integrated":
-            # 1.1.24: KDE's Breeze icons, the third integrated component (its own builder)
-            assert candidates.candidate_for(rec) in ("darkreader", "ubo-scriptlets", "breeze-icons"), rec["name"]
+            # 1.1.24: KDE's Breeze icons, the third integrated component (its own builder); 1.1.29:
+            # Brave's debounce list, a plain download followed on its branch
+            assert candidates.candidate_for(rec) in ("darkreader", "ubo-scriptlets", "breeze-icons",
+                                                     "brave-debounce"), rec["name"]
 
 
 @pytest.mark.parametrize("change, word", [
