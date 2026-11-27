@@ -1382,7 +1382,8 @@
   // The answers of navigator.permissions.query as Chromium gives them
   // (1.1.29, Engine Privacy Layer study): Qt WebEngine says "denied" for
   // every permission it has no prompt for, Chromium 140 "prompt" or
-  // "granted". Only the state read is changed, and only from "denied";
+  // "granted". Only the state read is changed, and only from "denied" (or
+  // "prompt" where Chromium answers "granted");
   // asking for the permission itself is refused as before.
   var CHROMIUM_PERMS = { 'midi': 'prompt', 'background-fetch': 'granted', 'background-sync': 'granted',
     'persistent-storage': 'prompt', 'accelerometer': 'granted', 'gyroscope': 'granted', 'magnetometer': 'granted',
@@ -1405,7 +1406,12 @@
           try { name = desc && typeof desc === 'object' ? `${desc.name}` : ''; } catch (e) {}
           if (!own(CHROMIUM_PERMS, name)) return p;
           return then(p, function (st) {
-            try { if (RAPPLY(G_STATE, st, []) === 'denied') permShown.set(st, CHROMIUM_PERMS[name]); } catch (e) {}
+            // from "denied", or from "prompt" where Chromium needs no question
+            // (clipboard-write, pointer-lock); never a state the user chose
+            try {
+              var was = RAPPLY(G_STATE, st, []), want = CHROMIUM_PERMS[name];
+              if (was === 'denied' || (was === 'prompt' && want === 'granted')) permShown.set(st, want);
+            } catch (e) {}
             return st;
           }, w.Promise);
         };

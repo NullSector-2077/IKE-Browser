@@ -127,7 +127,7 @@ PROBE = """(async () => {
     r.csi = Object.keys(csi); r.tran = csi.tran;
     r.proto = Object.getPrototypeOf(c.app.getDetails) === Function.prototype;
   }
-  r.perm = await Promise.all(['midi', 'accelerometer', 'notifications'].map(n =>
+  r.perm = await Promise.all(['midi', 'accelerometer', 'clipboard-write', 'notifications'].map(n =>
     navigator.permissions.query({name: n}).then(s => s.state)));
   r.net = navigator.connection ? [navigator.connection.rtt, navigator.connection.downlink] : null;
   r.ads = ['attributionSrc' in HTMLImageElement.prototype, typeof document.browsingTopics];
@@ -195,7 +195,7 @@ def test_window_chrome_permissions_and_network_as_chromium(run_ike, page_site, l
     assert r["lt"][:3] == ["requestTime", "startLoadTime", "commitLoadTime"] and len(r["lt"]) == 13 and r["ltStart"], r
     assert r["csi"] == ["startE", "onloadT", "pageT", "tran"] and r["tran"] == 15, r
     # Chromium's answers where Qt said "denied"; a real one unchanged
-    assert r["perm"][:2] == ["prompt", "granted"], r
+    assert r["perm"][:3] == ["prompt", "granted", "granted"], r
     assert r["net"] == [50, 10], r
     assert r["ads"] == [False, "undefined"], r
     assert r["lang"] == ["en-US", "en-US"], r
