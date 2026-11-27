@@ -147,6 +147,17 @@ RULES = (
 )
 RULE = {r[0]: r for r in RULES}
 
+# Engine reasons no change of I.K.E.'s adapter can fix (2026-11-27, PR #111): the finding keeps its class (it is
+# still a gap, said in the ledger and the notices) but is not given to an AI analysis, which could only guess
+# (tests/test_lists_recorded.py refuses a rule rewritten without one of its options, rightly). Claude's work: an
+# engine update (adblock-rust) or a feature of the browser.
+ENGINE_LIMITS = {
+    "network filter error: csp with content type": (
+        "adblock-rust refuses a csp= rule that also names a content type ($doc), and the adapter may not drop "
+        "the option; besides, I.K.E. applies no $csp rule at all (Qt WebEngine cannot add a response header): "
+        "an engine update or a browser feature, not an AI analysis"),
+}
+
 
 def slug(text, size=60):
     return re.sub(r"[^a-z0-9.]+", "-", str(text).lower()).strip("-")[:size] or "x"
@@ -253,7 +264,9 @@ def _add(groups, rule_id, detail, rule_text, list_name, count=1):
     key = finding_key(cls, rule_id, detail)
     g = groups.get(key)
     if g is None:
-        g = groups[key] = {"key": key, "class": cls, "rule": rule_id, "detail": detail, "why": why, "ai": ai,
+        limit = ENGINE_LIMITS.get(detail)
+        g = groups[key] = {"key": key, "class": cls, "rule": rule_id, "detail": detail,
+                           "why": "%s; %s" % (why, limit) if limit else why, "ai": ai and not limit,
                            "youtube": rule_id == "youtube", "count": 0, "lists": [], "examples": []}
     g["count"] += count
     if list_name and list_name not in g["lists"]:
