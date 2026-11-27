@@ -315,10 +315,14 @@ def discover(env=os.environ, opener=urllib.request.urlopen, most=TRY_NEW):
         listed = listed_models(name, url, key, opener)
         if listed is None:
             continue
-        gone = [m for m in configured if m not in listed]
+        # a configured model is gone only when its provider's list lacks it (case ignored) AND it does not answer a
+        # tiny question either (2026-11-27: Z.AI's list did not name its free GLM Flash models, which answer)
+        known = {m.lower() for m in listed}
+        gone = [m for m in configured if m.lower() not in known and ask_new(name, url, key, m, opener)[0] != "free"]
         if gone:
             out["gone"][name] = gone
-        new = sorted((m for m in set(listed) if m not in configured), key=_version)[:most]
+        mine = {m.lower() for m in configured}
+        new = sorted((m for m in set(listed) if m.lower() not in mine), key=_version)[:most]
         for m in new:
             verdict, _why = ask_new(name, url, key, m, opener)
             if verdict == "free":

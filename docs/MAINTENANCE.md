@@ -656,6 +656,16 @@ how much quota they use; whether the reviewers approve; the real duration of the
 Arch Linux job says of fixes that forgot the fallback; whether GitHub starts the pull request's
 own checks (with the owner's `IKE_WORKFLOW_TOKEN`) or the dispatched ones.
 
+### PyQt's API compared from its wheels (2026-11-27)
+
+AUTOMAT block 2. PyQt6 and PyQt6-WebEngine have no repository on GitHub, so "What changed upstream" was empty
+for a Qt update. `tools/upstream-diff.py` now reads the type stubs (`.pyi`) inside the two versions' wheels on
+PyPI (`stub_compare`: one Linux wheel each from files.pythonhosted.org, read as a zip, never run) and gives the
+AI every `Module.Class.member` removed and added, the members whose arguments changed, and the renames a
+program is sure of (one removed and one added member of the same class with the same arguments:
+`stub_renames`), which the recipe "renamed" of `tools/automat-recipes.py` can apply with no AI. Tried on the real
+wheels: PyQt6 6.7.1 -> 6.8.0 adds 497 members and changes the arguments of 22.
+
 ### Real updates first, and every day's free quota used (2026-11-24)
 
 The owner's decisions of 2026-11-24, in the owner's words: "use the free AIs every day, always when
@@ -1525,6 +1535,15 @@ Those runs report to the finding's entry by its branch
 `TESTING_DAYS` count again from it; the cap makes it "needs-person".
 
 ### Free AI providers, checked every week (WP9)
+
+**The Chromium features I.K.E. sets still exist** (AUTOMAT block 2, 2026-11-27). Chromium ignores a feature
+name it does not know, silently, so a renamed feature would turn a protection off with no error and no
+failing test. Each week `tools/engine-features.py` reads the names from `ike/app.py`'s own constants
+(`LNA_FEATURES`, `PRIVACY_FEATURES`, `VIDEO_ON`) and asks GitHub's code search (chromium/chromium) where each
+is declared on Chromium's development branch, then that file at the tag of the Chromium the users have (the
+version the last green "Arch Linux" run on `main` recorded) on chromium.googlesource.com. Gone in the users'
+version, or gone from the development branch (a warning months ahead), is a line of the weekly issue; what
+cannot be read is "not verified", never "present".
 
 **The weekly scoreboard** (2026-11-27, the owner: "simple, but it must work"). `health.yml` runs
 `tools/automat-scoreboard.py` (GET calls only) and edits one issue, "AUTOMAT: tabellone settimanale", in
