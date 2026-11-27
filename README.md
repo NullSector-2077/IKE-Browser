@@ -70,6 +70,14 @@ profiles: `ike-browser --profile NAME`.
   time zone UTC, in pages, frames and every kind of worker alike; I.K.E.'s
   own menus and its new tab clock keep yours. Some sites will show wrong
   times; it applies after a restart.
+- **Skip the tracker's stop** (from Balanced, with "Remove tracking parameters from links" on): a link that only passes
+  through a tracker with the real address written inside it (newsletters, shops' affiliate links, some ad
+  networks) opens that address at once, so the tracker never sees the click; Google's AMP copies of
+  articles open on the publisher's own site. The links are those of Brave's public list (MPL-2.0, kept up to
+  date by the daily maintenance); only web addresses, never one of this computer or the home network,
+  never a sign-in or payment service, and never the stops that also check the destination for safety
+  (Facebook, Instagram, Steam, Google's and YouTube's own redirects). "Repair this site" turns it off for
+  a site together with its tracking parameter cleaning.
 - **Bounce tracking** (on by default): a site you only pass through, because
   a link redirected you there and on at once, loses its cookies and stored
   data half a minute later. Sites you used in the last 45 days, have open or
@@ -338,6 +346,7 @@ I.K.E. stands on the work of these projects, each under its own licence:
 | Project | What it does in I.K.E. | Licence |
 |---|---|---|
 | [adblock-rust](https://github.com/brave/adblock-rust) by Brave Software | the filter engine of the content blocker | MPL-2.0 |
+| [Brave's debounce list](https://github.com/brave/adblock-lists) by Brave Software | the links whose tracker's stop I.K.E. skips, and Google's AMP copies | MPL-2.0 |
 | Rust libraries of the AdBlock engine (listed in [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md)) | compiled into the engine | MIT / Apache-2.0 / MPL-2.0 / Unicode-3.0 / Unlicense |
 | [uBlock Origin](https://github.com/gorhill/uBlock) by Raymond Hill and contributors | scriptlets and filter lists | GPL-3.0 |
 | [EasyList, EasyPrivacy, EasyList Italy](https://easylist.to/) by The EasyList authors | filter lists | GPL-3.0 / CC BY-SA 3.0 |

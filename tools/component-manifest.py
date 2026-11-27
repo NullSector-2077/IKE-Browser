@@ -7,7 +7,9 @@ updated by the chain itself, with no change of code):
 
     "<id>": {
       "name":     what it is,
-      "upstream": {"git": URL, "tag": "v*"} | {"npm": NAME} | {"pypi": NAME}   where its versions are read,
+      "upstream": {"git": URL, "tag": "v*"} | {"git": URL, "branch": NAME} | {"npm": NAME} | {"pypi": NAME}
+                  where its versions are read (a branch, for an upstream that makes no releases: its newest
+                  commit is the version, and any other commit than the one in use is an update),
       "files":    the files it produces in the repository,
       "build":    an existing builder of I.K.E.'s (tools/build-*.py or .mjs: Dark Reader, uBlock Origin,
                   KDE's Breeze icons), or
@@ -116,12 +118,14 @@ def entry_problems(cid, e):
     if not isinstance(e.get("name"), str) or not e["name"].strip():
         out.append("%s: no name" % cid)
     up = e.get("upstream")
-    if not isinstance(up, dict) or not ({"git", "npm", "pypi"} & set(up)) or set(up) - {"git", "npm", "pypi", "tag"}:
-        out.append("%s: upstream must name git (with an optional tag pattern), npm or pypi" % cid)
+    if not isinstance(up, dict) or not ({"git", "npm", "pypi"} & set(up)) \
+            or set(up) - {"git", "npm", "pypi", "tag", "branch"} or ({"tag", "branch"} <= set(up)) \
+            or ("branch" in up and "git" not in up):
+        out.append("%s: upstream must name git (with an optional tag pattern or a branch), npm or pypi" % cid)
     else:
         if "git" in up and not _host_ok(up["git"]):
             out.append("%s: the git upstream is not on an allowed host over https (%s)" % (cid, ", ".join(ALLOWED_HOSTS)))
-        for k in ("npm", "pypi", "tag"):
+        for k in ("npm", "pypi", "tag", "branch"):
             if k in up and not re.fullmatch(r"[@A-Za-z0-9._/*-]{1,100}", str(up[k])):
                 out.append("%s: upstream.%s is not a plain name" % (cid, k))
     files = e.get("files")
@@ -219,6 +223,19 @@ def git_tags(url, timeout=120):
     return [line.split("refs/tags/", 1)[1] for line in out.stdout.splitlines() if "refs/tags/" in line]
 
 
+def git_head(url, branch, timeout=120):
+    """The commit at the tip of a branch upstream."""
+    out = subprocess.run(["git", "ls-remote", "--heads", url, "refs/heads/" + branch], capture_output=True,
+                         text=True, timeout=timeout, check=False)
+    if out.returncode:
+        raise OSError("git ls-remote %s: %s" % (url, out.stderr.strip()[:200]))
+    for line in out.stdout.splitlines():
+        sha, _, ref = line.partition("\t")
+        if ref == "refs/heads/" + branch and re.fullmatch(r"[0-9a-f]{40}", sha):
+            return sha
+    raise OSError("no branch %s upstream" % branch)
+
+
 def vkey(version):
     return tuple(int(x) for x in re.findall(r"\d+", str(version))[:6])
 
@@ -227,9 +244,12 @@ def _stable(version):
     return bool(re.fullmatch(r"\d+(\.\d+){0,4}", version))
 
 
-def latest(entry, get=fetch, tags=git_tags):
-    """(version, tag) of the newest stable release upstream."""
+def latest(entry, get=fetch, tags=git_tags, heads=git_head):
+    """(version, tag) of the newest stable release upstream (a branch: its newest commit, twice)."""
     up = entry["upstream"]
+    if "branch" in up:
+        sha = heads(up["git"], up["branch"])
+        return sha, sha
     if "npm" in up:
         v = str(json.loads(get("https://registry.npmjs.org/%s/latest" % up["npm"]).decode("utf-8")).get("version", ""))
         return v, "v" + v
@@ -249,6 +269,8 @@ def latest(entry, get=fetch, tags=git_tags):
 
 
 def _tag_of(entry, version):
+    if "branch" in entry["upstream"]:
+        return version
     pattern = entry["upstream"].get("tag", "v*")
     return pattern.replace("*", version) if "*" in pattern else version
 
@@ -258,7 +280,14 @@ def downloads(entry, version, tag, get=fetch):
     return {d["file"]: get(d["url"].replace("{version}", version).replace("{tag}", tag)) for d in entry["download"]}
 
 
-def check_entry(root, cid, get=fetch, tags=git_tags):
+def newer(entry, version, current):
+    """Is the version upstream an update of the one in use? (a branch: any other commit)"""
+    if "branch" in entry["upstream"]:
+        return version != current
+    return vkey(version) > vkey(current)
+
+
+def check_entry(root, cid, get=fetch, tags=git_tags, heads=git_head):
     """Today's state of a download entry, in tools/check-components.py's shape: {"current", "latest",
     "update", "note"}. Unverified when its own version does not reproduce the repository's files."""
     entry = components(root)[cid]
@@ -270,8 +299,8 @@ def check_entry(root, cid, get=fetch, tags=git_tags):
         if not (sha256(have[d["file"]]) == d["sha256"] == on_disk):
             raise Unverified("%s: the declared upstream at %s does not reproduce %s as the repository has it (no "
                              "update is made from an upstream that cannot be checked)" % (cid, current, d["file"]))
-    version, tag = latest(entry, get, tags)
-    info = {"current": current, "latest": version, "update": vkey(version) > vkey(current), "note": "", "also": ""}
+    version, tag = latest(entry, get, tags, heads)
+    info = {"current": current, "latest": version, "update": newer(entry, version, current), "note": "", "also": ""}
     if info["update"]:
         info["_files"] = downloads(entry, version, tag, get)
         info["_cid"] = cid

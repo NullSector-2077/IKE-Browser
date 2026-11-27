@@ -2,6 +2,29 @@
 
 ## 1.1.28
 
+- **Skip the tracker's stop** (the owner's decision of 2026-11-27, from
+  Brave): a link that only passes through a tracker, with the real address
+  written inside it (newsletters such as Mailchimp, ActiveCampaign, Amazon
+  SES or Postmark; shops' affiliate links; some ad networks), opens that
+  address at once: the tracker never sees the click and the page opens
+  sooner. Google's AMP copies of articles (`google.com/amp/s/...`,
+  `*.cdn.ampproject.org`) open on the publisher's own site. The links are
+  those of Brave's public debounce list (MPL-2.0), shipped unchanged as
+  `ike/resources/brave-debounce.json` and followed by the daily maintenance
+  (`components.json`, entry `brave-debounce`; the manifest now also follows
+  an upstream with no releases by the newest commit of a branch). From
+  Balanced up, with "Remove tracking parameters from links" on (the default);
+  "Repair this site" turns it off for a site. I.K.E.'s own limits on any
+  rule (`ike/debounce.py`): only an http or https address, never one of this
+  computer or the home network, never one with a user name in it, never the
+  same site, never a sign-in or payment service, never the stops that also
+  check the destination for the user's safety (Facebook's and Instagram's
+  link shim, Steam's link filter, Google's and YouTube's own redirect pages),
+  at most three stops in a row. The new address goes through every
+  protection again (tests/test_debounce.py). Google's AMP pages on a
+  publisher's own site are left as they are: telling them apart needs a
+  script in every page and a second load, for pages a computer rarely gets.
+
 - **The I.K.E. Dark Engine** (the owner's decision): I.K.E.'s own dark mode
   for pages, a choice beside Dark Reader and Chromium's own (Settings → Web
   pages → Dark mode method → I.K.E. Dark Engine; Dark Reader stays the

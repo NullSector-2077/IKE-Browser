@@ -2,6 +2,16 @@
  "schema": 1,
  "about": "Every external component integrated into I.K.E.'s tree is declared here, and only here (docs/MAINTENANCE.md, \"The component manifest\"). tools/component-manifest.py reads it; tools/update-candidates.py and tools/check-components.py make one candidate automation/update/<id> per entry; tests/test_inventory_guard.py fails when a file from upstream has no entry.",
  "components": {
+  "brave-debounce": {
+   "name": "Brave's debounce list (skipping the tracker's stop, AMP pages)",
+   "upstream": {"git": "https://github.com/brave/adblock-lists", "branch": "master"},
+   "files": ["ike/resources/brave-debounce.json"],
+   "version": "58d312984b89c3b43bf92b48004066c3d50da883",
+   "download": [{"url": "https://raw.githubusercontent.com/brave/adblock-lists/{version}/brave-lists/debounce.json", "file": "ike/resources/brave-debounce.json", "sha256": "fb2396985a78983c8f88ee701100c5cb4681731239ac6624e86da1212645dbf8"}],
+   "licence": "licenses/LICENSE.brave-adblock-lists",
+   "kinds": ["integrated"],
+   "tests": ["unit-integration", "licences", "installed", "tests-kept", "no-regression"]
+  },
   "darkreader": {
    "name": "Dark Reader (engine and lists)",
    "upstream": {"npm": "darkreader", "git": "https://github.com/darkreader/darkreader"},

@@ -502,7 +502,8 @@ the budget of the free quotas.
 
 **The component manifest** (`components.json`, `tools/component-manifest.py`).
 The one place an external integrated component is declared: its upstream
-(git with a tag pattern, npm or PyPI), the files it produces, an existing
+(git with a tag pattern or, for an upstream that makes no releases, a branch
+whose newest commit is the version; npm or PyPI), the files it produces, an existing
 builder of I.K.E.'s or a plain download with its sha256, its licence file and
 the test categories it needs (never fewer than the default, `no-regression`
 among them). Dark Reader and uBlock Origin's scriptlets are declared there,
@@ -510,7 +511,12 @@ and since 1.1.24 KDE's Breeze icons (`breeze-icons`: the icons I.K.E. uses,
 built by `tools/build-breeze-icons.py` from breeze-icons' newest release tag;
 only a change of those icons makes an update, and a release that lost one of
 them is refused and kept at the version in use, as it has no patches an AI
-could re-anchor); `tools/update-candidates.py` and `tools/check-components.py`
+could re-anchor), and since 1.1.28 Brave's debounce list (`brave-debounce`:
+`ike/resources/brave-debounce.json`, a plain download of
+`brave-lists/debounce.json` from https://github.com/brave/adblock-lists,
+followed on its `master` branch: any newer commit is a candidate, checked by
+the sha256 of the commit in use like every plain download; `ike/debounce.py`
+reads it); `tools/update-candidates.py` and `tools/check-components.py`
 read it, so a new entry gets its candidate `automation/update/<id>` and the
 whole chain with no change of code. A plain download is made only when the entry's own
 version, downloaded again, gives exactly the file the repository has; hosts

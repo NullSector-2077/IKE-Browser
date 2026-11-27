@@ -190,7 +190,8 @@ NEVER_FILES = {"PKGBUILD.in", "ike/blocker.py", "ike/scriptlets.py"}
 # (review 2 of 1.1.19, C1; the update channel, the vault, the network checks)
 PERSON_FILES = {"ike/__main__.py", "ike/app.py", "ike/config.py", "ike/osinfo.py", "ike/passwords.py",
                 "ike/userscripts.py", "ike/extensions.py", "ike/webview.py", "ike/shields.py", "ike/doh.py",
-                "ike/updater.py", "ike/sitedata.py", "ike/drm.py", "ike/chromever.py", "ike_boot.py"}
+                "ike/updater.py", "ike/sitedata.py", "ike/drm.py", "ike/chromever.py", "ike_boot.py",
+                "ike/debounce.py"}
 # added lines that can change where updates come from, reach the network or the
 # system, or tell a test run from a real one: a person reads them (C1, H4)
 PERSON_LINES = re.compile(
