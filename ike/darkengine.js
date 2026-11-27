@@ -499,7 +499,11 @@
         v = st.getPropertyValue(n);
         if (!v) { shorts = true; continue; }
         if (mine && mine[n] === v) continue;
-        if (v.indexOf('var(') >= 0) { add(n, useVars(v, k)); continue; }
+        if (v.indexOf('var(') >= 0) {
+          var uv = useVars(v, k);
+          if (uv !== v || keep) add(n, uv);                 // nothing to write when nothing changes
+          continue;
+        }
         var m = keepLight(n, v, st) ? null : mapValue(v, k);
         // other values are kept in an override sheet so that the cascade order stays
         // the page's, except the keywords that cannot lose a colour
@@ -508,7 +512,8 @@
       } else if (n === 'background-image') {
         v = st.getPropertyValue(n);
         if (!v) { shorts = true; continue; }
-        var nb = background(st, v, mine, base, again, skipRuleImage(selector));
+        var nb = background(st, v, mine, base, again,
+          fix.ignoreImage.length ? skipRuleImage(typeof selector === 'function' ? selector() : selector) : false);
         if (nb) add(n, nb);
       } else if (n === 'box-shadow' || n === 'text-shadow') {
         v = st.getPropertyValue(n);
@@ -523,7 +528,10 @@
       for (var i = 0; i < SHORT.length; i++) {
         var sn = SHORT[i][0];
         v = st.getPropertyValue(sn);
-        if (v && v.indexOf('var(') >= 0 && (!mine || mine[sn] !== v)) add(sn, useVars(v, SHORT[i][1]));
+        if (v && v.indexOf('var(') >= 0 && (!mine || mine[sn] !== v)) {
+          var us = useVars(v, SHORT[i][1]);
+          if (us !== v || keep) add(sn, us);
+        }
       }
     }
     if (!mine || (mine.color === undefined && mine['background-color'] === undefined)) guard(st, out);
@@ -579,7 +587,7 @@
     var mine = ruleWrote.get(r);
     if (!mine) { mine = {}; ruleWrote.set(r, mine); }
     var again = function () { quiet(function () { inRule(r, base); }); };
-    var l = items(r.style, base, again, false, mine, r.selectorText || '');
+    var l = items(r.style, base, again, false, mine, function () { return r.selectorText || ''; });
     if (!l.length) return;
     var st = r.style;
     for (var i = 0; i < l.length; i++) {
