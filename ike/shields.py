@@ -549,14 +549,33 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         if init.scheme() in ("http", "https") and cfg.site_opt(init.host().lower(), "params") is False:
             return False
         from . import debounce
-        target = debounce.skip(url.toString())
+        from .userscripts import is_local_name
+        target = debounce.skip(bytes(url.toEncoded()).decode("ascii", "replace"))
         if not target:
             return False
         new = QUrl(target)
-        if not new.isValid() or new.scheme() not in ("http", "https") or not new.host() or new == url:
+        if not new.isValid() or new.scheme() not in ("http", "https") or not new.host():
             return False
-        self._count(new.host().lower(), "params")
-        self.s.redirected.add(new.toString())
+        if not new.path():
+            new.setPath("/")
+        new = new.adjusted(QUrl.UrlFormattingOption.NormalizePathSegments)
+        # judged again as the engine reads it: the host debounce.py checked must be the very
+        # host opened (no other reading of an escaped or Unicode name), and never a local one,
+        # a user name, or the tracker's own site
+        to_host = new.host(QUrl.ComponentFormattingOption.FullyEncoded).lower().rstrip(".")
+        try:
+            from urllib.parse import urlsplit
+            checked = (urlsplit(target).hostname or "").rstrip(".")
+        except ValueError:
+            return False
+        if (to_host != checked or is_local_name(to_host) or new.userName() or new.password()
+                or site_of(to_host) == site_of(host) or new == url):
+            return False
+        self._count(to_host, "params")
+        redirected = self.s.redirected
+        if len(redirected) > 200:
+            redirected.clear()
+        redirected.add(new.toString())
         info.redirect(new)
         return True
 

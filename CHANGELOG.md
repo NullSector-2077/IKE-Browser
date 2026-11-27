@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.29
+## Unreleased (1.1.29)
 
 - **Skip the tracker's stop** (the owner's decision of 2026-11-27, from
   Brave): a link that only passes through a tracker, with the real address
@@ -21,7 +21,15 @@
   check the destination for the user's safety (Facebook's and Instagram's
   link shim, Steam's link filter, Google's and YouTube's own redirect pages),
   at most three stops in a row. The new address goes through every
-  protection again (tests/test_debounce.py). Google's AMP pages on a
+  protection again, as the engine itself reads it (a host written in
+  escapes or other digits that the engine would read as the home network is
+  refused). A rule of the list may only name trackers: a pattern for every
+  site or a whole public suffix, a template leading elsewhere than YouTube,
+  or a regular expression that could take long is left out, and a new list
+  with such a rule fails the tests, so it never reaches main by itself
+  (independent review by a second model, tests/test_debounce.py). The
+  maintenance compares commit versions as commits (the merge's gate, the
+  inventory, the ledger). Google's AMP pages on a
   publisher's own site are left as they are: telling them apart needs a
   script in every page and a second load, for pages a computer rarely gets.
 

@@ -349,7 +349,7 @@ def update_problem(cid, old_text, new_text, sha_of):
         return dict(e, version="", download=[dict(d, sha256="") for d in e["download"]])
     if frozen(a[cid]) != frozen(b[cid]):
         return "more than the version and the checksums of %s changed" % cid
-    if vkey(b[cid]["version"]) <= vkey(a[cid]["version"]):
+    if not newer(b[cid], b[cid]["version"], a[cid]["version"]):
         return "the version of %s does not go up" % cid
     for d in b[cid]["download"]:
         if sha_of(d["file"]) != d["sha256"]:

@@ -1081,6 +1081,12 @@ def vkey(version):
     return tuple(int(n) for n in re.findall(r"\d+", version or ""))
 
 
+def _commit(version):
+    """A commit hash (a component followed on a branch, 1.1.29): its digits say nothing about
+    which is newer, so any other commit than the one in use is an update."""
+    return re.fullmatch(r"[0-9a-f]{40}", str(version or "")) is not None
+
+
 def stable(version):
     return re.fullmatch(r"v?[0-9]+(\.[0-9]+)*(\.post[0-9]+)?", version or "") is not None
 
@@ -1129,7 +1135,7 @@ def _compare(rec, latest, source):
     elif not vkey(inst):
         rec["result"] = "ok"
         rec["compatibility"] = "installed version not pinned"
-    elif vkey(latest) > vkey(inst):
+    elif (latest != inst) if (_commit(latest) or _commit(inst)) else vkey(latest) > vkey(inst):
         rec["result"] = "update available"
         if rec["compatibility"] == UNKNOWN:
             rec["compatibility"] = "newer version: to verify"
