@@ -30,6 +30,7 @@ import os
 import re
 import sys
 import threading
+import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -427,8 +428,9 @@ def main():
                 "(function(t){t=t.toLowerCase();var es=document.querySelectorAll('button,a,[role=button],input[type=submit]');"
                 "for(var i=0;i<es.length;i++){var s=(es[i].innerText||es[i].value||'').trim().toLowerCase();"
                 "if(s&&s.indexOf(t)>=0){es[i].click();return true;}}return false;})(%s)" % json.dumps(text), 0,
-                lambda clicked: (print("clicked", mode, name, bool(clicked), flush=True),
-                                 QTimer.singleShot(max(settle, 4000), shoot)))
+                lambda clicked: None if job["finished"] else (
+                    print("clicked", mode, name, bool(clicked), flush=True),
+                    QTimer.singleShot(max(settle, 4000), shoot)))
 
         def poll():
             if job["finished"]:
@@ -488,6 +490,8 @@ def main():
                                "load:Math.round(n.loadEventEnd||0)})})()", 0, got)
 
         def shoot():
+            if job["finished"]:
+                return
             def probed(js):
                 if job["finished"]:
                     return
@@ -534,11 +538,15 @@ def main():
                 job["loaded"] = True
                 job["status"] = 0
                 print("still loading after 20 s, taken as it is:", mode, name, flush=True)
+                t_ask = time.monotonic()
+                # how long the page takes to answer a script (a page kept busy shows here)
+                page.runJavaScript("1", 0, lambda _: print("page answered a script after %.1f s:" % (time.monotonic() - t_ask),
+                                                            mode, name, flush=True))
                 QTimer.singleShot(settle, click_then_shoot)
             else:
                 finish("navigation timed out")
         QTimer.singleShot(20000, slow)
-        QTimer.singleShot(3000000 if kind == "speedo" else 60000 + 2 * settle,
+        QTimer.singleShot(3000000 if kind == "speedo" else 120000 + 2 * settle,
                           lambda: finish("measurement timed out"))
 
     QTimer.singleShot(0, next_job)

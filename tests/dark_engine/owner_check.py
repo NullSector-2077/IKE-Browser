@@ -5,7 +5,8 @@ engine). Started by owner-check.sh; not part of the automatic tests.
 Each site is opened three times, in a private profile that keeps nothing (no
 cookies, no history, no login, nothing of the user's own I.K.E. profile): as it
 is ("off"), with Dark Reader as I.K.E. ships it ("dr") and with the Dark Engine
-("proto"). Only plain page loads: nothing is clicked, typed or sent.
+("proto"). Only plain page loads: nothing is typed or sent, and nothing is
+clicked unless --click names a button (a site's age or cookie question).
 
 Saved in the folder given (default ~/ike-dark-check-<date>):
   shots/<site>__<mode>.png and .json   the screenshots and what the page held
@@ -110,6 +111,9 @@ def main():
                     help="any other address to check (repeatable); kept on this computer only")
     ap.add_argument("--click", default="",
                     help="click first a button or link with this text (an age or cookie question), e.g. \"I'm Over 18\"")
+    ap.add_argument("--modes", default="",
+                    help="the renders to compare (default off,proto); with DE_JS_<mode>=file a mode runs another "
+                         "copy of the engine, e.g. --modes off,proto128,proto with DE_JS_proto128=an older darkengine.js")
     a = ap.parse_args()
     out = Path(a.out).expanduser()
     shots = out / "shots"
@@ -139,6 +143,8 @@ def main():
         global MODES
         if not ((HERE.parents[1] / "ike" / "darkpages.py").is_file() or os.environ.get("DE_DR_ROOT")):
             MODES = ("off", "proto")
+        if a.modes:
+            MODES = tuple(m for m in a.modes.split(",") if m)
         print("Opening %d sites, %d times each (%s): a few minutes..." % (len(names), len(MODES), ", ".join(MODES)),
               flush=True)
         started = time.time_ns()
