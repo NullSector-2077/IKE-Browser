@@ -235,6 +235,24 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Status
 
+- AUTOMAT, 2026-11-27 (the AUTOMAT/maintenance session). Merged: the AI stall
+  (#179: stale "spent today" marks re-checked after 3 hours, a busy free model
+  hands over at once, the providers' own words in the log, Gemini's real quota
+  learned from its 429), little reasoning asked of every free model (#187),
+  the providers' new free models found and used each week (#189), AUTOMAT's
+  playbook given to the AIs and engine limits no longer given to them (#190,
+  #202; PR #111 closed at the owner's order), Arch's archive asked gently
+  (#186), the weekly scoreboard issue (#191), the low-risk candidates once a
+  week (#192), Arch's [testing] every day (#194), PyQt's API compared from its
+  wheels (#195), the Chromium features I.K.E. sets checked weekly (#196, #200),
+  GitHub's "Update branch" accepted by the verified merge (#203). Open: #205
+  (learned limits kept for the next days), and the automation side of 1.1.29
+  (Dark Reader's engine removed, its lists kept: in the Dark Engine session's
+  PR #204). Next: the drill as the AIs' field test after 1.1.29; then one AI
+  caller in place of five (simplification D). Waiting for the owner: the
+  weekly Claude session for tier B, the start-up rescue path in ike_boot.py;
+  `ike/resources/darkmode.js` (unused since 1.1.29) leaves only when a person
+  removes it from tools/fix-guard.py PROTECTED_JS.
 - AUTOMAT block 1 (2026-11-24, branch `automation/block1-priority`): real
   updates may use all of the free quota, background work (the drill, the
   CI's updates) only the day's leftovers and never while a real update is

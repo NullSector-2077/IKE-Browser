@@ -951,6 +951,11 @@ mirror is never news.
 
 ### Real updates first, and every day's free quota used (2026-11-24)
 
+**Temporary, the owner's decision of 2026-11-27**: until `drill_any_hour_until` of `tools/ai-quota.json`
+(2026-12-06) the AUTOMAT drill may use the free quotas at any hour, not only in the leftover window, still never
+while a real update is pending (`Budget.drill_any_hour`). It is removed as soon as the drill succeeds with the
+free AIs; after the date the rule below is back by itself.
+
 The owner's decisions of 2026-11-24, in the owner's words: "use the free AIs every day, always when
 needed, above all for real updates; what is left goes to self-evolution, drills etc.", and then:
 **real updates may use all of the free quota, at any time; what they leave each day goes to
