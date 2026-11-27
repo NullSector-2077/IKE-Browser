@@ -262,7 +262,9 @@ def main():
                 img.save(str(path))
                 from PIL import Image
                 arr = np.asarray(Image.open(path).convert("RGB"), dtype=np.float64)
-                results.setdefault(fx["id"], {})[mode] = {"els": json.loads(js or "[]"), "img": arr}
+                els = json.loads(js or "[]")
+                path.with_suffix(".json").write_text(json.dumps(els))
+                results.setdefault(fx["id"], {})[mode] = {"els": els, "img": arr}
                 next_job()
             page.runJavaScript(PROBE, 0, got)
         page.loadFinished.connect(loaded)

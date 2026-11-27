@@ -150,7 +150,24 @@
     ['border-bottom', 'border'], ['border-left', 'border'], ['border-color', 'border'], ['outline', 'border'],
     ['border-block', 'border'], ['border-inline', 'border'], ['border-block-end', 'border'],
     ['border-block-start', 'border'], ['border-inline-start', 'border'], ['border-inline-end', 'border']];
-  var COLRE = /#[0-9a-f]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\)|\b(white|black|whitesmoke|gainsboro|silver|gray|grey|lightgr[ae]y|ivory|snow|beige)\b/gi;
+  // the CSS colour names: in lists, gradients, shadows and fallbacks (never inside
+  // a custom property's name, a file name or a function name)
+  var NAMES = ('aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet ' +
+    'brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan ' +
+    'darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred ' +
+    'darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink ' +
+    'deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold ' +
+    'goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush ' +
+    'lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey ' +
+    'lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime ' +
+    'limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen ' +
+    'mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin ' +
+    'navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise ' +
+    'palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue ' +
+    'saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow ' +
+    'springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen').split(' ');
+  var COLRE = new RegExp('#[0-9a-f]{3,8}\\b|rgba?\\([^)]*\\)|hsla?\\([^)]*\\)|(?<![\\w\\-./#])(?:' +
+    NAMES.join('|') + ')(?![\\w\\-.(])', 'gi');
   var COLTEST = new RegExp(COLRE.source, 'i');
   var PRE = /color|background|border|outline|shadow|fill|stroke|--|caret/;
   var TRIPLE = /^\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*$/;
@@ -289,9 +306,13 @@
         var avg = sum / n, sd = Math.sqrt(Math.max(0, sq / n - avg * avg)), small = w <= 256 && h <= 256;
         var darkIcon = clear > 100 && avg < 0.3 && small;              // dark drawing on transparency
         var lightPanel = clear < 50 && avg > 0.75 && (small || sd < 0.08); // light texture or plain light area
-        if (!(darkIcon || lightPanel) || w > 1024 || h > 1024) { end(null); return; }
+        // a large light backdrop (text is drawn on it): Dark Reader hides it, here
+        // it is made dark and keeps its details: a drawing inverted, a photo dimmed
+        var drawing = /^data:image\/svg|\.svg(?:[?#]|$)/i.test(url);
+        var lightBackdrop = !small && clear < 50 && avg > 0.7;
+        if (!(darkIcon || lightPanel || lightBackdrop) || w > 2048 || h > 2048) { end(null); return; }
         var cv = new OffscreenCanvas(w, h), c2 = cv.getContext('2d');
-        c2.filter = 'invert(100%) hue-rotate(180deg)';
+        c2.filter = lightBackdrop && !lightPanel && !drawing ? 'brightness(30%)' : 'invert(100%) hue-rotate(180deg)';
         c2.drawImage(img, 0, 0, w, h);
         cv.convertToBlob().then(function (b) {
           var r = new FileReader();
@@ -304,21 +325,23 @@
     img.src = url;
     return p;
   }
+  var URL_RE = /url\(\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|([^"')\s]+))\s*\)/g;
   function mapImage(v, base, again, skipPicture) {
     if (v.indexOf('url(') < 0) {
       return { value: v.indexOf('gradient') >= 0 ? mapColors(v, 'bg') : null, pending: false };
     }
     var changed = v.indexOf('gradient') >= 0, pending = false;
-    var out = v.replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/g, function (m, q, u) {
+    var out = v.replace(URL_RE, function (m, dq, sq, bare) {
+      var u = (dq !== undefined ? dq : sq !== undefined ? sq : bare).replace(/\\(.)/g, '$1');
       if (/^data:image\/svg|^data:/.test(u) && u.length > 4000) return m;
       var abs;
       try { abs = new URL(u, base || document.baseURI).href; } catch (e) { return m; }
-      if (skipPicture) return 'url("' + abs + '")';
+      if (skipPicture) return 'url("' + abs.replace(/["\\]/g, '\\$&') + '")';
       // One pending layer is enough to trigger the next pass for this value.
       var p = picture(abs, pending ? null : again);
       if (p.state === 'wait') pending = true;
       if (p.state === 'dark') { changed = true; return 'url("' + p.data + '")'; }
-      return 'url("' + abs + '")';
+      return 'url("' + abs.replace(/["\\]/g, '\\$&') + '")';
     });
     return { pending: pending, value: changed ? out.replace(
       /(linear|radial|conic|repeating-linear|repeating-radial)-gradient\((?:[^()]|\([^()]*\))*\)/g,
@@ -372,7 +395,12 @@
       var n = st[j], k = KIND[n];
       if (n.charCodeAt(0) === 45 && n.charCodeAt(1) === 45) {
         v = st.getPropertyValue(n);
-        if (!mine || mine[n] !== v) addText(defineVar(n, v), st.getPropertyPriority(n));
+        if (!mine || mine[n] !== v) {
+          if (v.indexOf('url(') >= 0) {
+            var pic = mapImage(v.trim(), base, again);
+            if (pic.value) out.push([n, pic.value, st.getPropertyPriority(n)]);
+          } else addText(defineVar(n, v), st.getPropertyPriority(n));
+        }
         continue;
       }
       if (k) {
@@ -455,6 +483,7 @@
   // twice. A rule is done once; the values written are remembered per rule.
   var ruleWrote = new WeakMap();
   function inRule(r, base) {
+    if (off) return;
     var mine = ruleWrote.get(r);
     if (!mine) { mine = {}; ruleWrote.set(r, mine); }
     var again = function () { quiet(function () { inRule(r, base); }); };
@@ -462,8 +491,7 @@
     if (!l.length) return;
     var st = r.style;
     for (var i = 0; i < l.length; i++) {
-      try { st.setProperty(l[i][0], l[i][1], l[i][2]); } catch (e) {}
-      mine[l[i][0]] = st.getPropertyValue(l[i][0]);
+      try { mine[l[i][0]] = writeProp(r, st, l[i][0], l[i][1], l[i][2]); } catch (e) {}
     }
     stats.rules++;
   }
@@ -512,6 +540,52 @@
   var stats = { sheets: 0, fetched: 0, rules: 0, ms: 0, pictureCacheEntries: 0, pictureCacheChars: 0,
     shadowRoots: 0 };
   function own(el) { return generatedStyles.has(el); }
+  // Every value written into the page's own rules and inline styles, so that it
+  // can be given back (a page that asks later not to be darkened, a site that
+  // switches to its own dark theme): [owner, declaration, name, old value, old
+  // priority, value written]. Owners gone from the page are dropped now and then.
+  var undoLog = [], undoPrune = 0;
+  function writeProp(owner, st, n, v, prio) {
+    var old = st.getPropertyValue(n), oldPrio = st.getPropertyPriority(n);
+    st.setProperty(n, v, prio || '');
+    var now = st.getPropertyValue(n);
+    if (now !== old || st.getPropertyPriority(n) !== oldPrio) undoLog.push([owner, st, n, old, oldPrio, now]);
+    if (undoLog.length > 20000 && !undoPrune) undoPrune = setTimeout(pruneUndo, 2000);
+    return now;
+  }
+  function gone(owner) {
+    if (owner.nodeType === 1) return !owner.isConnected;
+    var sheet = owner.parentStyleSheet;
+    while (sheet && sheet.ownerRule) sheet = sheet.ownerRule.parentStyleSheet;
+    return !sheet || (sheet.ownerNode ? !sheet.ownerNode.isConnected : false);
+  }
+  function pruneUndo() {
+    undoPrune = 0;
+    undoLog = undoLog.filter(function (u) { return !gone(u[0]); });
+  }
+  function undo() {
+    for (var i = undoLog.length - 1; i >= 0; i--) {
+      var u = undoLog[i];
+      try {
+        if (u[1].getPropertyValue(u[2]) !== u[5]) continue;       // the page has changed it since
+        if (u[3]) u[1].setProperty(u[2], u[3], u[4]);
+        else u[1].removeProperty(u[2]);
+      } catch (e) {}
+    }
+    undoLog = [];
+    // what was done is forgotten: a later start maps everything again
+    ruleWrote = new WeakMap(); applied = new WeakMap(); wrote = new WeakMap();
+    recs.forEach(function (rec) { rec.n = -1; rec.last = null; });
+    [document].concat(Array.from(roots)).forEach(function (root) {
+      try {
+        root.querySelectorAll('style.ike-de').forEach(function (el) { if (own(el)) el.remove(); });
+        if (root.adoptedStyleSheets.some(function (x) { return x.__ikeDE; })) {
+          root.adoptedStyleSheets = root.adoptedStyleSheets.filter(function (x) { return !x.__ikeDE; });
+        }
+      } catch (e) {}
+    });
+    document.querySelectorAll('.ike-de-lift').forEach(function (el) { el.classList.remove('ike-de-lift'); });
+  }
   function makeStyle() {
     var style = document.createElement('style');
     style.className = 'ike-de';
@@ -712,7 +786,7 @@
     var root = el.getRootNode();
     ['fill', 'stroke'].forEach(function (p) {
       var value = el.getAttribute(p);
-      var color = value && mapValue(value, 'fg');
+      var color = value && (value.indexOf('var(') >= 0 ? useVars(value, 'fg') : mapValue(value, 'fg'));
       if (!color) return;
       var record = presentationSheets.get(root);
       if (!record) {
@@ -742,6 +816,7 @@
   }
   function seen(el) { return (el.getAttribute('style') || '') + '\u0001' + (el.getAttribute('bgcolor') || ''); }
   function inline(el) {
+    if (off) return;
     var now = seen(el);
     if (fix.ignoreInline && fix.ignoreInline.length && el.matches(fix.ignoreInline)) { applied.set(el, now); return; }
     if (el.namespaceURI === SVGNS) svgPresentation(el);
@@ -750,8 +825,7 @@
     var done = wrote.get(el);
     if (!done) { done = {}; wrote.set(el, done); }
     var set = function (n, v, prio) {
-      st.setProperty(n, v, prio || '');
-      done[n] = st.getPropertyValue(n);
+      done[n] = writeProp(el, st, n, v, prio);
     };
     if (attr && PRE.test(attr)) {
       var again = function () { applied.delete(el); quiet(function () { inline(el); }); };
@@ -771,6 +845,10 @@
           if (nb) set(n, nb);
         } else if ((n === 'box-shadow' || n === 'text-shadow') && v && v !== 'none' && v.indexOf('var(') < 0) {
           set(n, mapColors(v, 'bg'));
+        } else if (n.charCodeAt(0) === 45 && n.charCodeAt(1) === 45 && n.indexOf('--ike-') !== 0 &&
+                   v.indexOf('url(') >= 0) {
+          var pic = mapImage(v.trim(), document.baseURI, again, skipElementImage(el));
+          if (pic.value) set(n, pic.value, st.getPropertyPriority(n));
         } else if (n.charCodeAt(0) === 45 && n.charCodeAt(1) === 45 && n.indexOf('--ike-') !== 0) {
           var d = defineVar(n, v);
           var priority = st.getPropertyPriority(n);
@@ -894,7 +972,7 @@
     var t = ':root{color-scheme:dark!important}' +
       (window === window.top ? 'html{background-color:#181a1b!important}' : '') +
       ':where(html,body){color:#e8e6e3;border-color:#736b5e}' +
-      ':where(input,textarea,select,button){color:#e8e6e3}';
+      ':where(input,textarea,select,button){color:#e8e6e3}:where(a:any-link){color:#3391ff}';
     var inv = (fix.invert || []).join(',');
     if (inv) t += inv + '{filter:invert(100%) hue-rotate(180deg)!important}';
     if (fix.css) {
@@ -944,6 +1022,7 @@
     }
   }
   function isDarkAlready() {
+    if (document.querySelector('meta[name="darkreader-lock"]')) return true;
     if (siteFix.chosen) return false;
     var m = document.querySelector('meta[name="color-scheme"]');
     if (m && /^\s*(?:only\s+dark|dark(?:\s+only)?)\s*$/i.test(m.content)) return true;
@@ -973,6 +1052,7 @@
   function stop() {
     off = true;
     queue = [];
+    undo();
     coverSheet = coverRule = null;
     if (wait) wait.disconnect();
     mo.disconnect();
@@ -1048,6 +1128,7 @@
     var waiting = mo.takeRecords();
     if (queue.length) { waiting = queue.concat(waiting); queue = []; }
     if (waiting.length) handle(waiting);
+    if (off) return;                     // the page asked to be left alone meanwhile
     fn();
     mo.takeRecords();
     stats.ms += performance.now() - t0;
@@ -1069,6 +1150,8 @@
         for (var j = 0; j < m.addedNodes.length; j++) {
           var n = m.addedNodes[j];
           if (n.nodeType !== 1 || !n.isConnected || own(n)) continue;
+          // a page that asks later not to be darkened (Dark Reader's lock) gets its colours back
+          if (n.localName === 'meta' && n.getAttribute('name') === 'darkreader-lock') { stop(); return; }
           tree(n);
         }
       }
