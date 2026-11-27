@@ -1973,6 +1973,30 @@ class RoundHoverStyle(QProxyStyle):
         super().drawComplexControl(cc, o, p, widget)
 
 
+class SlimBarStyle(QProxyStyle):
+    """The navigation and bookmarks bars a little lower (1.1.29, the owner:
+    "slightly, not too much"): one pixel less of the bar's own margin and
+    frame above and below; the buttons, the icons and the address field keep
+    their size. Set on the bar itself, never on its buttons."""
+
+    def pixelMetric(self, metric, opt=None, widget=None):
+        v = super().pixelMetric(metric, opt, widget)
+        if metric in (QStyle.PixelMetric.PM_ToolBarItemMargin, QStyle.PixelMetric.PM_ToolBarFrameWidth):
+            return max(0, v - 1)
+        return v
+
+
+_SLIM = None
+
+
+def slim_bar(bar):
+    """Give a toolbar SlimBarStyle (one shared object, Qt keeps no copy)."""
+    global _SLIM
+    if _SLIM is None:
+        _SLIM = SlimBarStyle()
+    bar.setStyle(_SLIM)
+
+
 class HoverGlides(QObject):
     """Watches the buttons of a toolbar: under the mouse their "ike_hover"
     level glides to 1 and back (drawn by RoundHoverStyle)."""

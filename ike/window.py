@@ -35,7 +35,7 @@ from . import APP_LONG_NAME, APP_NAME, __version__, effects, polish
 from .config import LEVEL_NAMES, LEVELS
 from .features import WindowFeatures, tab_icon
 from .i18n import T
-from .shieldpanel import TOOLBAR_SHIELD_GROW, ShieldButton, ShieldPanel, shield_icon
+from .shieldpanel import TOOLBAR_LETTER, TOOLBAR_SHIELD_GROW, ShieldButton, ShieldPanel, shield_icon
 from .tabs import AUDIO_ROLE, TabBar, VTabDelegate, VTabList
 from .uistyle import Switch
 from .urlbar import _URLISH, UrlBar, is_not_secure
@@ -276,6 +276,34 @@ class _Gap(QWidget):
         return self.minimumSize()
 
 
+class _ArrowsButton(QToolButton):
+    """The bookmarks bar's "more" button (1.1.29, the owner): its two arrows
+    drawn at exactly the size of the navigation bar's Forward arrow, never
+    scaled down to the bar's small icon size, in the middle of the button."""
+
+    pair = None
+
+    def paintEvent(self, event):
+        from PyQt6.QtWidgets import QStyleOptionToolButton
+        option = QStyleOptionToolButton()
+        self.initStyleOption(option)
+        option.icon = QIcon()
+        option.text = ""
+        p = QPainter(self)
+        self.style().drawComplexControl(QStyle.ComplexControl.CC_ToolButton, option, p, self)
+        if self.pair is not None:
+            pm = self.pair
+            if not self.isEnabled():
+                pm = QIcon(pm).pixmap(pm.deviceIndependentSize().toSize(), self.devicePixelRatioF(),
+                                      QIcon.Mode.Disabled)
+            size = pm.deviceIndependentSize()
+            p.drawPixmap(QPointF(round((self.width() - size.width()) / 2 * self.devicePixelRatioF())
+                                 / self.devicePixelRatioF(),
+                                 round((self.height() - size.height()) / 2 * self.devicePixelRatioF())
+                                 / self.devicePixelRatioF()), pm)
+        p.end()
+
+
 class BookmarksBar(QToolBar):
     """The bookmarks in a row. Those that do not fit stay out of the row and are
     listed, one under the other, in the menu of a "more" button (a double arrow)
@@ -285,7 +313,7 @@ class BookmarksBar(QToolBar):
         super().__init__(title, parent)
         self._marks = []
         self._busy = False
-        self._more = QToolButton(self)
+        self._more = _ArrowsButton(self)
         self._more.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         self._more.setStyleSheet("QToolButton::menu-indicator { image: none; }")
         self._more.setToolTip(T("More bookmarks"))
@@ -317,7 +345,7 @@ class BookmarksBar(QToolBar):
         if "rtl" in forward.name().split("-"):
             arrow = QPixmap.fromImage(arrow.toImage().flipped(Qt.Orientation.Horizontal))
             arrow.setDevicePixelRatio(ratio)
-        gap = round(4 * ratio)
+        gap = 0                         # touching, as one double arrow (1.1.29, the owner; was 4)
         pair = QPixmap(2 * arrow.width() + gap, arrow.height())
         pair.setDevicePixelRatio(ratio)
         pair.fill(Qt.GlobalColor.transparent)
@@ -329,7 +357,8 @@ class BookmarksBar(QToolBar):
         height = ceil(pair.deviceIndependentSize().height())
         self._more.setIcon(QIcon(pair))
         self._more.setIconSize(QSize(width, height))
-        self._more.setFixedSize(max(MORE_SIDE, width + 10), MORE_SIDE)
+        self._more.pair = pair
+        self._more.setFixedSize(max(MORE_SIDE, width + 10), max(MORE_SIDE, height + 6))
         self._timer.start()
 
     def event(self, event):
@@ -599,6 +628,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         tb.setObjectName("nav")
         tb.setMovable(False)
         tb.setIconSize(QSize(24, 24))         # a little larger than Qt's usual 22: easier to see (1.1.6)
+        polish.slim_bar(tb)                    # a little lower (1.1.29)
         tb.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         tb.customContextMenuRequested.connect(self._toolbar_menu)
         self.addToolBar(tb)
@@ -815,6 +845,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.bookbar.setObjectName("bookmarks")
         self.bookbar.setMovable(False)
         self.bookbar.setIconSize(QSize(16, 16))
+        polish.slim_bar(self.bookbar)          # a little lower (1.1.29)
         self.bookbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBarBreak()
         self.addToolBar(self.bookbar)
@@ -2710,7 +2741,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         n = self.app.shields.total(host) if host else 0
         shown = getattr(self, "_shield_shown", None)
         if shown != level:
-            new = shield_icon(level, grow=TOOLBAR_SHIELD_GROW)
+            new = shield_icon(level, grow=TOOLBAR_SHIELD_GROW, letter=TOOLBAR_LETTER)
             if shown is None:
                 self.shield_btn.setIcon(new)
             else:

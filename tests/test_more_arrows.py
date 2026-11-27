@@ -77,6 +77,7 @@ def test_the_double_arrow_sits_in_the_middle(run_ike, tmp_path, scale, theme):
         assert h == 26 and (w > h if key == "bookmarks" else w == h), (key, w, h)
         assert tooltip == name == tip
         assert offset and max(abs(v) for v in offset) <= 1, (key, offset)
-    assert out["exact"] == [True, True] and out["gap"] == 4, out
+    # 1.1.29 (the owner): the two arrows touch, as one double arrow (was 4 px apart)
+    assert out["exact"] == [True, True] and out["gap"] == 0, out
     assert out["names"] and out["names"][1] in ("arrow-right-double", "go-next"), out["names"]
     assert abs(out["toolbar_middle"]) <= 1, out["toolbar_middle"]

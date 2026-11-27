@@ -7,7 +7,7 @@ def test_shield_icon_levels(run_ike):
         from PyQt6.QtCore import QSize, QUrl
         from ike.config import LEVELS, LOGIN_HOSTS, SENSITIVE_HOSTS
         from PyQt6.QtGui import QColor
-        from ike.shieldpanel import LEVEL_COLOUR, LEVEL_LETTER, TOOLBAR_SHIELD_GROW, shield_icon
+        from ike.shieldpanel import LEVEL_COLOUR, LEVEL_LETTER, TOOLBAR_LETTER, TOOLBAR_SHIELD_GROW, shield_icon
 
         def steps(ike, qapp, out):
             yield 500
@@ -61,7 +61,7 @@ def test_shield_icon_levels(run_ike):
                 panel.refresh()
                 yield 350
                 size = QSize(btn.iconSize())
-                expected = shield_icon(level, grow=TOOLBAR_SHIELD_GROW).pixmap(size).toImage()
+                expected = shield_icon(level, grow=TOOLBAR_SHIELD_GROW, letter=TOOLBAR_LETTER).pixmap(size).toImage()
                 assert btn.icon().pixmap(size).toImage() == expected, host
                 expected = shield_icon(level).pixmap(16, 16).toImage()
                 assert win.m_level.icon().pixmap(16, 16).toImage() == expected, host
@@ -157,7 +157,8 @@ def test_toolbar_shield_is_larger_in_the_same_button(run_ike):
                 assert [btn.width(), btn.height()] == before, (level, btn.width(), btn.height(), before)
             out["button"] = before
     """)
-    assert 1.15 <= out["grow"] <= 1.20
+    # 1.1.29: a little smaller than 1.1.27's 1.15-1.20 (the owner)
+    assert 1.05 <= out["grow"] <= 1.10
     for key, m in out["scales"].items():
         w, h, want = m["size"]
         assert w == h == want, (key, m)
@@ -165,9 +166,9 @@ def test_toolbar_shield_is_larger_in_the_same_button(run_ike):
         bx0, by0, bx1, by1 = m["big"]
         # inside the icon box
         assert bx0 >= 0 and by0 >= 0 and bx1 <= w and by1 <= h, (key, m)
-        # 15-20% larger (one device pixel of tolerance on each measure)
+        # 5-10% larger (one device pixel of tolerance on each measure)
         for plain, big in ((px1 - px0, bx1 - bx0), (py1 - py0, by1 - by0)):
-            assert (big - 1) / (plain + 1) <= 1.20 and (big + 1) / (plain - 1) >= 1.15, (key, m)
+            assert (big - 1) / (plain + 1) <= 1.10 and (big + 1) / (plain - 1) >= 1.05, (key, m)
             assert big > plain, (key, m)
         # centred: the same room left and right, and above and below
         assert abs(bx0 - (w - bx1)) <= 1 and abs(by0 - (h - by1)) <= 1, (key, m)

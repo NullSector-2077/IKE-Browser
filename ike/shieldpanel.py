@@ -45,10 +45,14 @@ LEVEL_COLOUR = {"compatibility": "#FFD54F",     # yellow: the lightest protectio
                 "strict": "#7DD8FF",            # light blue
                 "maximum": "#FF9EE8"}           # pink: the strongest
 CENTRE_COLOUR = "#061E37"
-TOOLBAR_SHIELD_GROW = 1.15
+# the octagon in the address bar (1.1.29, the owner: a little smaller, so its
+# rim no longer nearly touches the bar's border, and its letter a little
+# smaller inside it; it was 1.15 and the letter half the octagon)
+TOOLBAR_SHIELD_GROW = 1.08
+TOOLBAR_LETTER = 0.92
 
 
-def paint_shield(p, rect, level, grow=1.0):
+def paint_shield(p, rect, level, grow=1.0, letter=1.0):
     """Draw the Breeze octagon and the glyph of the applied protection level
     (its letter in the level's colour; a white X when off)."""
     side = min(rect.width(), rect.height()) * 0.84 * grow
@@ -79,7 +83,7 @@ def paint_shield(p, rect, level, grow=1.0):
         p.drawLine(centre + QPointF(-arm, arm), centre + QPointF(arm, -arm))
     else:
         paint_cyber_letter(p, centre, side, LEVEL_LETTER.get(level, "B"),
-                           QColor(LEVEL_COLOUR.get(level, "#F1F3F6")))
+                           QColor(LEVEL_COLOUR.get(level, "#F1F3F6")), letter)
     p.restore()
 
 
@@ -97,7 +101,7 @@ CYBER = {
 CYBER_NOTCH = {"C": ((0, 3.5), "h"), "B": ((0, 3.5), "h"), "S": ((4, 5.25), "h"), "M": ((2, 2.8), "v")}
 
 
-def paint_cyber_letter(p, centre, side, letter, colour):
+def paint_cyber_letter(p, centre, side, letter, colour, scale=1.0):
     """One level letter, cyber cut, centred in the octagon of size `side`.
     Every point of the letter sits on the screen's pixel grid and its strokes
     are a whole number of pixels wide, so the letter is sharp at 16, 22 and
@@ -110,7 +114,7 @@ def paint_cyber_letter(p, centre, side, letter, colour):
     dpr = dev.devicePixelRatioF() if dev is not None else 1.0
     tf = p.worldTransform()
     dpr *= max(tf.m11(), 1e-6)                    # a painter that scales (an icon drawn larger)
-    height = side * 0.50
+    height = side * 0.50 * scale
     unit = height / 7.0
     # thick enough to read at 16 px, not heavier than the octagon's own rim at large sizes
     pen_px = max(1, round(max(1.25, min(unit * 1.25, side * 0.085)) * dpr))
@@ -158,18 +162,18 @@ _PIXMAPS = {}
 class _ShieldEngine(QIconEngine):
     """The protection icon rendered at the requested resolution."""
 
-    def __init__(self, level, grow):
+    def __init__(self, level, grow, letter=1.0):
         super().__init__()
-        self.level, self.grow = level, grow
+        self.level, self.grow, self.letter = level, grow, letter
 
     def clone(self):
-        return _ShieldEngine(self.level, self.grow)
+        return _ShieldEngine(self.level, self.grow, self.letter)
 
     def paint(self, painter, rect, mode, state):
         if mode == QIcon.Mode.Disabled:
             painter.save()
             painter.setOpacity(painter.opacity() * 0.45)
-        paint_shield(painter, QRectF(rect), self.level, self.grow)
+        paint_shield(painter, QRectF(rect), self.level, self.grow, self.letter)
         if mode == QIcon.Mode.Disabled:
             painter.restore()
 
@@ -177,7 +181,7 @@ class _ShieldEngine(QIconEngine):
         # The toolbar asks for the shield at each repaint of the address bar
         # (dozens of times while a page loads); the same picture is drawn
         # once and kept, for each size and state (1.1.18).
-        key = (self.level, self.grow, size.width(), size.height(), mode, state,
+        key = (self.level, self.grow, self.letter, size.width(), size.height(), mode, state,
                QGuiApplication.font().key())
         pm = _PIXMAPS.get(key)
         if pm is None:
@@ -195,10 +199,10 @@ class _ShieldEngine(QIconEngine):
         return [QSize(s, s) for s in (16, 20, 22, 24, 32, 48)]
 
 
-def shield_icon(level, size=22, grow=1.0):
+def shield_icon(level, size=22, grow=1.0, letter=1.0):
     """Shield glyph for a protection level. `size` is kept for callers that
     name one; the icon draws itself at whatever size it is shown."""
-    return QIcon(_ShieldEngine(level, grow))
+    return QIcon(_ShieldEngine(level, grow, letter))
 
 
 class ShieldButton(QToolButton):
