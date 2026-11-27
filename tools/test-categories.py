@@ -76,7 +76,7 @@ NEVER_RUN = {"desktop": "GitHub's runners have no desktop session and no graphic
 
 # component kind (tools/inventory.py) -> the categories an update of it needs.
 # "no-regression" for every kind that changes what reaches users: the AdBlock engine and its
-# crates, the builders' Dark Reader ("npm") and uBlock Origin scriptlets ("integrated"), I.K.E.'s
+# crates, the builders' Dark Reader lists and uBlock Origin scriptlets ("integrated"), I.K.E.'s
 # own code (an AI fix or a security fix is "integrated", tools/automerge.py kinds_of), the filter
 # lists, the PKGBUILD ("arch-package")
 _ENGINE = ["rust", "licences", "unit-integration", "build", "old-cpu", "installed", "advisories", "tests-kept",
@@ -110,7 +110,7 @@ AREAS = (
                                     "test_publish.py", "test_inventory*.py", "test_maintenance*.py",
                                     "test_shards.py")),
     ("ad blocking", ("test_adblock.py", "test_videoads.py", "test_freeway.py", "test_userscript*.py")),
-    ("dark mode (Dark Reader)", ("test_darkreader*.py", "test_dark_*.py", "test_sitetint.py")),
+    ("dark mode", ("test_darkreader*.py", "test_dark_*.py", "test_darklists.py", "test_sitetint.py")),
     ("security and privacy", ("test_sandbox.py", "test_security.py", "test_site_isolation.py", "test_fingerprint*.py",
                               "test_home_network*.py", "test_frame_guard*.py", "test_referrer.py",
                               "test_client_hints.py", "test_engine_switches.py", "test_lookalike.py",
@@ -121,7 +121,7 @@ AREAS = (
                              "test_mediacheck.py", "test_handoff.py")),
     ("updates", ("test_updater.py", "test_update_safety.py", "test_versions.py", "test_engine_age.py",
                  "test_repair.py")),
-    ("speed", ("test_performance.py", "test_speed.py", "test_startup.py", "test_darkreader_cost.py")),
+    ("speed", ("test_performance.py", "test_speed.py", "test_startup.py")),
 )
 DEFAULT_AREA = "interface and features"
 MAX_LISTED = 200

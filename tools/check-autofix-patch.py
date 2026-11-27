@@ -55,11 +55,10 @@ whether the patch stays inside what an automatic fix may change:
   proof: tests/test_lists_recorded.py and the whole suite decide.
 
 - with --builder ID (WP11, the builders' re-anchoring on automation/builder/<id>):
-  only that builder (tools/build-darkreader.py, tools/build-ubo-scriptlets.mjs)
-  may change, and only as tools/builder-anchor.py allows: the same patches in
-  the same order, the same replacement texts, only anchors re-found in the new
-  upstream (Dark Reader), or only the path of the library it imports (uBlock
-  Origin); nothing else of the builder, no upstream code.
+  only that builder (tools/build-ubo-scriptlets.mjs) may change, and only as
+  tools/builder-anchor.py allows: only the path of the library it imports
+  (uBlock Origin); nothing else of the builder, no upstream code. (Dark
+  Reader's builder of its engine left with the engine in 1.1.29.)
 
 - with --auto (2026-11-22, the full automation: a fix of the automation may reach main by itself):
   the static guard of tools/fix-guard.py too. Never a tier B file (the workflows, the tests, the tools,
@@ -166,7 +165,7 @@ FORBIDDEN_FILES = {
 # the component manifest: with --auto an AI may add a missing entry (tools/fix-guard.py, rule 7)
 MANIFEST = "components.json"
 # WP11 (--builder ID): the builders' re-anchoring on automation/builder/<id>, only that builder
-BUILDERS = {"darkreader": "tools/build-darkreader.py", "ubo-scriptlets": "tools/build-ubo-scriptlets.mjs"}
+BUILDERS = {"ubo-scriptlets": "tools/build-ubo-scriptlets.mjs"}
 # WP8 (--lists): what the AI analysis of the filter lists may change, I.K.E.'s
 # adapter only
 LISTS_ALLOWED = ("ike/scriptlets.py", "ike/blocker.py")

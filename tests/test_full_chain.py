@@ -213,24 +213,29 @@ def test_the_crates_wait_one_change_of_cargo_lock_at_a_time():
     assert rows["pyo3"]["action"] == "make" and "PR #12" in rows["pyo3"]["reason"]      # rebuilt, not duplicated
     assert rows["crates"]["action"] == "queued" and "automation/update/pyo3" in rows["crates"]["reason"]
     # an unreachable source makes nothing; a refused builder starts the builders' path once
-    report = {"candidates": [{"id": "ubo-scriptlets", "error": "source unreachable: git clone"},
-                             {"id": "darkreader", "refused": True, "step": "patch 'style-moves'"}]}
+    report = {"candidates": [{"id": "darkreader", "error": "source unreachable: git clone"},
+                             {"id": "ubo-scriptlets", "refused": True, "step": "the library's import path"}]}
     rows = {r["id"]: r for r in uc.plan(report, {}, today=MONDAY)}
-    assert rows["ubo-scriptlets"]["action"] == "unreachable"
-    assert rows["darkreader"]["action"] == "builder" and rows["darkreader"]["branch"] == "automation/builder/darkreader"
-    again = {r["id"]: r for r in uc.plan(report, {"automation/builder/darkreader": {"pr": 3}}, today=MONDAY)}
-    assert again["darkreader"]["action"] == "skip"
-    assert [m["id"] for m in uc.matrix(uc.plan(report, {}, today=MONDAY))] == ["darkreader"]
+    assert rows["darkreader"]["action"] == "unreachable"
+    assert rows["ubo-scriptlets"]["action"] == "builder"
+    assert rows["ubo-scriptlets"]["branch"] == "automation/builder/ubo-scriptlets"
+    again = {r["id"]: r for r in uc.plan(report, {"automation/builder/ubo-scriptlets": {"pr": 3}}, today=MONDAY)}
+    assert again["ubo-scriptlets"]["action"] == "skip"
+    assert [m["id"] for m in uc.matrix(uc.plan(report, {}, today=MONDAY))] == ["ubo-scriptlets"]
+    # 1.1.29: Dark Reader's lists have no patches to re-anchor (its engine left): a refusal waits for a person
+    report = {"candidates": [{"id": "darkreader", "refused": True, "step": "the lists' content"}]}
+    rows = {r["id"]: r for r in uc.plan(report, {}, today=MONDAY)}
+    assert rows["darkreader"]["action"] == "skip" and "no patches an AI may re-anchor" in rows["darkreader"]["reason"]
 
 
 def test_an_update_commit_changes_only_its_own_files():
     """The update's own commit of one candidate may not change another component's files, a protected
     file, or the version when it ships nothing; a candidate id is never taken from a stranger's text."""
     msg = "update: darkreader 4.9.1 -> 4.9.2 (no AI)"
-    assert uc.commit_problem("darkreader", msg, ["ike/resources/darkreader.js", "CHANGELOG.md"]) == ""
+    assert uc.commit_problem("darkreader", msg, ["ike/resources/darkreader-data.json", "CHANGELOG.md"]) == ""
     assert "may not change" in uc.commit_problem("darkreader", msg, ["ike/resources/ubo-scriptlets.json"])
     assert "may not change" in uc.commit_problem("darkreader", msg, ["ike/updater.py"])
-    assert "not the update's own commit" in uc.commit_problem("adblock", msg, ["ike/resources/darkreader.js"])
+    assert "not the update's own commit" in uc.commit_problem("adblock", msg, ["ike/resources/darkreader-data.json"])
     tools = "update: test-tools pytest 9.1.1 -> 9.2.0 (no AI)"
     assert uc.commit_problem("test-tools", tools, ["tools/test-requirements.txt"]) == ""
     assert "version may not move" in uc.commit_problem("test-tools", tools, ["tools/test-requirements.txt",
@@ -238,8 +243,8 @@ def test_an_update_commit_changes_only_its_own_files():
     assert uc.spec("rm -rf") is None and uc.id_of_branch("automation/update/../main") == ""
     assert uc.id_of_branch("automation/builder/adblock") == ""        # only a builder has the builders' path
     # tools/automerge.py reads the same rule: another component's file keeps it for a person
-    commits = [commit(msg, ["ike/resources/darkreader.js", "ike/resources/ubo-scriptlets.json"])]
-    files = [change("ike/resources/darkreader.js", "@@ -1 +1 @@\n-a\n+b"),
+    commits = [commit(msg, ["ike/resources/darkreader-data.json", "ike/resources/ubo-scriptlets.json"])]
+    files = [change("ike/resources/darkreader-data.json", "@@ -1 +1 @@\n-a\n+b"),
              change("ike/resources/ubo-scriptlets.json", "@@ -1 +1 @@\n-a\n+b")]
     kind, why = decide("automation/update/darkreader", commits, files)
     assert kind == "person" and "ubo-scriptlets.json" in why
@@ -449,17 +454,10 @@ def test_the_tools_pins_and_dependabot_are_decided_and_documented():
 
 # --- the builders' re-anchoring ---------------------------------------------------------------
 
-BUILDER = '''import re
-
-PATCHES = [
-    ("alpha", "function a() {\\n    return 1;\\n}", "function a() {\\n    return 2;\\n}"),
-    ("beta", "var b = 1;", "var b = 2;"),
-]
-
-
-def apply_patches(engine):
-    return engine
-'''
+# 1.1.29: Dark Reader's engine (the builder with patches) left I.K.E.; uBlock Origin's builder of its
+# scriptlets is the one an AI may re-anchor, and only the path of the library it imports
+UBO_BUILDER = "tools/build-ubo-scriptlets.mjs"
+UBO_PATH = "/src/src/js/resources/scriptlets.js"
 
 
 def _git(cwd, *args):
@@ -467,10 +465,10 @@ def _git(cwd, *args):
                           capture_output=True, text=True, check=True).stdout
 
 
-def _builder_repo(tmp_path, text=BUILDER):
+def _builder_repo(tmp_path, text):
     repo = tmp_path / "b"
     (repo / "tools").mkdir(parents=True)
-    (repo / "tools" / "build-darkreader.py").write_text(text)
+    (repo / UBO_BUILDER).write_text(text)
     _git(tmp_path, "init", "-q", str(repo))
     _git(repo, "add", "-A")
     _git(repo, "commit", "-qm", "base")
@@ -478,67 +476,61 @@ def _builder_repo(tmp_path, text=BUILDER):
 
 
 def _patch(repo, new_text):
-    (repo / "tools" / "build-darkreader.py").write_text(new_text)
+    (repo / UBO_BUILDER).write_text(new_text)
     diff = _git(repo, "diff")
     _git(repo, "checkout", "-q", "--", ".")
     return diff
 
 
 def test_a_builder_is_re_anchored_and_merges(tmp_path):
-    """WP14 (4), WP11: only the anchor side of I.K.E.'s existing patches may change; the same patches
-    in the same order, the same replacements, nothing else of the builder."""
-    moved = BUILDER.replace('"var b = 1;", "var b = 2;"', '"let b = 1;", "var b = 2;"')
-    assert anchor.problem("darkreader", BUILDER, moved) == ""
+    """WP14 (4), WP11: only the re-anchoring the builder's rule allows (uBlock Origin: the library's import
+    path); nothing else of the builder, no upstream code."""
+    mjs = (ROOT / UBO_BUILDER).read_text()
+    assert UBO_PATH in mjs
+    moved = mjs.replace(UBO_PATH, "/src/src/js/scriptlets/index.js")
+    assert anchor.problem("ubo-scriptlets", mjs, moved) == ""
     refused = {
-        "a new patch": BUILDER.replace('    ("beta",', '    ("gamma", "x", "y"),\n    ("beta",'),
-        "a patch removed": BUILDER.replace('    ("beta", "var b = 1;", "var b = 2;"),\n', ""),
-        "a replacement changed": BUILDER.replace('"var b = 1;", "var b = 2;"', '"let b = 1;", "var b = 3;"'),
-        "the code changed": moved.replace("return engine", "return engine.upper()"),
-        "renamed": BUILDER.replace('("beta"', '("delta"'),
-        "nothing re-anchored": BUILDER,
+        "leaves the checkout": mjs.replace(UBO_PATH, "/src/../../etc/x.js"),
+        "the code changed": mjs.replace("out.scriptlets[s.name] = {", "evil(); {"),
+        "a line added": moved + "evil();\n",
+        "nothing re-anchored": mjs,
     }
     for case, text in refused.items():
-        assert anchor.problem("darkreader", BUILDER, text), case
+        assert anchor.problem("ubo-scriptlets", mjs, text), case
+    assert anchor.problem("darkreader", mjs, moved)                      # no builder of I.K.E.'s for it any more
+    assert set(anchor.BUILDERS) == {"ubo-scriptlets"}
     # the guard's --builder mode: the builder only, by that rule
-    repo = _builder_repo(tmp_path)
-    assert guard.check(repo, _patch(repo, moved), builder="darkreader") == []
-    reasons = guard.check(repo, _patch(repo, refused["a replacement changed"]), builder="darkreader")
+    repo = _builder_repo(tmp_path, mjs)
+    assert guard.check(repo, _patch(repo, moved), builder="ubo-scriptlets") == []
+    reasons = guard.check(repo, _patch(repo, refused["the code changed"]), builder="ubo-scriptlets")
     assert reasons and guard.safety_refusal(reasons)
     assert guard.check(repo, _patch(repo, moved), builder="") != []      # protected for every other run
-    # uBlock Origin: only the library's import path
-    mjs = (ROOT / "tools" / "build-ubo-scriptlets.mjs").read_text()
-    path = "/src/src/js/resources/scriptlets.js"
-    assert anchor.problem("ubo-scriptlets", mjs, mjs.replace(path, "/src/src/js/scriptlets/index.js")) == ""
-    assert anchor.problem("ubo-scriptlets", mjs, mjs.replace(path, "/src/../../etc/x.js"))
-    assert anchor.problem("ubo-scriptlets", mjs, mjs.replace("out.scriptlets[s.name] = {", "evil(); {"))
     # the reserves cannot even write another file in that run
-    with pytest.raises(ValueError, match="only tools/build-darkreader.py"):
+    with pytest.raises(ValueError, match="only tools/build-ubo-scriptlets.mjs"):
         reserve.apply_edits(repo, [{"file": "ike/window.py", "find": "a", "replace": "b"}], {"ike/window.py": ""},
-                            builder="darkreader")
+                            builder="ubo-scriptlets")
     # the verified merge: the re-anchoring (the automatic fix) and the update the builder now accepts
-    ref = "automation/builder/darkreader"
-    commits = [commit(AUTOFIX.replace('"Tests"', '"Builder darkreader"'), ["tools/build-darkreader.py"]),
-               commit("update: darkreader 4.9.1 -> 4.9.2 (no AI)", ["ike/resources/darkreader.js",
-                                                                       "ike/resources/darkreader-data.json",
-                                                                       "ike/__init__.py", "PKGBUILD", "CHANGELOG.md"])]
-    files = [change("tools/build-darkreader.py", "@@ -5 +5 @@\n-a\n+b", BUILDER, moved),
-             change("ike/resources/darkreader.js", "@@ -1 +1 @@\n-a\n+b"),
-             change("ike/resources/darkreader-data.json", "@@ -1 +1 @@\n-a\n+b")] + VERSION_FILES
+    ref = "automation/builder/ubo-scriptlets"
+    commits = [commit(AUTOFIX.replace('"Tests"', '"Builder ubo-scriptlets"'), [UBO_BUILDER]),
+               commit("update: ubo-scriptlets a1 -> b2 (no AI)", ["ike/resources/ubo-scriptlets.json",
+                                                                 "ike/__init__.py", "PKGBUILD", "CHANGELOG.md"])]
+    files = [change(UBO_BUILDER, "@@ -5 +5 @@\n-a\n+b", mjs, moved),
+             change("ike/resources/ubo-scriptlets.json", "@@ -1 +1 @@\n-a\n+b")] + VERSION_FILES
     evidence = {"runs": runs(filter_lists=False), "skips": EXPECTED}
     assert decide(ref, commits, files, evidence=evidence, published=True) == ("merge", "")
-    files[0] = change("tools/build-darkreader.py", "@@", BUILDER, refused["a replacement changed"])
+    files[0] = change(UBO_BUILDER, "@@", mjs, refused["the code changed"])
     kind, why = decide(ref, commits, files, evidence=evidence)
     assert kind == "person" and "more than a re-anchoring" in why
     # the builder's path starts from the daily maintenance: the refusal is the failure description
-    report = {"components": [{"name": "Dark Reader (engine and lists)", "refused": {
-        "current": "4.9.1", "latest": "4.9.2", "step": "I.K.E.'s patch 'beta'", "reason": "anchor gone",
-        "context": "let b = 1;"}}]}
-    text = plan_tool.builder_failure(report, "darkreader")
-    assert "tools/build-darkreader.py" in text and "let b = 1;" in text and "never a new patch" in text
+    report = {"components": [{"name": "uBlock Origin scriptlets", "refused": {
+        "current": "a1", "latest": "b2", "step": "the library's import path", "reason": "library gone",
+        "context": "src/js/scriptlets/index.js"}}]}
+    text = plan_tool.builder_failure(report, "ubo-scriptlets")
+    assert UBO_BUILDER in text and "src/js/scriptlets/index.js" in text and "never a new patch" in text
 
 
 def test_the_builders_path_is_planned_and_capped(tmp_path):
-    report = {"components": [{"name": "Dark Reader (engine and lists)", "refused": {
+    report = {"components": [{"name": "uBlock Origin scriptlets", "refused": {
         "current": "1", "latest": "2", "step": "x", "reason": "y"}}]}
 
     def api(path, raw=False):
@@ -550,21 +542,24 @@ def test_the_builders_path_is_planned_and_capped(tmp_path):
         with zipfile.ZipFile(buf, "w") as z:
             z.writestr("report.json", json.dumps(report))
         return buf.getvalue()
-    p = plan_tool.plan_builder(REPO, "builder/darkreader/2026-11-23", "77", tmp_path, api=api,
+    work = "builder/ubo-scriptlets/2026-11-23"
+    p = plan_tool.plan_builder(REPO, work, "77", tmp_path, api=api,
                                tip_of=lambda b: "" if "builder" in b else "m" * 40, attempts_of=lambda b: 0)
     assert (p["action"], p["kind"], p["mode"], p["builder"], p["push_branch"]) == (
-        "fix", "builder", "builder", "darkreader", "automation/builder/darkreader")
-    assert (tmp_path / "related.txt").read_text() == "tools/build-darkreader.py\n"
+        "fix", "builder", "builder", "ubo-scriptlets", "automation/builder/ubo-scriptlets")
+    assert (tmp_path / "related.txt").read_text() == UBO_BUILDER + "\n"
     # the cap is per day (2026-11-22): today's attempts used up, it stays open and goes on tomorrow
-    tired = plan_tool.plan_builder(REPO, "builder/darkreader/2026-11-23", "77", tmp_path, api=api,
+    tired = plan_tool.plan_builder(REPO, work, "77", tmp_path, api=api,
                                    tip_of=lambda b: "t" * 40, attempts_of=lambda b: plan_tool.ISOLATED_ATTEMPTS,
                                    today_of=lambda b: plan_tool.ISOLATED_ATTEMPTS)
     assert tired["action"] == "retry" and "tries again tomorrow" in tired["reason"] and "stays" in tired["reason"]
-    again = plan_tool.plan_builder(REPO, "builder/darkreader/2026-11-23", "77", tmp_path, api=api,
+    again = plan_tool.plan_builder(REPO, work, "77", tmp_path, api=api,
                                    tip_of=lambda b: "t" * 40, attempts_of=lambda b: plan_tool.ISOLATED_ATTEMPTS,
                                    today_of=lambda b: 0)
     assert again["action"] == "fix" and again["attempt"] == str(plan_tool.ISOLATED_ATTEMPTS + 1)
     assert plan_tool.plan_builder(REPO, "builder/../x", "77", tmp_path, api=api)["action"] == "skip"
+    # Dark Reader's builder path is gone with its engine (1.1.29)
+    assert plan_tool.plan_builder(REPO, "builder/darkreader/2026-11-23", "77", tmp_path, api=api)["action"] == "skip"
 
 
 # --- a major version of a crate of the engine ---------------------------------------------------
@@ -800,7 +795,8 @@ def test_no_agent_may_change_the_chains_own_tools():
                  "tools/pkgbuild-sync.py", "tests/test_full_chain.py"):
         assert path in guard.FORBIDDEN_FILES and path in ctx.NOT_RECENT, path
         assert guard.allowed_path(path, True), path
-    assert guard.allowed_path("tools/build-darkreader.py", True)            # a builder only by --builder
+    assert guard.allowed_path("tools/build-darkreader-lists.py", True)      # a builder only by --builder
+    assert guard.allowed_path("tools/build-ubo-scriptlets.mjs", True)
 
 
 def test_the_workflows_are_wired_for_the_whole_chain():
@@ -814,7 +810,7 @@ def test_the_workflows_are_wired_for_the_whole_chain():
     make = dm.split("- name: Make the candidate (no credentials)", 1)[1].split("\n      - ", 1)[0]
     assert "GH_TOKEN" not in make and "secrets." not in make
     af = (WORKFLOWS / "autofix.yml").read_text()
-    assert "builder/(darkreader|ubo-scriptlets)/" in af and "--builder-work" in af
+    assert "builder/(ubo-scriptlets)/" in af and "--builder-work" in af
     assert "workflow-proposal.patch" in af and "mai applicata" in af                # WP12
     assert 'gh workflow run daily-maintenance.yml --ref main -f mode=builder' in af
     am = (WORKFLOWS / "automerge.yml").read_text()

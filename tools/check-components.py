@@ -10,12 +10,12 @@ Components and where the version in use is written:
 - uBlock Origin scriptlets: ``ike/resources/ubo-scriptlets.json`` (rebuilt from
   uBlock Origin's newest sources with tools/build-ubo-scriptlets.mjs; only a
   change in the scriptlets themselves counts, not a new commit);
-- Dark Reader, the engine of the page dark mode and the lists of its extension
-  (fixes for single sites, sites that are dark already, hints of a site's own
-  dark theme): ``ike/resources/darkreader*.{js,json}`` (rebuilt with
-  tools/build-darkreader.py from the newest "darkreader" package on npm and
-  the newest lists in Dark Reader's repository; only a new engine counts since
-  1.1.27: the browser fetches the lists itself once a day, ike/darklists.py);
+- Dark Reader's lists (fixes for single sites, sites that are dark already,
+  hints of a site's own dark theme): ``ike/resources/darkreader-data.json``
+  (rebuilt with tools/build-darkreader-lists.py from the newest commit of Dark
+  Reader's repository). Its engine left I.K.E. in 1.1.29. The browser fetches
+  the lists itself once a day (ike/darklists.py), so a change of them is a
+  weekly candidate only (tools/update-candidates.py, WEEKLY);
 - KDE's Breeze icons, the shipped icon set "breeze" (1.1.24):
   ``ike/resources/icons/sets/breeze/`` (rebuilt with tools/build-breeze-icons.py
   from the newest release tag of breeze-icons, only the icons I.K.E. uses;
@@ -49,15 +49,16 @@ and testing are handled by the daily GitHub Actions maintenance workflow.
 Two kinds of trouble are kept apart (1.1.20, the owner's decision):
 
 - "source unreachable": an upstream source could not be read (the network,
-  the site, git, npm's hash). Infrastructure: --apply applies nothing and
+  the site, git, a download's hash). Infrastructure: --apply applies nothing and
   exits 1, the next daily run tries again;
 - "builder refused": I.K.E.'s builder of a customised component
-  (tools/build-darkreader.py, tools/build-ubo-scriptlets.mjs) does not accept
-  the new upstream version (a patch's anchor text is gone, the library is laid
-  out differently). A component incompatibility for a person, never the
-  automatic fix's: that component stays at the version in use, with I.K.E.'s
-  changes, and the report says which step refused, the versions, the upstream
-  lines around the anchor and the builder's log; the other components are
+  (tools/build-ubo-scriptlets.mjs, tools/build-darkreader-lists.py,
+  tools/build-breeze-icons.py) does not accept the new upstream version (the
+  library is laid out differently, the lists hold what could be a script). A
+  component incompatibility for a person, never the automatic fix's: that
+  component stays at the version in use, with I.K.E.'s changes, and the report
+  says which step refused, the versions, the upstream lines it concerns and
+  the builder's log; the other components are
   still applied (security updates of the crates included) and tested.
 
 With --filter-lists FILE, only the filter lists I.K.E. turns on by default
@@ -94,7 +95,6 @@ CRATES_INDEX = "https://index.crates.io/ad/bl/adblock"
 PYO3_INDEX = "https://index.crates.io/py/o3/pyo3"
 UBO_GIT = "https://github.com/gorhill/uBlock"
 DARKREADER_GIT = "https://github.com/darkreader/darkreader"
-DARKREADER_NPM = "https://registry.npmjs.org/darkreader/latest"
 ARCH_SEARCH = "https://archlinux.org/packages/search/json/?name=%s"
 ARCH_PACKAGE = ARCH_SEARCH % "qt6-webengine"
 # Arch Linux's own packages I.K.E. runs on (PKGBUILD depends) and is built with
@@ -180,40 +180,6 @@ def tail(text, lines=60, size=6000):
     """The end of a builder's log."""
     text = (text or "").strip()
     return "\n".join(text.splitlines()[-lines:])[-size:]
-
-
-def anchor_context(text, anchor, around=6, places=2):
-    """Where the text a patch changes (its anchor) stands in a new upstream
-    file: the anchor's lines no longer there, and the upstream lines (with
-    their numbers) around the first anchor line still found once, or around
-    each place where the whole anchor is found more than once."""
-    lines = text.replace("\r\n", "\n").split("\n")
-    anchor = anchor.replace("\r\n", "\n")
-    out = []
-
-    def show(at, label):
-        lo, hi = max(0, at - around), min(len(lines), at + around + 1)
-        out.append(label)
-        out.extend("%6d  %s" % (n + 1, lines[n][:200]) for n in range(lo, hi))
-
-    wanted = [a.strip() for a in anchor.split("\n") if a.strip()]
-    stripped = [s.strip() for s in lines]
-    whole = [i for i in range(len(lines)) if wanted and stripped[i:i + len(wanted)] == wanted]
-    if len(whole) > 1:
-        for at in whole[:places]:
-            show(at, "found at line %d:" % (at + 1))
-        return "\n".join(out)
-    missing = [a for a in wanted if a not in stripped]
-    if missing:
-        out.append("anchor lines not found in the new version (%d of %d):" % (len(missing), len(wanted)))
-        out.extend("    " + a[:200] for a in missing[:8])
-    for a in wanted:
-        if stripped.count(a) == 1:
-            show(stripped.index(a), "the new version around the anchor line \"%s\":" % a[:80])
-            break
-    else:
-        out.append("no line of the anchor is found once in the new version")
-    return "\n".join(out)
 
 
 # --- adblock-rust -----------------------------------------------------------
@@ -565,152 +531,82 @@ def apply_scriptlets(root, info):
     shutil.copyfile(info["_file"], root / "ike" / "resources" / "ubo-scriptlets.json")
 
 
-# --- Dark Reader ---------------------------------------------------------------
+# --- Dark Reader's lists (its engine left I.K.E. in 1.1.29) --------------------
 
 def darkreader_lists_hash(data):
     lists = {k: data[k] for k in ("fixes", "dark_sites", "detector_hints")}
     return hashlib.sha256(json.dumps(lists, sort_keys=True).encode("utf-8")).hexdigest()
 
 
-def npm_tarball(meta):
-    """The package's tarball, from npm's own registry and with the hash npm
-    published for it (review 2 of 1.1.19, L1: neither was checked)."""
-    import base64
-    url = meta["dist"]["tarball"]
-    if not url.startswith("https://registry.npmjs.org/"):
-        raise ValueError("the tarball is not on npm's registry: %s" % url[:120])
-    integrity = meta["dist"].get("integrity", "")
-    if not integrity.startswith("sha512-"):
-        raise ValueError("npm gives no sha512 for the tarball")
-    data = fetch_source(url)
-    if base64.b64encode(hashlib.sha512(data).digest()).decode() != integrity[7:]:
-        raise ValueError("the tarball does not match the hash npm published")
-    return data
-
-
-def build_tool_module(root):
-    """tools/build-darkreader.py as a module (its PATCHES)."""
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("build_darkreader", root / "tools" / "build-darkreader.py")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-def darkreader_refused(root, work, src, meta, reason, log):
-    """BuilderRefused for Dark Reader: the step that refused and, for one of
-    I.K.E.'s patches, the new engine's lines around the text it changes."""
+def darkreader_refused(root, src, reason, log):
+    """BuilderRefused for Dark Reader's lists: the step that refused and, for the site fixes, the
+    first lines of the new list."""
     try:
         cur = json.loads((root / "ike" / "resources" / "darkreader-data.json").read_text("utf-8"))
         current = "%s, lists %s" % (cur["version"], cur.get("lists_commit", "")[:10])
     except (OSError, ValueError, KeyError):
         current = "?"
-    lists = ""
+    lists, context = "", ""
     try:
         lists = run(["git", "-C", str(src), "log", "-1", "--format=%h"]).strip()
     except Exception:
         pass
-    latest = "%s, lists %s" % (meta.get("version", "?"), lists or "?")
-    lib_path = work / "darkreader.js"
-    lib = lib_path.read_bytes().decode("utf-8", "replace") if lib_path.is_file() else ""
-    step, context = "tools/build-darkreader.py", ""
-    patch = re.search(r"patch '([^']+)'", log or "")
-    try:
-        if patch:
-            step = "tools/build-darkreader.py, I.K.E.'s patch '%s' (PATCHES)" % patch.group(1)
-            anchor = next((old for name, old, _new in build_tool_module(root).PATCHES if name == patch.group(1)), "")
-            context = anchor_context(lib, anchor) if anchor else ""
-        elif "proxy injection" in (log or ""):
-            step = "tools/build-darkreader.py, the proxy taken out of the engine (PROXY_BLOCK)"
-            context = anchor_context(lib, 'const proxyScript = createOrUpdateScript("darkreader--proxy");')
-        elif "injectProxy" in (log or ""):
-            step = "tools/build-darkreader.py, Dark Reader's injectProxy (extract_proxy)"
-            context = anchor_context(lib, "function injectProxy(")
-        elif "common fix" in (log or ""):
-            step = "tools/build-darkreader.py, the site fixes list (dynamic-theme-fixes.config)"
-            fixes = src / "src" / "config" / "dynamic-theme-fixes.config"
-            if fixes.is_file():
-                context = "\n".join(fixes.read_text("utf-8", "replace").splitlines()[:15])
-        # 2026-11-24 (the owner's decisions): the checks that wait for a person
-        elif "links: " in (log or ""):
-            step = "tools/build-darkreader.py, the links check (LINKS_ALLOWED, LINK_DENY)"
-        elif "network calls: " in (log or ""):
-            step = "tools/build-darkreader.py, the network calls check (NETWORK_CALLS)"
-        elif "I.K.E.'s panel uses" in (log or ""):
-            step = "tools/build-darkreader.py, the API I.K.E.'s Dark Reader panel uses (PANEL_API)"
-        elif "could be a script" in (log or ""):
-            step = "tools/build-darkreader.py, the site fixes' content (DATA_SCRIPT_MARKS)"
-        elif "does not parse" in (log or "") or "could not be read as a script" in (log or ""):
-            step = "tools/build-darkreader.py, the parse check (node --check, lex)"
-    except Exception as e:          # the report must not hide the refusal itself
-        context = "(the upstream lines could not be shown: %s)" % e
-    return BuilderRefused({"component": "Dark Reader (engine and lists)", "current": current, "latest": latest,
-                           "step": step, "reason": reason, "context": context, "log": tail(log)})
+    step = "tools/build-darkreader-lists.py"
+    if "could be a script" in (log or ""):
+        step = "tools/build-darkreader-lists.py, the lists' content (DATA_SCRIPT_MARKS of ike/darklists.py)"
+    elif "common fix" in (log or ""):
+        step = "tools/build-darkreader-lists.py, the site fixes list (dynamic-theme-fixes.config)"
+        fixes = Path(src) / "src" / "config" / "dynamic-theme-fixes.config"
+        if fixes.is_file():
+            context = "\n".join(fixes.read_text("utf-8", "replace").splitlines()[:15])
+    elif "entries where I.K.E. came with" in (log or ""):
+        step = "tools/build-darkreader-lists.py, a list much shorter than the copy in use (MIN_SHARE)"
+    return BuilderRefused({"component": "Dark Reader (lists)", "current": current,
+                           "latest": "lists %s" % (lists or "?"), "step": step, "reason": reason,
+                           "context": context, "log": tail(log)})
 
 
 def build_darkreader(root, work, dr_src=None):
-    """Dark Reader's newest engine (npm) and lists (GitHub), built as I.K.E. uses them."""
-    import tarfile
+    """Dark Reader's newest lists (its repository on GitHub), built as I.K.E. ships them."""
     out = work / "darkreader-out"
     out.mkdir(parents=True, exist_ok=True)
-    meta = json.loads(fetch_source(DARKREADER_NPM))
-    tgz = work / "darkreader.tgz"
-    tgz.write_bytes(npm_tarball(meta))
     src = work / "darkreader-src"
     if dr_src:
         src = Path(dr_src)
     elif not src.exists():
         clone(DARKREADER_GIT, src)
-    with tarfile.open(tgz) as tar:
-        try:
-            member = tar.getmember("package/darkreader.js")
-        except KeyError:
-            raise darkreader_refused(root, work, src, meta, "the npm package has no package/darkreader.js "
-                                     "(the engine is laid out differently)", "") from None
-        (work / "darkreader.js").write_bytes(tar.extractfile(member).read())
     commit = run(["git", "-C", str(src), "log", "-1", "--format=%H"]).strip()
     date = run(["git", "-C", str(src), "log", "-1", "--format=%cs"]).strip()
-    done = subprocess.run([sys.executable, str(root / "tools" / "build-darkreader.py"), "--lib",
-                           str(work / "darkreader.js"), "--config", str(src / "src" / "config"), "--commit", commit,
-                           "--date", date, "--out", str(out)], capture_output=True, text=True, check=False)
+    done = subprocess.run([sys.executable, str(root / "tools" / "build-darkreader-lists.py"), "--src", str(src),
+                           "--commit", commit, "--date", date, "--out", str(out),
+                           "--bundled", str(root / "ike" / "resources" / "darkreader-data.json")],
+                          capture_output=True, text=True, check=False)
     if done.returncode != 0:
         log = done.stdout + done.stderr
         lines = [x.strip() for x in done.stderr.splitlines() if x.strip()]
-        raise darkreader_refused(root, work, src, meta, "the builder stopped: %s"
+        raise darkreader_refused(root, src, "the builder stopped: %s"
                                  % (lines[-1] if lines else "exit %d" % done.returncode)[:300], log)
     return out
 
 
 def check_darkreader(root, work, dr_src=None):
+    """1.1.29: Dark Reader's engine is gone, its lists are the whole component. The browser fetches
+    them itself once a day (ike/darklists.py, 1.1.27: no new version every day for simple lists), so
+    the copy I.K.E. comes with is refreshed by a weekly candidate (WEEKLY of tools/update-candidates.py):
+    an update when the lists (or Dark Reader's version they come with) changed, made on Mondays only."""
     cur = json.loads((root / "ike" / "resources" / "darkreader-data.json").read_text("utf-8"))
     out = build_darkreader(root, work, dr_src)
     new = json.loads((out / "darkreader-data.json").read_text("utf-8"))
-    engine = vkey(new["version"]) > vkey(cur["version"])
     lists = darkreader_lists_hash(cur) != darkreader_lists_hash(new)
-    # 1.1.27 (the owner: no new version every day for simple lists): the browser fetches Dark
-    # Reader's lists itself once a day (ike/darklists.py); only a new engine makes an update, which
-    # brings the newest lists with it
-    note = ", ".join(x for x, on in (("new engine", engine), ("lists changed", lists and engine),
-                                     ("lists changed (the browser fetches them itself)", lists and not engine))
-                     if on)
-    # 2026-11-24: what the builder left out or removed is said with the update (the daily report, the
-    # candidate's CHANGELOG line, so the signing notice)
-    built = new.get("ike_build") or {}
-    dropped = [d.get("family", "?") for d in built.get("speed_patches_dropped") or ()]
-    if dropped:
-        note += "; speed patches left out (no longer fit the new engine): " + ", ".join(dropped)
-    links = built.get("links_removed") or ()
-    if links:
-        note += "; links removed from Dark Reader's code: %d (%s)" % (
-            len(links), ", ".join(sorted({"%s %s" % (r.get("kind", "?"), r.get("host", "?")) for r in links}))[:300])
+    version = vkey(new["version"]) > vkey(cur["version"])
+    note = ", ".join(x for x, on in (("lists changed", lists), ("Dark Reader %s" % new["version"], version)) if on)
     return {"current": "%s, lists %s (%s)" % (cur["version"], cur.get("lists_commit", "")[:10], cur.get("lists_date", "")),
             "latest": "%s, lists %s (%s)" % (new["version"], new["lists_commit"][:10], new["lists_date"]),
-            "update": engine, "note": note, "_dir": str(out)}
+            "update": lists or version, "note": note, "_dir": str(out)}
 
 
 def apply_darkreader(root, info):
-    for name in ("darkreader.js", "darkreader-proxy.js", "darkreader-data.json"):
-        shutil.copyfile(Path(info["_dir"]) / name, root / "ike" / "resources" / name)
+    shutil.copyfile(Path(info["_dir"]) / "darkreader-data.json", root / "ike" / "resources" / "darkreader-data.json")
 
 
 # --- KDE's Breeze icons (the shipped icon set "breeze", 1.1.24) ------------------
@@ -1763,7 +1659,7 @@ def check_all(root, ubo_src=None, work=None, dr_src=None, only=None, get=None, t
         ("adblock-rust (AdBlock engine)", check_adblock, apply_adblock, (), "adblock"),
         ("Rust crates of the AdBlock engine", check_crates, apply_crates, (), "crates"),
         ("uBlock Origin scriptlets", check_scriptlets, apply_scriptlets, (work, ubo_src), "ubo-scriptlets"),
-        ("Dark Reader (engine and lists)", check_darkreader, apply_darkreader, (work, dr_src), "darkreader"),
+        ("Dark Reader (lists)", check_darkreader, apply_darkreader, (work, dr_src), "darkreader"),
         ("Qt WebEngine / PyQt6 (tests)", check_test_packages, apply_test_packages, (), "test-packages"),
     ]
     checks += manifest_checks(root, get, tags, work)
@@ -1805,8 +1701,8 @@ def refused_markdown(results):
            "Not a failure of GitHub or of the network, and not a matter for the automatic fix (the builders, "
            "`tools/build-*`, and the components' files are a person's). The component below **stays at the version "
            "in use, with I.K.E.'s changes**; every other component is still updated and tested. A person adapts "
-           "the builder to the new upstream version (for Dark Reader: the patch named below, in "
-           "`tools/build-darkreader.py`); the next daily run then takes it.", ""]
+           "the builder to the new upstream version (for uBlock Origin: the library's path in "
+           "`tools/build-ubo-scriptlets.mjs`); the next daily run then takes it.", ""]
     for rep in refused:
         out.append("**%s**: %s → %s. Refused at: %s." % (rep["component"], _v(rep.get("current")),
                                                         _v(rep.get("latest")), rep.get("step", "?")))

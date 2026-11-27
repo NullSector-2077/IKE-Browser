@@ -63,16 +63,17 @@ def test_everything_from_upstream_is_declared_and_has_an_update_path():
 
 def test_dark_reader_and_ublock_origin_moved_into_the_manifest_unchanged():
     dark, ubo = candidates.spec("darkreader"), candidates.spec("ubo-scriptlets")
-    assert dark["files"] == ("ike/resources/darkreader.js", "ike/resources/darkreader-proxy.js",
-                             "ike/resources/darkreader-data.json")
+    # 1.1.29: Dark Reader's engine left I.K.E.; the entry keeps only its lists
+    assert dark["files"] == ("ike/resources/darkreader-data.json",)
     assert (dark["builder"], dark["kinds"], dark["ships"], dark["wrapper"], dark["serial"]) == (
-        "tools/build-darkreader.py", ("npm", "integrated"), True, False, "")
+        "tools/build-darkreader-lists.py", ("integrated",), True, False, "")
+    assert manifest.components(ROOT)["darkreader"]["upstream"] == {"git": "https://github.com/darkreader/darkreader"}
     assert ubo["files"] == ("ike/resources/ubo-scriptlets.json",) and ubo["builder"] == "tools/build-ubo-scriptlets.mjs"
     assert ubo["kinds"] == ("integrated",)
     assert candidates.id_of_branch("automation/update/darkreader") == "darkreader"
     assert candidates.id_of_branch("automation/builder/ubo-scriptlets") == "ubo-scriptlets"
     assert candidates.commit_problem("darkreader", "update: darkreader 1 -> 2 (no AI)",
-                                     ["ike/resources/darkreader.js", "CHANGELOG.md"]) == ""
+                                     ["ike/resources/darkreader-data.json", "CHANGELOG.md"]) == ""
     assert candidates.commit_problem("darkreader", "update: darkreader 1 -> 2 (no AI)", ["ike/app.py"])
     assert "darkreader" not in candidates.SPECS and components.family_of("darkreader") == "darkreader"
     for rec in inventory.inventory(ROOT, offline=True)["components"]:
@@ -115,7 +116,7 @@ def repo(tmp_path):
     root = tmp_path / "repo"
     (root / "ike" / "resources").mkdir(parents=True)
     (root / "licenses").mkdir()
-    for name in ("darkreader.js", "darkreader-proxy.js", "darkreader-data.json", "ubo-scriptlets.json"):
+    for name in ("darkreader-data.json", "ubo-scriptlets.json"):
         shutil.copy(ROOT / "ike" / "resources" / name, root / "ike" / "resources" / name)
     shutil.copy(ROOT / "components.json", root / "components.json")
     (root / "ike/resources/tiny.js").write_bytes(OLD_JS)
@@ -218,7 +219,7 @@ def test_an_upstream_that_does_not_reproduce_the_file_makes_no_candidate(repo):
 
 def test_the_guard_catches_an_undeclared_vendored_file(repo):
     """A file from upstream with no entry fails the guard, and the message is the entry to add."""
-    files = ["ike/resources/tiny.js", "ike/resources/darkreader.js", "ike/tabs.py", "ike/vendor/lib/x.py",
+    files = ["ike/resources/tiny.js", "ike/resources/darkreader-data.json", "ike/tabs.py", "ike/vendor/lib/x.py",
              "ike/pagehelper.min.js"]
     (repo / "ike/vendor/lib").mkdir(parents=True)
     (repo / "ike/vendor/lib/x.py").write_text("x = 1\n")
@@ -236,7 +237,7 @@ def test_the_guard_catches_an_undeclared_vendored_file(repo):
     assert len(inventory.undeclared_files(repo, ["ike/extra.js", "ike/long.js"])) == 2
     # declared: the guard passes; a record with no update path fails it
     declare(repo)
-    assert inventory.guard_problems(repo, files=["ike/resources/tiny.js", "ike/resources/darkreader.js"]) == []
+    assert inventory.guard_problems(repo, files=["ike/resources/tiny.js", "ike/resources/darkreader-data.json"]) == []
     bad = {"components": [{"id": "integrated:Mystery", "kind": "integrated", "name": "Mystery",
                            "update_mode": inventory.UNKNOWN},
                           {"id": "integrated:Orphan", "kind": "integrated", "name": "Orphan", "update_mode": "candidate"}]}
@@ -264,10 +265,10 @@ def test_the_automatic_fix_may_only_add_the_missing_entry(repo):
     data = json.loads(good)
     data["components"]["tiny-lib"].pop("download")
     data["components"]["tiny-lib"].pop("version")
-    data["components"]["tiny-lib"]["build"] = "tools/build-darkreader.py"
+    data["components"]["tiny-lib"]["build"] = "tools/build-darkreader-lists.py"
     cases["a build command"] = json.dumps(data)
     data = json.loads(good)
-    data["components"]["darkreader"]["upstream"] = {"npm": "darkreader-evil"}
+    data["components"]["darkreader"]["upstream"] = {"git": "https://github.com/evil/darkreader"}
     cases["another entry changed"] = json.dumps(data)
     data = json.loads(good)
     del data["components"]["ubo-scriptlets"]

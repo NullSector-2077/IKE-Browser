@@ -4,7 +4,7 @@
 # Also: did Arch Linux's own packages (qt6-webengine, python, PyQt...) change
 # since the last green "Arch Linux" run on main? Then that run starts on main
 # (job start-arch): compatibility to verify, not an update and not a release.
-# A builder of a customised component (Dark Reader, uBlock Origin's
+# A builder of a customised component (Dark Reader's lists, uBlock Origin's
 # scriptlets) that refuses a new upstream version is a component
 # incompatibility, said in the issue for a person (1.1.20). And the filter
 # lists I.K.E. turns on by default are loaded into main's AdBlock engine and
@@ -48,7 +48,7 @@ jobs:
         with:
           python-version: "3.14"
       # the token only in this step, which runs no code of others (the check
-      # below builds uBlock Origin's and Dark Reader's newest sources)
+      # below builds uBlock Origin's newest sources and Dark Reader's lists)
       - name: The Arch versions last tested on main
         env:
           GH_TOKEN: ${{ github.token }}

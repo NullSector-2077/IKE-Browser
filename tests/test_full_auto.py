@@ -78,7 +78,7 @@ def problems(new, name="ike/blocker.py", old=OLD):
     ("ike/app.py", "B"), ("ike_boot.py", "B"), ("ike/updater.py", "B"), ("ike/__init__.py", "B"),
     ("ike/extensions.py", "B"), (".github/workflows/tests.yml", "B"), ("tests/test_adblock.py", "B"),
     ("tools/automerge.py", "B"), ("tools/fix-guard.py", "B"), ("tools/ai-review.py", "B"), ("PKGBUILD", "B"),
-    ("ike/resources/videoads.js", "B"), ("ike/resources/darkreader.js", "B"), ("ike-adblock/Cargo.lock", "B"),
+    ("ike/resources/videoads.js", "B"), ("ike/resources/darkreader-data.json", "B"), ("ike-adblock/Cargo.lock", "B"),
     ("ike-adblock/deny.toml", "B"), ("launcher/ike-browser", "B"), ("somewhere/new.bin", "B"),
     ("ike/tabs.py", ""), ("docs/TESTING.md", ""),
 ])

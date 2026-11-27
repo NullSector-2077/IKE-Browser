@@ -2,8 +2,8 @@
 # (the full chain, 2026-11-22: tools/update-candidates.py): each component, or
 # small coherent group, that has a new version gets its own branch
 # automation/update/<id> made from the current main (the engine, its crates, a
-# new pyo3 or major crate, uBlock Origin's scriptlets, Dark Reader, the test
-# packages in three groups, every pin of the workflows by tools/ci-pins.py, the
+# new pyo3 or major crate, uBlock Origin's scriptlets, Dark Reader's lists
+# (weekly), the test packages in three groups, every pin of the workflows by tools/ci-pins.py, the
 # PKGBUILD's dependencies by tools/pkgbuild-sync.py), its own draft pull
 # request, and Tests, Security and Arch Linux on it. A failure there goes to the
 # automatic fix of that branch (autofix.yml); when everything is green and
@@ -24,7 +24,7 @@
 # The combined candidate is rebuilt from the current main every time; the automatic
 # fixes made on the previous candidate (commits "autofix: ...") are carried over.
 # Started by hand on another branch than main, it is a rehearsal: the candidate
-# is built from that branch (its tools, say a Dark Reader patch adapted by a
+# is built from that branch (its tools, say uBlock Origin's builder adapted by a
 # person, or a trial's deliberate fault), nothing is pushed, no pull request is
 # opened and no tests are started; the run's summary and its artifacts show
 # what the candidate would be (docs/MAINTENANCE.md, "Rehearsing the
@@ -41,7 +41,7 @@ on:
         required: false
         default: "per-component"
       id:
-        description: "mode builder: the component whose builder was re-anchored (darkreader, ubo-scriptlets)"
+        description: "mode builder: the component whose builder was re-anchored (ubo-scriptlets)"
         required: false
         default: ""
 
@@ -98,7 +98,7 @@ jobs:
         run: |
           only=""
           if [ "$MODE" = "builder" ]; then
-            case "$ID" in darkreader|ubo-scriptlets) only="--only $ID" ;; *) echo "::error::not a builder: $ID"; exit 1 ;; esac
+            case "$ID" in ubo-scriptlets) only="--only $ID" ;; *) echo "::error::not a builder: $ID"; exit 1 ;; esac
           fi
           python3 tools/check-components.py --json report.json --markdown report.md $only
           cat report.md >> "$GITHUB_STEP_SUMMARY"
@@ -306,7 +306,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           ID: ${{ matrix.id }}
         run: |
-          case "$ID" in darkreader|ubo-scriptlets) ;; *) echo "::error::not a builder: $ID"; exit 1 ;; esac
+          case "$ID" in ubo-scriptlets) ;; *) echo "::error::not a builder: $ID"; exit 1 ;; esac
           gh workflow run autofix.yml --ref main -f run_id="$GITHUB_RUN_ID" -f work="builder/$ID/$(date -u +%F)"
           echo "The builder of $ID refused the new version: its re-anchoring starts (autofix.yml, automation/builder/$ID)" >> "$GITHUB_STEP_SUMMARY"
       - name: Download the candidate
@@ -451,8 +451,8 @@ jobs:
           rustup default stable
       # 1.1.20: a source that cannot be reached stops everything (exit 1,
       # infrastructure, the next daily run tries again); a builder that refuses
-      # a new upstream version (Dark Reader's patches, uBlock Origin's
-      # scriptlets) keeps that component at the version in use, says why in
+      # a new upstream version (uBlock Origin's scriptlets, Dark Reader's
+      # lists) keeps that component at the version in use, says why in
       # the report, and the other components are still applied and tested.
       - name: Check and apply component updates (an unreachable source stops all, a refused builder keeps its component)
         run: |
@@ -478,7 +478,7 @@ jobs:
       - name: Create candidate commit (no push credentials)
         if: steps.changes.outputs.changed == 'true'
         run: |
-          # every tracked file the update rewrote (engine, scriptlets, Dark Reader,
+          # every tracked file the update rewrote (engine, scriptlets, Dark Reader's lists,
           # test packages, version files); never untracked or build files
           git add -u
           git commit -m "maintenance: update bundled components for IKE $(sed -n 's/^__version__ = "\(.*\)"/\1/p' ike/__init__.py)"

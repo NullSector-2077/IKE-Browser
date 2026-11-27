@@ -1,9 +1,9 @@
 """Dark Reader's lists kept up to date by the browser itself (1.1.27, the
 owner's decision: no new version every day for simple lists).
 
-- The browser and the builder read and check the lists with the very same
-  functions (ike/darklists.py holds a copy of tools/build-darkreader.py's:
-  the two must stay identical).
+- The browser and the builder of the bundled copy read and check the lists
+  with the very same functions (tools/build-darkreader-lists.py imports
+  ike/darklists.py; 1.1.29: Dark Reader's engine left I.K.E., its lists stay).
 - What is fetched is refused, and nothing changes, when it is not data for
   Dark Reader (anything that looks like a script), lacks the common fix, is
   much shorter than the copy I.K.E. came with, is too large, or was
@@ -13,7 +13,8 @@ owner's decision: no new version every day for simple lists).
 - In the browser: once a day (with automatic updates on), in the background;
   a failure is tried again a few hours later; the dark pages loaded next take
   the new lists; nothing with automatic updates off.
-- The daily maintenance no longer makes a version for changed lists only.
+- The daily maintenance no longer makes a version every day for changed lists
+  only: the bundled copy is refreshed by a weekly candidate (1.1.29).
 
 SIMULATION: stand-ins for the network (no request leaves the computer).
 """
@@ -93,20 +94,15 @@ def opener(files, redirect=None, length=None):
 
 def test_the_browser_reads_the_lists_as_the_builder():
     from ike import darklists
-    spec = importlib.util.spec_from_file_location("bd", ROOT / "tools" / "build-darkreader.py")
-    bd = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(bd)
-    for name in ("parse_blocks", "parse_array", "fix_value", "hint_value"):
-        assert getattr(bd, name).__code__.co_code == getattr(darklists, name).__code__.co_code, name
-    assert bd.DATA_SCRIPT_MARKS == darklists.DATA_SCRIPT_MARKS
-    assert (bd.FIX_COMMANDS, bd.HINT_COMMANDS, bd.COMMAND_LINE.pattern) == (
-        darklists.FIX_COMMANDS, darklists.HINT_COMMANDS, darklists.COMMAND_LINE.pattern)
-    # the browser's check finds at least everything the builder's finds
-    samples = [{"fixes": [{"url": ["*"], "css": c}], "dark_sites": [], "detector_hints": []}
-               for c in ("a{}", "<script>", "x{background:url(javascript:1)}", "</style>")]
-    samples.append({"fixes": [{"url": ["*"], "script": "a"}], "dark_sites": [], "detector_hints": []})
-    for d in samples:
-        assert bool(bd.data_problems(d)) == bool(darklists.data_problems(d)), d
+    spec = importlib.util.spec_from_file_location("bdl", ROOT / "tools" / "build-darkreader-lists.py")
+    bdl = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bdl)
+    # the builder has no reader of its own: it loads the browser's (the same file)
+    dl = bdl.darklists()
+    assert Path(dl.__file__).resolve() == Path(darklists.__file__).resolve()
+    for name in ("parse", "parse_blocks", "parse_array", "fix_value", "hint_value", "data_problems", "check"):
+        assert not hasattr(bdl, name), name
+        assert getattr(dl, name).__code__.co_code == getattr(darklists, name).__code__.co_code, name
     # the copy I.K.E. comes with passes the browser's own check
     bundled = json.loads((ROOT / "ike/resources/darkreader-data.json").read_text("utf-8"))
     assert darklists.check(bundled, bundled) == ""
@@ -245,10 +241,17 @@ def test_the_browser_fetches_them_once_a_day(run_ike, mode):
         assert darklists.RETRY_FAILED_AFTER - 60 < due <= darklists.RETRY_FAILED_AFTER, out
 
 
-def test_the_maintenance_makes_no_version_for_lists_only(tmp_path, monkeypatch):
-    spec = importlib.util.spec_from_file_location("cc", ROOT / "tools" / "check-components.py")
-    cc = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(cc)
+def test_the_maintenance_makes_no_daily_version_for_lists_only(tmp_path, monkeypatch):
+    """1.1.29: the lists are the whole component (its engine left); a change of them is an update the
+    daily maintenance makes on Mondays only (tools/update-candidates.py WEEKLY), never every day."""
+    import datetime as dt
+
+    def load(name):
+        spec = importlib.util.spec_from_file_location(name.replace("-", "_"), ROOT / "tools" / (name + ".py"))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+    cc, uc = load("check-components"), load("update-candidates")
     cur = json.loads((ROOT / "ike/resources/darkreader-data.json").read_text("utf-8"))
     out = tmp_path / "out"
     out.mkdir()
@@ -257,9 +260,10 @@ def test_the_maintenance_makes_no_version_for_lists_only(tmp_path, monkeypatch):
         (out / "darkreader-data.json").write_text(json.dumps(new), "utf-8")
         monkeypatch.setattr(cc, "build_darkreader", lambda root, work, dr_src=None: out)
         return cc.check_darkreader(ROOT, tmp_path)
+    assert built(dict(cur))["update"] is False
     lists_only = built(dict(cur, dark_sites=cur["dark_sites"] + ["new.example"], lists_commit="f" * 40))
-    assert lists_only["update"] is False and "the browser fetches them itself" in lists_only["note"], lists_only
-    major, minor, patch = (int(x) for x in cur["version"].split("."))
-    engine = built(dict(cur, version="%d.%d.%d" % (major, minor, patch + 1),
-                        dark_sites=cur["dark_sites"] + ["new.example"]))
-    assert engine["update"] is True and "new engine" in engine["note"] and "lists changed" in engine["note"], engine
+    assert lists_only["update"] is True and lists_only["note"] == "lists changed", lists_only
+    report = {"candidates": [{"id": "darkreader", "from": lists_only["current"], "to": lists_only["latest"]}]}
+    monday, friday = dt.date(2026, 11, 30), dt.date(2026, 12, 4)
+    assert uc.plan(report, {}, today=friday)[0]["action"] == "weekly"
+    assert uc.plan(report, {}, today=monday)[0]["action"] == "make"

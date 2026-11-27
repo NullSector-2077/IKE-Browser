@@ -153,8 +153,9 @@ REPORTER = "github-actions[bot]"      # the author of the report job's comments
 # Steps of the daily maintenance's "prepare" job that no AI fix of main can
 # help (1.1.18): the check and apply of the component updates fails only when
 # an upstream source cannot be reached (tools/check-components.py exits 1).
-# Since 1.1.20 a builder that refuses a new upstream version (a Dark Reader
-# patch whose text is gone, uBlock Origin's library laid out differently) does
+# Since 1.1.20 a builder that refuses a new upstream version (uBlock Origin's
+# library laid out differently, Dark Reader's lists holding what could be a
+# script; Dark Reader's engine and its patches left in 1.1.29) does
 # not stop that step: the component stays at the version in use and the
 # "components" issue reports the incompatibility to a person. The
 # engine's build stops the job only when its crates cannot be downloaded or an
@@ -1082,12 +1083,12 @@ def plan_chatgpt(repo, work, out_dir, api=None, tip_of=None, attempts_of=None, t
 
 # --- the builders' re-anchoring (WP11): a work the daily maintenance starts -------------------
 
-BUILDER_WORK = re.compile(r"^builder/(darkreader|ubo-scriptlets)/(\d{4}-\d\d-\d\d)$")
+BUILDER_WORK = re.compile(r"^builder/(ubo-scriptlets)/(\d{4}-\d\d-\d\d)$")
 
 
 def builder_failure(report, cid):
     """The failure description of a builder that refused (tools/check-components.py's report), or None."""
-    fam = {"darkreader": "Dark Reader", "ubo-scriptlets": "uBlock Origin"}[cid]
+    fam = {"ubo-scriptlets": "uBlock Origin"}[cid]
     for comp in (report or {}).get("components") or []:
         ref = comp.get("refused")
         if not ref or not str(comp.get("name", "")).startswith(fam):

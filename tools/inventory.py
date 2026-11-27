@@ -20,7 +20,7 @@ here:
   packages), the tools installed with ``cargo install``, the Rust, Python and
   Node.js versions, runner images and apt packages of the workflows;
 - every ``uses:`` of a GitHub Action, with the commit it is pinned to;
-- the integrated resources: Dark Reader, uBlock Origin's scriptlets, the
+- the integrated resources: Dark Reader's lists, uBlock Origin's scriptlets, the
   filter lists of ike/config.py DEFAULT_LISTS, the vendored AdBlock engine;
 - the programs ike/ starts (subprocess, QProcess; xdg-open through Qt's
   QDesktopServices, which ike/ no longer calls since 1.1.24), each mapped to
@@ -129,7 +129,7 @@ UPDATE_MODES = {
     "vendored": "rebuilt from ike-adblock/ (crates) in every build and in the signed self-update",
     "pypi-test": "candidate: tools/check-components.py --apply (tools/test-requirements.txt)",
     "pypi-ci": "follows tools/test-requirements.txt",
-    "npm": "candidate: tools/check-components.py --apply (rebuilt by tools/build-darkreader.py)",
+    "npm": "imported by a tool (tools/*.mjs) when it runs: no lockfile pins it",
     "node": "workflow file (setup-node): a proposal for a person",
     "integrated": "candidate: tools/check-components.py --apply (rebuilt by I.K.E.'s builder)",
     "filter-list": "runtime: each browser downloads it (ike/blocker.py); checked daily in the bundled engine",
@@ -165,7 +165,7 @@ def _manifest_tool():
 # scripts, pages, the look-alike table, its pictures). Everything else there must be declared: an
 # entry of components.json, or one of the kinds below.
 OWN_RESOURCES = (
-    "ike/resources/consent.js", "ike/resources/darkmode.js", "ike/resources/fingerprint.js",
+    "ike/resources/consent.js", "ike/resources/fingerprint.js",
     "ike/resources/mediahook.js", "ike/resources/passwords.js", "ike/resources/reader.js",
     "ike/resources/userscript.js", "ike/resources/videoads.js", "ike/resources/videorelay.js",
     "ike/resources/newtab.html", "ike/resources/lookalike.json", "ike/resources/ike.svg",
@@ -939,13 +939,14 @@ def discover(root, arch_tested=None):
     res = root / "ike" / "resources"
     try:
         dr = json.loads((res / "darkreader-data.json").read_text("utf-8"))
-        add(record("Dark Reader", "integrated", "runtime", ["ike/resources/darkreader.js",
-                                                             "ike/resources/darkreader-data.json"],
-                   "npm (darkreader) and github.com/darkreader/darkreader (lists), rebuilt by "
-                   "tools/build-darkreader.py", "%s, lists %s (%s)" % (dr.get("version", "?"),
-                                                                     str(dr.get("lists_commit", ""))[:10],
-                                                                     dr.get("lists_date", "?")),
-                   npm_version=dr.get("version", ""), candidate="darkreader"))
+        # 1.1.29: Dark Reader's engine left I.K.E.; its lists stay (data, no code: no advisory database)
+        add(record("Dark Reader", "integrated", "runtime", "ike/resources/darkreader-data.json",
+                   "git (https://github.com/darkreader/darkreader, default branch: its lists), rebuilt by "
+                   "tools/build-darkreader-lists.py", "%s, lists %s (%s)" % (dr.get("version", "?"),
+                                                                           str(dr.get("lists_commit", ""))[:10],
+                                                                           dr.get("lists_date", "?")),
+                   commit=dr.get("lists_commit", ""), git="https://github.com/darkreader/darkreader",
+                   candidate="darkreader"))
     except (OSError, ValueError):
         pass
     try:
@@ -1215,20 +1216,13 @@ def _lookup(rec, net, arch_get, components, lists):
                                         else rec["compatibility"])
                 if comp.get("error"):
                     rec["available"] = "unknown (%s)" % comp["error"][:120]
-            elif rec["name"] == "Dark Reader":
-                data = net.json(NPM_LATEST % "darkreader")
-                _compare(rec, data.get("version", ""), "registry.npmjs.org (engine only; lists not read)")
-                rec["installed_engine"] = rec.get("npm_version", "")
-                if rec.get("npm_version") and data.get("version"):
-                    rec["result"] = "update available" if vkey(data["version"]) > vkey(rec["npm_version"]) \
-                        else "ok"
             elif rec.get("git"):
                 head = net.ls_remote(rec["git"], "HEAD").get("HEAD", "")
                 rec["available"] = head[:10] if head else UNKNOWN
                 rec["available_source"] = "git ls-remote (default branch)"
                 rec["result"] = "ok" if head and head == rec.get("commit") else (
                     "new upstream commit" if head else "unknown")
-                rec["compatibility"] = "an update only if the rebuilt scriptlets differ (tools/check-components.py)"
+                rec["compatibility"] = "an update only if the rebuilt files differ (tools/check-components.py)"
         elif kind == "filter-list":
             row = next((r for r in (lists or {}).get("lists", []) if r.get("url") == rec.get("url")), None)
             if row:

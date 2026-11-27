@@ -37,7 +37,7 @@ SMALL_SVG_SHA256 = {16: '193c884e0cc94b6cb1f24f88276fd013e3161e9ae99604de296080a
  48: 'ffb097a2be1e95faea3890329d170ed26366e2e1a0a995e4efc0108cff078c96',
  64: '3d68835324cdfddd739438e3356185ff0206d67ff4ade0fb1d761e83664abae6'}
 # files of other projects, where the three letters mean something else
-THIRD_PARTY = ("ike/resources/darkreader.js", "ike/resources/darkreader-proxy.js", "ike/resources/darkreader-data.json", "ike/resources/ubo-scriptlets.json", "ike-adblock/Cargo.lock",
+THIRD_PARTY = ("ike/resources/darkreader-data.json", "ike/resources/ubo-scriptlets.json", "ike-adblock/Cargo.lock",
                "ike/resources/icons/sets/")
 
 

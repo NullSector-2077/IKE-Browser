@@ -3,12 +3,12 @@
  "about": "Every external component integrated into I.K.E.'s tree is declared here, and only here (docs/MAINTENANCE.md, \"The component manifest\"). tools/component-manifest.py reads it; tools/update-candidates.py and tools/check-components.py make one candidate automation/update/<id> per entry; tests/test_inventory_guard.py fails when a file from upstream has no entry.",
  "components": {
   "darkreader": {
-   "name": "Dark Reader (engine and lists)",
-   "upstream": {"npm": "darkreader", "git": "https://github.com/darkreader/darkreader"},
-   "files": ["ike/resources/darkreader.js", "ike/resources/darkreader-proxy.js", "ike/resources/darkreader-data.json"],
-   "build": "tools/build-darkreader.py",
+   "name": "Dark Reader (lists)",
+   "upstream": {"git": "https://github.com/darkreader/darkreader"},
+   "files": ["ike/resources/darkreader-data.json"],
+   "build": "tools/build-darkreader-lists.py",
    "licence": "licenses/LICENSE.darkreader",
-   "kinds": ["npm", "integrated"],
+   "kinds": ["integrated"],
    "tests": ["unit-integration", "licences", "installed", "tests-kept", "no-regression"]
   },
   "ubo-scriptlets": {
