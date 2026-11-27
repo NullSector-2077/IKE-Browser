@@ -16,6 +16,7 @@ own picture, "" = none),
 """
 
 import os
+from functools import lru_cache
 from pathlib import Path
 
 from .config import DATA_DIR, RES_DIR
@@ -24,7 +25,9 @@ MAX_SIDE = 3840                  # longest side of the stored copy, in pixels
 MAX_FILE = 200 * 1024 * 1024     # larger files are refused without being opened
 NAME = "newtab-background"
 DEFAULT = "default"              # I.K.E.'s own picture, kept with the program
-DEFAULT_FILE = RES_DIR / "newtab-background.jpg"
+DEFAULT_FILE = RES_DIR / "newtab-background.webp"
+DEFAULT_SIZE = (3840, 2160)
+DEFAULT_PREVIEW = RES_DIR / "newtab-preview.png"
 VEIL_MAX = 90
 _CSS_SIZE = {"fill": "cover", "fit": "contain", "centre": "auto"}     # the three placements
 _MIME = {".jpg": b"image/jpeg", ".png": b"image/png"}
@@ -51,6 +54,14 @@ def _reader(path):
     return reader
 
 
+def _preview_source(path):
+    """Qt WebEngine has WebP support even on systems missing Qt's image plugin."""
+    if Path(path) != DEFAULT_FILE:
+        return path
+    from PyQt6.QtGui import QImageReader
+    return path if b"webp" in QImageReader.supportedImageFormats() else DEFAULT_PREVIEW
+
+
 def probe(path):
     """(width, height) of the picture in a file, or the reason it cannot be used."""
     try:
@@ -61,22 +72,24 @@ def probe(path):
             return None, TOO_LARGE
     except (OSError, ValueError, TypeError):
         return None, NOT_FOUND
-    reader = _reader(p)
+    preview = _preview_source(p)
+    reader = _reader(preview)
     if not reader.canRead() or bytes(reader.format()).lower() in (b"svg", b"svgz", b"pdf"):
         return None, NOT_A_PICTURE
     size = reader.size()
     if not size.isValid() or size.width() < 1 or size.height() < 1:
         return None, NOT_A_PICTURE
-    return (size.width(), size.height()), ""
+    return (DEFAULT_SIZE if preview != p else (size.width(), size.height())), ""
 
 
 def load_scaled(path, longest):
     """The picture, decoded no larger than needed (longest side), or None."""
     from PyQt6.QtCore import QSize, Qt
-    size, problem = probe(path)
+    preview = _preview_source(path)
+    size, problem = probe(preview)
     if problem:
         return None, problem
-    reader = _reader(path)
+    reader = _reader(preview)
     w, h = size
     if max(w, h) > longest:
         scale = longest / float(max(w, h))
@@ -162,12 +175,19 @@ def current(config, folder=None):
         return None
 
 
+@lru_cache(maxsize=1)
+def _default_content():
+    return DEFAULT_FILE.read_bytes()
+
+
 def content(config, folder=None):
     """(bytes, mime type) of the stored photo, or (None, None)."""
     path = current(config, folder)
     if path is None:
         return None, None
     try:
+        if is_default(config):
+            return _default_content(), b"image/webp"
         return path.read_bytes(), _MIME[path.suffix]
     except OSError:
         return None, None

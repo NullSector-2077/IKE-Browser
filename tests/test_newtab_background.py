@@ -397,11 +397,11 @@ def test_ikes_own_photo_is_the_default(tmp_path):
     photo once; whoever removes it afterwards keeps the page plain."""
     from ike import newtabbg
     from ike.config import Config
-    assert newtabbg.DEFAULT_FILE.is_file() and newtabbg.DEFAULT_FILE.stat().st_size < 250 * 1024
+    assert newtabbg.DEFAULT_FILE.is_file() and newtabbg.DEFAULT_FILE.stat().st_size < 2 * 1024 * 1024
     fresh = Config(tmp_path / "fresh.json")
     assert fresh["newtab_bg"] == "default" and newtabbg.current(fresh) == newtabbg.DEFAULT_FILE
     data, mime = newtabbg.content(fresh)
-    assert mime == b"image/jpeg" and data[:3] == b"\xff\xd8\xff"
+    assert mime == b"image/webp" and data[:4] == b"RIFF" and data[8:12] == b"WEBP"
     old = tmp_path / "old.json"
     old.write_text(json.dumps({"newtab_bg": "", "newtab_bg_veil": 50}))
     cfg = Config(old)

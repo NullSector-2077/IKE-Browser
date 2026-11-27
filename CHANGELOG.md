@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.27
+
+- I.K.E. has a new hexagonal logo, dedicated application icons for small sizes,
+  a new wordmark and a local 4K WebP Earth background on Home and New Tab.
+- The protection control now shows a hexagon with a centred count. Reload
+  precedes Home, bookmarks overflow uses two Forward arrows, the page-mode
+  button shows a sun or a moon, and About I.K.E. sits above Quit.
+
+- Dark Reader (engine and lists): 4.9.135, lists 26d0621d65 (2026-11-25) -> 4.9.135, lists 2bd262585f (2026-11-25) (lists changed)
+
+## 1.1.26
+
+- Rust crates of the AdBlock engine: 88 crates -> 88 crates (psl 2.1.261 -> 2.1.263)
+- Dark Reader (engine and lists): 4.9.135, lists 586f4b900d (2026-11-24) -> 4.9.135, lists 26d0621d65 (2026-11-25) (lists changed)
+
 ## 1.1.25
 
 - **Weather units you can choose** (the owner): in Settings, next to the
@@ -1658,7 +1673,7 @@ when Plasma's animations are set to "Instant"):
   number appears (it stayed 8 pixels off until something else moved).
 
 Package 1.1.9-2 (1.1.9-1 had the graphic touches and Plasma parts, without the toolbar below).
-`docs/screenshots/ike-1.1.9.jpg` shows the new tab page with the default toolbar.
+[The archived screenshot](https://github.com/NullSector-2077/IKE-Browser/blob/v1.1.26/docs/screenshots/ike-1.1.9.jpg) shows the new tab page with the default toolbar.
 
 **Toolbar** (the owner's arrangement as the default):
 

@@ -23,7 +23,8 @@ def test_bookmarks_overflow_button(run_ike):
             bar.show()
             marks = [(QIcon(), "Bookmark number %d" % i, "https://example.org/%d" % i)
                      for i in range(40)]
-            bar.set_marks(marks, lambda u: None)
+            opened = []
+            bar.set_marks(marks, opened.append)
             yield 400
             more = bar._more
             out["text"] = more.text()
@@ -32,6 +33,8 @@ def test_bookmarks_overflow_button(run_ike):
             out["visible"] = bar._more_action.isVisible()
             out["in_bar"] = sum(a.isVisible() for a in bar._marks)
             out["in_menu"] = len(bar._menu.actions())
+            bar._menu.actions()[-1].trigger()
+            out["opened"] = opened
             shots = os.environ.get("IKE_TEST_SHOTS")
             if shots:
                 bar.grab().save(os.path.join(shots, "bookmarks-overflow.png"))
@@ -43,9 +46,10 @@ def test_bookmarks_overflow_button(run_ike):
                 yield 400
             out["wide_visible"] = bar._more_action.isVisible()
     """, settings={"bookmarks_bar": "always"}, env={"IKE_TEST_SHOTS": SHOTS})
-    # 1.1.25: KDE's double arrow in a square button, no "»" text (tests/test_more_arrows.py)
+    # The two Forward glyphs fit without increasing the button height.
     assert out["text"] == ""
-    assert out["icon"] is True and out["size"] == [26, 26]
+    assert out["icon"] is True and out["size"][0] > out["size"][1] == 26
+    assert out["opened"] == ["https://example.org/39"]
     assert out["visible"]
     assert out["in_bar"] + out["in_menu"] == 40 and out["in_menu"] > 0
     assert out["wide_visible"] is False

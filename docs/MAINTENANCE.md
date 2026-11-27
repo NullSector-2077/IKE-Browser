@@ -1030,7 +1030,13 @@ whose anchor is gone (left out, the others made, the script still parses), the
 proxy's anchor gone (stop), the panel's API, the site fixes, and the real
 engine made again from the shipped one, rebuilt byte for byte; a guard checks
 that the shipped `darkreader.js`, `darkreader-proxy.js` and `darkmode.js` have
-only allowed links.
+only allowed links. Pages whose Content-Security-Policy refuses added `<style>`
+elements (archlinux.org) are handled in `darkmode.js`, not by a patch: a
+`<style>` made in I.K.E.'s isolated world whose sheet the policy refused is
+given to the page as a constructed style sheet with the same rules
+(`tests/test_dark_csp.py`); it works on the DOM Dark Reader uses (its
+`<style>` elements, their `sheet` and `textContent`), so an update of Dark
+Reader needs nothing for it.
 
 **The builders' path** (WP11, 2026-11-22). The daily maintenance starts it by
 itself (`autofix.yml`, work `builder/<id>/<date>`, with the refusal above as

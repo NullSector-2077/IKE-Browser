@@ -373,7 +373,7 @@ DEFAULTS = {
 
 # Toolbar buttons the user can show or hide: (key, hidden when first seen). "Bookmark this
 # page" is not one since 1.1.25: fixed right after the address bar, always shown
-TOOLBAR_ITEMS = (("back", False), ("forward", False), ("reload", False), ("home", False),
+TOOLBAR_ITEMS = (("back", False), ("forward", False),
                  ("reader", False), ("screenshot", False), ("pip", True),
                  ("split", False), ("dark", False), ("private", False), ("cleansite", False),
                  ("downloads", False),
@@ -506,11 +506,10 @@ class Config:
             if isinstance(d.get(key), list) and "translate" in d[key]:
                 items = [x for x in d[key] if x != "bookmark"]
                 d[key] = ["bookmark" if x == "translate" else x for x in items]
-        # 1.1.25: "Bookmark this page" is fixed right after the address bar (the owner): it
-        # leaves the arrangement and the hidden buttons (hidden before: shown again)
+        # These fixed controls are always shown, including on existing profiles.
         for key in ("toolbar_order", "toolbar_left", "toolbar_hidden"):
-            if isinstance(d.get(key), list) and "bookmark" in d[key]:
-                d[key] = [x for x in d[key] if x != "bookmark"]
+            if isinstance(d.get(key), list):
+                d[key] = [x for x in d[key] if x not in ("bookmark", "reload", "home")]
         # 1.1.18: the old default asked every site for Italian whatever the
         # system's language (a rare, identifying combination for everyone
         # else): it follows the system now; a list the user typed stays

@@ -600,7 +600,7 @@ class WindowFeatures:
 
     def _apply_toolbar(self):
         """Put the toolbar's buttons where the settings say (see toolbar.py)."""
-        from .toolbar import FIXED, ToolbarLayout, ToolbarMover
+        from .toolbar import ToolbarLayout, ToolbarMover
         cfg = self.app.config
         by_key = {key: act for key, act, _anchor in self._nav_items}
         self.toolbar_layout = ToolbarLayout.from_config(cfg, list(by_key))
@@ -610,12 +610,9 @@ class WindowFeatures:
         self.toolbar_layout.hidden |= ikeextensions.toolbar_keys_off(cfg)
         if getattr(self, "toolbar_mover", None) is None:
             self.toolbar_mover = ToolbarMover(self)
-        # Back, Forward, Home, Reload: fixed place, can only be shown or hidden
-        hidden = cfg["toolbar_hidden"] if isinstance(cfg["toolbar_hidden"], list) else []
-        fixed = dict(zip(FIXED, (self.act_back, self.act_fwd, self.act_home, self.act_reload)))
-        for key, act in fixed.items():
-            act.setVisible(key not in hidden)
-        self.home_sep_act.setVisible(any(key not in hidden for key in fixed))
+        # Back and Forward may be hidden; Reload and Home have a fixed place and stay visible.
+        self.act_back.setVisible("back" not in self.toolbar_layout.hidden)
+        self.act_fwd.setVisible("forward" not in self.toolbar_layout.hidden)
         self._fit_urlbar(place=True)        # puts the buttons that fit in place
         QTimer.singleShot(0, self.toolbar_mover.refresh)
 
