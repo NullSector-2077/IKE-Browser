@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "पृष्ठभूमि कितनी गहरी हो।",
 "How bright the text is.": "टेक्स्ट कितना चमकीला हो।",
 "Photos and videos a little darker. 0%: as they are.": "फ़ोटो और वीडियो थोड़े गहरे। 0%: जैसे हैं।",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "अपनी डार्क थीम वाली साइटें उसे बनाए रखती हैं, भले ही वे उसकी घोषणा न करें।"
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "अपनी डार्क थीम वाली साइटें उसे बनाए रखती हैं, भले ही वे उसकी घोषणा न करें।",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "स्टाइल I.K.E. Dark Engine की है: Chromium के अपने डार्क मोड में कोई स्टाइल नहीं है",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine I.K.E. का अपना है, अपनी स्टाइल और विकल्पों के साथ; Chromium वाला इंजन में ही बना है और सबसे हल्का है।"
 }
 }

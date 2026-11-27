@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Πόσο σκούρα είναι τα φόντα.",
 "How bright the text is.": "Πόσο φωτεινό είναι το κείμενο.",
 "Photos and videos a little darker. 0%: as they are.": "Φωτογραφίες και βίντεο λίγο πιο σκούρα. 0%: όπως είναι.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Οι ιστότοποι με δικό τους σκούρο θέμα το διατηρούν, ακόμη κι όταν δεν το δηλώνουν."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Οι ιστότοποι με δικό τους σκούρο θέμα το διατηρούν, ακόμη κι όταν δεν το δηλώνουν.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "Το στυλ ανήκει στο I.K.E. Dark Engine: η δική του σκούρα λειτουργία του Chromium δεν έχει",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "Το I.K.E. Dark Engine είναι δικό του I.K.E., με τα δικά του στυλ και επιλογές· το δικό του Chromium είναι ενσωματωμένο στη μηχανή και το πιο ελαφρύ."
 }
 }

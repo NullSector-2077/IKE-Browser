@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Cât de întunecate sunt fundalurile.",
 "How bright the text is.": "Cât de luminos este textul.",
 "Photos and videos a little darker. 0%: as they are.": "Fotografii și videoclipuri puțin mai întunecate. 0%: ca atare.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Site-urile cu o temă întunecată proprie o păstrează, chiar dacă nu o declară."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Site-urile cu o temă întunecată proprie o păstrează, chiar dacă nu o declară.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "Stilul este al I.K.E. Dark Engine: modul întunecat propriu al Chromium nu are unul",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine este propriu I.K.E., cu stilurile și opțiunile lui; cel din Chromium este integrat în motor și cel mai ușor."
 }
 }

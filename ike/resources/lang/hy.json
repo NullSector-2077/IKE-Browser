@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Որքան մութ են ֆոները։",
 "How bright the text is.": "Որքան պայծառ է տեքստը։",
 "Photos and videos a little darker. 0%: as they are.": "Լուսանկարներն ու տեսանյութերը մի փոքր մգացված։ 0%՝ ինչպես կան։",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Սեփական մութ թեմա ունեցող կայքերը պահում են այն, նույնիսկ երբ չեն հայտարարում։"
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Սեփական մութ թեմա ունեցող կայքերը պահում են այն, նույնիսկ երբ չեն հայտարարում։",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "Ոճը I.K.E. Dark Engine-ինն է՝ Chromium-ի սեփական մութ ռեժիմը այն չունի",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine-ը I.K.E.-ի սեփականն է՝ իր ոճերով և ընտրանքներով; Chromium-ինը ներկառուցված է շարժիչում և ամենաթեթևն է։"
 }
 }

@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Sa të errët janë sfondet.",
 "How bright the text is.": "Sa i ndritshëm është teksti.",
 "Photos and videos a little darker. 0%: as they are.": "Foto dhe video pak më të errëta. 0%: siç janë.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Faqet me temë të errët të vetën e ruajnë, edhe kur nuk e deklarojnë."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Faqet me temë të errët të vetën e ruajnë, edhe kur nuk e deklarojnë.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "Stili është i I.K.E. Dark Engine: mënyra e errët e vetë Chromium nuk e ka",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine është i vetë I.K.E., me stilet dhe opsionet e veta; ai i Chromium është i integruar në motor dhe më i lehti."
 }
 }

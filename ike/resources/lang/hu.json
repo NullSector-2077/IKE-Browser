@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Mennyire sötétek a hátterek.",
 "How bright the text is.": "Mennyire fényes a szöveg.",
 "Photos and videos a little darker. 0%: as they are.": "A fotók és videók kicsit sötétebbek. 0%: eredeti.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "A saját sötét témájú webhelyek megtartják azt, akkor is, ha nem jelzik."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "A saját sötét témájú webhelyek megtartják azt, akkor is, ha nem jelzik.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "A stílus az I.K.E. Dark Engine sajátja: a Chromium saját sötét módjának nincs ilyen",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "Az I.K.E. Dark Engine az I.K.E. saját megoldása, saját stílusokkal és beállításokkal; a Chromium sajátja a motorba van építve, és a legkönnyebb."
 }
 }

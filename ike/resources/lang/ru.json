@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Насколько тёмные фоны.",
 "How bright the text is.": "Насколько яркий текст.",
 "Photos and videos a little darker. 0%: as they are.": "Фото и видео немного темнее. 0%: как есть.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Сайты со своей тёмной темой сохраняют её, даже если не заявляют о ней."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Сайты со своей тёмной темой сохраняют её, даже если не заявляют о ней.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "Стиль принадлежит I.K.E. Dark Engine: у собственного тёмного режима Chromium его нет",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine — собственная разработка I.K.E. со своими стилями и параметрами; режим Chromium встроен в движок и самый лёгкий."
 }
 }

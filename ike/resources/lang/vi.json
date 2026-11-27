@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Nền tối đến mức nào.",
 "How bright the text is.": "Văn bản sáng đến mức nào.",
 "Photos and videos a little darker. 0%: as they are.": "Ảnh và video tối hơn một chút. 0%: giữ nguyên.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Các trang web có giao diện tối riêng sẽ giữ nó, kể cả khi không khai báo."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Các trang web có giao diện tối riêng sẽ giữ nó, kể cả khi không khai báo.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "Kiểu là của I.K.E. Dark Engine: chế độ tối riêng của Chromium không có",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine là của riêng I.K.E., với kiểu và tùy chọn riêng; bản của Chromium được tích hợp trong công cụ và nhẹ nhất."
 }
 }

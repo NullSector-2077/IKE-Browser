@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Arka planların ne kadar koyu olduğu.",
 "How bright the text is.": "Metnin ne kadar parlak olduğu.",
 "Photos and videos a little darker. 0%: as they are.": "Fotoğraflar ve videolar biraz daha koyu. 0%: olduğu gibi.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Kendi koyu temasına sahip siteler, bildirmeseler de onu korur."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Kendi koyu temasına sahip siteler, bildirmeseler de onu korur.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "Stil I.K.E. Dark Engine'e aittir: Chromium'un kendi koyu modunda yoktur",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine I.K.E.'nin kendisine aittir, kendi stilleri ve seçenekleri vardır; Chromium'unki motorun içine gömülüdür ve en hafifidir."
 }
 }

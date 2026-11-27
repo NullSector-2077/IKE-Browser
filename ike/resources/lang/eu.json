@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Atzeko planoak zein ilunak diren.",
 "How bright the text is.": "Testua zein distiratsua den.",
 "Photos and videos a little darker. 0%: as they are.": "Argazkiak eta bideoak pixka bat ilunago. 0%: dauden bezala.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Gai ilun propioa duten webguneek mantendu egiten dute, aitortzen ez badute ere."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Gai ilun propioa duten webguneek mantendu egiten dute, aitortzen ez badute ere.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "Estiloa I.K.E. Dark Engine-rena da: Chromiumen modu ilunak ez du",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine I.K.E.-rena da, bere estilo eta aukerekin; Chromiumena motorrean integratuta dago eta arinena da."
 }
 }

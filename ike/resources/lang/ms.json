@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Seberapa gelap latar belakang.",
 "How bright the text is.": "Seberapa cerah teks.",
 "Photos and videos a little darker. 0%: as they are.": "Foto dan video sedikit lebih gelap. 0%: seperti sedia ada.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Laman dengan tema gelap sendiri mengekalkannya, walaupun tidak mengisytiharkannya."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Laman dengan tema gelap sendiri mengekalkannya, walaupun tidak mengisytiharkannya.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "Gaya ini milik I.K.E. Dark Engine: mod gelap Chromium sendiri tiada gaya",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine milik I.K.E. sendiri, dengan gaya dan pilihannya; milik Chromium terbina dalam enjin dan paling ringan."
 }
 }

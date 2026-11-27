@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Que escuros son os fondos.",
 "How bright the text is.": "Que brillante é o texto.",
 "Photos and videos a little darker. 0%: as they are.": "Fotos e vídeos algo máis escuros. 0%: tal cal.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Os sitios cun tema escuro propio mantérono, aínda que non o declaren."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Os sitios cun tema escuro propio mantérono, aínda que non o declaren.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "O estilo é o do I.K.E. Dark Engine: o modo escuro propio de Chromium non ten",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine é propio de I.K.E., cos seus estilos e opcións; o de Chromium está integrado no motor e é o máis lixeiro."
 }
 }

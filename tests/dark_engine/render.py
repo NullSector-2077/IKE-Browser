@@ -343,7 +343,8 @@ def main():
         prof, guard, log = profile_for(mode)
         url, orig, expected_content = url_of(name)
         if mode == "dr":
-            from ike import darkpages
+            from drcompare import darkpages as _drp
+            darkpages = _drp()
             darkpages.prepare(prof, orig, "127.0.0.1" if not a.live else QUrl(orig).host(),
                               {"brightness": 100, "contrast": 100, "sepia": 0}, True, False)
         if mode.startswith("proto"):

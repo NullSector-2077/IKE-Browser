@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "背景の暗さです。",
 "How bright the text is.": "文字の明るさです。",
 "Photos and videos a little darker. 0%: as they are.": "写真と動画を少し暗くします。0%：そのまま。",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "独自のダークテーマを持つサイトは、宣言していなくてもそれを維持します。"
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "独自のダークテーマを持つサイトは、宣言していなくてもそれを維持します。",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "スタイルは I.K.E. Dark Engine のものです。Chromium 標準のダークモードにはありません",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine は I.K.E. 独自のエンジンで、専用のスタイルとオプションがあります。Chromium 標準のものはエンジンに内蔵されていて最も軽量です。"
 }
 }

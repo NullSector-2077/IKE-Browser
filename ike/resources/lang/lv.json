@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Cik tumši ir foni.",
 "How bright the text is.": "Cik spilgts ir teksts.",
 "Photos and videos a little darker. 0%: as they are.": "Fotoattēli un video nedaudz tumšāki. 0%: kā ir.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Vietnes ar savu tumšo tēmu to saglabā, arī ja tās to nedeklarē."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Vietnes ar savu tumšo tēmu to saglabā, arī ja tās to nedeklarē.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "Stils pieder I.K.E. Dark Engine: paša Chromium tumšajam režīmam tā nav",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine ir paša I.K.E. risinājums ar saviem stiliem un opcijām; Chromium savējais ir iebūvēts dzinējā un vieglākais."
 }
 }

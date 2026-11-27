@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "مدى قتامة الخلفيات.",
 "How bright the text is.": "مدى سطوع النص.",
 "Photos and videos a little darker. 0%: as they are.": "الصور ومقاطع الفيديو أغمق قليلًا. 0%: كما هي.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "المواقع التي لها سمة داكنة خاصة بها تحتفظ بها، حتى لو لم تُعلن عنها."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "المواقع التي لها سمة داكنة خاصة بها تحتفظ بها، حتى لو لم تُعلن عنها.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "النمط خاص بـ I.K.E. Dark Engine: الوضع الداكن في Chromium لا يتضمن أنماطًا",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine هو المحرك الخاص بـ I.K.E. مع أنماطه وخياراته؛ أما محرك Chromium فهو مدمج في المحرك وهو الأخف."
 }
 }

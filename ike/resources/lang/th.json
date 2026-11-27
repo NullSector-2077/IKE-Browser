@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "พื้นหลังมืดแค่ไหน",
 "How bright the text is.": "ข้อความสว่างแค่ไหน",
 "Photos and videos a little darker. 0%: as they are.": "ภาพถ่ายและวิดีโอมืดลงเล็กน้อย 0%: ตามเดิม",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "ไซต์ที่มีธีมมืดของตัวเองจะคงไว้ แม้ไม่ได้ประกาศไว้"
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "ไซต์ที่มีธีมมืดของตัวเองจะคงไว้ แม้ไม่ได้ประกาศไว้",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "สไตล์เป็นของ I.K.E. Dark Engine: โหมดมืดของ Chromium เองไม่มี",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine เป็นของ I.K.E. เอง มีสไตล์และตัวเลือกของตัวเอง ส่วนของ Chromium ฝังอยู่ในเอนจินและเบาที่สุด"
 }
 }

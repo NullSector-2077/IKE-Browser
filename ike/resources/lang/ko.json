@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "배경이 얼마나 어두운지입니다.",
 "How bright the text is.": "텍스트가 얼마나 밝은지입니다.",
 "Photos and videos a little darker. 0%: as they are.": "사진과 동영상을 조금 어둡게 합니다. 0%: 그대로.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "자체 다크 테마가 있는 사이트는 선언하지 않아도 그대로 유지합니다."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "자체 다크 테마가 있는 사이트는 선언하지 않아도 그대로 유지합니다.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "스타일은 I.K.E. Dark Engine의 것입니다. Chromium 자체 다크 모드에는 없습니다",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine은 I.K.E. 자체 엔진으로 고유한 스타일과 옵션이 있으며, Chromium 자체 기능은 엔진에 내장되어 가장 가볍습니다."
 }
 }

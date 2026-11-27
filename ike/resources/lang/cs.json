@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Jak tmavá jsou pozadí.",
 "How bright the text is.": "Jak jasný je text.",
 "Photos and videos a little darker. 0%: as they are.": "Fotky a videa o něco tmavší. 0%: beze změny.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Stránky s vlastním tmavým motivem si ho ponechají, i když ho neohlásí."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Stránky s vlastním tmavým motivem si ho ponechají, i když ho neohlásí.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "Styl patří I.K.E. Dark Engine: vlastní tmavý režim Chromia žádný nemá",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine je vlastní řešení I.K.E. s vlastními styly a možnostmi; ten od Chromia je zabudovaný v jádře a nejlehčí."
 }
 }

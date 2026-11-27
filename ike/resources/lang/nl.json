@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Hoe donker de achtergronden zijn.",
 "How bright the text is.": "Hoe helder de tekst is.",
 "Photos and videos a little darker. 0%: as they are.": "Foto’s en video’s iets donkerder. 0%: zoals ze zijn.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Sites met een eigen donker thema houden dat, ook als ze het niet aangeven."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Sites met een eigen donker thema houden dat, ook als ze het niet aangeven.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "De stijl is die van de I.K.E. Dark Engine: de eigen donkere modus van Chromium heeft er geen",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "De I.K.E. Dark Engine is van I.K.E. zelf, met eigen stijlen en opties; die van Chromium is in de engine ingebouwd en de lichtste."
 }
 }

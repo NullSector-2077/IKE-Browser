@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Hversu dökkir bakgrunnarnir eru.",
 "How bright the text is.": "Hversu bjartur textinn er.",
 "Photos and videos a little darker. 0%: as they are.": "Myndir og myndbönd aðeins dekkri. 0%: óbreytt.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Vefsvæði með eigið dökkt þema halda því, líka þegar þau gefa það ekki upp."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Vefsvæði með eigið dökkt þema halda því, líka þegar þau gefa það ekki upp.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "Stíllinn er frá I.K.E. Dark Engine: dökkur hamur Chromium sjálfs hefur engan",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine er sérsmíði I.K.E., með eigin stíla og valkosti; sá frá Chromium er innbyggður í vélina og sá léttasti."
 }
 }

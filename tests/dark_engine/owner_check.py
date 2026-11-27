@@ -31,6 +31,7 @@ import urllib.parse
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+MODES = ("off", "dr", "proto")
 
 SITES = {
     # reference and documentation
@@ -106,31 +107,36 @@ def main():
                 {"url": u, "entry": "index", "site": urllib.parse.urlsplit(u).hostname,
                  "expected_content": EXPECTED_CONTENT.get(n)}))
         env = dict(os.environ, QT_QPA_PLATFORM=os.environ.get("QT_QPA_PLATFORM", "offscreen"), DE_DIAG="1")
-        print("Opening %d sites, 3 times each (off, Dark Reader, Dark Engine): a few minutes..." % len(names),
+        # Dark Reader left I.K.E. in 1.1.29: it is compared only when a checkout of 1.1.28
+        # is given (DE_DR_ROOT, tests/dark_engine/drcompare.py)
+        global MODES
+        if not ((HERE.parents[1] / "ike" / "darkpages.py").is_file() or os.environ.get("DE_DR_ROOT")):
+            MODES = ("off", "proto")
+        print("Opening %d sites, %d times each (%s): a few minutes..." % (len(names), len(MODES), ", ".join(MODES)),
               flush=True)
         started = time.time_ns()
         with open(out / "run.log", "w") as log:
             render = subprocess.run(
                 [sys.executable, str(HERE / "render.py"), str(shots), "--snaps", tmp, "--live",
-                 "--pages", ",".join(names), "--modes", "off,dr,proto", "--settle", str(a.settle)],
+                 "--pages", ",".join(names), "--modes", ",".join(MODES), "--settle", str(a.settle)],
                 env=env, stdout=log, stderr=subprocess.STDOUT)
         if render.returncode:
             print(f"Some renders failed. See {out / 'run.log'} and {shots / 'results.json'}.", file=sys.stderr)
             def current(path):
                 return path.is_file() and path.stat().st_mtime_ns >= started
             names = [name for name in names if all(current(shots / f"{name}__{mode}.{ext}")
-                     for mode in ("off", "dr", "proto") for ext in ("json", "png"))]
+                     for mode in MODES for ext in ("json", "png"))]
             if not names:
                 return 1
     with open(out / "metrics.txt", "w") as f:
-        subprocess.run([sys.executable, str(HERE / "metrics.py"), str(shots), "--modes", "off,dr,proto",
+        subprocess.run([sys.executable, str(HERE / "metrics.py"), str(shots), "--modes", ",".join(MODES),
                         "--json", str(out / "metrics.json"), "--sheets", str(out / "sheets"),
                         "--pages", ",".join(names)],
                        stdout=f, stderr=subprocess.STDOUT, check=True)
     lines = ["| site | off dcl/load | dr dcl/load | proto dcl/load |"]
     for n in names:
         cells = []
-        for m in ("off", "dr", "proto"):
+        for m in MODES:
             p = shots / ("%s__%s.json" % (n, m))
             if not p.is_file():
                 raise RuntimeError("Missing renderer result: %s" % p)

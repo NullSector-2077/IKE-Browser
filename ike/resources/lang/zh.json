@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "背景有多深。",
 "How bright the text is.": "文字有多亮。",
 "Photos and videos a little darker. 0%: as they are.": "照片和视频稍微调暗。0%：保持原样。",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "自带深色主题的网站会保留它，即使它们没有声明。"
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "自带深色主题的网站会保留它，即使它们没有声明。",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "样式属于 I.K.E. Dark Engine：Chromium 自带的深色模式没有样式",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine 是 I.K.E. 自己的引擎，有专属样式和选项；Chromium 自带的已内置于引擎中，最轻量。"
 }
 }

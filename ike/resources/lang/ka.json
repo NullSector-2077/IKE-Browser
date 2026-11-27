@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "რამდენად მუქია ფონები.",
 "How bright the text is.": "რამდენად კაშკაშაა ტექსტი.",
 "Photos and videos a little darker. 0%: as they are.": "ფოტოები და ვიდეოები ოდნავ მუქი. 0%: როგორც არის.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "საკუთარი მუქი თემის მქონე საიტები მას ინარჩუნებს, მაშინაც კი, როცა არ აცხადებს."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "საკუთარი მუქი თემის მქონე საიტები მას ინარჩუნებს, მაშინაც კი, როცა არ აცხადებს.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "სტილი I.K.E. Dark Engine-ს ეკუთვნის: Chromium-ის საკუთარ მუქ რეჟიმს ის არ აქვს",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine I.K.E.-ს საკუთარია, თავისი სტილებითა და პარამეტრებით; Chromium-ის საკუთარი ძრავშია ჩაშენებული და ყველაზე მსუბუქია."
 }
 }

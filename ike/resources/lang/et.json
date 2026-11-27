@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Kui tumedad taustad on.",
 "How bright the text is.": "Kui hele tekst on.",
 "Photos and videos a little darker. 0%: as they are.": "Fotod ja videod veidi tumedamad. 0%: nagu on.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Oma tumeda teemaga saidid säilitavad selle ka siis, kui nad seda ei deklareeri."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Oma tumeda teemaga saidid säilitavad selle ka siis, kui nad seda ei deklareeri.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "Stiil kuulub I.K.E. Dark Engine'ile: Chromiumi enda tumedal režiimil seda pole",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine on I.K.E. enda oma, oma stiilide ja suvanditega; Chromiumi oma on mootorisse sisse ehitatud ja kõige kergem."
 }
 }

@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "பின்னணிகள் எவ்வளவு இருளாக உள்ளன.",
 "How bright the text is.": "உரை எவ்வளவு ஒளிர்கிறது.",
 "Photos and videos a little darker. 0%: as they are.": "புகைப்படங்களும் வீடியோக்களும் சற்று இருளாக. 0%: அப்படியே.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "சொந்த இருள் தீம் உள்ள தளங்கள் அதை அறிவிக்காவிட்டாலும் தக்கவைக்கும்."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "சொந்த இருள் தீம் உள்ள தளங்கள் அதை அறிவிக்காவிட்டாலும் தக்கவைக்கும்.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "பாணி I.K.E. Dark Engine-உடையது: Chromium-இன் சொந்த இருள் பயன்முறையில் அது இல்லை",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine I.K.E.-இன் சொந்தம், தன் பாணிகளும் விருப்பங்களும் கொண்டது; Chromium-இன் சொந்தம் இயந்திரத்திலேயே உள்ளது, மிக இலகுவானது."
 }
 }

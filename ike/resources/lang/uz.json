@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Fonlar qanchalik qorong‘i.",
 "How bright the text is.": "Matn qanchalik yorqin.",
 "Photos and videos a little darker. 0%: as they are.": "Rasm va videolar biroz qorong‘iroq. 0%: o‘zgarishsiz.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "O‘z qorong‘i mavzusi bor saytlar uni e’lon qilmasa ham saqlab qoladi."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "O‘z qorong‘i mavzusi bor saytlar uni e’lon qilmasa ham saqlab qoladi.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "Uslub I.K.E. Dark Engine‘niki: Chromiumning o‘z qorong‘i rejimida u yo‘q",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine I.K.E.ning o‘zinikidir, o‘z uslublari va sozlamalari bilan; Chromiumning o‘zinikisi dvigatelga o‘rnatilgan va eng yengili."
 }
 }

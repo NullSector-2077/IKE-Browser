@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Mandharinyuma yana weusi kiasi gani.",
 "How bright the text is.": "Maandishi yana mwangaza kiasi gani.",
 "Photos and videos a little darker. 0%: as they are.": "Picha na video nyeusi kidogo zaidi. 0%: kama zilivyo.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Tovuti zenye mandhari nyeusi yake zinaihifadhi, hata kama hazijaitangaza."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Tovuti zenye mandhari nyeusi yake zinaihifadhi, hata kama hazijaitangaza.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "Mtindo ni wa I.K.E. Dark Engine: hali nyeusi ya Chromium yenyewe haina",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine ni ya I.K.E. yenyewe, ikiwa na mitindo na chaguo zake; ile ya Chromium imejengwa ndani ya injini na ndiyo nyepesi zaidi."
 }
 }

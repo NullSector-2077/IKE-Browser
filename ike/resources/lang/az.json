@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Fonların nə qədər tünd olması.",
 "How bright the text is.": "Mətnin nə qədər parlaq olması.",
 "Photos and videos a little darker. 0%: as they are.": "Şəkillər və videolar bir az daha tünd. 0%: olduğu kimi.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Öz tünd mövzusu olan saytlar onu saxlayır, bunu bəyan etməsələr də."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Öz tünd mövzusu olan saytlar onu saxlayır, bunu bəyan etməsələr də.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "Üslub I.K.E. Dark Engine-ə məxsusdur: Chromium-un öz tünd rejimində üslub yoxdur",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine I.K.E.-nin özünündür, öz üslubları və seçimləri var; Chromium-un öz rejimi mühərrikə quraşdırılıb və ən yüngülüdür."
 }
 }

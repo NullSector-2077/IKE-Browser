@@ -1338,6 +1338,8 @@
 "How dark the backgrounds are.": "Колку се темни позадините.",
 "How bright the text is.": "Колку е светол текстот.",
 "Photos and videos a little darker. 0%: as they are.": "Фотографиите и видеата малку потемни. 0%: какви што се.",
-"Sites with a dark theme of their own keep it, also when they do not declare it.": "Сајтовите со своја темна тема ја задржуваат, дури и кога не ја пријавуваат."
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Сајтовите со своја темна тема ја задржуваат, дури и кога не ја пријавуваат.",
+"The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none": "Стилот е на I.K.E. Dark Engine: сопствениот темен режим на Chromium го нема",
+"The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine е сопствен на I.K.E., со свои стилови и опции; оној на Chromium е вграден во engine-от и е најлесен."
 }
 }
