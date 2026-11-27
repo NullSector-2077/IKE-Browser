@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Пуснете днес една малка тревога",
 "You have done enough for now": "Засега направихте достатъчно",
 "Common English language": "Разпространен английски език",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Сайтовете виждат американски английски, най-разпространения език, а не вашия. I.K.E. запазва вашия език. Изцяло след рестартиране."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Сайтовете виждат американски английски, най-разпространения език, а не вашия. I.K.E. запазва вашия език. Изцяло след рестартиране.",
+"What this site keeps on this computer. Choose what to delete.": "Какво пази този сайт на този компютър. Изберете какво да се изтрие.",
+"Cookies and sign-ins": "Бисквитки и влизания",
+"Data stored by the site": "Данни, съхранени от сайта",
+"Cache": "Кеш",
+"Cookies of this page's trackers": "Бисквитки на тракерите на тази страница",
+"Permissions given to the site": "Разрешения, дадени на сайта",
+"Clean it when I close its last tab": "Изчистване, когато затворя последния му раздел",
+"This page keeps no site data.": "Тази страница не пази данни на сайтове.",
+"Other sites on this page: %s": "Други сайтове на тази страница: %s",
+"Clearing…": "Изчистване…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Изтрити: бисквитки – %d, съхранени данни – %d, в кеша – %d, бисквитки на тракери – %d.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Бисквитките му изчезват веднага, а съхраненото от него – преди да се отвори следващата му страница. Всеки път излизате от профила си в него."
 }
 }

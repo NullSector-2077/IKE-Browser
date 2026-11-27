@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "আজ একটা ছোট দুশ্চিন্তা ছেড়ে দিন",
 "You have done enough for now": "আপাতত আপনি যথেষ্ট করেছেন",
 "Common English language": "প্রচলিত ইংরেজি ভাষা",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "সাইটগুলো আপনার ভাষা নয়, সবচেয়ে প্রচলিত ভাষা আমেরিকান ইংরেজি দেখে। I.K.E. আপনার ভাষা রাখে। রিস্টার্টের পরে পুরোপুরি কার্যকর।"
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "সাইটগুলো আপনার ভাষা নয়, সবচেয়ে প্রচলিত ভাষা আমেরিকান ইংরেজি দেখে। I.K.E. আপনার ভাষা রাখে। রিস্টার্টের পরে পুরোপুরি কার্যকর।",
+"What this site keeps on this computer. Choose what to delete.": "এই সাইট এই কম্পিউটারে যা রাখে। কী মুছবেন বেছে নিন।",
+"Cookies and sign-ins": "কুকি ও সাইন-ইন",
+"Data stored by the site": "সাইটের সংরক্ষিত ডেটা",
+"Cache": "ক্যাশ",
+"Cookies of this page's trackers": "এই পেজের ট্র্যাকারের কুকি",
+"Permissions given to the site": "সাইটকে দেওয়া অনুমতি",
+"Clean it when I close its last tab": "এর শেষ ট্যাব বন্ধ করলে মুছে দিন",
+"This page keeps no site data.": "এই পেজ কোনো সাইট ডেটা রাখে না।",
+"Other sites on this page: %s": "এই পেজের অন্য সাইট: %s",
+"Clearing…": "মোছা হচ্ছে…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "মোছা হয়েছে: %dটি কুকি, %dটি সংরক্ষিত ডেটা, ক্যাশে %dটি, %dটি ট্র্যাকার কুকি।",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "এর কুকি সঙ্গে সঙ্গে মুছে যায়, আর এর সংরক্ষিত ডেটা এর পরের পেজ খোলার আগে। প্রতিবার আপনি এটি থেকে সাইন আউট হয়ে যাবেন।"
 }
 }

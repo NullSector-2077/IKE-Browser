@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Адпусціце сёння адну маленькую трывогу",
 "You have done enough for now": "Пакуль што вы зрабілі дастаткова",
 "Common English language": "Распаўсюджаная англійская мова",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Сайты бачаць амерыканскую англійскую, самую распаўсюджаную мову, а не вашу. I.K.E. захоўвае вашу мову. Цалкам — пасля перазапуску."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Сайты бачаць амерыканскую англійскую, самую распаўсюджаную мову, а не вашу. I.K.E. захоўвае вашу мову. Цалкам — пасля перазапуску.",
+"What this site keeps on this computer. Choose what to delete.": "Што гэты сайт захоўвае на гэтым камп'ютары. Абярыце, што выдаліць.",
+"Cookies and sign-ins": "Кукі і ўваходы",
+"Data stored by the site": "Даныя, захаваныя сайтам",
+"Cache": "Кэш",
+"Cookies of this page's trackers": "Кукі трэкераў гэтай старонкі",
+"Permissions given to the site": "Дазволы, дадзеныя сайту",
+"Clean it when I close its last tab": "Ачышчаць, калі я закрываю яго апошнюю ўкладку",
+"This page keeps no site data.": "Гэтая старонка не захоўвае даных сайтаў.",
+"Other sites on this page: %s": "Іншыя сайты на гэтай старонцы: %s",
+"Clearing…": "Ачыстка…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Выдалена: кукі — %d, захаваныя даныя — %d, у кэшы — %d, кукі трэкераў — %d.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Яго кукі выдаляюцца адразу, а тое, што ён захаваў, — да адкрыцця яго наступнай старонкі. Кожны раз вы выходзіце з уліковага запісу на ім."
 }
 }

@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Paleiskite šiandien vieną mažą rūpestį",
 "You have done enough for now": "Kol kas padarėte pakankamai",
 "Common English language": "Įprasta anglų kalba",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Svetainės mato amerikietišką anglų kalbą, labiausiai paplitusią, o ne jūsų. I.K.E. išlaiko jūsų kalbą. Visiškai – po paleidimo iš naujo."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Svetainės mato amerikietišką anglų kalbą, labiausiai paplitusią, o ne jūsų. I.K.E. išlaiko jūsų kalbą. Visiškai – po paleidimo iš naujo.",
+"What this site keeps on this computer. Choose what to delete.": "Ką ši svetainė laiko šiame kompiuteryje. Pasirinkite, ką ištrinti.",
+"Cookies and sign-ins": "Slapukai ir prisijungimai",
+"Data stored by the site": "Svetainės saugomi duomenys",
+"Cache": "Podėlis",
+"Cookies of this page's trackers": "Šio puslapio sekimo priemonių slapukai",
+"Permissions given to the site": "Svetainei suteikti leidimai",
+"Clean it when I close its last tab": "Išvalyti, kai uždarau paskutinį jos skirtuką",
+"This page keeps no site data.": "Šis puslapis nelaiko svetainių duomenų.",
+"Other sites on this page: %s": "Kitos svetainės šiame puslapyje: %s",
+"Clearing…": "Valoma…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Ištrinta: slapukų – %d, saugomų duomenų – %d, podėlyje – %d, sekimo priemonių slapukų – %d.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Jos slapukai dingsta iš karto, o tai, ką ji išsaugojo, – prieš atsiveriant kitam jos puslapiui. Kiekvieną kartą būsite nuo jos atjungti."
 }
 }

@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "שחררו היום דאגה קטנה אחת",
 "You have done enough for now": "עשיתם מספיק לעכשיו",
 "Common English language": "אנגלית נפוצה",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "אתרים רואים אנגלית אמריקאית, השפה הנפוצה ביותר, ולא את השפה שלכם. I.K.E. שומר על השפה שלכם. במלואו אחרי הפעלה מחדש."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "אתרים רואים אנגלית אמריקאית, השפה הנפוצה ביותר, ולא את השפה שלכם. I.K.E. שומר על השפה שלכם. במלואו אחרי הפעלה מחדש.",
+"What this site keeps on this computer. Choose what to delete.": "מה שהאתר הזה שומר במחשב הזה. בחרו מה למחוק.",
+"Cookies and sign-ins": "עוגיות והתחברויות",
+"Data stored by the site": "נתונים שהאתר שמר",
+"Cache": "מטמון",
+"Cookies of this page's trackers": "עוגיות של המעקבים בדף הזה",
+"Permissions given to the site": "הרשאות שניתנו לאתר",
+"Clean it when I close its last tab": "לנקות כשאני סוגר את הלשונית האחרונה שלו",
+"This page keeps no site data.": "הדף הזה לא שומר נתוני אתרים.",
+"Other sites on this page: %s": "אתרים אחרים בדף הזה: %s",
+"Clearing…": "מתבצע ניקוי…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "נמחקו: %d עוגיות, %d נתונים שמורים, %d מהמטמון, %d עוגיות של מעקבים.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "העוגיות שלו נמחקות מיד, ומה שהוא שמר – לפני שהדף הבא שלו נפתח. בכל פעם תנותקו ממנו."
 }
 }

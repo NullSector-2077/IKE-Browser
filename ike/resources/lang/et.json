@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Lase täna üks väike mure lahti",
 "You have done enough for now": "Praeguseks oled teinud küllalt",
 "Common English language": "Levinud inglise keel",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Saidid näevad sinu keele asemel Ameerika inglise keelt, kõige levinumat keelt. I.K.E. jääb sinu keelde. Täielikult pärast taaskäivitust."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Saidid näevad sinu keele asemel Ameerika inglise keelt, kõige levinumat keelt. I.K.E. jääb sinu keelde. Täielikult pärast taaskäivitust.",
+"What this site keeps on this computer. Choose what to delete.": "Mida see sait selles arvutis hoiab. Vali, mida kustutada.",
+"Cookies and sign-ins": "Küpsised ja sisselogimised",
+"Data stored by the site": "Saidi salvestatud andmed",
+"Cache": "Vahemälu",
+"Cookies of this page's trackers": "Selle lehe jälgijate küpsised",
+"Permissions given to the site": "Saidile antud load",
+"Clean it when I close its last tab": "Tühjenda, kui sulgen selle viimase kaardi",
+"This page keeps no site data.": "See leht ei hoia saidiandmeid.",
+"Other sites on this page: %s": "Teised saidid sellel lehel: %s",
+"Clearing…": "Tühjendamine…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Kustutatud: küpsiseid %d, salvestatud andmeid %d, vahemälus %d, jälgijate küpsiseid %d.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Selle küpsised kaovad kohe, salvestatud andmed enne selle järgmise lehe avanemist. Sind logitakse sealt iga kord välja."
 }
 }

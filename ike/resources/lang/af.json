@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Laat vandag een klein bekommernis gaan",
 "You have done enough for now": "Jy het vir nou genoeg gedoen",
 "Common English language": "Algemene Engelse taal",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Werwe sien Amerikaanse Engels, die algemeenste taal, nie joune nie. I.K.E. behou jou taal. Volledig ná 'n herbegin."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Werwe sien Amerikaanse Engels, die algemeenste taal, nie joune nie. I.K.E. behou jou taal. Volledig ná 'n herbegin.",
+"What this site keeps on this computer. Choose what to delete.": "Wat hierdie werf op hierdie rekenaar hou. Kies wat uitgevee moet word.",
+"Cookies and sign-ins": "Koekies en aanmeldings",
+"Data stored by the site": "Data wat deur die werf gestoor is",
+"Cache": "Kas",
+"Cookies of this page's trackers": "Koekies van hierdie bladsy se spoorsnyers",
+"Permissions given to the site": "Toestemmings wat aan die werf gegee is",
+"Clean it when I close its last tab": "Vee dit uit wanneer ek sy laaste oortjie sluit",
+"This page keeps no site data.": "Hierdie bladsy hou geen werfdata nie.",
+"Other sites on this page: %s": "Ander werwe op hierdie bladsy: %s",
+"Clearing…": "Vee tans uit…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Uitgevee: %d koekies, %d gestoorde data, %d in die kas, %d spoorsnyerkoekies.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Sy koekies verdwyn dadelik, en wat dit gestoor het voordat sy volgende bladsy oopmaak. Jy word elke keer daarvan afgeteken."
 }
 }

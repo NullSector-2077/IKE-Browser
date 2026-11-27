@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Lëre sot një shqetësim të vogël",
 "You have done enough for now": "Ke bërë mjaft për tani",
 "Common English language": "Anglishtja e zakonshme",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Sajtet shohin anglishten amerikane, gjuhën më të zakonshme, jo tuajën. I.K.E. e ruan gjuhën tuaj. Plotësisht pas një rinisjeje."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Sajtet shohin anglishten amerikane, gjuhën më të zakonshme, jo tuajën. I.K.E. e ruan gjuhën tuaj. Plotësisht pas një rinisjeje.",
+"What this site keeps on this computer. Choose what to delete.": "Çfarë mban ky sajt në këtë kompjuter. Zgjidhni çfarë të fshihet.",
+"Cookies and sign-ins": "Cookie dhe hyrje",
+"Data stored by the site": "Të dhëna të ruajtura nga sajti",
+"Cache": "Fshehtinë",
+"Cookies of this page's trackers": "Cookie-t e gjurmuesve të kësaj faqeje",
+"Permissions given to the site": "Leje të dhëna sajtit",
+"Clean it when I close its last tab": "Pastroje kur mbyll skedën e tij të fundit",
+"This page keeps no site data.": "Kjo faqe nuk mban të dhëna sajtesh.",
+"Other sites on this page: %s": "Sajte të tjera në këtë faqe: %s",
+"Clearing…": "Po pastrohet…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "U fshinë: %d cookie, %d të dhëna të ruajtura, %d në fshehtinë, %d cookie gjurmuesish.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Cookie-t e tij ikin menjëherë, ato që ka ruajtur para se të hapet faqja e tij e radhës. Dilni prej tij çdo herë."
 }
 }

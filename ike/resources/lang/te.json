@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "ఈరోజు ఒక చిన్న చింతను వదిలేయండి",
 "You have done enough for now": "ప్రస్తుతానికి మీరు చేసింది చాలు",
 "Common English language": "సాధారణ ఇంగ్లీష్ భాష",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "సైట్‌లకు మీ భాష కాదు, అత్యంత సాధారణ భాష అయిన అమెరికన్ ఇంగ్లీష్ కనిపిస్తుంది. I.K.E. మీ భాషను అలాగే ఉంచుతుంది. పునఃప్రారంభం తర్వాత పూర్తిగా."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "సైట్‌లకు మీ భాష కాదు, అత్యంత సాధారణ భాష అయిన అమెరికన్ ఇంగ్లీష్ కనిపిస్తుంది. I.K.E. మీ భాషను అలాగే ఉంచుతుంది. పునఃప్రారంభం తర్వాత పూర్తిగా.",
+"What this site keeps on this computer. Choose what to delete.": "ఈ సైట్ ఈ కంప్యూటర్‌లో ఉంచేవి. ఏమి తొలగించాలో ఎంచుకోండి.",
+"Cookies and sign-ins": "కుకీలు, సైన్-ఇన్‌లు",
+"Data stored by the site": "సైట్ నిల్వ చేసిన డేటా",
+"Cache": "కాష్",
+"Cookies of this page's trackers": "ఈ పేజీ ట్రాకర్ల కుకీలు",
+"Permissions given to the site": "సైట్‌కు ఇచ్చిన అనుమతులు",
+"Clean it when I close its last tab": "దాని చివరి ట్యాబ్‌ను మూసినప్పుడు క్లియర్ చేయి",
+"This page keeps no site data.": "ఈ పేజీ ఏ సైట్ డేటానూ ఉంచదు.",
+"Other sites on this page: %s": "ఈ పేజీలోని ఇతర సైట్‌లు: %s",
+"Clearing…": "క్లియర్ చేస్తోంది…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "తొలగించబడినవి: %d కుకీలు, %d నిల్వ చేసిన డేటా, కాష్‌లో %d, %d ట్రాకర్ కుకీలు.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "దాని కుకీలు వెంటనే పోతాయి, అది నిల్వ చేసినవి దాని తదుపరి పేజీ తెరుచుకునే ముందు. ప్రతిసారీ మీరు దాని నుండి సైన్ అవుట్ అవుతారు."
 }
 }

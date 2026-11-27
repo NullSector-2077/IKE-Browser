@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "تخلَّ اليوم عن همّ صغير واحد",
 "You have done enough for now": "لقد فعلت ما يكفي الآن",
 "Common English language": "اللغة الإنجليزية الشائعة",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "ترى المواقع الإنجليزية الأمريكية، اللغة الأكثر شيوعًا، لا لغتك. يحتفظ I.K.E. بلغتك. يسري بالكامل بعد إعادة التشغيل."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "ترى المواقع الإنجليزية الأمريكية، اللغة الأكثر شيوعًا، لا لغتك. يحتفظ I.K.E. بلغتك. يسري بالكامل بعد إعادة التشغيل.",
+"What this site keeps on this computer. Choose what to delete.": "ما يحتفظ به هذا الموقع على هذا الكمبيوتر. اختر ما تريد حذفه.",
+"Cookies and sign-ins": "ملفات تعريف الارتباط وتسجيلات الدخول",
+"Data stored by the site": "البيانات التي خزّنها الموقع",
+"Cache": "الذاكرة المؤقتة",
+"Cookies of this page's trackers": "ملفات تعريف الارتباط لمتتبّعات هذه الصفحة",
+"Permissions given to the site": "الأذونات الممنوحة للموقع",
+"Clean it when I close its last tab": "امسحه عند إغلاق آخر علامة تبويب له",
+"This page keeps no site data.": "لا تحتفظ هذه الصفحة بأي بيانات للمواقع.",
+"Other sites on this page: %s": "مواقع أخرى في هذه الصفحة: %s",
+"Clearing…": "جارٍ المسح…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "تم الحذف: %d من ملفات تعريف الارتباط، %d من البيانات المخزّنة، %d من الذاكرة المؤقتة، %d من ملفات تعريف الارتباط للمتتبّعات.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "تُحذف ملفات تعريف الارتباط الخاصة به فورًا، وما خزّنه قبل أن تُفتح صفحته التالية. يُسجَّل خروجك منه في كل مرة."
 }
 }

@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Renunță azi la o grijă mică",
 "You have done enough for now": "Ai făcut destul pentru moment",
 "Common English language": "Limba engleză comună",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Site-urile văd engleza americană, cea mai răspândită limbă, nu limba dvs. I.K.E. vă păstrează limba. Complet după o repornire."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Site-urile văd engleza americană, cea mai răspândită limbă, nu limba dvs. I.K.E. vă păstrează limba. Complet după o repornire.",
+"What this site keeps on this computer. Choose what to delete.": "Ce păstrează acest site pe acest calculator. Alegeți ce să ștergeți.",
+"Cookies and sign-ins": "Cookie-uri și autentificări",
+"Data stored by the site": "Date stocate de site",
+"Cache": "Cache",
+"Cookies of this page's trackers": "Cookie-urile elementelor de urmărire de pe această pagină",
+"Permissions given to the site": "Permisiuni acordate site-ului",
+"Clean it when I close its last tab": "Golește-l când închid ultima lui filă",
+"This page keeps no site data.": "Această pagină nu păstrează date ale site-urilor.",
+"Other sites on this page: %s": "Alte site-uri de pe această pagină: %s",
+"Clearing…": "Se golește…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Șterse: %d cookie-uri, %d date stocate, %d din cache, %d cookie-uri ale elementelor de urmărire.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Cookie-urile lui dispar imediat, iar ce a stocat, înainte să se deschidă următoarea lui pagină. Veți fi deconectat de pe el de fiecare dată."
 }
 }

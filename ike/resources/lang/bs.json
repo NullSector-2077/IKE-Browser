@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Pustite danas jednu malu brigu",
 "You have done enough for now": "Za sada ste uradili dovoljno",
 "Common English language": "Uobičajeni engleski jezik",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Stranice vide američki engleski, najrašireniji jezik, a ne vaš. I.K.E. zadržava vaš jezik. Potpuno nakon ponovnog pokretanja."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Stranice vide američki engleski, najrašireniji jezik, a ne vaš. I.K.E. zadržava vaš jezik. Potpuno nakon ponovnog pokretanja.",
+"What this site keeps on this computer. Choose what to delete.": "Šta ova web stranica čuva na ovom računaru. Odaberite šta izbrisati.",
+"Cookies and sign-ins": "Kolačići i prijave",
+"Data stored by the site": "Podaci koje je sačuvala web stranica",
+"Cache": "Keš memorija",
+"Cookies of this page's trackers": "Kolačići pratitelja ove stranice",
+"Permissions given to the site": "Dozvole date web stranici",
+"Clean it when I close its last tab": "Očisti kad zatvorim njenu posljednju karticu",
+"This page keeps no site data.": "Ova stranica ne čuva podatke web stranica.",
+"Other sites on this page: %s": "Ostale web stranice na ovoj stranici: %s",
+"Clearing…": "Čišćenje…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Izbrisano: kolačići – %d, sačuvani podaci – %d, u keš memoriji – %d, kolačići pratitelja – %d.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Njeni kolačići nestaju odmah, a ono što je sačuvala prije otvaranja njene sljedeće stranice. Svaki put ćete biti odjavljeni s nje."
 }
 }

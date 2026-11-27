@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Hôm nay hãy buông bỏ một nỗi lo nhỏ",
 "You have done enough for now": "Lúc này bạn đã làm đủ rồi",
 "Common English language": "Tiếng Anh phổ biến",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Các trang web thấy tiếng Anh Mỹ, ngôn ngữ phổ biến nhất, chứ không phải ngôn ngữ của bạn. I.K.E. vẫn giữ ngôn ngữ của bạn. Áp dụng hoàn toàn sau khi khởi động lại."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Các trang web thấy tiếng Anh Mỹ, ngôn ngữ phổ biến nhất, chứ không phải ngôn ngữ của bạn. I.K.E. vẫn giữ ngôn ngữ của bạn. Áp dụng hoàn toàn sau khi khởi động lại.",
+"What this site keeps on this computer. Choose what to delete.": "Những gì trang này lưu trên máy tính này. Chọn nội dung cần xóa.",
+"Cookies and sign-ins": "Cookie và phiên đăng nhập",
+"Data stored by the site": "Dữ liệu do trang web lưu",
+"Cache": "Bộ nhớ đệm",
+"Cookies of this page's trackers": "Cookie của trình theo dõi trên trang này",
+"Permissions given to the site": "Quyền đã cấp cho trang web",
+"Clean it when I close its last tab": "Xóa khi tôi đóng thẻ cuối cùng của trang",
+"This page keeps no site data.": "Trang này không lưu dữ liệu trang web nào.",
+"Other sites on this page: %s": "Các trang web khác trên trang này: %s",
+"Clearing…": "Đang xóa…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Đã xóa: %d cookie, %d dữ liệu đã lưu, %d trong bộ nhớ đệm, %d cookie của trình theo dõi.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Cookie của trang bị xóa ngay, còn dữ liệu đã lưu thì bị xóa trước khi trang tiếp theo của nó mở. Mỗi lần như vậy, bạn sẽ bị đăng xuất khỏi trang đó."
 }
 }

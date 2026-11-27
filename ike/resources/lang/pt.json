@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Deixe de lado uma pequena preocupação hoje",
 "You have done enough for now": "Você já fez o suficiente por agora",
 "Common English language": "Inglês comum",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Os sites veem o inglês americano, o idioma mais comum, não o seu. O I.K.E. mantém o seu idioma. Totalmente após reiniciar."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Os sites veem o inglês americano, o idioma mais comum, não o seu. O I.K.E. mantém o seu idioma. Totalmente após reiniciar.",
+"What this site keeps on this computer. Choose what to delete.": "O que este site guarda neste computador. Escolha o que excluir.",
+"Cookies and sign-ins": "Cookies e logins",
+"Data stored by the site": "Dados armazenados pelo site",
+"Cache": "Cache",
+"Cookies of this page's trackers": "Cookies dos rastreadores desta página",
+"Permissions given to the site": "Permissões dadas ao site",
+"Clean it when I close its last tab": "Limpar quando eu fechar a última aba dele",
+"This page keeps no site data.": "Esta página não guarda dados de sites.",
+"Other sites on this page: %s": "Outros sites nesta página: %s",
+"Clearing…": "Limpando…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Excluídos: %d cookies, %d dados armazenados, %d no cache, %d cookies de rastreadores.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Os cookies dele somem na hora, e o que ele armazenou, antes de a próxima página dele abrir. Você é desconectado dele toda vez."
 }
 }

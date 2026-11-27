@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Giv slip på én lille bekymring i dag",
 "You have done enough for now": "Du har gjort nok for nu",
 "Common English language": "Almindeligt engelsk",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Websteder ser amerikansk engelsk, det mest udbredte sprog, ikke dit. I.K.E. beholder dit sprog. Helt efter en genstart."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Websteder ser amerikansk engelsk, det mest udbredte sprog, ikke dit. I.K.E. beholder dit sprog. Helt efter en genstart.",
+"What this site keeps on this computer. Choose what to delete.": "Hvad dette websted gemmer på denne computer. Vælg, hvad der skal slettes.",
+"Cookies and sign-ins": "Cookies og logins",
+"Data stored by the site": "Data gemt af webstedet",
+"Cache": "Cache",
+"Cookies of this page's trackers": "Cookies fra denne sides sporere",
+"Permissions given to the site": "Tilladelser givet til webstedet",
+"Clean it when I close its last tab": "Ryd det, når jeg lukker dets sidste fane",
+"This page keeps no site data.": "Denne side gemmer ingen webstedsdata.",
+"Other sites on this page: %s": "Andre websteder på denne side: %s",
+"Clearing…": "Rydder…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Slettet: %d cookies, %d gemte data, %d i cachen, %d sporercookies.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Dets cookies forsvinder med det samme, og det, det har gemt, før dets næste side åbner. Du bliver logget ud af det hver gang."
 }
 }

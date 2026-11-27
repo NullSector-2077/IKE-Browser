@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "இன்று ஒரு சிறிய கவலையை விட்டுவிடுங்கள்",
 "You have done enough for now": "இப்போதைக்கு நீங்கள் போதுமான அளவு செய்துவிட்டீர்கள்",
 "Common English language": "பொதுவான ஆங்கில மொழி",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "தளங்கள் உங்கள் மொழியை அல்ல, மிகவும் பொதுவான மொழியான அமெரிக்க ஆங்கிலத்தைக் காணும். I.K.E. உங்கள் மொழியை வைத்திருக்கும். மறுதொடக்கத்திற்குப் பிறகு முழுமையாக."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "தளங்கள் உங்கள் மொழியை அல்ல, மிகவும் பொதுவான மொழியான அமெரிக்க ஆங்கிலத்தைக் காணும். I.K.E. உங்கள் மொழியை வைத்திருக்கும். மறுதொடக்கத்திற்குப் பிறகு முழுமையாக.",
+"What this site keeps on this computer. Choose what to delete.": "இந்தத் தளம் இந்தக் கணினியில் வைத்திருப்பவை. எதை நீக்குவது எனத் தேர்ந்தெடுங்கள்.",
+"Cookies and sign-ins": "குக்கீகளும் உள்நுழைவுகளும்",
+"Data stored by the site": "தளம் சேமித்த தரவு",
+"Cache": "தற்காலிக நினைவகம்",
+"Cookies of this page's trackers": "இந்தப் பக்கத்தின் டிராக்கர்களின் குக்கீகள்",
+"Permissions given to the site": "தளத்திற்கு வழங்கிய அனுமதிகள்",
+"Clean it when I close its last tab": "அதன் கடைசித் தாவலை மூடும்போது அழி",
+"This page keeps no site data.": "இந்தப் பக்கம் எந்தத் தளத் தரவையும் வைத்திருக்கவில்லை.",
+"Other sites on this page: %s": "இந்தப் பக்கத்திலுள்ள பிற தளங்கள்: %s",
+"Clearing…": "அழிக்கிறது…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "நீக்கப்பட்டவை: %d குக்கீகள், %d சேமித்த தரவு, தற்காலிக நினைவகத்தில் %d, %d டிராக்கர் குக்கீகள்.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "அதன் குக்கீகள் உடனே நீங்கும், அது சேமித்தவை அதன் அடுத்த பக்கம் திறப்பதற்கு முன். ஒவ்வொரு முறையும் அதிலிருந்து வெளியேறிவிடுவீர்கள்."
 }
 }

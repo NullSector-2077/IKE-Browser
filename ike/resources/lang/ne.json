@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "आज एउटा सानो चिन्ता छोडिदिनुहोस्",
 "You have done enough for now": "अहिलेका लागि तपाईंले पर्याप्त गर्नुभयो",
 "Common English language": "सामान्य अङ्ग्रेजी भाषा",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "साइटहरूले तपाईंको होइन, सबैभन्दा सामान्य भाषा अमेरिकी अङ्ग्रेजी देख्छन्। I.K.E. ले तपाईंको भाषा राख्छ। पुनः सुरु गरेपछि पूर्ण रूपमा।"
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "साइटहरूले तपाईंको होइन, सबैभन्दा सामान्य भाषा अमेरिकी अङ्ग्रेजी देख्छन्। I.K.E. ले तपाईंको भाषा राख्छ। पुनः सुरु गरेपछि पूर्ण रूपमा।",
+"What this site keeps on this computer. Choose what to delete.": "यो साइटले यो कम्प्युटरमा के राख्छ। के मेट्ने छान्नुहोस्।",
+"Cookies and sign-ins": "कुकी र साइन-इन",
+"Data stored by the site": "साइटले भण्डारण गरेको डेटा",
+"Cache": "क्यास",
+"Cookies of this page's trackers": "यो पृष्ठका ट्र्याकरका कुकी",
+"Permissions given to the site": "साइटलाई दिइएका अनुमतिहरू",
+"Clean it when I close its last tab": "यसको अन्तिम ट्याब बन्द गर्दा खाली गर्नुहोस्",
+"This page keeps no site data.": "यो पृष्ठले कुनै साइट डेटा राख्दैन।",
+"Other sites on this page: %s": "यो पृष्ठका अन्य साइटहरू: %s",
+"Clearing…": "खाली गर्दै…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "मेटियो: %d कुकी, %d भण्डारण गरिएको डेटा, क्यासमा %d, %d ट्र्याकर कुकी।",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "यसका कुकी तुरुन्तै जान्छन्, र यसले भण्डारण गरेको डेटा यसको अर्को पृष्ठ खुल्नुअघि। हरेक पटक तपाईं यसबाट साइन आउट हुनुहुनेछ।"
 }
 }

@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Отпустите сегодня одну маленькую тревогу",
 "You have done enough for now": "На сейчас вы сделали достаточно",
 "Common English language": "Общепринятый английский язык",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Сайты видят американский английский, самый распространённый язык, а не ваш. I.K.E. сохраняет ваш язык. Полностью — после перезапуска."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Сайты видят американский английский, самый распространённый язык, а не ваш. I.K.E. сохраняет ваш язык. Полностью — после перезапуска.",
+"What this site keeps on this computer. Choose what to delete.": "Что этот сайт хранит на этом компьютере. Выберите, что удалить.",
+"Cookies and sign-ins": "Куки и входы",
+"Data stored by the site": "Данные, сохранённые сайтом",
+"Cache": "Кэш",
+"Cookies of this page's trackers": "Куки трекеров этой страницы",
+"Permissions given to the site": "Разрешения, выданные сайту",
+"Clean it when I close its last tab": "Очищать, когда я закрываю его последнюю вкладку",
+"This page keeps no site data.": "Эта страница не хранит данных сайтов.",
+"Other sites on this page: %s": "Другие сайты на этой странице: %s",
+"Clearing…": "Очистка…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Удалено: куки — %d, сохранённые данные — %d, в кэше — %d, куки трекеров — %d.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Его куки удаляются сразу, а сохранённое им — до открытия его следующей страницы. Каждый раз вы выходите из учётной записи на нём."
 }
 }

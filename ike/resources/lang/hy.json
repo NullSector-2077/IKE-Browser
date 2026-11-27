@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Այսօր բաց թողեք մի փոքրիկ անհանգստություն",
 "You have done enough for now": "Առայժմ բավական եք արել",
 "Common English language": "Ընդհանուր անգլերեն լեզու",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Կայքերը տեսնում են ամերիկյան անգլերենը՝ ամենատարածված լեզուն, ոչ թե ձերը։ I.K.E.-ն պահպանում է ձեր լեզուն։ Ամբողջությամբ՝ վերագործարկումից հետո։"
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Կայքերը տեսնում են ամերիկյան անգլերենը՝ ամենատարածված լեզուն, ոչ թե ձերը։ I.K.E.-ն պահպանում է ձեր լեզուն։ Ամբողջությամբ՝ վերագործարկումից հետո։",
+"What this site keeps on this computer. Choose what to delete.": "Ինչ է պահում այս կայքը այս համակարգչում։ Ընտրեք՝ ինչ ջնջել։",
+"Cookies and sign-ins": "Թխուկներ և մուտքեր",
+"Data stored by the site": "Կայքի պահած տվյալներ",
+"Cache": "Քեշ",
+"Cookies of this page's trackers": "Այս էջի հետևիչների թխուկներ",
+"Permissions given to the site": "Կայքին տրված թույլտվություններ",
+"Clean it when I close its last tab": "Մաքրել, երբ փակեմ դրա վերջին ներդիրը",
+"This page keeps no site data.": "Այս էջը կայքի տվյալներ չի պահում։",
+"Other sites on this page: %s": "Այլ կայքեր այս էջում: %s",
+"Clearing…": "Մաքրում…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Ջնջվեց: %d թխուկ, %d պահված տվյալ, քեշում՝ %d, %d հետևիչի թխուկ։",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Դրա թխուկները անմիջապես ջնջվում են, իսկ պահածը՝ մինչև դրա հաջորդ էջի բացվելը։ Ամեն անգամ դուք դուրս կգաք դրանից։"
 }
 }

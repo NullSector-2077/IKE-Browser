@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "วันนี้ลองปล่อยวางความกังวลเล็ก ๆ สักเรื่อง",
 "You have done enough for now": "ตอนนี้คุณทำมามากพอแล้ว",
 "Common English language": "ภาษาอังกฤษทั่วไป",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "เว็บไซต์จะเห็นภาษาอังกฤษแบบอเมริกัน ซึ่งเป็นภาษาที่ใช้กันมากที่สุด ไม่ใช่ภาษาของคุณ I.K.E. ยังคงใช้ภาษาของคุณ มีผลเต็มที่หลังจากเริ่มใหม่"
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "เว็บไซต์จะเห็นภาษาอังกฤษแบบอเมริกัน ซึ่งเป็นภาษาที่ใช้กันมากที่สุด ไม่ใช่ภาษาของคุณ I.K.E. ยังคงใช้ภาษาของคุณ มีผลเต็มที่หลังจากเริ่มใหม่",
+"What this site keeps on this computer. Choose what to delete.": "สิ่งที่ไซต์นี้เก็บไว้ในคอมพิวเตอร์เครื่องนี้ เลือกสิ่งที่จะลบ",
+"Cookies and sign-ins": "คุกกี้และการลงชื่อเข้าใช้",
+"Data stored by the site": "ข้อมูลที่ไซต์จัดเก็บ",
+"Cache": "แคช",
+"Cookies of this page's trackers": "คุกกี้ของตัวติดตามในหน้านี้",
+"Permissions given to the site": "สิทธิ์ที่ให้แก่ไซต์",
+"Clean it when I close its last tab": "ล้างเมื่อฉันปิดแท็บสุดท้ายของไซต์",
+"This page keeps no site data.": "หน้านี้ไม่ได้เก็บข้อมูลไซต์",
+"Other sites on this page: %s": "ไซต์อื่นในหน้านี้: %s",
+"Clearing…": "กำลังล้าง…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "ลบแล้ว: คุกกี้ %d รายการ ข้อมูลที่จัดเก็บ %d รายการ ในแคช %d รายการ คุกกี้ตัวติดตาม %d รายการ",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "คุกกี้ของไซต์จะหายไปทันที ส่วนข้อมูลที่จัดเก็บไว้จะหายไปก่อนที่หน้าถัดไปของไซต์จะเปิด คุณจะถูกออกจากระบบไซต์นี้ทุกครั้ง"
 }
 }

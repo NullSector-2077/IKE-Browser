@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "დღეს ერთი პატარა საზრუნავი დაივიწყეთ",
 "You have done enough for now": "ამჯერად საკმარისი გააკეთეთ",
 "Common English language": "გავრცელებული ინგლისური ენა",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "საიტები ხედავენ ამერიკულ ინგლისურს, ყველაზე გავრცელებულ ენას, და არა თქვენსას. I.K.E. თქვენს ენას ინარჩუნებს. სრულად — გადატვირთვის შემდეგ."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "საიტები ხედავენ ამერიკულ ინგლისურს, ყველაზე გავრცელებულ ენას, და არა თქვენსას. I.K.E. თქვენს ენას ინარჩუნებს. სრულად — გადატვირთვის შემდეგ.",
+"What this site keeps on this computer. Choose what to delete.": "რას ინახავს ეს საიტი ამ კომპიუტერში. აირჩიეთ, რა წაიშალოს.",
+"Cookies and sign-ins": "ქუქიები და შესვლები",
+"Data stored by the site": "საიტის მიერ შენახული მონაცემები",
+"Cache": "ქეში",
+"Cookies of this page's trackers": "ამ გვერდის თრექერების ქუქიები",
+"Permissions given to the site": "საიტისთვის მიცემული ნებართვები",
+"Clean it when I close its last tab": "გასუფთავება, როცა მის ბოლო ჩანართს დავხურავ",
+"This page keeps no site data.": "ეს გვერდი საიტის მონაცემებს არ ინახავს.",
+"Other sites on this page: %s": "სხვა საიტები ამ გვერდზე: %s",
+"Clearing…": "სუფთავდება…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "წაიშალა: ქუქიები — %d, შენახული მონაცემები — %d, ქეშში — %d, თრექერების ქუქიები — %d.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "მისი ქუქიები მაშინვე იშლება, შენახული კი — მისი შემდეგი გვერდის გახსნამდე. ყოველ ჯერზე მისგან გამოხვალთ."
 }
 }

@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Pustite dnes z hlavy jednu malú starosť",
 "You have done enough for now": "Na teraz ste urobili dosť",
 "Common English language": "Bežná angličtina",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Weby vidia americkú angličtinu, najbežnejší jazyk, nie váš. I.K.E. si zachová váš jazyk. Úplne po reštarte."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Weby vidia americkú angličtinu, najbežnejší jazyk, nie váš. I.K.E. si zachová váš jazyk. Úplne po reštarte.",
+"What this site keeps on this computer. Choose what to delete.": "Čo tento web uchováva v tomto počítači. Vyberte, čo odstrániť.",
+"Cookies and sign-ins": "Súbory cookie a prihlásenia",
+"Data stored by the site": "Údaje uložené webom",
+"Cache": "Vyrovnávacia pamäť",
+"Cookies of this page's trackers": "Súbory cookie sledovacích prvkov tejto stránky",
+"Permissions given to the site": "Povolenia udelené webu",
+"Clean it when I close its last tab": "Vymazať, keď zavriem jeho poslednú kartu",
+"This page keeps no site data.": "Táto stránka neuchováva žiadne údaje webov.",
+"Other sites on this page: %s": "Ďalšie weby na tejto stránke: %s",
+"Clearing…": "Mazanie…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Odstránené: súbory cookie: %d, uložené údaje: %d, vo vyrovnávacej pamäti: %d, súbory cookie sledovacích prvkov: %d.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Jeho súbory cookie zmiznú hneď, uložené údaje pred otvorením jeho ďalšej stránky. Zakaždým budete z neho odhlásení."
 }
 }

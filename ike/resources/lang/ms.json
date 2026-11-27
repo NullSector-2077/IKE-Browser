@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Lepaskan satu kebimbangan kecil hari ini",
 "You have done enough for now": "Anda sudah buat cukup untuk sekarang",
 "Common English language": "Bahasa Inggeris biasa",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Laman web melihat bahasa Inggeris Amerika, bahasa yang paling biasa, bukan bahasa anda. I.K.E. mengekalkan bahasa anda. Sepenuhnya selepas dimulakan semula."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Laman web melihat bahasa Inggeris Amerika, bahasa yang paling biasa, bukan bahasa anda. I.K.E. mengekalkan bahasa anda. Sepenuhnya selepas dimulakan semula.",
+"What this site keeps on this computer. Choose what to delete.": "Apa yang disimpan oleh laman ini pada komputer ini. Pilih apa yang hendak dipadam.",
+"Cookies and sign-ins": "Kuki dan log masuk",
+"Data stored by the site": "Data yang disimpan oleh laman",
+"Cache": "Cache",
+"Cookies of this page's trackers": "Kuki penjejak halaman ini",
+"Permissions given to the site": "Kebenaran yang diberikan kepada laman",
+"Clean it when I close its last tab": "Kosongkan apabila saya menutup tab terakhirnya",
+"This page keeps no site data.": "Halaman ini tidak menyimpan data laman.",
+"Other sites on this page: %s": "Laman lain pada halaman ini: %s",
+"Clearing…": "Mengosongkan…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Dipadam: %d kuki, %d data simpanan, %d dalam cache, %d kuki penjejak.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Kukinya hilang serta-merta, data simpanannya sebelum halaman seterusnya dibuka. Anda dilog keluar daripadanya setiap kali."
 }
 }

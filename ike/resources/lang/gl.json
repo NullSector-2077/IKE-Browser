@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Solta hoxe unha pequena preocupación",
 "You have done enough for now": "Por agora, xa fixeches abondo",
 "Common English language": "Inglés común como idioma",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Os sitios ven inglés estadounidense, o idioma máis común, non o teu. I.K.E. mantén o teu idioma. Por completo tras reiniciar."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Os sitios ven inglés estadounidense, o idioma máis común, non o teu. I.K.E. mantén o teu idioma. Por completo tras reiniciar.",
+"What this site keeps on this computer. Choose what to delete.": "O que garda este sitio web neste computador. Elixe que queres eliminar.",
+"Cookies and sign-ins": "Cookies e inicios de sesión",
+"Data stored by the site": "Datos gardados polo sitio web",
+"Cache": "Caché",
+"Cookies of this page's trackers": "Cookies dos rastrexadores desta páxina",
+"Permissions given to the site": "Permisos concedidos ao sitio web",
+"Clean it when I close its last tab": "Limpalo cando peche a súa última lapela",
+"This page keeps no site data.": "Esta páxina non garda datos de sitios web.",
+"Other sites on this page: %s": "Outros sitios web nesta páxina: %s",
+"Clearing…": "Limpando…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Eliminado: %d cookies, %d datos gardados, %d na caché, %d cookies de rastrexadores.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "As súas cookies vanse de inmediato; o que gardou, antes de que se abra a súa seguinte páxina. Péchase a túa sesión nel cada vez."
 }
 }

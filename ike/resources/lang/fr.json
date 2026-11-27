@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Lâchez un petit souci aujourd'hui",
 "You have done enough for now": "Vous en avez fait assez pour l'instant",
 "Common English language": "Anglais courant comme langue",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Les sites voient l'anglais américain, la langue la plus répandue, et non la vôtre. I.K.E. garde votre langue. Entièrement après un redémarrage."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Les sites voient l'anglais américain, la langue la plus répandue, et non la vôtre. I.K.E. garde votre langue. Entièrement après un redémarrage.",
+"What this site keeps on this computer. Choose what to delete.": "Ce que ce site conserve sur cet ordinateur. Choisissez ce qu'il faut supprimer.",
+"Cookies and sign-ins": "Cookies et connexions",
+"Data stored by the site": "Données stockées par le site",
+"Cache": "Cache",
+"Cookies of this page's trackers": "Cookies des traqueurs de cette page",
+"Permissions given to the site": "Autorisations accordées au site",
+"Clean it when I close its last tab": "L'effacer quand je ferme son dernier onglet",
+"This page keeps no site data.": "Cette page ne conserve aucune donnée de site.",
+"Other sites on this page: %s": "Autres sites sur cette page : %s",
+"Clearing…": "Effacement…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Supprimés : %d cookies, %d données stockées, %d dans le cache, %d cookies de traqueurs.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Ses cookies partent aussitôt, ce qu'il a stocké avant l'ouverture de sa page suivante. Vous en êtes déconnecté à chaque fois."
 }
 }

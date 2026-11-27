@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Odpuść sobie dziś jedno małe zmartwienie",
 "You have done enough for now": "Na teraz to, co zrobione, wystarczy",
 "Common English language": "Popularny język angielski",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Witryny widzą amerykański angielski, najpopularniejszy język, a nie twój. I.K.E. zachowuje twój język. W pełni po ponownym uruchomieniu."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Witryny widzą amerykański angielski, najpopularniejszy język, a nie twój. I.K.E. zachowuje twój język. W pełni po ponownym uruchomieniu.",
+"What this site keeps on this computer. Choose what to delete.": "Co ta witryna przechowuje na tym komputerze. Wybierz, co usunąć.",
+"Cookies and sign-ins": "Ciasteczka i logowania",
+"Data stored by the site": "Dane zapisane przez witrynę",
+"Cache": "Pamięć podręczna",
+"Cookies of this page's trackers": "Ciasteczka elementów śledzących tej strony",
+"Permissions given to the site": "Uprawnienia nadane witrynie",
+"Clean it when I close its last tab": "Wyczyść, gdy zamknę jej ostatnią kartę",
+"This page keeps no site data.": "Ta strona nie przechowuje danych witryn.",
+"Other sites on this page: %s": "Inne witryny na tej stronie: %s",
+"Clearing…": "Czyszczenie…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Usunięto: ciasteczka: %d, zapisane dane: %d, w pamięci podręcznej: %d, ciasteczka elementów śledzących: %d.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Jej ciasteczka znikają od razu, a to, co zapisała – zanim otworzy się jej następna strona. Za każdym razem następuje wylogowanie z niej."
 }
 }

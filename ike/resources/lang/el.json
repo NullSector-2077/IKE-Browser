@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Άφησε σήμερα μια μικρή έγνοια",
 "You have done enough for now": "Έχεις κάνει αρκετά για τώρα",
 "Common English language": "Κοινή αγγλική γλώσσα",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Οι ιστότοποι βλέπουν αμερικανικά αγγλικά, την πιο κοινή γλώσσα, όχι τη δική σας. Το I.K.E. κρατά τη γλώσσα σας. Πλήρως μετά από επανεκκίνηση."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Οι ιστότοποι βλέπουν αμερικανικά αγγλικά, την πιο κοινή γλώσσα, όχι τη δική σας. Το I.K.E. κρατά τη γλώσσα σας. Πλήρως μετά από επανεκκίνηση.",
+"What this site keeps on this computer. Choose what to delete.": "Τι κρατά αυτός ο ιστότοπος σε αυτόν τον υπολογιστή. Επιλέξτε τι θα διαγραφεί.",
+"Cookies and sign-ins": "Cookies και συνδέσεις",
+"Data stored by the site": "Δεδομένα που αποθήκευσε ο ιστότοπος",
+"Cache": "Προσωρινή μνήμη",
+"Cookies of this page's trackers": "Cookies των ιχνηλατών αυτής της σελίδας",
+"Permissions given to the site": "Άδειες που δόθηκαν στον ιστότοπο",
+"Clean it when I close its last tab": "Εκκαθάριση όταν κλείνω την τελευταία καρτέλα του",
+"This page keeps no site data.": "Αυτή η σελίδα δεν κρατά δεδομένα ιστοτόπων.",
+"Other sites on this page: %s": "Άλλοι ιστότοποι σε αυτή τη σελίδα: %s",
+"Clearing…": "Εκκαθάριση…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Διαγράφηκαν: %d cookies, %d αποθηκευμένα δεδομένα, %d στην προσωρινή μνήμη, %d cookies ιχνηλατών.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Τα cookies του φεύγουν αμέσως, όσα αποθήκευσε πριν ανοίξει η επόμενη σελίδα του. Αποσυνδέεστε από αυτόν κάθε φορά."
 }
 }

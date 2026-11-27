@@ -1545,6 +1545,18 @@
 "Let go of one small worry today": "Bugün küçük bir endişeyi bırakın",
 "You have done enough for now": "Şimdilik yeterince yaptınız",
 "Common English language": "Yaygın İngilizce",
-"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Siteler sizin dilinizi değil, en yaygın dil olan Amerikan İngilizcesini görür. I.K.E. sizin dilinizi korur. Tamamen, yeniden başlatmadan sonra."
+"Sites see American English, the most common language, not yours. I.K.E. keeps your language. Fully after a restart.": "Siteler sizin dilinizi değil, en yaygın dil olan Amerikan İngilizcesini görür. I.K.E. sizin dilinizi korur. Tamamen, yeniden başlatmadan sonra.",
+"What this site keeps on this computer. Choose what to delete.": "Bu sitenin bu bilgisayarda sakladıkları. Neyin silineceğini seçin.",
+"Cookies and sign-ins": "Çerezler ve oturum açmalar",
+"Data stored by the site": "Sitenin depoladığı veriler",
+"Cache": "Önbellek",
+"Cookies of this page's trackers": "Bu sayfadaki izleyicilerin çerezleri",
+"Permissions given to the site": "Siteye verilen izinler",
+"Clean it when I close its last tab": "Son sekmesini kapattığımda temizle",
+"This page keeps no site data.": "Bu sayfa hiç site verisi saklamıyor.",
+"Other sites on this page: %s": "Bu sayfadaki diğer siteler: %s",
+"Clearing…": "Temizleniyor…",
+"Deleted: %d cookies, %d stored data, %d in the cache, %d trackers' cookies.": "Silindi: %d çerez, %d depolanmış veri, önbellekte %d, %d izleyici çerezi.",
+"Its cookies go at once, what it stored before its next page opens. You are signed out of it each time.": "Çerezleri hemen silinir, depoladıkları ise bir sonraki sayfası açılmadan önce. Her seferinde bu sitedeki oturumunuz kapanır."
 }
 }
