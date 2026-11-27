@@ -43,10 +43,11 @@ def reserve():
     return load("autofix-reserve")
 
 
-def test_a_mark_without_time_is_checked_again_at_once(quota):
+def test_a_mark_without_time_holds_for_the_day_as_before(quota):
     state = quota.empty_state()
     quota._prov(state, "2026-11-25", "Z.AI")["spent"] = "429: the quota of the day (it says so)"
-    assert quota.Budget(state=state, candidate=CANDIDATE, now=NOW).spent("Z.AI") == ""
+    later = NOW + dt.timedelta(hours=6)
+    assert quota.Budget(state=state, candidate=CANDIDATE, now=later).spent("Z.AI")
 
 
 def test_a_fresh_mark_holds_and_expires_after_the_recheck_time(quota):

@@ -620,7 +620,8 @@ def said(words, text):
 DAY_WAIT = 3600
 # a mark "spent today" is checked again after this many seconds with one request (2026-11-25: a wrong mark,
 # written before the reading of Z.AI's codes was fixed, kept Z.AI unasked for the rest of the day). A mark of
-# money asked (not free) never expires; a mark with no time (written before this rule) is checked again at once
+# money asked (not free) never expires; a mark with no time (written before this rule, or by hand) holds for the
+# day as before
 SPENT_RECHECK = 3 * 3600
 NEVER_EXPIRES = ("money", "not free")
 
@@ -631,7 +632,7 @@ def mark_expired(why, at, now):
     if not why or any(w in why for w in NEVER_EXPIRES):
         return False
     if not isinstance(at, int) or isinstance(at, bool) or at <= 0:
-        return True
+        return False
     return now - at >= SPENT_RECHECK
 
 

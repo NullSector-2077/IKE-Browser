@@ -805,7 +805,7 @@ of that day's four reasons, are `tests/test_automat_deadlock.py`):
   setting: that answers 404 "No endpoints found matching your data policy", which the reserve says
   plainly (`DATA_POLICY`). What changed: a mark "spent today" carries the time it was written
   (`spent_at`) and is **checked again with one request after `SPENT_RECHECK` (3 hours)**; a mark with
-  no time is checked at once; only "it asked for money" never expires (`mark_expired`). A 429 of one
+  no time (written before this rule) holds for its day as before; only "it asked for money" never expires (`mark_expired`). A 429 of one
   free model's pool upstream (`model_words` in `tools/ai-quota.json`: "rate-limited upstream") moves to
   the next model at once and holds back none of OpenRouter's other models (`per_model`). Every error now
   shows the provider's own words in the log (`error_words`, URLs and keys removed), so the next stall
