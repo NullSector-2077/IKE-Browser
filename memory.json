@@ -14,6 +14,20 @@
     "task": "multi-file"
    }
   ],
+  "automation/autofix-main@2e8f645215c3a04c": [
+   {
+    "attempt": 1,
+    "date": "2026-11-27",
+    "detail": "rotated",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "2e8f645215c3a04c",
+    "summary": "Il test test_handoffs_are_shown_only_when_the_desktop_has_the_app fallisce: dopo aver aperto il codice sorgente della pagina, I.K.E. non apre pi\u00f9 l'immagine (pic.png) e il PDF (doc.pdf) scaricati dal motore. Il test aspetta fino a 30 secondi che tutti e tre i file siano aperti, m",
+    "task": "python"
+   }
+  ],
   "automation/autofix-main@994c95bda21cb6d8": [
    {
     "attempt": 1,
@@ -322,10 +336,10 @@
  "solved": {},
  "streak": {
   "automation/autofix-main": {
-   "at": "2026-11-27T19:58:54Z",
+   "at": "2026-11-27T20:13:24Z",
    "date": "2026-11-27",
    "n": 1,
-   "sig": "ff0d9646c9168f7c",
+   "sig": "2e8f645215c3a04c",
    "since": "2026-11-27"
   },
   "automation/update/drill-qt": {
