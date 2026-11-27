@@ -1398,7 +1398,8 @@ def test_the_guard_refuses_the_added_lines_that_weakened_the_fingerprinting():
     branch = own.replace("  function bump(a) {\n", "  function bump(a) {\n    a = a || CFG.step;\n")
     assert any("|| on data" in p for p in guard.file_problems(name, page5, branch))
     # every name of a declaration list is the change's own (a real commit of main, 34e0e4a, declares two)
-    pair = after("  try {\n    var call = Function.prototype.call, apply2 = call;\n    apply2 = null;\n"
+    # (round 12: a built-in's own function, Function.prototype.call, is no value new code holds any more)
+    pair = after("  try {\n    var one = 1, apply2 = one + 1;\n    apply2 = null;\n"
                  "  } catch (e) {}\n")
     assert guard.file_problems(name, page5, pair) == [], guard.file_problems(name, page5, pair)
     # round 11: `.bind` is no method new code calls (only SAFE_METHODS of its own values)
@@ -1953,6 +1954,39 @@ def test_round_eleven_new_code_uses_only_what_is_listed():
               "getter(%s, 'freshName', function () { return hash(host) %% 97; });" % P,
               "function addOne() { getter(%s, 'zzNew', %s); } addOne();" % (P, F),
               "function clamp(v) { return Math.max(v, 0); }"):
+        assert after(x) == [], (x, after(x))
+
+
+def test_round_twelve_page_functions_are_no_values_and_originals_run_on_this():
+    """Fable's review of round 11 (fragments, 2026-11-27): a page function given as a value to a harmless method
+    of the change's own list (the window's evaluator, `window.close`, `Element.prototype.remove`) or to its own
+    function ran unjudged; any parameter counted as an original, called on any receiver; `window.<anything>`
+    (its name, its length, its document's nodes) chose how often new code ran; a page object kept in a new name
+    took the harmless methods. Each is refused; the honest forms still pass."""
+    guard = load("fix-guard")
+    name = "ike/resources/fingerprint.js"
+    old = (ROOT / name).read_text("utf-8")
+    end = "  try { realms.add(window.Function); } catch (e) {}\n"
+
+    def after(x):
+        return guard.file_problems(name, old, old.replace(end, end + "  try { %s } catch (e) {}\n" % x, 1))
+    P, F = "Navigator.prototype", "function () { return 2; }"
+    G = "getter(%s, 'zzNew', %s);" % (P, F)
+    for x in ("['1'].some(globalThis.eval);", "function h(f) { f('1'); } h(window.eval);", "[1].forEach(window.close);",
+              "function h(f, o) { f.call(o); } h(Element.prototype.remove, document);",
+              "[Element.prototype.remove].forEach(function (f) { f.call(1); });",
+              "wrap(%s, 'freshName', function (orig) { return function () { return orig.call(document); }; });" % P,
+              "window.name.split('').forEach(function () { %s });" % G,
+              "[0].slice(window.length).forEach(function () { %s });" % G,
+              "window.document.childNodes.forEach(function () { %s });" % G,
+              "JSON.stringify(window.zzPage);", "var m = window.customElements; m.get('zz');",
+              "getter(%s, 'zzNew', function () { return this.zz.length; });" % P):
+        assert after(x), x
+    for x in ("wrap(%s, 'freshName', function (orig) { return function () { return orig.apply(this, arguments); }; "
+              "});" % P,
+              "var h = [1, 2]; h.push(3); var j = h.map(function (x) { return x + 1; }).join(',');",
+              "function low(s) { return String(s).toLowerCase().slice(0, 2); }",
+              "function addOne() { %s } addOne();" % G):
         assert after(x) == [], (x, after(x))
 
 

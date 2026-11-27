@@ -344,6 +344,23 @@ covers. Where an older paragraph below still says "waits for a person" or
      compared with a literal; a ratio in dpi or dpcm at the sessions'
      precision, and one value of one pointer or touch feature per change.
 
+   **Round 12** (Fable's review of round 11) narrowed that list:
+   - *Page functions are no values.* After the window only a measured
+     configuration or `window.X.prototype`; the window itself only as such a
+     holder; a member of an interface's prototype only as a direct callee.
+     Given as a callback to a method of the change's own (the window's code
+     evaluator, `window.close`, `Element.prototype.remove`), each ran
+     unjudged.
+   - *Originals on `this`.* An original is only a parameter of a function
+     literal given directly to an old definer, and it is called on `this`
+     (`orig.call(this, ...)`, `RAPPLY(orig, this, arguments)`); `this` and
+     `arguments` are used for nothing else (they are the page's objects).
+   - *Harmless methods of truly own values.* A receiver counts as the
+     change's own only when every name in it is a known new object, a
+     measured value, its own parameter, a plain global or an old pure
+     helper: a page object kept in a new name, `window.name` or
+     `window.document.childNodes` chose how often new code ran.
+
    *What it accepts and refuses*, measured on 2026-11-25:
    - **Weakened copies:** all 46 made in the reviews are refused. These
      include Fable's twelve forms of round 7 and the gated re-wraps.

@@ -898,6 +898,11 @@ def page_script_problems(name, run, had, known=(), structural=True):
 #      measured, `X.prototype` of a page interface; calls: definers, old pure helpers, its own functions, the
 #      originals handed to it, PURE_GLOBAL_CALLS, SAFE_METHODS of its own values; `new`: FRESH_CTORS; old state:
 #      OLD_STATE_OK inside its own functions only (callee_problem, the checks at the top of visit).
+#  (l) round 12 (Fable's review of round 11): hold a page function as a value (after the window only a measured
+#      configuration or X.prototype, a member of X.prototype only as a direct callee); call an original that is
+#      not a parameter of a function literal given to an old definer, or on another receiver than `this`; use
+#      `this` or `arguments` for anything but handing them to an original; call a harmless method of a value
+#      that is not truly its own (own_param, fresh_obj, clean, plain globals, old pure helpers).
 # A text that does not parse is refused (and the rules on lines say what they see).
 
 ENV_NAMES = frozenset("""
@@ -1824,6 +1829,14 @@ def _function_info(tree, scopes):
     return definers, aliases
 
 
+def _walk_outside_functions(node):
+    """The nodes of an expression, not those of the functions in it (judged on their own)."""
+    yield node
+    for _, c in _kids(node):
+        if c["type"] not in FUNCTIONS:
+            yield from _walk_outside_functions(c)
+
+
 def _fresh(value, scopes):
     """A value that is a new object of the change's own: a literal object or list, a function, a class,
     `new` of one of the language's plain containers (FRESH_CTORS). Round 10 (Fable's review of round 9): an
@@ -2164,12 +2177,35 @@ def page_tree_problems(name, old, new):
                                   _chain(v) == ["Reflect", "apply"] for v in vals)
 
     def new_param(node):
-        """A parameter of a function the change adds (an original a wrap hands it)."""
+        """An original a wrap hands the change: a parameter of a function literal given directly to an old
+        definer (round 12, Fable's review of round 11: any parameter qualified, so a page function passed
+        to the change's own function was called through it)."""
         node = _strip(node)
         if node["type"] != "Identifier":
             return False
         key = sn.refs.get(id(node))
+        if key is None or old_binding(key) or binding_kind(key) != "param":
+            return False
+        decl = (sn.decls.get(key) or [None])[0]
+        fn = sn.parent.get(id(decl)) if decl is not None else None
+        call = sn.parent.get(id(fn)) if fn is not None else None
+        if fn is None or fn["type"] not in FUNCTIONS or call is None or call["type"] != "CallExpression" or \
+                fn not in call["arguments"]:
+            return False
+        c = _strip(call["callee"])
+        ck = sn.refs.get(id(c), 0) if c["type"] == "Identifier" else 0
+        return ck is not None and ck != 0 and ck in definers and old_binding(ck)
+
+    def own_param(node):
+        """A parameter of a function the change adds: it holds what new code gives it (the page's objects,
+        `this` and the window are no values new code may give since round 12) or an original."""
+        key = sn.refs.get(id(node))
         return key is not None and not old_binding(key) and binding_kind(key) == "param"
+
+    def receiver_ok(call, at):
+        """The receiver given to an original: `this` (round 12: another page object was not)."""
+        a = call["arguments"]
+        return len(a) > at and _strip(a[at])["type"] == "ThisExpression"
 
     def interface_root(node):
         """A page interface named as the root of `X.prototype`."""
@@ -2201,7 +2237,7 @@ def page_tree_problems(name, old, new):
                 return None if c["name"] in PURE_GLOBAL_CALLS else \
                     "a new call of the global %s: only the language's pure functions" % c["name"]
             if key in definers or old_function(key) or apply_alias(key) and call["arguments"] and \
-                    new_param(call["arguments"][0]):
+                    new_param(call["arguments"][0]) and receiver_ok(call, 1):
                 return None
             if not old_binding(key) and (binding_kind(key) in ("function", "param") or
                                          all(isinstance(v, dict) and v["type"] in FUNCTIONS
@@ -2216,23 +2252,27 @@ def page_tree_problems(name, old, new):
                                                                 tuple(ch[-2:]) in OBJECT_MUTATORS):
                 return None
             m = _prop_name(c)
-            if ch and ch[:2] == ["Reflect", "apply"] and call["arguments"] and new_param(call["arguments"][0]):
+            if ch and ch[:2] == ["Reflect", "apply"] and call["arguments"] and new_param(call["arguments"][0]) and \
+                    receiver_ok(call, 1):
                 return None
             if m in ("call", "apply"):
-                return None if new_param(c["object"]) else \
-                    "a new .%s of something that is no original handed to the change" % m
+                return None if new_param(c["object"]) and receiver_ok(call, 0) else \
+                    "a new .%s of something that is no original handed to the change by a definer, on `this`" % m
             if m in SAFE_METHODS:
                 obj = _strip(c["object"])
-                if obj["type"] in ("Literal", "TemplateLiteral", "ArrayExpression", "ObjectExpression", "ThisExpression"):
+                if obj["type"] in ("Literal", "TemplateLiteral", "ArrayExpression", "ObjectExpression"):
                     return None
-                if obj["type"] == "Identifier":
-                    key = sn.refs.get(id(obj), 0)
-                    if key is not None and key != 0 and not old_binding(key):
-                        return None
-                if obj["type"] in ("CallExpression", "MemberExpression", "BinaryExpression") and \
-                        not any(q["type"] == "Identifier" and sn.refs.get(id(q)) is not None and
-                                old_binding(sn.refs.get(id(q))) and not old_function(sn.refs.get(id(q)))
-                                for q in _walk(obj)):
+                if obj["type"] == "Identifier" and (fresh_obj(obj) or clean(obj) or own_param(obj)):
+                    return None
+                # round 12 (Fable's review of round 11): a chain or a call counts when every name in it is the
+                # change's own value, a literal or an old pure helper (not a page object kept in a new name)
+                if obj["type"] in ("CallExpression", "MemberExpression", "BinaryExpression") and all(
+                        q["type"] != "ThisExpression" and
+                        (q["type"] != "Identifier" or sn.parent.get(id(q), {}).get("property") is q or
+                         sn.refs.get(id(q), 0) is None and q["name"] in GLOBALS_OK - WINDOW_NAMES or
+                         sn.refs.get(id(q), 0) not in (None, 0) and
+                         (fresh_obj(q) or clean(q) or own_param(q) or old_function(sn.refs.get(id(q)))))
+                        for q in _walk_outside_functions(obj)):
                     return None
             if ch and ch[-1] == "matches" or m == "matchMedia":
                 return None
@@ -2327,6 +2367,43 @@ def page_tree_problems(name, old, new):
                      par.get("property") is node and not par.get("computed"))):
                 say(node, "a new use of the global %s: new code uses the language's plain objects, the "
                           "configurations measured and page interfaces' prototypes only" % node["name"])
+        # round 12 (Fable's review of round 11): after the window only a measured configuration or a page
+        # interface (`window.X.prototype`); a member of an interface's prototype is no value new code holds
+        # (`Element.prototype.remove` given to a method of its own ran on the page); the window itself only as
+        # such a holder; `this` and `arguments` only handed to an original
+        if t == "MemberExpression" and not node["computed"]:
+            obj = _strip(node["object"])
+            pn = _prop_name(node)
+            if obj["type"] == "Identifier" and obj["name"] in WINDOW_NAMES and sn.refs.get(id(obj), 0) is None and \
+                    pn not in HOLDER_PROPS["window"] and not (re.fullmatch(r"[A-Z][A-Za-z0-9]*", pn or "") and
+                                                              (sn.parent.get(id(node)) or {}).get("type") ==
+                                                              "MemberExpression" and
+                                                              _prop_name(sn.parent[id(node)]) == "prototype"):
+                say(node, "a new read of window.%s: after the window only a configuration measured or a page "
+                          "interface's prototype" % pn)
+            if obj["type"] == "MemberExpression" and _prop_name(obj) == "prototype" and not direct_callee(node):
+                say(node, "a new use of %s as a value: a page interface's own functions are no value new code "
+                          "holds" % re.sub(r"\s+", " ", new[node["start"]:node["end"]])[:40])
+        if t == "Identifier" and node["name"] in WINDOW_NAMES and sn.refs.get(id(node), 0) is None:
+            par = sn.parent.get(id(node))
+            if not (par is not None and par["type"] == "MemberExpression" and par["object"] is node):
+                say(node, "a new use of %s itself (only as the holder of a configuration or an interface)" %
+                    node["name"])
+        if t == "ThisExpression" or t == "Identifier" and node["name"] == "arguments" and \
+                sn.refs.get(id(node), 0) is None:
+            par = sn.parent.get(id(node))
+            ok = False
+            if par is not None and par["type"] == "CallExpression" and node in par["arguments"]:
+                c = _strip(par["callee"])
+                k = sn.refs.get(id(c), 0) if c["type"] == "Identifier" else 0
+                if c["type"] == "MemberExpression" and _prop_name(c) in ("call", "apply") and new_param(c["object"]) \
+                        or (c["type"] == "MemberExpression" and _chain(c) == ["Reflect", "apply"] or
+                            k not in (None, 0) and apply_alias(k)) and par["arguments"] and \
+                        new_param(par["arguments"][0]):
+                    ok = True
+            if not ok:
+                say(node, "a new use of %s other than handing it to an original (it is the page's object)" %
+                    ("this" if t == "ThisExpression" else "arguments"))
         if t in ("CallExpression", "NewExpression"):
             why = callee_problem(node, in_new_fn)
             if why:
