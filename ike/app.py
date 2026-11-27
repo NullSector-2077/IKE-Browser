@@ -690,10 +690,36 @@ class IkeApp(QObject):
             self.blocker.update()
         elif self.blocker.needs_fast_update():
             self.blocker.update(fast=True)
+        self._update_dark_lists()
         cfg = self.config
         if (cfg["app_updates"] != "off" and self.updater.configured()
                 and time.time() - cfg["last_app_check"] > 24 * 3600):
             self.updater.run(install=cfg["app_updates"] == "auto")
+
+    def _update_dark_lists(self):
+        """Dark Reader's lists, fetched once a day by the browser itself (1.1.27):
+        no new version of I.K.E. for a change of the lists only (darklists.py)."""
+        from . import darkfixes, darklists
+        if getattr(self, "_dark_lists", None) is not None or not darklists.needs_update(self.config):
+            return
+        self._dark_lists = darklists.make_thread(darkfixes.bundled(), self)
+
+        def done(ok, why):
+            self._dark_lists = None
+            now = int(time.time())
+            # a failure is tried again in a few hours, not at every check
+            self.config["last_darklists_update"] = (
+                now if ok else now - darklists.UPDATE_INTERVAL + darklists.RETRY_FAILED_AFTER)
+            self.config.save()
+            if ok:
+                darkfixes.reset()
+                from . import darkpages
+                for p in list(self.shields.profiles):
+                    darkpages.clear(p)          # the dark pages loaded next take the new lists
+            elif why:
+                print("I.K.E.: Dark Reader's lists not updated: %s" % why, file=sys.stderr)
+        self._dark_lists.done.connect(done)
+        background.start(self._dark_lists)
 
     def check_app_update(self, manual=False):
         from .i18n import T

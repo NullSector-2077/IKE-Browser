@@ -53,6 +53,21 @@
   "randomized" for the canvas and for WebGL at Balanced and Strict
   (tests/test_canvas_exports.py).
 
+- **Dark Reader's lists update by themselves inside I.K.E.** (the owner: no
+  new version every day for simple lists). Dark Reader's fixes for single
+  sites, its list of sites that are dark already and the hints of a site's own
+  dark theme change almost every day, and each change made a new version of
+  I.K.E. Now the browser fetches the three lists from Dark Reader's repository
+  (raw.githubusercontent.com) once a day in the background, like the filter
+  lists (only with automatic updates on), reads and checks them with the very
+  same functions as the builder (tools/build-darkreader.py takes them from
+  `ike/darklists.py`): only data for Dark Reader, nothing that could be a
+  script, the common fix first, not much shorter than the copy I.K.E. came
+  with, at most 8 MB, https and that host only. A refused or failed download
+  changes nothing and is tried again a few hours later; the dark pages loaded
+  next take the new lists. The copy I.K.E. comes with is used until then, and
+  again when it is newer. The daily maintenance makes a new version for a new
+  Dark Reader engine only (tests/test_darklists.py).
 - Dark Reader (engine and lists): 4.9.135, lists 26d0621d65 (2026-11-25) -> 4.9.135, lists 2bd262585f (2026-11-25) (lists changed)
 
 ## 1.1.26

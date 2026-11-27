@@ -297,6 +297,7 @@ DEFAULTS = {
     "custom_filters": "",
     "last_lists_update": 0,
     "last_fast_update": 0,              # urgent-fix lists (see blocker.FAST_INTERVAL)
+    "last_darklists_update": 0,         # Dark Reader's lists fetched by the browser (darklists.py, 1.1.27)
     "lists_version": 5,                 # bumped when the default lists change
     "auto_update": True,
     # downloads

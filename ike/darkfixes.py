@@ -4,7 +4,8 @@ site is on the list of sites that are dark already, and the hints that
 recognise a site's own dark theme.
 
 The lists are resources/darkreader-data.json (tools/build-darkreader.py makes
-it from Dark Reader's repository). The address patterns are matched as Dark
+it from Dark Reader's repository), or, since 1.1.27, the newer ones the
+browser fetched itself (ike/darklists.py). The address patterns are matched as Dark
 Reader matches them (src/utils/url.ts): "example.com", "*.example.com",
 "example.*", "example.com/path", "^" and "$" for exact host and path, and
 /regular expressions/.
@@ -21,14 +22,33 @@ _data = None
 _index = None
 
 
+def bundled():
+    """The lists I.K.E. came with (resources/darkreader-data.json)."""
+    try:
+        return json.loads((RES_DIR / "darkreader-data.json").read_text("utf-8"))
+    except (OSError, ValueError):
+        return {"fixes": [{"url": ["*"]}], "dark_sites": [], "detector_hints": []}
+
+
 def data():
+    """The lists in use: the ones the browser fetched (1.1.27) when they are
+    checked and at least as new as the copy I.K.E. came with, else that copy."""
     global _data
     if _data is None:
-        try:
-            _data = json.loads((RES_DIR / "darkreader-data.json").read_text("utf-8"))
-        except (OSError, ValueError):
-            _data = {"fixes": [{"url": ["*"]}], "dark_sites": [], "detector_hints": []}
+        _data = bundled()
+        from . import darklists
+        fetched = darklists.load_fetched()
+        if darklists.newer_than(fetched, _data):
+            _data = dict(_data, fixes=fetched["fixes"], dark_sites=fetched["dark_sites"],
+                         detector_hints=fetched["detector_hints"], lists_date=fetched["lists_date"],
+                         lists_fetched=True)
     return _data
+
+
+def reset():
+    """Read the lists again (new ones were fetched)."""
+    global _data, _index
+    _data = _index = None
 
 
 # --- address patterns ------------------------------------------------------
