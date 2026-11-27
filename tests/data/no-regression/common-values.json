@@ -1,0 +1,4 @@
+{
+ "about": "Nothing gets worse (tools/no-regression.py COMMON_VALUES, docs/MAINTENANCE.md): the common values a fixed disguise of the fingerprinting protection may change to. A fixed disguise (the same in every session, away from the real value: a screen size, a user agent, a language list...) that changes to a value not listed here for it is worse: only a person decides that a new disguise is as common as the old one. Only a person (or Claude, with the change read in full) edits this file: it is under tests/, so the automatic fix may not touch it and a pull request that changes it never merges by itself; tests.yml reads main's copy, so an entry counts once it is on main. Each entry: \"value\" (the observation's name as the report prints it after the level, e.g. navigator.userAgent), \"part\" (the part's path as the report prints it, \"\" for the whole value), \"common\" (the values), \"why\", and who added it when (\"added\").",
+ "entries": []
+}

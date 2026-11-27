@@ -274,11 +274,11 @@ precomputed-hash 0.1.1
   source:     https://crates.io/api/v1/crates/precomputed-hash/0.1.1/download (sha256 925383efa346730478fb4838dbe9137d2a47675ad789c546d150a6e1dd4ab31c)
   texts:      [23] LICENSE
 
-psl 2.1.263
+psl 2.1.264
   licence:    MIT OR Apache-2.0
   copyright:  Copyright (c) 2016 Rushmore Mushambi
   repository: https://github.com/addr-rs/psl
-  source:     https://crates.io/api/v1/crates/psl/2.1.263/download (sha256 4ce5fe095326c5a930f8f4af012fa5494c56587bcc02311dc80a8f6827f2742e)
+  source:     https://crates.io/api/v1/crates/psl/2.1.264/download (sha256 8782e35cade255f17d5ad527b899ea5b4e6bef29dcdc3502965a7d8d2f3fc3f5)
   texts:      [2] LICENSE
 
 psl-types 2.0.11
@@ -848,7 +848,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 
 ===============================================================================
 [2] MIT
-Used by: addr 0.15.6 (LICENSE), psl 2.1.263 (LICENSE)
+Used by: addr 0.15.6 (LICENSE), psl 2.1.264 (LICENSE)
 ===============================================================================
 
 MIT License

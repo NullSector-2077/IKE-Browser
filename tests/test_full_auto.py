@@ -207,9 +207,21 @@ def test_a_page_script_keeps_every_line_and_its_protections(old, new, word):
     assert old in JS
     found = fg.file_problems(name, JS, JS.replace(old, new, 1))
     assert found and any(word in p for p in found), found
-    added = JS.replace("  protect(level());\n", "  function extra(a) {\n    if (a) { return 1; }\n    return 2;\n  }\n"
-                       "  protect(level());\n")
+    # round 7: new code after the last old statement (before an old one it could stop or skip the old ones)
+    added = JS.replace("  protect(level());\n", "  protect(level());\n  function extra(a) {\n    var b = a + 1;\n"
+                       "    return b * 2;\n  }\n")
     assert fg.file_problems(name, JS, added) == []
+    # since round 6 of "Nothing gets worse" (2026-11-25) a new condition in a page script reads only what is
+    # measured: literals, the change's own names (its parameters too), the level and the users' configurations
+    # (tools/env-axes.py). A condition no measurement makes true is what hid a weakening (the real cores behind
+    # devicePixelRatio !== 1): on the old configuration's other data it is refused
+    branchy = JS.replace("  protect(level());\n", "  protect(level());\n  function extra(a) {\n    if (a) { return 1; }\n"
+                         "    return 2;\n  }\n")
+    before = JS.replace("  protect(level());\n", "  function extra(a) {\n    return a;\n  }\n  protect(level());\n")
+    assert any("before an old one" in p for p in fg.file_problems(name, JS, before))
+    assert fg.file_problems(name, JS, branchy) == []
+    on_config = branchy.replace("    if (a) {", "    if (CFG.extra) {")
+    assert any("condition on data" in p for p in fg.file_problems(name, JS, on_config))
     # the look-alike table may only grow; Rust: the same rule by lines, and nothing unsafe
     table = "ike/resources/lookalike.json"
     assert fg.file_problems(table, '{"a": ["x"], "b": 1}', '{"a": ["x", "y"], "b": 1, "c": 2}') == []
@@ -552,6 +564,33 @@ def test_an_ai_fix_of_protected_code_merges_only_with_everything():
         kind, why = merge.judge(mm.REPO, pr, commits, files + [extra], mm.FULL_CHECKS,
                                 lambda n: guard.allowed_path(n, False), review=approved, evidence=EVIDENCE)
         assert kind == "person", extra["filename"]
+    # the fourth review of "Nothing gets worse" (N5): a fingerprinting value that is not the same or stricter
+    # (the step "Fingerprinting unchanged" not restated as passed) needs a person on an AI's change
+    for fp in (None, "skipped"):
+        kind, why = judged(approved, evidence=mm.with_no_regression(mm.VERIFIED, fingerprint=fp))
+        assert kind == "person" and why.startswith(merge.FP_WHY), (fp, why)
+    # and a "worse" sticks to the change of protected code (its patch id, a label only the workflow writes):
+    # a later run that passes does not count
+    pr, commits, files = lists_pr()
+    pid = merge.protected_patch_id(files)
+    assert len(pid) == 12 and pid == merge.protected_patch_id([dict(f, patch=f["patch"].replace("-1 +1,2", "-7 +7,2"))
+                                                               for f in files])
+    assert merge.protected_patch_id([f for f in files if f["filename"].startswith("tests/")]) == ""
+    pr["labels"] = [{"name": merge.STICKY_LABEL % pid}]
+    kind, why = merge.judge(mm.REPO, pr, commits, files, mm.FULL_CHECKS, lambda n: guard.allowed_path(n, False),
+                            review=approved, evidence=EVIDENCE, main_version="1.1.19")
+    assert kind == "person" and why.startswith(merge.STICKY_WHY), why
+    pr["labels"] = [{"name": merge.STICKY_LABEL % ("0" * 12)}]        # another change's: no matter
+    assert merge.judge(mm.REPO, pr, commits, files, mm.FULL_CHECKS, lambda n: guard.allowed_path(n, False),
+                       review=approved, evidence=EVIDENCE, main_version="1.1.19") == ("merge", "")
+    asked = []
+    monkey = merge.gh
+    try:
+        merge.gh = lambda *a, **k: asked.append(a)
+        assert merge.stick(mm.REPO, 7, files) == pid
+    finally:
+        merge.gh = monkey
+    assert asked and asked[0][:3] == ("api", "-X", "POST") and asked[0][-1] == "labels[]=" + merge.STICKY_LABEL % pid
     # a pull request with no AI commit needs no review; ChatGPT's still only waits for the owner
     assert merge.ai_requirements(mm.pr(mm.CAND), [mm.MAINT], mm.CAND_FILES, EVIDENCE, None) == ("merge", "")
     too_big = [dict(f, changes=fg.MAX_LINES + 1) for f in lists_pr()[2]]
