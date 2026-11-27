@@ -49,6 +49,14 @@
 
 ## 1.1.29
 
+- **A common graphics card at Strict and Maximum** (the owner's choice, after
+  Cover Your Tracks on his computer: canvas, WebGL and audio "randomized",
+  yet "unique" in the summary, the card's name "None" counting 1 browser in
+  183, 7.52 bits). Sites are now told one of the cards most used in Steam's
+  hardware survey of October 2026 (RTX 3060, RTX 5070, RTX 4060 Laptop GPU,
+  RTX 4060, RTX 3050), as Chrome on Linux names an NVIDIA card, the same in
+  every frame and worker of a site, another on another site and in another
+  session. The limits and extensions stay the shared ones of 1.1.25.
 - **Sites see a more ordinary Chromium** (the Engine Privacy Layer study,
   measured against Arch's own Chromium of the engine's version, Chrome and
   Brave: docs/review/engine-privacy-study.md on the study's branch). At
