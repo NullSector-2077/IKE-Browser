@@ -360,8 +360,15 @@ like the rest of the noise it cannot resist a script written against it
   connection at all while the saver is off.
 - **The engine's patch lag** depends on Qt and Arch: Chrome fixes arrive in
   `qt6-webengine` some weeks later.
-- **Certificate Transparency, HSTS preload, V8 hardening of Arch's build and
-  the GPU process on real hardware** were not verified (no means here).
+- **Measured in 1.1.29** (docs/review/engine-privacy-study.md, section 10):
+  Arch's build has the same ELF hardening as Chrome (PIE, full RELRO, NX,
+  stack protector, fortify) and the V8 heap sandbox; bad certificates and
+  weak TLS are refused as in Chromium. Two gaps, neither closable with an
+  engine switch: a **revoked certificate opens** (Qt WebEngine has no CRLSet,
+  Chromium's revocation list), and the built-in **HSTS preload list is not
+  applied** (as in Chromium 140 itself, too old for it); I.K.E.'s automatic
+  HTTPS still sends every `http://` page to HTTPS. Certificate Transparency
+  and the GPU process on real hardware were not measurable here.
 - `IKE_ALLOW_UNSAFE_ENGINE=1` exists for tests and special cases: with it the
   user takes protections away on purpose, and the window says so.
 

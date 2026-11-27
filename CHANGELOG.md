@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.1.29
+
+- **Sites see a more ordinary Chromium** (the Engine Privacy Layer study,
+  measured against Arch's own Chromium of the engine's version, Chrome and
+  Brave: docs/review/engine-privacy-study.md on the study's branch). At
+  Balanced and above `window.chrome` is the one Chromium 140 has (`loadTimes`,
+  `csi`, `app`, measured shape: no difference left), `permissions.query`
+  answers as Chromium where Qt WebEngine said "denied" for everything it has
+  no prompt for, and the network a page reads (rtt, downlink) and the network
+  hints are the common ones Strict already showed (Qt said rtt 0). CreepJS
+  already saw I.K.E. as "like headless" no more than Chrome and Brave.
+- **No advertising measurement**: Attribution Reporting and Topics are off in
+  the engine (`ConversionMeasurement`, `BrowsingTopics`; their APIs taken from
+  pages). Qt WebEngine kept an advertiser's attribution source in the profile,
+  where Chromium keeps none, and sent the Topics header.
+- **One language everywhere**: the engine is given the first language sites
+  are told at every level (it was at Maximum only), so shared and service
+  workers, dates and numbers say what the page says (they said "en" where
+  the page said "en-US"). The language header is written as Chrome writes it
+  (`de-DE,de;q=0.9,en-US;q=0.8`; Qt sent the list without weights, which no
+  Chromium does), and at Strict and Maximum it keeps the engine's own place
+  among the headers.
+- **The Octagon: "Common English language"**: sites are told American English,
+  the most common language, at every level; I.K.E.'s own menus keep yours.
+- **The new tab page thinks**: 205 new lines (the owner: "it must seem that
+  I.K.E. really thinks"): 80 thoughts of I.K.E.'s own, 20 tips with real
+  shortcuts, 60 more fun facts, 45 more kind words, in every language.
+- **A lighter toolbar** (the owner): the octagon in the address bar a little
+  smaller and its letter too, so its rim no longer nearly touches the bar's
+  border; the navigation and bookmarks bars a little lower (35 and 30 px
+  instead of 39 and 34 at the usual scale; buttons, icons and the address
+  field keep their size); the bookmarks bar's "more" button shows its two
+  arrows at exactly the Forward arrow's size, touching, as one double arrow.
+- Measured, not changed (the study's security part): Qt WebEngine has no
+  revocation list of Chrome's (a revoked certificate opens), and, as Chrome
+  140, it no longer applies its built-in HSTS preload list; I.K.E.'s own
+  automatic HTTPS (on by default) still sends every `http://` page to HTTPS.
+
 ## 1.1.28
 
 - **The I.K.E. Dark Engine** (the owner's decision): I.K.E.'s own dark mode

@@ -187,8 +187,11 @@
       ["afternoon3", function (c) { return c.p == "afternoon"; }], ["afternoon4", function (c) { return c.p == "afternoon"; }],
       ["evening3", function (c) { return c.p == "evening"; }], ["evening4", function (c) { return c.p == "evening"; }],
       ["night3", function (c) { return c.p == "night"; }], ["night4", function (c) { return c.p == "night"; }]]],
-    ["fact", function (c) { return 2; }, numbered("fact", 30)],
-    ["cheer", function (c) { return 2; }, numbered("cheer", 30)]
+    ["fact", function (c) { return 2; }, numbered("fact", 90)],
+    ["cheer", function (c) { return 2; }, numbered("cheer", 75)],
+    // 1.1.29: I.K.E.'s own thoughts (the owner: "it must seem that I.K.E. really thinks") and tips
+    ["thought", function (c) { return 3; }, numbered("thought", 80)],
+    ["tip", function (c) { return 1; }, numbered("tip", 20)]
   ];
   function groupKeys(g) { return g[2].map(function (m) { return m[0]; }); }
   function allKeys() {
