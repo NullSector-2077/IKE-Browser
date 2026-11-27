@@ -345,6 +345,94 @@
     }
    },
    "runs": 2
+  },
+  "2026-11-27": {
+   "answered": 1,
+   "answered_for": {
+    "automation/update/lists-2026-11-22": 1
+   },
+   "no_provider": 0,
+   "providers": {
+    "Groq": {
+     "by": {
+      "automation/update/lists-2026-11-22": {
+       "requests": 1,
+       "tokens": 6106
+      }
+     },
+     "classes": {
+      "2": {
+       "requests": 1,
+       "tokens": 6106
+      }
+     },
+     "observed": {
+      "requests": {
+       "at": 1795761051,
+       "limit": 1000,
+       "mark": 1,
+       "remaining": 999,
+       "reset": 87,
+       "window": "day"
+      },
+      "tokens": {
+       "at": 1795761051,
+       "limit": 8000,
+       "mark": 6106,
+       "remaining": 3407,
+       "reset": 35,
+       "window": "minute"
+      }
+     },
+     "requests": 1,
+     "spent": "",
+     "tokens": 6106
+    },
+    "OpenRouter": {
+     "account": "free",
+     "by": {
+      "automation/update/lists-2026-11-22": {
+       "requests": 9,
+       "tokens": 217593
+      }
+     },
+     "classes": {
+      "2": {
+       "requests": 9,
+       "tokens": 217593
+      }
+     },
+     "observed": {
+      "requests": {
+       "limit": 50,
+       "mark": 9,
+       "window": "day"
+      }
+     },
+     "requests": 9,
+     "spent": "",
+     "tokens": 217593
+    },
+    "Z.AI": {
+     "by": {
+      "automation/update/lists-2026-11-22": {
+       "requests": 8,
+       "tokens": 168938
+      }
+     },
+     "classes": {
+      "2": {
+       "requests": 8,
+       "tokens": 168938
+      }
+     },
+     "observed": {},
+     "requests": 8,
+     "spent": "",
+     "tokens": 168938
+    }
+   },
+   "runs": 1
   }
  },
  "schema": 1
