@@ -53,7 +53,7 @@ def steps(ike, qapp, out):
     win._apply_toolbar()
     yield 400
     btn = win.nav.widgetForAction(win.act_tb_zoom)
-    out["no_menu"] = [win.act_tb_zoom.menu() is None, [a.text() for a in win.m_zoom.actions()]]
+    out["no_menu"] = [win.act_tb_zoom.menu() is None, [a.text() for a in (win.act_zoom_in, win.act_zoom_out, win.act_zoom_reset)]]
     view = win.current_view()
     yield from load(view, SITE + "/page")
     QTest.mouseClick(btn, Qt.MouseButton.LeftButton)
@@ -112,13 +112,13 @@ def steps(ike, qapp, out):
     out["mark_ends"] = [mx + places[0][1].left() - sx, (mx + places[2][1].right() + 1) - (sx + panel.slider.width())]
     out["mark_texts"] = [t for t, _r in places]
 
-    # the default zoom: the setting of Settings → Appearance; the pages at the old default follow it
+    # the default zoom: the setting of Settings → Web pages; the pages at the old default follow it
     i = panel.default.findData(1.25)
     panel.default.setCurrentIndex(i)
     panel.default.activated.emit(i)
     yield 400
     saved = json.loads(open(ike.config.path, encoding="utf-8").read())["default_zoom"]
-    dlg = win.open_settings("appearance")
+    dlg = win.open_settings("sites")
     yield 300
     out["default"] = [ike.config["default_zoom"], saved, round(view.zoomFactor(), 2), panel.value.text(),
                       round(dlg.zoom.value(), 2), panel.reset.isEnabled()]

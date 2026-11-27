@@ -1034,7 +1034,7 @@ DARK_PDF_JS = ("(function(on){if(document.contentType!=='application/pdf')return
 
 def dark_pdf(view, on, done=None):
     """Dark colours for a PDF shown in the engine's viewer (Settings →
-    Appearance → Show PDFs with dark colours); any other page is left alone."""
+    Web pages → Show PDFs with dark colours); any other page is left alone."""
     try:
         page = view.page()
     except RuntimeError:

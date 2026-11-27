@@ -901,7 +901,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         menu has its own copies of them, with icons, holding the same actions."""
         A = self._action
         WA = QWebEnginePage.WebAction
-        mb = self.menuBar()
         self._build_feature_actions()
 
         def menu(title, ico=None, tip=None, parent=None):
@@ -958,50 +957,29 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_zoom_reset = A(T("Actual size"), lambda: self.zoom(0), "Ctrl+0", "zoom-original",
                                 T("Reset the zoom level"))
 
-        # --- File
-        m_file = mb.addMenu(T("&File"))
-        for a in (self.act_new_tab, self.act_new_window, self.act_new_private):
-            m_file.addAction(a)
-        if not self.private:
-            m_file.addMenu(self.m_containers)
-        m_file.addMenu(self.m_profiles)
-        m_file.addSeparator()
-        m_file.addAction(A(T("Open file…"), self.open_file, "Ctrl+O", "document-open",
-                           T("Open a file from this computer")))
+        # --- the actions that had no name of their own before 1.1.30 (ike/menus.py
+        # places every entry by its name)
+        self.act_open_file = A(T("Open file…"), self.open_file, "Ctrl+O", "document-open",
+                               T("Open a file from this computer"))
         self.act_save_page = A(T("Save page as…"), lambda: self._web(WA.SavePage), "Ctrl+S",
                                "document-save", T("Save the page to disk"))
-        for a in (self.act_save_page, self.act_pdf, self.act_print, self.act_shot):
-            m_file.addAction(a)
-        m_file.addSeparator()
-        for a in (self.act_import, self.act_backup, self.act_restore):
-            m_file.addAction(a)
-        m_file.addSeparator()
-        m_file.addAction(A(T("Close tab"), lambda: self.close_tab(self.current_view()),
-                           "Ctrl+W", ("tab-close", "window-close-symbolic"), T("Close the current tab")))
-        m_file.addAction(A(T("Close window"), self.close, "Ctrl+Shift+W", "window-close",
-                           T("Close this window")))
-        m_file.addAction(self.act_quit)
-
-        # --- Edit
-        m_edit = mb.addMenu(T("&Edit"))
-        for text, wa, ico in ((T("Undo"), WA.Undo, "edit-undo"), (T("Redo"), WA.Redo, "edit-redo"),
-                              (None, None, None),
-                              (T("Cut"), WA.Cut, "edit-cut"), (T("Copy"), WA.Copy, "edit-copy"),
-                              (T("Paste"), WA.Paste, "edit-paste"),
-                              (T("Select all"), WA.SelectAll, "edit-select-all")):
-            if text is None:
-                m_edit.addSeparator()
-                continue
+        self.act_close_tab = A(T("Close tab"), lambda: self.close_tab(self.current_view()),
+                               "Ctrl+W", ("tab-close", "window-close-symbolic"), T("Close the current tab"))
+        self.act_close_window = A(T("Close window"), self.close, "Ctrl+Shift+W", "window-close",
+                                  T("Close this window"))
+        for name, text, wa, ico in (("act_undo", T("Undo"), WA.Undo, "edit-undo"),
+                                    ("act_redo", T("Redo"), WA.Redo, "edit-redo"),
+                                    ("act_cut", T("Cut"), WA.Cut, "edit-cut"),
+                                    ("act_copy", T("Copy"), WA.Copy, "edit-copy"),
+                                    ("act_paste", T("Paste"), WA.Paste, "edit-paste"),
+                                    ("act_select_all", T("Select all"), WA.SelectAll, "edit-select-all")):
             a = QAction(icon(ico), text, self)
             a.triggered.connect(lambda _c=False, w=wa: self._web(w))
-            m_edit.addAction(a)
-        m_edit.addSeparator()
+            setattr(self, name, a)
         self.act_find = A(T("Find in page…"), self.findbar.open_bar, "Ctrl+F", "edit-find",
                           T("Search for text in the current page"))
-        m_edit.addAction(self.act_find)
 
         # --- View
-        m_view = mb.addMenu(T("&View"))
         self.act_vertical = A(T("Vertical tabs"), self._toggle_vertical, "Ctrl+Shift+E",
                               ("view-sidetree", "sidebar-show-symbolic", "view-list-symbolic"),
                               T("Show tabs in a side panel instead of a top bar"),
@@ -1029,31 +1007,17 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.m_dark.addAction(self.act_dark_site)
         self.m_dark.aboutToShow.connect(self._fill_dark_menu)
         # (the toolbar's Dark mode button opens its panel since 1.1.25: show_dark_panel;
-        # the View and ☰ menus keep this menu)
+        # the menus keep this menu)
         self.act_fullscreen = A(T("Full screen"), self.toggle_fullscreen, "F11", "view-fullscreen",
                                 T("Show the page on the whole screen"))
-        # 1.1.24: the page first (its size, how it is shown), then the tabs, then
-        # the window's bars, then the developer's tools
-        for group in ((self.act_zoom_in, self.act_zoom_out, self.act_zoom_reset),
-                      (self.act_fullscreen, self.act_reader, self.m_dark),
-                      (self.act_vertical, self.act_split, self.m_workspaces),
-                      (self.act_menubar, self.act_bookbar, self.act_titlebar, self.act_customise)):
-            for a in group:
-                if isinstance(a, QMenu):
-                    m_view.addMenu(a)
-                else:
-                    m_view.addAction(a)
-            m_view.addSeparator()
-        m_view.addAction(A(T("Page source"), self.view_source, "Ctrl+U",
-                           ("format-text-code", "text-html", "view-source"),
-                           T("Show the HTML source of the page")))
-        m_view.addAction(A(T("Developer tools"), lambda: self.open_devtools(), ["F12", "Ctrl+Shift+I"],
-                           ("tools-report-bug", "bug-symbolic", "utilities-terminal-symbolic"),
-                           T("Inspect the page, network and console")))
+        self.act_source = A(T("Page source"), self.view_source, "Ctrl+U",
+                            ("format-text-code", "text-html", "view-source"),
+                            T("Show the HTML source of the page"))
+        self.act_devtools = A(T("Developer tools"), lambda: self.open_devtools(), ["F12", "Ctrl+Shift+I"],
+                              ("tools-report-bug", "bug-symbolic", "utilities-terminal-symbolic"),
+                              T("Inspect the page, network and console"))
 
         # --- History
-        self.m_history = mb.addMenu(T("Hi&story"))
-        self.m_history.aboutToShow.connect(lambda: self._fill_history(self.m_history))
         self.act_reopen = A(T("Reopen closed tab"), lambda: self.reopen_tab(), "Ctrl+Shift+T", "edit-undo",
                             T("Restore the tab closed most recently"))
         self.m_closed = menu(T("Recently closed tabs"), ("tab-close", "edit-undo", "window-close-symbolic"),
@@ -1065,23 +1029,20 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                            ("edit-clear-history", "edit-clear-all-symbolic", "edit-clear-all"),
                            T("Delete history, cookies and cache"))
         # 1.1.25, the owner's choice: History's last entry clears only the pages visited
-        # (the last hour, today or all); "Clear browsing data…" stays under Protection
+        # (the last hour, today or all); "Clear browsing data…" stays under Privacy
         self.act_clear_recent = A(T("Clear recent history…"), self.app.show_clear_history, None,
                                   ("edit-clear-history", "edit-clear-all-symbolic", "edit-clear-all"),
                                   T("Delete the pages visited in the last hour, today or ever"))
 
         # --- Bookmarks
-        self.m_bookmarks = mb.addMenu(T("&Bookmarks"))
-        self.m_bookmarks.aboutToShow.connect(lambda: self._fill_bookmarks(self.m_bookmarks))
         self.act_bookmark = A(T("Bookmark this page"), self.toggle_bookmark, "Ctrl+D",
                               "bookmark-new", T("Add or remove this page from bookmarks"))
         self.act_bookmarks = A(T("Manage bookmarks"), self.app.show_bookmarks, "Ctrl+Shift+O",
                                ("bookmarks-organize", "document-edit-symbolic", "user-bookmarks-symbolic", "bookmarks"),
                                T("Edit, import and export bookmarks"))
 
-        # --- Protection: the level for every site and the tools of protection
+        # --- Privacy: the level for every site and the tools of protection
         self.level_group = QActionGroup(self)
-        levels = []
         for lv in LEVELS:
             a = QAction(shield_icon(lv, 16), T(LEVEL_NAMES[lv]), self, checkable=True)
             a.setData(lv)
@@ -1089,7 +1050,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             a.setToolTip(T(ShieldPanel.HINTS[lv]))
             a.triggered.connect(lambda _c=False, k=lv: self._set_global_level(k))
             self.level_group.addAction(a)
-            levels.append(a)
         self.act_repair = A(T("Repair this site"), self.repair_site, None,
                             ("tools-wizard", "tools-report-bug", "applications-engineering-symbolic"),
                             T("Find the protection that breaks this page and turn off only that one"))
@@ -1098,21 +1058,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_protection_settings = A(T("Protection settings…"), lambda: self.open_settings("protection"),
                                          None, shield_icon("balanced", 16),
                                          T("Every protection option, with what it does"))
-        protection = (*levels, None, self.act_repair, self.act_permissions, self.act_update_lists,
-                      self.act_clear, None, self.act_protection_settings)
-        m_protection = mb.addMenu(T("&Protection"))
-        # the ☰ menu's copy, with the shield of the current level as its icon
-        self.m_level = menu(T("Protection"), shield_icon("balanced", 16),
-                            T("How much I.K.E. blocks, and the tools to repair or clean a site"))
-        for m in (m_protection, self.m_level):
-            m.setToolTipsVisible(True)
-            # 1.1.25: a real section's name (drawn small and dimmed), not a greyed entry
-            m.addSection(T("Protection level for every site"))
-            for a in protection:
-                if a is None:
-                    m.addSeparator()
-                else:
-                    m.addAction(a)
 
         # --- Extensions: I.K.E.'s own, on and off (ikeextensions.py)
         from . import ikeextensions
@@ -1127,105 +1072,32 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_manage_ext = A(T("Manage extensions…"), lambda: self.open_settings("extensions"),
                                 "Ctrl+Shift+A", ("preferences-plugin", "application-x-addon"),
                                 T("Switch I.K.E.'s own extensions on and off and change their options"))
-        m_ext = mb.addMenu(T("E&xtensions"))
-        self.m_extensions = menu(T("I.K.E. extensions"), ("plugins", "preferences-plugin", "application-x-addon"),
-                                 T("Features of I.K.E. you can switch on and off"))
-        for m in (m_ext, self.m_extensions):
-            m.setToolTipsVisible(True)
-            for a in self.ext_actions.values():
-                m.addAction(a)
-            m.addSeparator()
-            m.addAction(self.act_manage_ext)
 
         # --- Tools
-        m_tools = mb.addMenu(T("&Tools"))
         self.act_command_bar = A(T("Command bar…"), self.open_command_bar, "F2", ("system-search", "edit-find"),
                                  T("Commands, open tabs, bookmarks, history and settings in one search"))
         self.act_mute = A(T("Mute tab"), self.toggle_mute, "Ctrl+Shift+M", "audio-volume-muted",
                           T("Mute or unmute the sound of the current tab"))
         self.act_engines = A(T("Search engines…"), lambda: self.open_settings("search"), None,
                              "edit-find", T("Choose and add search engines"))
-        # 1.1.24: finding, then what you keep (files, logins), then the page and its
-        # sound, then the work of the sites, then what I.K.E. searches with, then Settings
-        for group in ((self.act_command_bar, self.act_search_tabs),
-                      (self.act_downloads, self.act_passwords, self.act_fill_login),
-                      (self.act_translate, self.act_float, self.act_mute),
-                      (self.act_resources, self.act_suspend, self.act_watches),
-                      (self.act_engines, self.act_store),
-                      (self.act_settings,)):
-            if m_tools.actions():
-                m_tools.addSeparator()
-            for a in group:
-                m_tools.addAction(a)
 
         # --- Help
-        m_help = mb.addMenu(T("&Help"))
-        m_help.addAction(A(T("Keyboard shortcuts"), self.show_shortcuts, "F1",
-                           "preferences-desktop-keyboard", T("List the keyboard shortcuts")))
-        m_help.addAction(self.act_check_updates)
-        about_qt = QAction(icon(("help-about", "dialog-information")), T("About Qt"), self)
-        about_qt.triggered.connect(lambda: QMessageBox.aboutQt(self))
-        m_help.addAction(about_qt)
-        for m in (m_file, m_edit, m_view, self.m_history, self.m_bookmarks, m_protection, m_ext,
-                  m_tools, m_help):
-            m.setToolTipsVisible(True)
+        self.act_shortcuts = A(T("Keyboard shortcuts"), self.show_shortcuts, "F1",
+                               "preferences-desktop-keyboard", T("List the keyboard shortcuts"))
+        self.act_about_qt = QAction(icon(("help-about", "dialog-information")), T("About Qt"), self)
+        self.act_about_qt.triggered.connect(lambda: QMessageBox.aboutQt(self))
 
-        def mirror(src, ico, tip):
-            """The ☰ menu's copy of a menu of the menu bar: the same actions, with
-            an icon of its own and its name without the "&" of the menu bar."""
-            m = menu(plain_title(src.title()), ico, tip)
-            for a in src.actions():
-                if a.isSeparator() and a.text():
-                    m.addSection(a.text())
-                elif a.isSeparator():
-                    m.addSeparator()
-                elif a.menu() is not None and a is a.menu().menuAction():
-                    m.addMenu(a.menu())
-                else:
-                    m.addAction(a)
-            return m
-
-        # --- the ☰ menu (1.1.24, the owner's go-ahead: "with criterion and logic"):
-        # new tabs and windows; this page; keep or print it; your library; protection
-        # and extensions; Settings and help; Quit. Every other command is under "More",
-        # in the menus of the menu bar, each with its icon (the menu bar's own have none).
-        burger = QMenu(self)
-        burger.setToolTipsVisible(True)
-        self.m_zoom = menu(T("Zoom"), "zoom-in", T("Make the page larger or smaller"))
-        for a in (self.act_zoom_in, self.act_zoom_out, self.act_zoom_reset):
-            self.m_zoom.addAction(a)
-        # (the toolbar's Zoom button opens its panel since 1.1.25: show_zoom_panel)
-        history = menu(T("History"), ("view-history", "document-open-recent-symbolic"),
-                       T("Pages visited recently, and all the history"))
-        history.aboutToShow.connect(lambda: self._fill_history(history))
-        bookmarks = menu(T("Bookmarks"), ("bookmarks", "user-bookmarks-symbolic"),
-                         T("Your bookmarks, and the bookmarks bar"))
-        bookmarks.aboutToShow.connect(lambda: self._fill_bookmarks(bookmarks))
-        more = menu(T("More"), ("overflow-menu", "application-menu", "view-more-symbolic"),
-                    T("Every other command, as in the menu bar"))
-        self.m_more = more
-        for src, ico in ((m_file, ("document-multiple", "folder-documents", "document-open")),
-                         (m_edit, ("edit-copy", "document-edit", "edit-paste")),
-                         (m_view, ("view-visible", "view-reveal-symbolic", "view-fullscreen")),
-                         (m_tools, ("tools", "applications-utilities", "preferences-other",
-                                    "configure"))):
-            more.addMenu(mirror(src, ico, None))
-        self.m_help_burger = mirror(m_help, ("help-contents", "help-about", "system-help"),
-                                    T("Keyboard shortcuts, updates and the versions of I.K.E."))
-        for group in ((self.act_new_tab, self.act_new_window, self.act_new_private),
-                      (self.act_find, self.m_zoom, self.m_dark, self.act_reader, self.act_translate),
-                      (self.act_print, self.act_pdf, self.act_save_page, self.act_shot),
-                      (history, bookmarks, self.act_downloads),
-                      (self.m_level, self.m_extensions, more),
-                      (self.act_settings, self.m_help_burger),
-                      (self.act_about, self.act_quit)):
-            if burger.actions():
-                burger.addSeparator()
-            for a in group:
-                if isinstance(a, QMenu):
-                    burger.addMenu(a)
-                else:
-                    burger.addAction(a)
+        # --- the menu bar and the ☰ menu (1.1.30, the owner's reorganisation:
+        # ike/menus.py says where each entry goes; no "More" any longer)
+        from . import menus
+        self.menu_skip = {"m_containers"} if self.private else set()     # a private window has no containers
+        self.menubar_menus = menus.build_menubar(self, menu)
+        burger, cats = menus.build_burger(self, menu, shield_icon("balanced", 16))
+        self.burger_menus = cats
+        # the names earlier versions (and their tests) knew the ☰ menu's parts by
+        self.m_level = cats["privacy"]
+        self.m_extensions = cats["extensions"]
+        self.m_help_burger = cats["help"]
         self.burger = burger
         self.menu_btn.setMenu(effects.fading(burger, self.app.config))
 
@@ -2722,8 +2594,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         return self._show_panel("downloads", self._downloads_factory)
 
     def open_dark_settings(self):
-        """Settings → Appearance, at the dark mode of pages."""
-        dlg = self.open_settings("appearance")
+        """Settings → Web pages, at the dark mode of pages."""
+        dlg = self.open_settings("sites")
         target = getattr(dlg, "dark", None)
         if target is None:
             return dlg
@@ -2872,6 +2744,42 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         m.addSeparator()
         for url, title, _folder in self.app.storage.bookmarks()[:40]:
             self._open_action(m, url, title)
+
+    LIBRARY_PAGES = 8        # ☰ → Bookmarks and history: the last pages visited (1.1.30)
+    LIBRARY_MARKS = 12       # and the first bookmarks
+    LIBRARY_CLOSED = 5       # and the tabs closed last
+
+    def _fill_library(self, m):
+        """☰ → Bookmarks and history (1.1.30, the owner's categories): what
+        History and Bookmarks of the menu bar hold, in one menu with no menu
+        inside it: the commands, then the pages visited last, the tabs
+        closed last and the first bookmarks, each under its name."""
+        for a in (self.act_back, self.act_fwd, self.act_home):
+            m.addAction(a)
+        m.addSeparator()
+        for a in (self.act_bookmark, self.act_bookmarks, self.act_bookbar):
+            m.addAction(a)
+        m.addSeparator()
+        for a in (self.act_history, self.act_reopen, self.act_clear_recent):
+            m.addAction(a)
+        pages = self.app.storage.history(limit=self.LIBRARY_PAGES)
+        if pages:
+            m.addSection(T("Recently visited"))
+            for url, title, _last in pages:
+                self._open_action(m, url, title, site=True)
+        n = len(self.closed_tabs)
+        if n:
+            m.addSection(T("Recently closed tabs"))
+            for i in range(n - 1, max(-1, n - 1 - self.LIBRARY_CLOSED), -1):
+                url, title = self.closed_tabs[i]
+                a = self._open_action(m, url, title, site=True)
+                a.triggered.disconnect()
+                a.triggered.connect(lambda _c=False, u=url: self._reopen_url(u))
+        marks = self.app.storage.bookmarks()[:self.LIBRARY_MARKS]
+        if marks:
+            m.addSection(T("Bookmarks"))
+            for url, title, _folder in marks:
+                self._open_action(m, url, title)
 
     def _fill_bookbar(self):
         if self.app.config["bookmarks_bar"] == "never":
