@@ -201,3 +201,65 @@ def hints_for(url):
         if in_list(url, h.get("url", ())):
             out.append({k: v for k, v in h.items() if k != "url"})
     return out
+
+
+# --- the part of a fix's CSS the I.K.E. Dark Engine can use (darkengine.py) ---
+# Dark Reader's fixes are written for Dark Reader's own output. The Dark Engine
+# replaces four of its variables (ENGINE_VARS, as darkengine.js base() does) and
+# the "property: ${colour}" templates; a rule that needs anything else of Dark
+# Reader (its other variables, its attributes in a selector, a template left in
+# a gradient or a shadow) would be broken CSS there and is left out. Generic
+# rules, no site names: a refreshed list is filtered the same way by itself.
+ENGINE_VARS = ("neutral-background", "neutral-text", "selection-background", "selection-text")
+_TEMPLATE = re.compile(r"\$\{[^{}]*\}")
+_ENGINE_VAR = re.compile(r"var\(\s*--darkreader-(?:%s)\s*\)" % "|".join(ENGINE_VARS))
+_PROP_TEMPLATE = re.compile(r"[\w-]+\s*:\s*\$\{[^{}]*\}")
+
+
+def _rules(css):
+    """Top-level blocks of css as (prelude, body) pairs (templates protected)."""
+    out, depth, start, body_start = [], 0, 0, None
+    for i, ch in enumerate(css):
+        if ch == "{":
+            if depth == 0:
+                body_start = i
+            depth += 1
+        elif ch == "}" and depth:
+            depth -= 1
+            if depth == 0:
+                out.append((css[start:body_start].strip(), css[body_start + 1:i]))
+                start = i + 1
+    return out
+
+
+def _engine_rule(prelude, body, restore):
+    prelude, body = restore(prelude), restore(body)
+    if prelude.startswith("@"):
+        inner = engine_css(body)
+        return "%s {\n%s\n}" % (prelude, inner) if inner else ""
+    if "darkreader" in prelude.lower():
+        return ""
+    if "darkreader" in _ENGINE_VAR.sub("", body).lower():
+        return ""
+    if "${" in _PROP_TEMPLATE.sub("", body):
+        return ""
+    return "%s {%s}" % (prelude, body)
+
+
+@lru_cache(maxsize=256)
+def engine_css(css):
+    """The rules of a fix's css that the Dark Engine can use, in their order."""
+    if not css or "{" not in css:
+        return ""
+    # a template's braces are not blocks
+    keep = {}
+
+    def protect(m):
+        keep["\x00%d\x00" % len(keep)] = m.group(0)
+        return "\x00%d\x00" % (len(keep) - 1)
+    def restore(t):
+        for k, v in keep.items():
+            t = t.replace(k, v)
+        return t
+    text = _TEMPLATE.sub(protect, css)
+    return "\n".join(r for r in (_engine_rule(p, b, restore) for p, b in _rules(text)) if r)

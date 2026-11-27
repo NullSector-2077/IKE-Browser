@@ -421,7 +421,7 @@ def steps(ike, qapp, out):
     yield from js(view, """const wrapper = document.createElement('div');
       wrapper.innerHTML = '<link id="other" rel="stylesheet" media="not all" href="__FOREIGN__/red.css">';
       document.body.appendChild(wrapper);""")
-    out["red_rule"] = yield from wait_for_override(view, "rgb(204, 0, 0)")
+    out["red_rule"] = yield from wait_for_override(view, "rgb(173, 0, 0)")
     out["inactive"] = yield from color(view)
     yield from js(view, "document.querySelector('#other').media = 'all'")
     yield 200
@@ -438,7 +438,7 @@ def steps(ike, qapp, out):
                             "shield_level": "maximum"})
     assert out["red_rule"] and out["blue_rule"], out
     assert lightness(out["inactive"]) < 0.3, out
-    assert out["red"] == "rgb(204, 0, 0)", out
+    assert out["red"] == "rgb(173, 0, 0)", out    # red made dark enough for light text on it
     assert out["blue"] == "rgb(0, 0, 204)", out
     assert out["removed"] == out["inactive"], out
 
@@ -575,7 +575,7 @@ def steps(ike, qapp, out):
     assert (out["initial"], out["detached"], out["reattached"]) == (2, 1, 2), out
     assert out["detached_style"] == "white", out
     assert out["persistent_style"] == "rgb(24, 26, 27)", out
-    assert out["attached_style"] == "rgb(24, 26, 27)" and out["updated_style"] == "rgb(204, 0, 0)", out
+    assert out["attached_style"] == "rgb(24, 26, 27)" and out["updated_style"] == "rgb(173, 0, 0)", out
 
 
 def test_authored_link_colors_and_translucent_details_survive(run_ike, site):

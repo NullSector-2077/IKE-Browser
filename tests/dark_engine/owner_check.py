@@ -31,22 +31,44 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 
 SITES = {
+    # reference and documentation
     "wikipedia": "https://en.wikipedia.org/wiki/Arch_Linux",
     "wikipedia-it": "https://it.wikipedia.org/wiki/Arch_Linux",
-    "github": "https://github.com/NullSector-2077/IKE-Browser",
-    "youtube": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
-    "mdn": "https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/color",
-    "hackernews": "https://news.ycombinator.com/",
-    "python-docs": "https://docs.python.org/3/library/re.html",
     "archwiki": "https://wiki.archlinux.org/title/Installation_guide",
+    "mdn": "https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/color",
+    "python-docs": "https://docs.python.org/3/library/re.html",
+    "rust-docs": "https://doc.rust-lang.org/book/ch01-00-getting-started.html",
+    "w3schools": "https://www.w3schools.com/css/css_colors.asp",
+    "gnu": "https://www.gnu.org/software/bash/manual/bash.html",
+    # code and communities
+    "github": "https://github.com/NullSector-2077/IKE-Browser",
+    "gitlab": "https://gitlab.com/gitlab-org/gitlab",
     "stackoverflow": "https://stackoverflow.com/questions/11227809",
+    "hackernews": "https://news.ycombinator.com/",
     "reddit": "https://www.reddit.com/r/archlinux/",
+    "lwn": "https://lwn.net/",
+    "kernel-org": "https://www.kernel.org/",
+    # news and magazines
     "bbc-news": "https://www.bbc.com/news",
-    "guardian": "https://www.theguardian.com/international",
     "repubblica": "https://www.repubblica.it/",
     "corriere": "https://www.corriere.it/",
     "ansa": "https://www.ansa.it/",
+    "ilpost": "https://www.ilpost.it/",
+    "reuters": "https://www.reuters.com/",
+    # shops, services, search
+    "ebay-it": "https://www.ebay.it/",
+    "booking": "https://www.booking.com/",
     "duckduckgo": "https://duckduckgo.com/?q=arch+linux",
+    "startpage": "https://www.startpage.com/",
+    "openstreetmap": "https://www.openstreetmap.org/",
+    "weather": "https://www.ilmeteo.it/",
+    # video and media
+    "youtube": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+    "vimeo": "https://vimeo.com/",
+    # sites that are dark by their own design (to be left as they are)
+    "steam": "https://store.steampowered.com/",
+    "twitch": "https://www.twitch.tv/",
+    "discord": "https://discord.com/",
 }
 EXPECTED_CONTENT = {}
 

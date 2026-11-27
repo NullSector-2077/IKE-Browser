@@ -40,7 +40,9 @@ def wanted(cfg):
 
 
 def _fix(fix):
-    return {"invert": fix.get("invert") or [], "css": fix.get("css") or "",
+    from . import darkfixes
+    # only the CSS rules the engine can use (darkfixes.engine_css)
+    return {"invert": fix.get("invert") or [], "css": darkfixes.engine_css(fix.get("css") or ""),
             "ignoreInline": ",".join(fix.get("ignoreInlineStyle") or []),
             "ignoreImage": fix.get("ignoreImageAnalysis") or [],
             "ignoreSheet": fix.get("ignoreCSSUrl") or []}

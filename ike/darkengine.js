@@ -987,7 +987,10 @@
       (window === window.top ? 'html{background-color:#181a1b!important}' : '') +
       ':where(html,body){color:#e8e6e3;border-color:#736b5e}' +
       ':where(input,textarea,select,button){color:#e8e6e3}:where(a:any-link){color:#3391ff}';
-    var inv = (fix.invert || []).join(',');
+    // one selector the engine cannot read would void the whole list: each is checked
+    var inv = (fix.invert || []).filter(function (sel) {
+      try { document.querySelector(sel); return true; } catch (e) { return false; }
+    }).join(',');
     if (inv) t += inv + '{filter:invert(100%) hue-rotate(180deg)!important}';
     if (fix.css) {
       t += fix.css.replace(/var\(--darkreader-neutral-background\)/g, '#181a1b')
@@ -1035,13 +1038,69 @@
       if (sheet) sheet.disabled = false;
     }
   }
+  // A page built dark without saying so: its own colours are looked at where the
+  // reader sees them. 25 points of the window; at each, the background really
+  // drawn there (the element's and its ancestors' colours, translucent ones
+  // blended, down to the page's canvas). Dark when nearly every point is dark
+  // and the text there reads light. Pictures do not count (a dark photo on a
+  // light page is not a dark page). The engine's own cover is left out.
+  function canvasColor() {
+    var scheme = getComputedStyle(document.documentElement).colorScheme || '';
+    return /^\s*dark\b|only dark/.test(scheme) ? [18, 18, 18, 1] : [255, 255, 255, 1];
+  }
+  function drawnBackground(el, canvas) {
+    var layers = [];
+    for (var x = el; x && x.nodeType === 1; x = x.parentElement) {
+      var c = parse(getComputedStyle(x).backgroundColor);
+      if (c && c[3] > 0) {
+        layers.push(c);
+        if (c[3] >= 0.95) break;
+      }
+    }
+    var out = layers.length && layers[layers.length - 1][3] >= 0.95 ? layers.pop() : canvas;
+    for (var i = layers.length - 1; i >= 0; i--) {
+      var l = layers[i];
+      out = [l[0] * l[3] + out[0] * (1 - l[3]), l[1] * l[3] + out[1] * (1 - l[3]), l[2] * l[3] + out[2] * (1 - l[3]), 1];
+    }
+    return out;
+  }
+  function looksDark() {
+    if (!document.body || innerWidth < 8 || innerHeight < 8) return false;
+    var sheet = baseSheet || (baseEl && baseEl.sheet);
+    if (sheet) sheet.disabled = true;
+    try {
+      var canvas = canvasColor(), dark = 0, seen = 0, w = innerWidth, h = innerHeight;
+      // a frame shows its parent through a transparent canvas: only an opaque one counts
+      if (window !== window.top) {
+        var own = drawnBackground(document.body, [0, 0, 0, 0]);
+        if (own[3] < 0.95) return false;
+      }
+      for (var iy = 0; iy < 5; iy++) {
+        for (var ix = 0; ix < 5; ix++) {
+          var el = document.elementFromPoint((ix + 0.5) * w / 5, (iy + 0.5) * h / 5);
+          if (!el || el.tagName === 'IMG' || el.tagName === 'VIDEO' || el.tagName === 'CANVAS') continue;
+          var bg = drawnBackground(el, canvas), lb = lum(bg);
+          seen++;
+          if (lb >= 0.2) continue;
+          var fg = parse(getComputedStyle(el).color);
+          if (fg && fg[3] > 0.3 && contrast(fg, bg, lb) < 3) continue;     // dark text on dark: not a theme
+          dark++;
+        }
+      }
+      return seen >= 8 && dark >= 0.85 * seen;
+    } catch (e) {
+      return false;
+    } finally {
+      if (sheet) sheet.disabled = false;
+    }
+  }
   function isDarkAlready() {
     if (document.querySelector('meta[name="darkreader-lock"]')) return true;
     if (siteFix.chosen) return false;
     var m = document.querySelector('meta[name="color-scheme"]');
     if (m && /^\s*(?:only\s+dark|dark(?:\s+only)?)\s*$/i.test(m.content)) return true;
     var hint = fix.hint;
-    if (!hint) return window === window.top && darkPalette();
+    if (!hint) return (window === window.top && darkPalette()) || looksDark();
     if (hint.noDarkTheme || (window !== window.top && !hint.iframe)) return false;
     if (hint.systemTheme && matchMedia('(prefers-color-scheme: dark)').matches) return true;
     if (!hint.target || !hint.match || !hint.match.length) return false;
@@ -1087,7 +1146,8 @@
       var root = document.documentElement;
       var meta = document.querySelector('meta[name="color-scheme"]');
       observer.observe(document, { childList: true });
-      if (root) observer.observe(root, { childList: true, attributes: true, attributeFilter: ['data-theme'] });
+      if (root) observer.observe(root, { childList: true, attributes: true, attributeFilter: ['data-theme', 'class', 'style'] });
+      if (document.body) observer.observe(document.body, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] });
       if (document.head) observer.observe(document.head, { childList: true });
       if (meta) observer.observe(meta, { attributes: true, attributeFilter: ['content', 'name'] });
       if (!fix.hint || !fix.hint.target) return;
@@ -1221,8 +1281,26 @@
     wait = new MutationObserver(function () { if (start()) wait.disconnect(); });
     wait.observe(document, { childList: true });
   }
+  // style sheets of the page still loading: the page is judged once they are
+  // there (at most 1.5 s; the dark cover stays meanwhile)
+  function sheetsPending() {
+    var links = document.querySelectorAll('link[rel~="stylesheet"]');
+    for (var i = 0; i < links.length; i++) {
+      var l = links[i];
+      if (!l.sheet && !l.disabled && (!l.media || matchMedia(l.media).matches) && !l.__ikeDEFailed) return l;
+    }
+    return null;
+  }
+  var readyWait = 0;
   function ready() {
     if (off || ready.done) return;
+    var pend = sheetsPending();
+    if (pend && readyWait < 15) {
+      readyWait++;
+      pend.addEventListener('error', function () { this.__ikeDEFailed = true; }, { once: true });
+      setTimeout(ready, 100);
+      return;
+    }
     if (wait) wait.disconnect();
     start();
     if (isDarkAlready()) { waitForLightTheme(); return; }
