@@ -1,0 +1,4 @@
+{
+  "about": "The page interfaces the engine renamed (round 7 of \"Nothing gets worse\", 2026-11-25): written from the comparison of the engine's old and new interfaces by AUTOMAT's recipes, never by an AI's fix (tier B). The static guard (tools/fix-guard.py) accepts a new wrap of a property the old script already protects only as a copy of one of its old calls with exactly these names changed, nothing else. Each entry: {\"from\": old name, \"to\": new name, \"why\": the engine's change}.",
+  "renames": []
+}

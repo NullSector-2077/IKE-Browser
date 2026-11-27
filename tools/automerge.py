@@ -1134,21 +1134,56 @@ def _hours_since(stamp):
     return (datetime.datetime.now(datetime.timezone.utc) - then).total_seconds() / 3600
 
 
+# N5 of the fourth review of "Nothing gets worse" (2026-11-24): a fingerprinting value that is not the same
+# or stricter on an AI's change (changed, passed by evidence or by the allowlist) needs a person; tests.yml
+# restates the step in the job "tests" only when it passed there
+FP_UNCHANGED_AT = ("tests.yml", "tests", "Fingerprinting unchanged")
+FP_WHY = "a fingerprinting value changed on an AI's change (not the same, not stricter: \"Fingerprinting unchanged\")"
+# a "worse" of "Nothing gets worse" sticks to the change of protected code it was found on (its patch id): a
+# later run that passes, by chance or by a run again, does not count (N5)
+STICKY_LABEL = "nothing-gets-worse:%s"
+STICKY_WHY = "\"Nothing gets worse\" found this very change of protected code weaker before"
+
+
+def step_result(evidence, where):
+    """The conclusion of a step (or of a job, step None) of a run of the commit, or ""."""
+    workflow, job, step = where
+    run = ((evidence or {}).get("runs") or {}).get(workflow) or {}
+    j = (run.get("jobs") or {}).get(job) or {}
+    return ((j.get("steps") or {}).get(step) if step else j.get("conclusion")) or ""
+
+
+def protected_patch_id(files):
+    """The patch id of the protected (tier-A) files of a change: a digest of their added and removed lines
+    with the hunks' line numbers left out (the same change on another base, or rebased, has the same id);
+    "" when the change touches none."""
+    import hashlib
+    fg = _fix_guard()
+    h, any_file = hashlib.sha256(), False
+    for f in sorted(files or (), key=lambda f: f.get("filename", "")):
+        name = f.get("filename", "")
+        if fg.tier(name) != "A":
+            continue
+        any_file = True
+        h.update(("\0%s\0" % name).encode())
+        for line in str(f.get("patch") or "").split("\n"):
+            if line.startswith(("+", "-")) and not line.startswith(("+++", "---")):
+                h.update((line[0] + line[1:].strip() + "\n").encode())
+    return h.hexdigest()[:12] if any_file else ""
+
+
 def no_regression(evidence):
     """(state, detail) of the differential check on the commit: "passed", "failed" or "not verified"
     (not run there, skipped, still running, or not in main yet). Read at the place
     tools/test-categories.py gives the category, else at the step of tests.yml."""
     where = (_tool("test-categories").CATEGORIES.get(NO_REGRESSION) or (None, NO_REGRESSION_AT))[1]
-    workflow, job, step = where
-    run = ((evidence or {}).get("runs") or {}).get(workflow) or {}
-    j = (run.get("jobs") or {}).get(job) or {}
-    result = ((j.get("steps") or {}).get(step) if step else j.get("conclusion")) or ""
+    result = step_result(evidence, where)
     if result == "success":
         return "passed", "the step passed"
     if result in ("failure", "timed_out"):
         return "failed", "the step failed"
     return "not verified", ("the step \"%s\" has no result on this commit%s" % (
-        step or job, ": " + result if result else ""))
+        where[2] or where[1], ": " + result if result else ""))
 
 
 def ai_commits(commits):
@@ -1250,6 +1285,14 @@ def ai_requirements(pr, commits, files, evidence, review, sha_of=None, tier_b=Fa
                                                                                   detail)
         if state != "passed":
             return "person", "%s (%s): %s" % (STRICT_WHY, ", ".join(gated), detail)
+    pid = protected_patch_id(mine)
+    labels = {(x.get("name") if isinstance(x, dict) else str(x)) for x in pr.get("labels") or ()}
+    if pid and STICKY_LABEL % pid in labels:
+        return "person", "%s (%s): a later run that passes does not count" % (STICKY_WHY, STICKY_LABEL % pid)
+    fp = step_result(evidence, FP_UNCHANGED_AT)
+    if fp != "success":
+        return "person", "%s: the step %s; a person reads the rows in the run's report" % (
+            FP_WHY, "did not pass" if fp in ("", "skipped") else fp)
     if review is None or not isinstance(review.get("result"), dict):
         return "wait", NO_REVIEW
     result = review["result"]
@@ -1579,6 +1622,22 @@ def commit_files(repo, commits):
         except (RuntimeError, ValueError, KeyError):
             c["files"] = None
     return commits
+
+
+def stick(repo, n, files):
+    """N5: the patch id of the AI's change of protected code, as a label of the pull request, so a later run
+    of "Nothing gets worse" that passes on the same change does not count (ai_requirements). Only the
+    workflow's token writes it; a person removes it to let the change be judged again."""
+    pid = protected_patch_id(files)
+    if not pid:
+        return ""
+    try:
+        gh("api", "-X", "POST", "repos/%s/issues/%d/labels" % (repo, n), "-f", "labels[]=" + STICKY_LABEL % pid)
+    except RuntimeError as e:
+        print("#%d: the label %s could not be added: %s" % (n, STICKY_LABEL % pid, str(e)[:200]))
+        return ""
+    print("#%d: %s (%s)" % (n, STICKY_WHY, STICKY_LABEL % pid))
+    return pid
 
 
 def gather_evidence(repo, sha):
@@ -2042,6 +2101,8 @@ def main(argv=None):
         if not verified:
             tell_person(a.repo, n, why, a.repo.split("/")[0], a.sha)      # ChatGPT's: it waits for the owner
             return 0
+        if has_ai and why.startswith(NO_REGRESSION + " failed"):
+            stick(a.repo, n, files)
         step = follow(a.repo, pr, a.sha, why, next_step(why, ref, has_ai))
         print("#%d (%s): next: %s" % (n, ref, step))
         return 0
