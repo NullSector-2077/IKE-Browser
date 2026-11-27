@@ -22,6 +22,9 @@ BEFORE = json.loads((Path(__file__).parent / "data" / "ui-inventory-before.json"
 
 # the old ☰ menu's own submenus: their entries are now in its categories
 GONE_MENUS = {"More", "File", "Edit", "View", "Tools", "History", "Bookmarks", "Protection", "Zoom"}
+# choices taken out on purpose in 1.1.29 itself (the owner: Dark Reader left
+# I.K.E., the I.K.E. Dark Engine is the dark mode for pages)
+GONE_CHOICES = {"Dark Reader (can be set per site, immediate)"}
 # the one-line descriptions of the pages that were split (new ones replace them)
 GONE_ABOUTS = {
     "Colours, icons, tabs, toolbar and the dark mode of pages.",
@@ -93,8 +96,13 @@ def test_nothing_reachable_was_lost(run_ike):
     assert texts_before - texts_after <= GONE_MENUS, sorted(texts_before - texts_after)
     # the same keys on the same commands
     assert _shortcuts(after) == _shortcuts(BEFORE)
-    # every option of Settings is still there
-    items = [{json.dumps(i) for p in inv["settings"] for i in p["items"]} for inv in (BEFORE, after)]
+    # every option of Settings is still there (but the choices the owner took out
+    # on purpose in the same version: GONE_CHOICES)
+    def choices_kept(i):
+        if i[0] == "choice":
+            return ["choice", sorted(c for c in i[1] if c not in GONE_CHOICES)]     # (their order may change)
+        return i
+    items = [{json.dumps(choices_kept(i)) for p in inv["settings"] for i in p["items"]} for inv in (BEFORE, after)]
     lost = {json.loads(i)[1] if json.loads(i)[0] == "label" else i for i in items[0] - items[1]}
     assert lost <= GONE_ABOUTS, sorted(lost - GONE_ABOUTS)
     assert after["extensions"] == BEFORE["extensions"]
