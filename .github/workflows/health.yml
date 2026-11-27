@@ -99,6 +99,11 @@ jobs:
           code = os.environ["CODE"] if re.fullmatch(r"\d{3}", os.environ["CODE"]) else ""
           expires = re.sub(r"[^0-9A-Za-z :+-]", "", os.environ["EXPIRES"])[:40]
           print(json.dumps({"status": code, "expires": expires}))' > "$out"
+      # AUTOMAT's weekly scoreboard (2026-11-27): a few numbers, in Italian, in one issue edited every week
+      - name: AUTOMAT's weekly scoreboard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -I tools/automat-scoreboard.py --repo "$GITHUB_REPOSITORY" || echo "::warning::the scoreboard stopped"
       - name: Check the automation
         env:
           TOKEN_CHECK: ${{ runner.temp }}/workflow-token.json
