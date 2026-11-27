@@ -25,7 +25,7 @@
 - The hidden switch of the experiment (`dark_engine_experiment`) becomes the
   choice in Settings by itself.
 
-## 1.1.27
+### Also in this release: 1.1.27 (never published on its own)
 
 - I.K.E. has a new Breeze octagonal logo, dedicated icons for small sizes and
   the new wordmark on frosted glass over the local 4K WebP Earth background on
