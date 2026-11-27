@@ -280,9 +280,18 @@ def main():
             s.setWorldId(QWebEngineScript.ScriptWorldId.ApplicationWorld)
             s.setRunsOnSubFrames(False)
             prof.scripts().insert(s)
-            if mode == "proto":
+            if mode.startswith("proto"):
                 from ike import darkengine
-                darkengine.install(prof)
+                # DE_JS_<mode>=file: a variant of darkengine.js for that mode (A/B of a change)
+                variant = os.environ.get("DE_JS_" + mode)
+                if variant:
+                    from ike import darkfixes
+                    common = json.dumps(darkengine._fix(darkfixes.common_fix()))
+                    src = Path(variant).read_text("utf-8").replace("__IKE_DE_COMMON__", common)
+                    prof.scripts().insert(darkengine._script(darkengine._NAME, src))
+                    darkengine._state[id(prof)] = {"sites": {}, "order": []}
+                else:
+                    darkengine.install(prof)
             profiles[mode] = (prof, guard, log)
         return profiles[mode]
 
@@ -304,7 +313,7 @@ def main():
             from ike import darkpages
             darkpages.prepare(prof, orig, "127.0.0.1" if not a.live else QUrl(orig).host(),
                               {"brightness": 100, "contrast": 100, "sepia": 0}, True, False)
-        if mode == "proto":
+        if mode.startswith("proto"):
             from ike import darkengine
             darkengine.site(prof, orig, "127.0.0.1" if not a.live else QUrl(orig).host())
         view = QWebEngineView()
@@ -346,7 +355,7 @@ def main():
                     def stats(e):
                         print("bench", mode, round(v, 1), "engine:", e, flush=True)
                         next_job()
-                    if mode == "proto":
+                    if mode.startswith("proto"):
                         page.runJavaScript("JSON.stringify(window.__ikeDEStats||null)", 1, stats)
                     else:
                         stats(None)
@@ -363,6 +372,9 @@ def main():
                     return
                 results["speedometer"][mode] = v
                 print("speedometer", mode, v, flush=True)
+                # a profiling variant of the engine (DE_JS_<mode>) may sum its time in the top window
+                page.runJavaScript("JSON.stringify(window.__ikeDEProf||null)", 1,
+                                   lambda p: p and p != "null" and print("profile", mode, p, flush=True))
                 view.grab().toImage().save(str(out / ("speedometer__%s.png" % mode)))
                 next_job()
             page.runJavaScript("(function(){var e=document.querySelector('#result-number');"
@@ -392,7 +404,7 @@ def main():
                     (out / ("%s__%s.json" % (name, mode))).write_text(json.dumps(d))
                     print("shot", mode, name, "engine:", v, flush=True)
                     next_job()
-                if mode == "proto":
+                if mode.startswith("proto"):
                     page.runJavaScript("JSON.stringify(window.__ikeDEStats||null)", 1, lambda v: stats(json.loads(v or "null")))
                 else:
                     stats(None)

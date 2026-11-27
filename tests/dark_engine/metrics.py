@@ -183,6 +183,10 @@ def analyse(d, page, mode, base, ref_dr):
     return res
 
 
+LABELS = {"off": "without dark mode", "dr": "Dark Reader", "native": "engine's own dark mode",
+          "proto": "I.K.E. Dark Engine"}
+
+
 def side_by_side(d, page, modes, out):
     from PIL import ImageDraw
     ims = [Image.open(d / ("%s__%s.png" % (page, m))).convert("RGB") for m in modes]
@@ -190,7 +194,7 @@ def side_by_side(d, page, modes, out):
     sheet = Image.new("RGB", (w * len(ims) // 2, h // 2 + 24), (40, 40, 40))
     for i, (m, im) in enumerate(zip(modes, ims)):
         sheet.paste(im.resize((w // 2, h // 2)), (i * w // 2, 24))
-        ImageDraw.Draw(sheet).text((i * w // 2 + 8, 6), m, fill=(255, 255, 255))
+        ImageDraw.Draw(sheet).text((i * w // 2 + 8, 6), LABELS.get(m, m), fill=(255, 255, 255))
     out.mkdir(parents=True, exist_ok=True)
     sheet.save(out / ("%s.png" % page))
 
