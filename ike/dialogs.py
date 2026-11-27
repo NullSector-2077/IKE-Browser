@@ -540,7 +540,7 @@ class _NavDelegate(QStyledItemDelegate):
             super().paint(painter, option, index)
             return
         head = self.head_height(option.font)
-        r = QRect(option.rect.left() + 6, option.rect.top(), option.rect.width() - 10, head - 2)
+        r = QRect(option.rect.left() + 6, option.rect.top(), option.rect.width() - 12, head - 2)
         painter.save()
         painter.setFont(self.head_font(option.font))
         colour = option.palette.color(QPalette.ColorRole.WindowText)
@@ -1836,7 +1836,9 @@ class SettingsDialog(QDialog):
         pic.setPixmap(ikeextensions.icon(e).pixmap(QSize(28, 28), self.devicePixelRatioF()))
         pic.setFixedSize(34, 34)
         pic.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        row.addWidget(pic, 0, Qt.AlignmentFlag.AlignTop)
+        # 1.1.30 (the owner): the icon and the name on one line, in the middle of
+        # the card's height (the name was at its top, above the icon's middle)
+        row.addWidget(pic, 0, Qt.AlignmentFlag.AlignVCenter)
         text = QVBoxLayout()
         text.setSpacing(1)
         name = _WrapLabel(T(e.name))
@@ -1844,7 +1846,9 @@ class SettingsDialog(QDialog):
         f.setBold(True)
         name.setFont(f)
         name.setWordWrap(True)
+        text.addStretch(1)
         text.addLayout(_info_row(name, T(e.description)))
+        text.addStretch(1)
         row.addLayout(text, 1)
         if e.options:
             b = QPushButton(T("Options…"))

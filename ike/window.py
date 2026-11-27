@@ -1057,7 +1057,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                   "view-refresh", T("Download the latest blocking rules"))
         self.act_protection_settings = A(T("Protection settings…"), lambda: self.open_settings("protection"),
                                          None, shield_icon("balanced", 16),
-                                         T("Every protection option, with what it does"))
+                                         T("How much I.K.E. protects you: the level, the connections and the warnings."))
 
         # --- Extensions: I.K.E.'s own, on and off (ikeextensions.py)
         from . import ikeextensions
@@ -2745,9 +2745,12 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         for url, title, _folder in self.app.storage.bookmarks()[:40]:
             self._open_action(m, url, title)
 
-    LIBRARY_PAGES = 8        # ☰ → Bookmarks and history: the last pages visited (1.1.30)
-    LIBRARY_MARKS = 12       # and the first bookmarks
-    LIBRARY_CLOSED = 5       # and the tabs closed last
+    # ☰ → Bookmarks and history (1.1.30): as many pages and closed tabs as the
+    # menu bar's History (the ☰ menu's History of before), and the first bookmarks
+    # (all of them: the menu bar's Bookmarks, the bookmarks bar, Manage bookmarks)
+    LIBRARY_PAGES = HISTORY_SHOWN
+    LIBRARY_MARKS = 20
+    LIBRARY_CLOSED = CLOSED_SHOWN
 
     def _fill_library(self, m):
         """☰ → Bookmarks and history (1.1.30, the owner's categories): what
@@ -2760,7 +2763,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         for a in (self.act_bookmark, self.act_bookmarks, self.act_bookbar):
             m.addAction(a)
         m.addSeparator()
-        for a in (self.act_history, self.act_reopen, self.act_clear_recent):
+        for a in (self.act_history, self.act_clear_recent):        # (Reopen: ☰ → Tabs and windows)
             m.addAction(a)
         pages = self.app.storage.history(limit=self.LIBRARY_PAGES)
         if pages:

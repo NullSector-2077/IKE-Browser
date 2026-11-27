@@ -188,7 +188,8 @@ def _add(win, m, entry, burger):
                 c.setCheckable(a.isCheckable())
                 c.setChecked(a.isChecked())
                 c.setEnabled(a.isEnabled())
-                c.setToolTip(a.toolTip())
+                if a.toolTip() != a.text():         # (Qt gives its text as the tooltip otherwise)
+                    c.setToolTip(a.toolTip())
                 c.triggered.connect(lambda _c=False, a=a: a.trigger())
                 a = c
             m.addAction(a)

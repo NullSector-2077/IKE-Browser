@@ -721,7 +721,7 @@ class IkeStyle(QProxyStyle):
             if opt.menuItemType == QStyleOptionMenuItem.MenuItemType.SubMenu:
                 # 1.1.24: room between the text and the arrow of a submenu. KDE's
                 # Breeze leaves 3 px or less, so the longest name of a menu without
-                # shortcuts touched its arrow (☰ → More → View, Tools); half a line
+                # shortcuts touched its arrow (1.1.24's ☰ → More → View, Tools); half a line
                 # more, in every style: a menu is only wider when such a name is its longest
                 room += max(4, opt.fontMetrics.height() // 2)
             if room:

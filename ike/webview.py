@@ -841,7 +841,7 @@ class WebView(QWebEngineView):
     GESTURES = {"L": "back", "R": "forward", "U": "reload", "DR": "close"}
 
     def _wheel(self, event):
-        """Ctrl + wheel: the zoom steps of the View menu, remembered for the site."""
+        """Ctrl + wheel: the zoom steps of the Page menu, remembered for the site."""
         if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
             return False
         self._wheel_sum = getattr(self, "_wheel_sum", 0) + event.angleDelta().y()

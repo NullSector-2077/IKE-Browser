@@ -194,6 +194,18 @@ def steps(ike, qapp, out):
     cards = [(c.property("ext"), c.mapTo(page, c.rect().topLeft()).y()) for c in page.findChildren(QFrame)
              if c.objectName() == "ike_ext_card"]
     out["ext_cards"] = [k for k, _y in sorted(cards, key=lambda c: c[1])]
+    # each card's icon and its bold name on one line (the owner, 1.1.30)
+    from PyQt6.QtWidgets import QLabel
+    dlg.show_page("extensions")
+    yield 300
+    off = {}
+    for c in page.findChildren(QFrame):
+        if c.objectName() == "ike_ext_card":
+            pic = [x for x in c.findChildren(QLabel) if x.pixmap() is not None and not x.pixmap().isNull()][0]
+            name = [x for x in c.findChildren(QLabel) if x.text()][0]
+            off[c.property("ext")] = abs(pic.mapTo(c, pic.rect().center()).y()
+                                         - name.mapTo(c, name.rect().center()).y())
+    out["ext_aligned"] = off
     # applying without changing anything changes no setting
     before = json.dumps(ike.config.data, sort_keys=True, default=str)
     dlg.apply()
@@ -245,6 +257,7 @@ def test_links_search_extensions_and_settings_kept(run_ike, tmp_path):
     assert set(f["Privacy and security"]) >= {"protection", "blocker", "privacy", "permissions"}
     assert out["ext_heads"] == ["privacy", "browsing", "media", "productivity", "system"]
     assert out["ext_cards"] == [i for c in out["by_category"].values() for i in c]
+    assert max(out["ext_aligned"].values()) <= 2, out["ext_aligned"]
     assert out["kept"], out.get("changed")
     assert out["spec_titles"] == ["&File", "&Edit", "T&abs", "&Page", "&View", "Hi&story", "&Bookmarks",
                                   "P&rivacy", "E&xtensions", "&Tools", "&Help"]

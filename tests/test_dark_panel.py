@@ -433,7 +433,7 @@ def test_the_panel_in_the_browser(run_ike, site):
     assert note[0] is True and note[1] == T("The sliders work with Dark Reader"), note
     assert note[2:7] == [False, False, False, False, False], note
     assert note[7:] == [True, True, True], note
-    assert out["settings"] == [False, True, "appearance", True], out["settings"]
+    assert out["settings"] == [False, True, "sites", True], out["settings"]
 
 
 TWO_TABS = JS + r'''

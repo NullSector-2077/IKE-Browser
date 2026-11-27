@@ -229,7 +229,7 @@ def steps(ike, qapp, out):
     lib.aboutToShow.emit()
     res["lib"] = [["section" if a.isSeparator() and a.text() else "separator" if a.isSeparator() else "entry",
                    a.text()] for a in lib.actions()]
-    res["lib_acts"] = [a in lib.actions() for a in (win.act_back, win.act_fwd, win.act_home, win.act_reopen,
+    res["lib_acts"] = [a in lib.actions() for a in (win.act_back, win.act_fwd, win.act_home,
                                                     win.act_history, win.act_clear_recent, win.act_bookmark,
                                                     win.act_bookmarks)]
     res["keys"] = [win.act_history.shortcut().toString(), win.act_reopen.shortcut().toString(),
@@ -284,7 +284,7 @@ def test_history_menu_by_day_with_the_site(run_ike):
     assert sections == ["Recently visited", "Recently closed tabs"], sections
     i = lib.index(["section", "Recently visited"])
     visited = lib[i + 1:lib.index(["section", "Recently closed tabs"])]
-    assert [r[1].split("\t")[0] for r in visited][:1] == ["Page A"] and len(visited) == 8
+    assert [r[1].split("\t")[0] for r in visited][:1] == ["Page A"] and len(visited) == 15
     assert lib[-1] == ["entry", "Closed tab\tclosed.example"]
     assert out["keys"] == ["Ctrl+H", "Ctrl+Shift+T", "Alt+Left"]
     assert out["clear_data_in_protection"]
