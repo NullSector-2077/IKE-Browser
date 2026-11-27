@@ -44,7 +44,7 @@ window.parsed_ = (function () {
   var x = c.getContext('2d');
   x.textBaseline = 'top'; x.font = '16px sans-serif'; x.fillStyle = '#f60'; x.fillRect(5, 5, 100, 20);
   x.fillStyle = '#069'; x.fillText('I.K.E. traces', 2, 10);
-  return c.toDataURL();
+  return x.getImageData(0, 0, 200, 40).data.join();     // the pixels read (1.1.27: every export varies)
 })();
 </script><script>
 function hash(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); }
@@ -53,7 +53,7 @@ function canvasHash(doc) {
   var x = c.getContext('2d');
   x.textBaseline = 'top'; x.font = '16px sans-serif'; x.fillStyle = '#f60'; x.fillRect(5, 5, 100, 20);
   x.fillStyle = '#069'; x.fillText('I.K.E. traces', 2, 10);
-  return hash(c.toDataURL());
+  return hash(x.getImageData(0, 0, 200, 40).data.join());   // the pixels read (1.1.27: every export varies)
 }
 window.traces = function () {
   var r = {};

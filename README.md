@@ -80,8 +80,9 @@ profiles: `ike-browser --profile NAME`.
   number, today 140.0.0.0, in pages, workers and request headers), with the
   engine's own brand list (Chromium) and no kernel version, the same in every
   kind of worker. One
-  exception, on by default: Google's sign-in page sees Firefox, because Google
-  refuses sign-in from embedded Chromium (Settings → Protection).
+  exception, on by default: Google's sites (and a Google sign-in inside another
+  site) see a current Firefox, because Google refuses sign-in from Qt
+  WebEngine's Chromium; the protections stay on there (Settings → Protection).
 - Automatic HTTPS, optional encrypted DNS (DNS over HTTPS, off by default),
   third-party cookies blocked from Balanced up, reduced referrer, Global
   Privacy Control.

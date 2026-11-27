@@ -5,8 +5,8 @@ Cover Your Tracks draws its canvas twice in a page and calls the fingerprint
 Since 1.1.20 the noise was the same for every read of a site (so that
 averaging many reads cannot remove it), and Cover Your Tracks showed a
 "unique" fingerprint, though it was a new one in every session and on every
-site. Now an export (toDataURL, toBlob, convertToBlob) adds a varying part on
-top of the site's noise:
+site. Now an export (toDataURL, toBlob, convertToBlob, in pages and workers)
+adds a varying part on top of the site's noise:
 
 - two exports of the same drawing differ, at Balanced and at Strict;
 - the majority of many exports is the picture with the site's noise (what
@@ -80,6 +80,16 @@ window.run = async function () {
       ok(Array.from(new Uint8Array(a)).join()); }); }); });
   }));
   r.blobsDiffer = blobs[0] !== blobs[1];
+  // in a worker: two convertToBlob of one drawing
+  var src = "var c = new OffscreenCanvas(300, 50), x = c.getContext('2d'); x.fillStyle = '#fff'; " +
+    "x.fillRect(0, 0, 300, 50); x.fillStyle = '#069'; x.font = '18px sans-serif'; x.fillText('Cwm fjordbank', 2, 30); " +
+    "Promise.all([c.convertToBlob(), c.convertToBlob()]).then(function (b) { return Promise.all(b.map(function (q) { " +
+    "return q.arrayBuffer(); })); }).then(function (a) { postMessage(Array.from(new Uint8Array(a[0])).join() !== " +
+    "Array.from(new Uint8Array(a[1])).join()); });";
+  r.workerDiffer = await new Promise(function (ok) {
+    var wk = new Worker(URL.createObjectURL(new Blob([src], {type: 'text/javascript'})));
+    wk.onmessage = function (e) { ok(e.data); };
+  });
   window.result = JSON.stringify(r);
 };
 run();
@@ -132,7 +142,7 @@ def test_every_export_varies_and_averaging_gains_nothing(run_ike, site, level):
     assert "error" not in out, out.get("error")
     r = json.loads(out["r"])
     assert r["twoDiffer"] and r["distinct"] >= 14, r       # Cover Your Tracks: "randomized"
-    assert r["blobsDiffer"], r
+    assert r["blobsDiffer"] and r["workerDiffer"], r
     assert r["readsSame"], r                               # getImageData as before
     assert r["majorityIsNoised"], r                        # many exports give the site's noise back
     assert r["worst"] <= 1, r                              # the lowest bit only
@@ -144,3 +154,4 @@ def test_nothing_changes_with_the_shield_off(run_ike, site):
     out = run_ike(STEPS % site, settings={"shield_level": "off"}, timeout=120)
     r = json.loads(out["r"])
     assert not r["twoDiffer"] and r["distinct"] == 1 and r["plainSame"] and r["worst"] == 0, r
+    assert not r["blobsDiffer"] and not r["workerDiffer"], r

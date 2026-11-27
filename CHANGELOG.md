@@ -7,6 +7,51 @@
 - The protection control now shows a hexagon with a centred count. Reload
   precedes Home, bookmarks overflow uses two Forward arrows, the page-mode
   button shows a sun or a moon, and About I.K.E. sits above Quit.
+- **Google's sites see a current Firefox, with the protections on** (the
+  owner's decision). Google's sign-in kept refusing I.K.E. now and then ("this
+  browser may not be secure"), and AI Studio's API key page did not work: Google
+  takes Qt WebEngine's Chromium, some versions behind, for an embedded program
+  or a bot. Until 1.1.26 only accounts.google.com was given a Firefox, a fixed
+  Firefox 140 more than a year old, while the engine's client hints in the very
+  same request still said `"Chromium";v="140"`; and Google's sensitive
+  services (AI Studio, the cloud console, the account, payments) were left with
+  no protection at all instead. Now every request and every frame of a page of
+  Google's sites (google.com and its services, Google's search in every
+  country, gstatic.com, googleapis.com...; YouTube is not one of them), a
+  Google sign-in embedded in another site ("Sign in with Google") and what it
+  loads present the Firefox of the calendar (161 today, estimated from the
+  date, nothing fetched; never ahead of a real release): in the header, with
+  the engine's client hints sent empty (Qt can only set a header, not take it
+  away), and in JavaScript in every frame (Firefox's navigator texts, `oscpu`
+  and `buildID`, no `navigator.userAgentData`, no `window.chrome`), with
+  getters that read as the engine's own. Google's sites keep the user's
+  protection level (fingerprinting noise, filter lists, address clean-up,
+  cookies, GPC): no more "Compatibility" or "off" forced there. At Balanced
+  Google's own domains count as one site on Google's pages (as Firefox's
+  tracking protection counts them), its ad and analytics domains
+  (doubleclick.net, google-analytics.com, googletagmanager.com...) do not.
+  With the shield off on a site, or with "Make sign-in work" off, nothing
+  changes. Microsoft's and Apple's sign-in and PayPal and Stripe keep their
+  light protection as before (`ike/config.py` `google_site`,
+  `ike/shields.py` `firefox_request`, `ike/resources/fingerprint.js`
+  `firefoxIdentity`, `ike/osinfo.py` `firefox_major`;
+  tests/test_google_firefox.py, tests/test_page_traces.py).
+- **Cover Your Tracks shows a randomized fingerprint again** (the owner
+  reported it as a regression). Cover Your Tracks draws its canvas twice and
+  calls the fingerprint "randomized" when the two pictures differ, "unique"
+  when they are the same; I.K.E.'s noise was the same for every read of a site
+  (so that averaging reads cannot remove it), so it showed "unique", though
+  the fingerprint was new in every session and on every site. Now a canvas
+  exported as a picture (`toDataURL`, `toBlob`, `convertToBlob`; WebGL
+  canvases too) gets, on top of the site's noise, a little noise that changes
+  at every export: only the lowest bit of a few pixels at the edges of the
+  drawing, never in flat areas (1.1.25's exact canvases of solid rectangles
+  stay exact). Many exports put together give back the picture with the
+  site's noise, never the real one, so averaging gains nothing; `getImageData`
+  still gives the same pixels at every read (pages that edit pictures).
+  Cover Your Tracks' own script, run on the real engine, now answers
+  "randomized" for the canvas and for WebGL at Balanced and Strict
+  (tests/test_canvas_exports.py).
 
 - Dark Reader (engine and lists): 4.9.135, lists 26d0621d65 (2026-11-25) -> 4.9.135, lists 2bd262585f (2026-11-25) (lists changed)
 

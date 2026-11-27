@@ -55,12 +55,18 @@
   }
   var THEN = Promise.prototype.then, DEFPROP = Object.defineProperty, SPECIES = Symbol.species;
   var natives = hardMap();         // replacement -> source text of the original
-  // the engine's own random numbers, taken before any page script (1.1.27:
-  // the variation of every exported picture, jitter)
-  var CRYPTO_ = window.crypto, CRV = window.Crypto && Crypto.prototype.getRandomValues, SALT = new Uint32Array(1);
+  // the variation of the next exported picture (1.1.27, jitter): a new value
+  // at every export, from the site's secret key and the number of exports so
+  // far, which a page cannot work out (the same sequence again only for the
+  // same key: the automatic checks compare runs with a fixed one)
+  var exportsMade = 0;
   function freshSalt() {
-    try { RAPPLY(CRV, CRYPTO_, [SALT]); } catch (e) { SALT[0] = SALT[0] * 2654435761 + 40503; }
-    return SALT[0] | 1;
+    exportsMade = (exportsMade + 1) | 0;
+    var h = (seed ^ mul32(exportsMade, 0x9E3779B1)) | 0;
+    h ^= h >>> 16; h = mul32(h, 0x85EBCA6B);
+    h ^= h >>> 13; h = mul32(h, 0xC2B2AE35);
+    h ^= h >>> 16;
+    return h | 1;
   }
   // A promise of the engine's, given a reaction of the protection: then()
   // asks the promise for its constructor (the "species"), and a getter on
@@ -1329,7 +1335,7 @@
   // ---- inline workers -----------------------------------------------------------
   // Runs inside the worker; must not use anything from outside its own body.
   function workerPatch(c, rng, farble, gpuFor, viewNoise, cssLocal, glReads, farbleEdges, canvasTrack, glIdentity,
-                       widthNoise, seed, address) {
+                       widthNoise, jitter, seed, address) {
     var toStr = Function.prototype.toString, RAW = Reflect.apply, GD = Object.getOwnPropertyDescriptor;
     var RAW_IMPORT = self.importScripts;
     var CJ = JSON.stringify(c), JS = JSON.stringify, here = '';
@@ -1379,6 +1385,19 @@
       if (around && tg === 'Uint8ClampedArray') farbleEdges(px, around[0], around[1], around[2], c.seed);
       else if (tg === 'Uint8ClampedArray') farble(px, c.seed, rng, RAW(LENG, px, []));
       else if (tg === 'Float16Array') viewNoise(TW, px, 0, -1, c.seed, rng, farble, true);
+    };
+    // the variation of every exported picture, as in the page (1.1.27, jitter)
+    var exportsW = 0;
+    var exported = function (img, w, h) {
+      var px = RAW(IMGD, img, []);
+      if (RAW(TAGG, px, []) !== 'Uint8ClampedArray') return;
+      exportsW = (exportsW + 1) | 0;
+      var k = (c.seed ^ (exportsW * 40503)) | 0;
+      k = (k + (k << 1) + (k << 4) + (k << 7) + (k << 8) + (k << 24)) | 0;
+      k ^= k >>> 15;
+      k = (k + (k << 1) + (k << 4) + (k << 7) + (k << 8) + (k << 24)) | 0;
+      k ^= k >>> 13;
+      jitter(px, w, h, k | 1);
     };
     var OCW = self.OffscreenCanvas, OCWP = OCW && OCW.prototype;
     var O2WP = self.OffscreenCanvasRenderingContext2D && OffscreenCanvasRenderingContext2D.prototype;
@@ -1697,6 +1716,7 @@
               RAW(OCV.draw, ctx, [src, 0, 0]);
               var img = RAW(rawGet, ctx, [0, 0, ow, oh]);
               noiseImage(img, trackW ? [ow, oh, null] : null);      // the whole canvas: transparent around it
+              exported(img, ow, oh);
               RAW(OCV.put, ctx, [img, 0, 0]);
               src = copy;
             }
@@ -1817,7 +1837,8 @@
       var meHead = '(' + RAW(toStr, workerPatch, []) + ')(' + CJ + ',' + RAW(toStr, rng, []) + ',' +
         RAW(toStr, farble, []) + ',' + RAW(toStr, gpuFor, []) + ',' + RAW(toStr, viewNoise, []) + ',' +
         RAW(toStr, cssLocal, []) + ',' + RAW(toStr, glReads, []) + ',' + RAW(toStr, farbleEdges, []) + ',' +
-        RAW(toStr, canvasTrack, []) + ',' + RAW(toStr, glIdentity, []) + ',' + RAW(toStr, widthNoise, []) + ',';
+        RAW(toStr, canvasTrack, []) + ',' + RAW(toStr, glIdentity, []) + ',' + RAW(toStr, widthNoise, []) + ',' +
+        RAW(toStr, jitter, []) + ',';
       var RBUF = new Uint32Array(1), RGV = crypto.getRandomValues, CR = crypto;
       var preludeOf = function (addr, own, run) {
         var sd = c.seed;
@@ -1967,7 +1988,8 @@
     RAPPLY(origToString, gpuFor, []) + ',' + RAPPLY(origToString, viewNoise, []) + ',' +
     RAPPLY(origToString, cssLocal, []) + ',' + RAPPLY(origToString, glReads, []) + ',' +
     RAPPLY(origToString, farbleEdges, []) + ',' + RAPPLY(origToString, canvasTrack, []) + ',' +
-    RAPPLY(origToString, glIdentity, []) + ',' + RAPPLY(origToString, widthNoise, []) + ',';
+    RAPPLY(origToString, glIdentity, []) + ',' + RAPPLY(origToString, widthNoise, []) + ',' +
+    RAPPLY(origToString, jitter, []) + ',';
   var JSON_STR = JSON.stringify;
   var PRELUDE_LINES = 1;
   (function () {
