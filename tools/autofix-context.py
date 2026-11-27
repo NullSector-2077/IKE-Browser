@@ -62,7 +62,7 @@ NOT_RECENT = {
     "tools/filter-lists.py", "tools/ai-work.py", "tools/ai-providers.py",
     "tools/provider-check.py", "tests/test_lists_recorded.py",
     "tools/update-candidates.py", "tools/ci-pins.py", "tools/builder-anchor.py", "tools/pkgbuild-sync.py",
-    "tests/test_full_chain.py",
+    "tests/test_full_chain.py", "tools/automat-playbook.py", "tests/test_automat_playbook.py",
 }
 MAX_EXAMPLES = 3            # other places that use a missing name (1.1.16)
 EXAMPLE_AROUND = 4
@@ -219,6 +219,19 @@ def purposes(repo, paths):
     return "\n## What these files are for (their own first lines)\n\n%s\n" % "\n".join(lines) if lines else ""
 
 
+def _playbook_advice(failure):
+    """(markdown, files) of tools/automat-playbook.py next to this script; nothing when it cannot be read."""
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("ike_automat_playbook",
+                                                      Path(__file__).resolve().parent / "automat-playbook.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.advice(failure)
+    except Exception:                   # the context stands without it
+        return "", []
+
+
 def build(repo, failure, recent=True):
     found = places(failure, repo)
     related = []
@@ -235,6 +248,10 @@ def build(repo, failure, recent=True):
     if "tests/test_inventory_guard.py" in failure and "components.json" not in related \
             and (repo / "components.json").is_file():
         related.insert(0, "components.json")
+    # AUTOMAT's playbook (tools/automat-playbook.py, 2026-11-27): what this kind of failure means in I.K.E.; the
+    # files where its fix belongs come first among the files involved
+    advice, advised = _playbook_advice(failure)
+    related = [p for p in advised if (repo / p).is_file() and p not in related] + related
     recent = [p for p in recent_changes(repo) if p not in related] if recent else []
     related = (related + recent)[:MAX_RELATED]
     parts, used = [], 0
@@ -259,6 +276,8 @@ def build(repo, failure, recent=True):
                  % ", ".join("`%s`" % p for p in recent))
     if related:
         text += "\nFiles involved: %s\n" % ", ".join("`%s`" % p for p in related)
+    if advice:
+        text += "\n" + advice
     return text, related
 
 

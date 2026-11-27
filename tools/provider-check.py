@@ -226,6 +226,128 @@ def check(env=os.environ, opener=urllib.request.urlopen):
     return rows
 
 
+# --- the providers' new models, found by AUTOMAT itself (block 2, 2026-11-27) ------------------------------
+# The owner: "AUTOMAT must keep up with how our keys work... update the names of the AI models by itself". Each
+# week the providers' own lists of models are read (Gemini API: GET /models; Groq and Z.AI: GET .../models, the
+# OpenAI form); a model not configured is asked one tiny question on the owner's key. The keys have no billing
+# (the owner's word, 2026-11-22), so a model that answers is free there; Gemini's 429 with "limit: 0" says the
+# free tier has none of it. What answered is used by the automatic fix after the configured models
+# (AUTOFIX_DISCOVERED); a configured model the provider no longer lists is said in the weekly issue.
+# OpenRouter rebuilds its free list at every run already (tools/autofix-reserve.py refreshed).
+NOT_TEXT = ("embedding", "image", "tts", "audio", "live", "native", "veo", "imagen", "aqa", "learnlm", "robotics",
+            "computer-use", "vision", "whisper", "guard", "safeguard", "playai", "orpheus", "compound", "allam",
+            "transcribe", "speech", "ocr", "rerank", "moderation")
+GEMINI_NAME = __import__("re").compile(r"^gemini-\d+(?:\.\d+)?(?:-[a-z0-9]+){1,4}$")
+SAFE_ID = __import__("re").compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{1,80}$")
+TRY_NEW = 4                      # new models asked per provider and week (a request each, at most)
+FREE_LIMIT_ZERO = "limit: 0"
+
+
+def _version(model_id):
+    """Sort key: the highest version number first (gemini-4-neon before gemini-3.8-flash)."""
+    import re
+    nums = [float(x) for x in re.findall(r"(?<![a-z])(\d+(?:\.\d+)?)", model_id)[:2]] or [0.0]
+    return [-n for n in nums]
+
+
+def text_model(model_id):
+    low = model_id.lower()
+    return bool(SAFE_ID.match(model_id)) and not any(w in low for w in NOT_TEXT)
+
+
+def listed_models(name, url, key, opener):
+    """The ids the provider lists (None when its list cannot be read)."""
+    if name == "Antigravity":
+        status, data, _text = _request(REGISTRY.GEMINI_API + "/models?pageSize=1000", key, opener,
+                                       header="x-goog-api-key")
+        if status != 200:
+            return None
+        out = []
+        for m in (data or {}).get("models", []):
+            if isinstance(m, dict) and "generateContent" in (m.get("supportedGenerationMethods") or []):
+                mid = str(m.get("name", "")).split("/", 1)[-1]
+                if GEMINI_NAME.match(mid) and text_model(mid):
+                    out.append(mid)
+        return out
+    status, data, _text = _request(url.rsplit("/chat/completions", 1)[0] + "/models", key, opener)
+    if status != 200:
+        return None
+    return [str(m.get("id")) for m in (data or {}).get("data", []) if isinstance(m, dict) and text_model(str(m.get("id")))]
+
+
+def ask_new(name, url, key, model, opener):
+    """("free", why) when the model answered a tiny question on the key, ("not-free", why), or ("", why)."""
+    if name == "Antigravity":
+        status, data, text = _request("%s/models/%s:generateContent" % (REGISTRY.GEMINI_API, model), key, opener,
+                                      {"contents": [{"parts": [{"text": "Answer with the word OK."}]}],
+                                       "generationConfig": {"maxOutputTokens": 16}}, header="x-goog-api-key")
+    else:
+        body = {"model": model, "messages": [{"role": "user", "content": "Answer with the word OK."}],
+                "temperature": 0, "max_tokens": 16}
+        status, data, text = _request(url, key, opener, body)
+    state, reason = _verdict(status, data, text)
+    if state == "available":
+        return "free", "answered on the key without billing"
+    if status == 429 and FREE_LIMIT_ZERO in (text or ""):
+        return "not-free", "the free tier has none of it (limit: 0)"
+    if state == "unavailable":
+        return "not-free", reason
+    return "", reason
+
+
+def discover(env=os.environ, opener=urllib.request.urlopen, most=TRY_NEW):
+    """{"discovered": {provider: [model ids that answered]}, "gone": {provider: [configured ids not listed]},
+    "not_free": {provider: [ids]}}. Never a key in it."""
+    out = {"discovered": {}, "gone": {}, "not_free": {}}
+    jobs = []
+    key = (env.get(REGISTRY.GEMINI_KEY) or "").strip()
+    if key:
+        configured = [m.strip() for m in (env.get(REGISTRY.GEMINI_MODELS_VAR) or "").split(",") if m.strip()]
+        jobs.append(("Antigravity", REGISTRY.GEMINI_API, key, [gemini_id(m) for m in configured +
+                                                                list(REGISTRY.GEMINI_MODELS)]))
+    for name, url, key_var, models_var, default, _budget, _tokens in REGISTRY.RESERVES:
+        key = (env.get(key_var) or "").strip()
+        if not key or name in REGISTRY.FREE_SUFFIX:
+            continue
+        configured = [m.strip() for m in (env.get(models_var) or "").split(",") if m.strip()] or list(default)
+        jobs.append((name, url, key, configured))
+    for name, url, key, configured in jobs:
+        listed = listed_models(name, url, key, opener)
+        if listed is None:
+            continue
+        # a configured model is gone only when its provider's list lacks it (case ignored) AND it does not answer a
+        # tiny question either (2026-11-27: Z.AI's list did not name its free GLM Flash models, which answer)
+        known = {m.lower() for m in listed}
+        gone = [m for m in configured if m.lower() not in known and ask_new(name, url, key, m, opener)[0] != "free"]
+        if gone:
+            out["gone"][name] = gone
+        mine = {m.lower() for m in configured}
+        new = sorted((m for m in set(listed) if m.lower() not in mine), key=_version)[:most]
+        for m in new:
+            verdict, _why = ask_new(name, url, key, m, opener)
+            if verdict == "free":
+                out["discovered"].setdefault(name, []).append(m)
+            elif verdict == "not-free":
+                out["not_free"].setdefault(name, []).append(m)
+    return out
+
+
+def discovered_line(info):
+    """AUTOFIX_DISCOVERED: "Provider:model|model;Provider:model", only known providers and safe ids."""
+    parts = []
+    for name, models in sorted((info or {}).get("discovered", {}).items()):
+        if name in REGISTRY.all_names() and isinstance(models, list):
+            ok = [m for m in models if isinstance(m, str) and SAFE_ID.match(m)][:TRY_NEW]
+            if ok:
+                parts.append("%s:%s" % (name, "|".join(ok)))
+    return ";".join(parts)
+
+
+def parse_discovered(text):
+    """{provider: [ids]} of AUTOFIX_DISCOVERED (anything else ignored): tools/ai-providers.py discovered."""
+    return REGISTRY.discovered({REGISTRY.DISCOVERED_VAR: text})
+
+
 def unavailable_of(rows):
     """Providers to skip: one whose every checked model is unavailable (a
     provider with one paid model in the variable and one free model that
@@ -255,6 +377,14 @@ def markdown(info):
     if info["unavailable"]:
         out += ["", "**Not used by the automatic fix until the next weekly check:** %s." % ", ".join(
             info["unavailable"])]
+    models = info.get("models") or {}
+    for name, ids in sorted((models.get("discovered") or {}).items()):
+        out += ["", "**New free models of %s, used after the configured ones:** %s." % (
+            name, ", ".join("`%s`" % m for m in ids))]
+    for name, ids in sorted((models.get("not_free") or {}).items()):
+        out += ["", "New models of %s not on the free plan (not used): %s." % (name, ", ".join("`%s`" % m for m in ids))]
+    for name, ids in sorted((models.get("gone") or {}).items()):
+        out += ["", "**Configured models of %s no longer offered:** %s." % (name, ", ".join("`%s`" % m for m in ids))]
     return "\n".join(out) + "\n"
 
 
@@ -265,6 +395,25 @@ def gh_api(path, raw=False):
     if out.returncode:
         raise RuntimeError("gh api %s: %s" % (path, out.stderr.decode("utf-8", "replace").strip()[:200]))
     return out.stdout if raw else json.loads(out.stdout)
+
+
+def _last_info(repo, api=gh_api):
+    """The newest weekly check's ai-providers.json, or None."""
+    runs = api("repos/%s/actions/workflows/%s/runs?per_page=10&status=completed" % (repo, HEALTH))
+    for run in runs.get("workflow_runs", []):
+        arts = api("repos/%s/actions/runs/%s/artifacts?name=%s" % (repo, run["id"], ARTIFACT)).get("artifacts", [])
+        for art in arts:
+            if art.get("expired"):
+                continue
+            data = api("repos/%s/actions/artifacts/%s/zip" % (repo, art["id"]), raw=True)
+            with zipfile.ZipFile(io.BytesIO(data)) as z:
+                return json.loads(z.read("ai-providers.json").decode("utf-8"))
+    return None
+
+
+def last_discovered(repo, api=gh_api):
+    """AUTOFIX_DISCOVERED of the newest weekly check ("" when there is none)."""
+    return discovered_line((_last_info(repo, api) or {}).get("models"))
 
 
 def last_unavailable(repo, api=gh_api):
@@ -293,7 +442,17 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     c.add_argument("--markdown")
     u = sub.add_parser("unavailable")
     u.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
+    d = sub.add_parser("discovered")
+    d.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
     a = ap.parse_args(argv)
+    if a.cmd == "discovered":
+        try:
+            print(last_discovered(a.repo))
+        except Exception as e:
+            print("::warning::the new models of the last weekly check could not be read: %s"
+                  % str(e)[:200].replace("::", ": "), file=sys.stderr)
+            print("")
+        return 0
     if a.cmd == "unavailable":
         try:
             names = last_unavailable(a.repo)
@@ -304,6 +463,10 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
         print(",".join(names))
         return 0
     info = summary(check(env, opener))
+    try:
+        info["models"] = discover(env, opener)
+    except Exception as e:                  # the check of the configured models stands without it
+        print("::warning::the providers' new models could not be read: %s" % type(e).__name__, file=sys.stderr)
     Path(a.out).write_text(json.dumps(info, indent=1) + "\n", "utf-8")
     md = markdown(info)
     if a.markdown:

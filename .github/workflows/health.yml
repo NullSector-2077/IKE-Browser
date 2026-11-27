@@ -80,8 +80,49 @@ jobs:
           path: ${{ runner.temp }}/providers/ai-providers.json
           if-no-files-found: ignore
           retention-days: 90
+      # AUTOMAT block 2: when the owner's IKE_WORKFLOW_TOKEN expires (GitHub's header
+      # GitHub-Authentication-Token-Expiration), or whether GitHub refuses it. The token is in this step
+      # only; the file holds the HTTP code and the expiry date, never the token
+      - name: When the owner's workflow token expires
+        env:
+          WORKFLOW_TOKEN: ${{ secrets.IKE_WORKFLOW_TOKEN }}
+        run: |
+          out="$RUNNER_TEMP/workflow-token.json"
+          if [ -z "$WORKFLOW_TOKEN" ]; then echo '{"unset": true}' > "$out"; exit 0; fi
+          headers="$RUNNER_TEMP/token-headers.txt"
+          code=$(curl -s -o /dev/null -D "$headers" -w '%{http_code}' --max-time 30 \
+            -H "Authorization: Bearer $WORKFLOW_TOKEN" https://api.github.com/rate_limit || true)
+          expires=$(grep -i '^github-authentication-token-expiration:' "$headers" | head -n 1 | cut -d: -f2- \
+            | tr -d '\r' | sed 's/^ *//' || true)
+          rm -f "$headers"
+          CODE="$code" EXPIRES="$expires" python3 -I -c 'import json, os, re
+          code = os.environ["CODE"] if re.fullmatch(r"\d{3}", os.environ["CODE"]) else ""
+          expires = re.sub(r"[^0-9A-Za-z :+-]", "", os.environ["EXPIRES"])[:40]
+          print(json.dumps({"status": code, "expires": expires}))' > "$out"
+      # AUTOMAT's weekly scoreboard (2026-11-27): a few numbers, in Italian, in one issue edited every week
+      - name: AUTOMAT's weekly scoreboard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -I tools/automat-scoreboard.py --repo "$GITHUB_REPOSITORY" || echo "::warning::the scoreboard stopped"
+      # AUTOMAT block 2 (2026-11-27): the Chromium features ike/app.py sets still exist, in the users' engine (the
+      # version the last green "Arch Linux" run on main recorded) and on Chromium's development branch
+      - name: The Chromium features I.K.E. sets still exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 tools/check-components.py --save-arch-tested "$RUNNER_TEMP/arch-tested.json" \
+            --repo "$GITHUB_REPOSITORY" || true
+          chromium=$(python3 -c 'import json, sys
+          try:
+              print(((json.load(open(sys.argv[1])).get("tested") or {}).get("chromium") or ""))
+          except Exception:
+              print("")' "$RUNNER_TEMP/arch-tested.json")
+          python3 tools/engine-features.py --chromium "$chromium" --out "$RUNNER_TEMP/engine-features.json" \
+            || echo "::warning::the check of the engine's features stopped"
       - name: Check the automation
         env:
+          ENGINE_FEATURES: ${{ runner.temp }}/engine-features.json
+          TOKEN_CHECK: ${{ runner.temp }}/workflow-token.json
           PROVIDER_CHECK: ${{ runner.temp }}/providers/ai-providers.json
           RESERVE_PING: ${{ runner.temp }}/reserve-ping.json
           GH_TOKEN: ${{ github.token }}

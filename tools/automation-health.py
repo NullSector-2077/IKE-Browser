@@ -69,8 +69,47 @@ def _when(item):
     return dt.datetime.fromisoformat(item["created_at"].replace("Z", "+00:00"))
 
 
+# the owner's IKE_WORKFLOW_TOKEN (AUTOMAT block 2): said this many days before it expires. GitHub gives a
+# token's expiry in the header GitHub-Authentication-Token-Expiration of every answer to it
+TOKEN_WARN_DAYS = 21
+
+
+def token_expiry(text):
+    """The expiry GitHub's header gives ("2026-12-31 23:59:59 UTC", or with "+0000"), as a UTC time, or None."""
+    text = str(text or "").strip()
+    for fmt in ("%Y-%m-%d %H:%M:%S UTC", "%Y-%m-%d %H:%M:%S %z", "%Y-%m-%d %H:%M:%S %Z"):
+        try:
+            when = dt.datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+        return when.replace(tzinfo=dt.timezone.utc) if when.tzinfo is None else when.astimezone(dt.timezone.utc)
+    return None
+
+
+def token_problem(state, now):
+    """The line for the owner about IKE_WORKFLOW_TOKEN, or "": state is what the workflow read
+    ({"status": HTTP code, "expires": the header's text}), never the token."""
+    if not isinstance(state, dict) or state.get("unset"):
+        return ""
+    status = str(state.get("status") or "")
+    if status in ("401", "403"):
+        return ("GitHub refuses the repository secret `IKE_WORKFLOW_TOKEN` (HTTP %s): it has expired or was "
+                "revoked. Make a new one and save it under the same name (docs/MAINTENANCE.md, \"AUTOMAT, part 2\")."
+                % status)
+    when = token_expiry(state.get("expires"))
+    if when is None:
+        return ""
+    left = (when - now).days
+    if left < TOKEN_WARN_DAYS:
+        return ("The repository secret `IKE_WORKFLOW_TOKEN` expires on %s (in %d day(s)): make a new one before "
+                "then and save it under the same name, or the automation's pushes stop starting the checks "
+                "(docs/MAINTENANCE.md, \"AUTOMAT, part 2\")." % (when.date(), max(left, 0)))
+    return ""
+
+
 def problems(now, daily, main_tests, has_key, autofix_runs=(), reserve_keys=None, autofix_issues=(),
-             maintenance_prs=(), main_protected=None, unreadable=(), pings=(), born=None, providers=()):
+             maintenance_prs=(), main_protected=None, unreadable=(), pings=(), born=None, providers=(),
+             token=None, models=None):
     """The problems found (a list of lines), from data already fetched."""
     found = []
     for name, items in daily.items():
@@ -126,6 +165,19 @@ def problems(now, daily, main_tests, has_key, autofix_runs=(), reserve_keys=None
         elif row.get("state") == "failing":
             found.append("The AI provider %s (%s) does not answer: %s." % (row.get("provider"), row.get("model"),
                                                                            row.get("reason")))
+    # AUTOMAT block 2 (tools/provider-check.py discover): a configured model its provider no longer lists
+    found_new = (models or {}).get("discovered") or {}
+    for name, ids in sorted(((models or {}).get("gone") or {}).items()):
+        if isinstance(ids, list) and ids:
+            new = found_new.get(name) or []
+            found.append("%s no longer offers the configured model(s) %s; %s Claude updates tools/ai-providers.py."
+                         % (name, ", ".join("`%s`" % str(m)[:80] for m in ids[:6]),
+                            ("meanwhile AUTOMAT uses its new free model(s) %s." % ", ".join(
+                                "`%s`" % str(m)[:80] for m in new[:4])) if new else
+                            "its other configured models go on meanwhile."))
+    line = token_problem(token, now)
+    if line:
+        found.append(line)
     for what in unreadable:
         found.append("Could not check %s." % what)
     return found
@@ -177,17 +229,35 @@ def main(argv=None):
             pings = [tuple(x) for x in json.loads(Path(os.environ["RESERVE_PING"]).read_text("utf-8"))]
         except (OSError, ValueError, TypeError):
             unreadable.append("the answers of the reserves")
-    providers = []
+    providers, models = [], None
     if os.environ.get("PROVIDER_CHECK"):        # tools/provider-check.py, the step before (WP9)
         if os.environ.get("HAS_KEY", "true") == "true" and not Path(os.environ["PROVIDER_CHECK"]).is_file():
             unreadable.append("whether the AI providers are free (tools/provider-check.py stopped)")
         elif Path(os.environ["PROVIDER_CHECK"]).is_file():
             try:
-                providers = json.loads(Path(os.environ["PROVIDER_CHECK"]).read_text("utf-8"))["providers"]
+                info = json.loads(Path(os.environ["PROVIDER_CHECK"]).read_text("utf-8"))
+                providers, models = info["providers"], info.get("models")
             except (OSError, ValueError, TypeError, KeyError):
                 unreadable.append("whether the AI providers are free (tools/provider-check.py)")
+    if os.environ.get("ENGINE_FEATURES") and Path(os.environ["ENGINE_FEATURES"]).is_file():
+        try:                                    # tools/engine-features.py, the step before (AUTOMAT block 2)
+            unreadable_lines = json.loads(Path(os.environ["ENGINE_FEATURES"]).read_text("utf-8")).get("problems")
+            engine_lines = [str(x)[:400] for x in unreadable_lines or ()][:10]
+        except (OSError, ValueError, TypeError, AttributeError):
+            engine_lines = []
+            unreadable.append("whether the engine's features still exist")
+    else:
+        engine_lines = []
+    token = None
+    if os.environ.get("TOKEN_CHECK"):           # the workflow's step before: the HTTP code and the expiry header
+        try:
+            token = json.loads(Path(os.environ["TOKEN_CHECK"]).read_text("utf-8"))
+        except (OSError, ValueError, TypeError):
+            unreadable.append("when `IKE_WORKFLOW_TOKEN` expires")
     found = problems(now, daily, main_tests, os.environ.get("HAS_KEY", "true") == "true", autofix_runs,
-                     keys, autofix_issues, maintenance_prs, protected, unreadable, pings, born, providers)
+                     keys, autofix_issues, maintenance_prs, protected, unreadable, pings, born, providers, token,
+                     models)
+    found += engine_lines
     text = ("The weekly check found problems in the automation:\n\n" + "".join("- %s\n" % p for p in found)
             + "\nControllo settimanale: l'automazione ha bisogno di te.\n") if found else ""
     print(text or "Everything works.")

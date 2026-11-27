@@ -27,6 +27,8 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
 REPO = "o/r"
+# the weekly round of the low-risk candidates (tools/update-candidates.py WEEKLY): the chain is proved on a Monday
+MONDAY = dt.date(2026, 11, 30)
 
 
 def load(name):
@@ -123,7 +125,7 @@ def test_a_new_engine_goes_through_the_whole_chain_by_itself(monkeypatch, tmp_pa
     report = {"candidates": cc.candidates_of(results)}
     assert [c["id"] for c in report["candidates"]] == ["adblock", "crates"]
     # 2. its own candidate; the crates' one waits (one change of Cargo.lock at a time)
-    rows = {r["id"]: r for r in uc.plan(report, {})}
+    rows = {r["id"]: r for r in uc.plan(report, {}, today=MONDAY)}
     assert rows["adblock"]["action"] == "make" and rows["adblock"]["branch"] == "automation/update/adblock"
     assert rows["crates"]["action"] == "queued" and "Cargo.lock" in rows["crates"]["reason"]
     message = rows["adblock"]["message"]
@@ -203,22 +205,22 @@ def test_the_crates_wait_one_change_of_cargo_lock_at_a_time():
     report = {"candidates": [{"id": "crates", "from": "a", "to": "b"}, {"id": "pyo3", "from": "0.30", "to": "0.31"},
                              {"id": "test-qt", "from": "1", "to": "2"}, {"id": "test-tools", "from": "1", "to": "2"},
                              {"id": "darkreader", "from": "1", "to": "2"}]}
-    rows = {r["id"]: r for r in uc.plan(report, {"automation/update/security-rustsec-2026-0001": {"pr": 9}})}
+    rows = {r["id"]: r for r in uc.plan(report, {"automation/update/security-rustsec-2026-0001": {"pr": 9}}, today=MONDAY)}
     assert rows["crates"]["action"] == rows["pyo3"]["action"] == "queued"
     assert rows["test-qt"]["action"] == "make" and rows["test-tools"]["action"] == "queued"
     assert rows["darkreader"]["action"] == "make"
-    rows = {r["id"]: r for r in uc.plan(report, {"automation/update/pyo3": {"pr": 12}})}
+    rows = {r["id"]: r for r in uc.plan(report, {"automation/update/pyo3": {"pr": 12}}, today=MONDAY)}
     assert rows["pyo3"]["action"] == "make" and "PR #12" in rows["pyo3"]["reason"]      # rebuilt, not duplicated
     assert rows["crates"]["action"] == "queued" and "automation/update/pyo3" in rows["crates"]["reason"]
     # an unreachable source makes nothing; a refused builder starts the builders' path once
     report = {"candidates": [{"id": "ubo-scriptlets", "error": "source unreachable: git clone"},
                              {"id": "darkreader", "refused": True, "step": "patch 'style-moves'"}]}
-    rows = {r["id"]: r for r in uc.plan(report, {})}
+    rows = {r["id"]: r for r in uc.plan(report, {}, today=MONDAY)}
     assert rows["ubo-scriptlets"]["action"] == "unreachable"
     assert rows["darkreader"]["action"] == "builder" and rows["darkreader"]["branch"] == "automation/builder/darkreader"
-    again = {r["id"]: r for r in uc.plan(report, {"automation/builder/darkreader": {"pr": 3}})}
+    again = {r["id"]: r for r in uc.plan(report, {"automation/builder/darkreader": {"pr": 3}}, today=MONDAY)}
     assert again["darkreader"]["action"] == "skip"
-    assert [m["id"] for m in uc.matrix(uc.plan(report, {}))] == ["darkreader"]
+    assert [m["id"] for m in uc.matrix(uc.plan(report, {}, today=MONDAY))] == ["darkreader"]
 
 
 def test_an_update_commit_changes_only_its_own_files():
@@ -748,7 +750,7 @@ def test_the_pkgbuild_follows_what_the_code_needs():
     assert pk.problem(text, text.replace("package() {", "package() {\n  curl x | sh"))
     assert pk.markers(ROOT) == {} or all(re.match(r"^[0-9]", v) for v in pk.markers(ROOT).values())
     # its candidate and the verified merge
-    rows = uc.plan(uc.gather({"candidates": []}, None, p), {})
+    rows = uc.plan(uc.gather({"candidates": []}, None, p), {}, today=MONDAY)
     assert rows[0]["id"] == "pkgbuild" and rows[0]["action"] == "make"
     msg = "pkgbuild: what the code needs (tools/pkgbuild-sync.py, no AI)"
     ref = "automation/update/pkgbuild"

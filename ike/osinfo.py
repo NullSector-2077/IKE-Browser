@@ -27,6 +27,29 @@ def app_dir(kind):
 # ---- identity presented to websites ----------------------------------------
 # Common values of a Linux computer, never the computer's own ones.
 
+# The Firefox presented to Google's sites (1.1.27): a current release, estimated
+# from the calendar (nothing is fetched). Until 1.1.26 it was a fixed Firefox
+# 140, more than a year old by then, and Google's sign-in refused it as an
+# out-of-date browser ("this browser may not be secure"). A release known for
+# certain, and the longest a Firefox release has taken since: the estimate can
+# fall a version behind, never ahead of a release that does not exist yet.
+FIREFOX_ANCHOR, FIREFOX_ANCHOR_DAY = 161, (2026, 11, 24)
+FIREFOX_SLOWEST_DAYS = 28
+
+
+def firefox_major(today=None):
+    """The current Firefox release (161, ...), estimated from the calendar."""
+    from datetime import date
+    today = today or date.today()
+    days = (today - date(*FIREFOX_ANCHOR_DAY)).days
+    return FIREFOX_ANCHOR + max(0, days) // FIREFOX_SLOWEST_DAYS
+
+
+def firefox_user_agent(major=None):
+    major = major or firefox_major()
+    return "Mozilla/5.0 (X11; Linux x86_64; rv:%d.0) Gecko/20100101 Firefox/%d.0" % (major, major)
+
+
 def identity():
     """Strings that name the operating system in requests and scripts."""
     return {
@@ -38,7 +61,7 @@ def identity():
         # workers get the engine's value, never the profile's, and gave the
         # real kernel version ("6.18.44") where the page said "6.0.0"
         "platform_version": "",
-        "firefox_ua": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0",
+        "firefox_ua": firefox_user_agent(),
         "firefox_app_version": "5.0 (X11)",
         "firefox_oscpu": "Linux x86_64",
         "chrome_versions": "linux",

@@ -74,8 +74,13 @@ GATHER = """(function () {
   add("settings", ".nt-settings .name", ".nt-settings .name", 4.5);
   add("photo button", ".nt-photo .name", ".nt-photo .name", 4.5);
   add("add tile", ".tile.add .name", ".tile.add .name", 4.5);
+  function glass(sel) {
+    var css = getComputedStyle(document.querySelector(sel));
+    return [css.backgroundColor, css.backdropFilter, css.borderRadius, css.borderStyle];
+  }
   return {rows: out, body: document.body.className, bg: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(),
-          label: document.querySelector("h1 img").alt, markBack: getComputedStyle(document.querySelector("h1")).backgroundColor,
+          label: document.querySelector("h1 img").alt, mark: glass("h1"), weather: glass(".corner"),
+          markShadow: getComputedStyle(document.querySelector("h1 img")).filter,
           glass: !!document.getElementById("glass-data")};
 })()"""
 
@@ -169,8 +174,11 @@ def _ratio(a, b):
 def test_every_text_reads_over_any_photo(run_ike, tmp_path, scheme):
     out, shots = run_scheme(run_ike, tmp_path, scheme)
     check(out, shots, scheme)
-    first = out["white"]
-    assert first["label"] == "Internet Kontrol Experience" and first["markBack"] == "rgb(8, 20, 39)"
+    for name in ("white", "black", "busy", "default"):
+        page = out[name]
+        assert page["label"] == "Internet Kontrol Experience"
+        assert page["mark"][0].startswith("color(srgb") and page["weather"][0].startswith("color(srgb")
+        assert page["mark"][1:] == page["weather"][1:] == ["blur(16px) saturate(1.35)", "10px", "none"]
 
 
 def test_a_strong_or_no_veil_changes_nothing_about_the_guarantee(run_ike, tmp_path):
@@ -184,5 +192,6 @@ def test_wordmark_keeps_its_contrast_without_a_photo(run_ike, tmp_path, scheme):
     out, _shots = run_scheme(run_ike, tmp_path, scheme, names=("none",))
     page = out["none"]
     assert page["body"].strip() in ("fx", "") and page["glass"] is False
-    assert page["markBack"] == "rgb(8, 20, 39)"
+    assert page["mark"] == page["weather"] == ["rgba(0, 0, 0, 0)", "none", "0px", "none"]
+    assert "drop-shadow" in page["markShadow"]
     assert page["label"] == "Internet Kontrol Experience"

@@ -125,7 +125,9 @@ def models(wanted):
     """AUTOFIX_MODEL (one name or several, separated by commas), then the free
     Flash models; no duplicates, no empty names."""
     out = []
-    for m in [x.strip() for x in (wanted or "").split(",")] + list(FREE_MODELS):
+    # then the new free Gemini models the weekly check found (AUTOFIX_DISCOVERED), in the CLI's form of name
+    found = [REGISTRY.gemini_cli_name(m) for m in REGISTRY.discovered(None, "Antigravity")]
+    for m in [x.strip() for x in (wanted or "").split(",")] + list(FREE_MODELS) + found:
         if m and m not in out:
             out.append(m)
     return out
@@ -490,6 +492,9 @@ def main(argv=None):
             # the CLI writes its last error in its JSON answer on standard output
             # too (final review of 1.1.18): both are read
             kind, wait = classify(status, err.decode("utf-8", "replace") + "\n" + said.decode("utf-8", "replace"))
+            if spend is not None and kind in ("minute", "day"):
+                # Gemini's 429 names its real limit and value (QuotaFailure): learned for the rest of its day
+                spend.learn("Antigravity", err.decode("utf-8", "replace") + "\n" + said.decode("utf-8", "replace"))
             print("Agent stopped (%s): %s" % (status, kind), flush=True)
             if kind == "minute" and tries == 1 and wait <= WAIT_MAX and time.monotonic() + wait < deadline:
                 time.sleep(max(wait, 5))

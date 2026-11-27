@@ -33,7 +33,7 @@ function sig(win) {
     x.textBaseline = 'top'; x.font = '16px sans-serif'; x.fillStyle = '#f60'; x.fillRect(5, 5, 100, 20);
     x.fillStyle = '#069'; x.fillText('I.K.E. frames', 2, 10);
     var gl = doc.createElement('canvas').getContext('webgl'), d = gl && gl.getExtension('WEBGL_debug_renderer_info');
-    return [hash(c.toDataURL()), win.navigator.hardwareConcurrency, d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : null];
+    return [/* the pixels read (1.1.27: every export varies) */ hash(x.getImageData(0, 0, 200, 40).data.join()), win.navigator.hardwareConcurrency, d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : null];
   } catch (e) { return 'error ' + e; }
 }
 function last() { return window[window.length - 1]; }

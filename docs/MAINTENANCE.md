@@ -267,7 +267,10 @@ again with it, which starts them. It is only in those steps: no AI ever sees
 it, and the automatic fix's push checks once more that nothing under
 `.github/` changes. Without it nothing crashes and nothing is weakened: the
 verified candidate is "retrying", the owner gets one note that says how to
-make the token, and it merges by itself once the token exists. Branch
+make the token, and it merges by itself once the token exists. A fine-grained token
+expires: the weekly check (`health.yml`, `tools/automation-health.py` `token_problem`)
+reads GitHub's header `GitHub-Authentication-Token-Expiration` and opens the issue "Automation
+health" 21 days before the date, or at once when GitHub refuses the token (2026-11-25). Branch
 protection is never changed, no check is faked, no run is approved by API.
 
 **The informed signature** (`tools/release-notice.py`, `release-ready.yml`).
@@ -653,6 +656,16 @@ how much quota they use; whether the reviewers approve; the real duration of the
 Arch Linux job says of fixes that forgot the fallback; whether GitHub starts the pull request's
 own checks (with the owner's `IKE_WORKFLOW_TOKEN`) or the dispatched ones.
 
+### PyQt's API compared from its wheels (2026-11-27)
+
+AUTOMAT block 2. PyQt6 and PyQt6-WebEngine have no repository on GitHub, so "What changed upstream" was empty
+for a Qt update. `tools/upstream-diff.py` now reads the type stubs (`.pyi`) inside the two versions' wheels on
+PyPI (`stub_compare`: one Linux wheel each from files.pythonhosted.org, read as a zip, never run) and gives the
+AI every `Module.Class.member` removed and added, the members whose arguments changed, and the renames a
+program is sure of (one removed and one added member of the same class with the same arguments:
+`stub_renames`), which the recipe "renamed" of `tools/automat-recipes.py` can apply with no AI. Tried on the real
+wheels: PyQt6 6.7.1 -> 6.8.0 adds 497 members and changes the arguments of 22.
+
 ### Real updates first, and every day's free quota used (2026-11-24)
 
 The owner's decisions of 2026-11-24, in the owner's words: "use the free AIs every day, always when
@@ -795,6 +808,34 @@ of that day's four reasons, are `tests/test_automat_deadlock.py`):
   before the updates still being retried. Nobody is mailed for it. A run whose attempt started with a
   reserve (rotated) and asked nobody now counts as a day with no provider too.
 
+- **The stall of 2026-11-25 afternoon** (run 45625320020, PR #111 again): Z.AI was still "spent today"
+  from a mark written before the reading of its codes was fixed, and every OpenRouter model failed: five
+  answered 429 (the run waited 61 s on each, model after model, as if the whole account were blocked) and
+  the reasoning models gave no text ("no JSON object in the answer"). It was **not** the account's privacy
+  setting: that answers 404 "No endpoints found matching your data policy", which the reserve says
+  plainly (`DATA_POLICY`). What changed: a mark "spent today" carries the time it was written
+  (`spent_at`) and is **checked again with one request after `SPENT_RECHECK` (3 hours)**; a mark with
+  no time (written before this rule) holds for its day as before; only "it asked for money" never expires (`mark_expired`). A 429 of one
+  free model's pool upstream (`model_words` in `tools/ai-quota.json`: "rate-limited upstream") moves to
+  the next model at once and holds back none of OpenRouter's other models (`per_model`). Every error now
+  shows the provider's own words in the log (`error_words`, URLs and keys removed), so the next stall
+  says which limit it was. OpenRouter is asked for little reasoning, not sent back
+  (`"reasoning": {"effort": "low", "exclude": true}`), and an answer cut off before its text says so
+  (`cutoff`) instead of "no JSON object".
+- **The reasoning that left no answer** (2026-11-27, run 45983654916, PR #111): with the stall gone, nine of
+  eleven free models were asked and almost all were cut off, their whole answer spent on reasoning. Each
+  provider is now asked for little reasoning with its own parameter, and a model cut off is asked once more
+  with its reasoning off (`reasoning_params`: OpenRouter `reasoning.effort` "minimal", then "none"; Z.AI
+  `thinking: {"type": "disabled"}`; Groq `reasoning_effort` "low" for gpt-oss, "none" for Qwen 3.8 27B;
+  read on each provider's page that day). A model whose reasoning is mandatory refuses "none" (HTTP 400):
+  the next model is asked.
+- **Gemini's real quota, learned** (2026-11-25): Google publishes no numbers for the free tier ("can be
+  viewed in Google AI Studio"), so `requests_per_day` of Antigravity in `tools/ai-quota.json` is an
+  estimate. Gemini's 429 names the limit it hit and its value (`google.rpc.QuotaFailure`: `quotaId`
+  `GenerateRequestsPerDayPerProjectPerModel-FreeTier`, `quotaValue`): `learned_quotas` reads it,
+  `Budget.learn` keeps it for the rest of the provider's day as its day limit of requests (and a
+  `PerMinute` token limit as its minute), from the reviewers' calls and from Antigravity's errors alike.
+
 **From the providers' own pages** (read on 2026-11-25 on each provider's own page or code: every
 provider in `tools/ai-quota.json` has `source_urls`, `source_verified_on` and a `signals_source` or
 `words_source` that says what each value rests on). `source_verified_on` is the day the value was read
@@ -933,7 +974,7 @@ group of them, `--only <id>`):
 | pyo3, the bridge to Python | `pyo3` | `ike-adblock/Cargo.toml`, `ike-adblock/Cargo.lock` | A new release line: the requirement is raised (the automatic fix may adapt I.K.E.'s wrapper) |
 | A new major version of another direct crate of the engine (serde_json 2, ...) | `crate-major-<crate>` | `ike-adblock/Cargo.toml`, `ike-adblock/Cargo.lock` | Its requirement in `Cargo.toml` is raised, then `cargo update`; the automatic fix may adapt the wrapper. A major version of a crate only adblock brings (thiserror 2, rand, selectors...) cannot be taken by I.K.E.'s requirements: it comes with a new adblock, which is its own candidate; the ledger keeps it as retry-later, looked at weekly |
 | uBlock Origin scriptlets | `ubo-scriptlets` | `ike/resources/ubo-scriptlets.json` | The rebuilt scriptlets differ, not merely a new upstream commit |
-| Dark Reader: engine (npm "darkreader") and the lists of its extension (GitHub) | `darkreader` | `ike/resources/darkreader.js`, `darkreader-proxy.js`, `darkreader-data.json` (`tools/build-darkreader.py`) | A newer engine, or lists that changed (site fixes, dark sites, detector hints) |
+| Dark Reader: engine (npm "darkreader") and the lists of its extension (GitHub) | `darkreader` | `ike/resources/darkreader.js`, `darkreader-proxy.js`, `darkreader-data.json` (`tools/build-darkreader.py`) | A newer engine (which brings the newest lists with it). Since 1.1.27 lists that changed alone make no update: the browser fetches them itself once a day (`ike/darklists.py`, checked with the same functions as the builder), and the report only notes "lists changed (the browser fetches them itself)" |
 | The packages of the automatic tests: Qt's wheels; pytest, ruff and theirs; the other libraries | `test-qt`, `test-tools`, `test-libs` | `tools/test-requirements.txt` | A newer package set on PyPI (no new version of I.K.E.: nothing ships) |
 | The workflows' pins: every GitHub Action, cargo-deny, setup-python's and setup-node's versions, the Rust toolchain | `ci-<name>` | `.github/workflows/*.yml`, `.github/actions/*` (`tools/ci-pins.py`) | A newer release (see "The workflows' pins") |
 | The PKGBUILD's depends, optdepends and minima | `pkgbuild` | `PKGBUILD` (`tools/pkgbuild-sync.py`) | A module, Qt module or program the code uses and no package declares, a package needed at run time that is only optional, or a `# needs: <package> >= <version>` the code declares (see "Arch Linux's own packages") |
@@ -1006,7 +1047,13 @@ whose anchor is gone (left out, the others made, the script still parses), the
 proxy's anchor gone (stop), the panel's API, the site fixes, and the real
 engine made again from the shipped one, rebuilt byte for byte; a guard checks
 that the shipped `darkreader.js`, `darkreader-proxy.js` and `darkmode.js` have
-only allowed links.
+only allowed links. Pages whose Content-Security-Policy refuses added `<style>`
+elements (archlinux.org) are handled in `darkmode.js`, not by a patch: a
+`<style>` made in I.K.E.'s isolated world whose sheet the policy refused is
+given to the page as a constructed style sheet with the same rules
+(`tests/test_dark_csp.py`); it works on the DOM Dark Reader uses (its
+`<style>` elements, their `sheet` and `textContent`), so an update of Dark
+Reader needs nothing for it.
 
 **The builders' path** (WP11, 2026-11-22). The daily maintenance starts it by
 itself (`autofix.yml`, work `builder/<id>/<date>`, with the refusal above as
@@ -1390,7 +1437,7 @@ list-level problem gets one class, by the first matching rule of this table
 | `exception-without-blocking` | unsupported but harmless | no | an exception (`@@`) only for a blocking the engine never applies (`popup`, `cname`, `urlskip`, `header`, `permissions`, `denyallow`...): nothing to lift |
 | `exception-dropped` | breaking | yes | any other exception the engine drops (`@@`, `#@#`): it blocks or hides what the list unblocks, a site may break |
 | `trusted-scriptlet` | possible security regression | yes | a `trusted-...` scriptlet that does not run |
-| `protection-dropped` | possible security regression | yes | a blocking rule with an option that protects (`removeparam`, `csp`, `redirect`, `redirect-rule`, `permissions`, `header`, `urlskip`, `uritransform`, `inline-script`, `strict1p`, `strict3p`, `ipaddress`, `denyallow`, `to`, `method`, `popup`, `popunder`) that the engine drops or reads differently |
+| `protection-dropped` | possible security regression | yes (not for `ENGINE_LIMITS`) | a blocking rule with an option that protects (`removeparam`, `csp`, `redirect`, `redirect-rule`, `permissions`, `header`, `urlskip`, `uritransform`, `inline-script`, `strict1p`, `strict3p`, `ipaddress`, `denyallow`, `to`, `method`, `popup`, `popunder`) that the engine drops or reads differently |
 | `protective-list` | possible security regression | yes | any other dropped rule of a privacy or badware list (by its name: Privacy, Badware, Malicious, EasyPrivacy) |
 | `page-blocking` | possible security regression | yes | a dropped rule that blocks whole pages (`$doc`, `$document`, `$all`) |
 | `unknown-scriptlet` | breaking | yes | a scriptlet the bundled library does not know (list/library drift) |
@@ -1427,6 +1474,13 @@ expression or empty 19, `$permissions` 10, `$csp` with a content type 8,
 for a person (69 rules of uBlock Origin's own resources, 3 YouTube rules). These are the
 engine's gaps of today, not new regressions: they are written in the ledger
 once, and analysed one at a time.
+
+**Engine limits are not given to an AI** (2026-11-27, PR #111). `ENGINE_LIMITS` in `tools/filter-lists.py`
+names the engine's reasons that no change of I.K.E.'s adapter can fix; such a finding keeps its class but gets
+no AI analysis. The first: "csp with content type" (adblock-rust refuses `csp=` with `$doc`; the adapter may
+not drop an option, and I.K.E. applies no `$csp` rule at all, since Qt WebEngine cannot add a response header).
+PR #111 was an AI's guess at it: a helper nothing called and a function put inside a class; the static guard
+refused it. Such gaps are Claude's work (an engine update, or a browser feature with the owner).
 
 **The AI analysis** (one group, that is one option or one scriptlet, per
 attempt; one at a time, the most severe first, at most one started a day,
@@ -1481,6 +1535,36 @@ Those runs report to the finding's entry by its branch
 `TESTING_DAYS` count again from it; the cap makes it "needs-person".
 
 ### Free AI providers, checked every week (WP9)
+
+**The Chromium features I.K.E. sets still exist** (AUTOMAT block 2, 2026-11-27). Chromium ignores a feature
+name it does not know, silently, so a renamed feature would turn a protection off with no error and no
+failing test. Each week `tools/engine-features.py` reads the names from `ike/app.py`'s own constants
+(`LNA_FEATURES`, `PRIVACY_FEATURES`, `VIDEO_ON`) and asks GitHub's code search (chromium/chromium) where each
+is declared on Chromium's development branch, then that file at the tag of the Chromium the users have (the
+version the last green "Arch Linux" run on `main` recorded) on chromium.googlesource.com. Gone in the users'
+version, or gone from the development branch (a warning months ahead), is a line of the weekly issue; what
+cannot be read is "not verified", never "present".
+
+**The weekly scoreboard** (2026-11-27, the owner: "simple, but it must work"). `health.yml` runs
+`tools/automat-scoreboard.py` (GET calls only) and edits one issue, "AUTOMAT: tabellone settimanale", in
+Italian: the automation's pull requests merged in the last 7 days and how many by themselves, those still
+waiting and for how long, the AI work of the week from AUTOMAT's memory (runs, answered, no provider, requests
+per provider), the runs of Tests and Arch Linux that passed only when started again (flaky tests or the
+infrastructure, with their jobs), and whether `main`'s latest runs passed.
+
+**New models found by AUTOMAT itself** (block 2, 2026-11-27; the owner: AUTOMAT keeps up with the providers and
+updates the models' names by itself). The weekly check also reads each provider's own list of models (Gemini
+API `GET /models`; Groq and Z.AI `GET .../models`), leaves out what is not text (embeddings, images, speech,
+guards) and asks up to `TRY_NEW` new ones per provider a tiny question on the key, newest version first
+(`tools/provider-check.py` `discover`). The keys have no billing, so a model that answers is free there;
+Gemini's 429 with "limit: 0" says the free plan has none of it (recorded as not free, never used). The models
+that answered reach the automatic fix as `AUTOFIX_DISCOVERED` (`provider-check.py discovered`, read by the
+plan of `autofix.yml` from the weekly artifact) and are asked **after** the configured ones: the reserves
+(`chain`), Antigravity (`models`, in the CLI's form "Gemini 5 Flash (High)") and the Gemini reviewers.
+A configured model its provider no longer lists is said in the weekly issue, with the new free model that
+replaces it meanwhile; Claude then updates `tools/ai-providers.py`. OpenRouter rebuilds its free list at
+every run already. Not found by this: a model only Antigravity's CLI offers (it has no list), and a
+provider's change of its free plan that keeps the model listed (the answers' billing errors still mark it).
 
 **One place** for the providers: `tools/ai-providers.py` (protected, read by
 the agent, the reserves, the weekly check and the queue). It holds the order
@@ -1658,6 +1742,14 @@ the ledger, not yet written back into the pull request. A security fix that
 changes the browser gets its version when the owner orders the merge.
 
 ## One candidate per component
+
+**Low-risk candidates once a week** (2026-11-27, AUTOMAT made simpler at the owner's request). `crates`,
+`test-tools`, `test-libs` and every `ci-*` pin are made on Mondays only (`WEEKLY`, `WEEKLY_DAY`): in the week of
+2026-11-20 crates and ci-cargo-deny alone started 26 runs of Tests and 25 of Arch Linux, rebuilt as an upstream
+moved by a patch release. On other days the plan says `weekly`, and an open weekly candidate stays as it is (it
+still merges by itself when verified). Daily as before: the AdBlock engine, pyo3, a crate's new major version,
+uBlock Origin's scriptlets, Dark Reader, Breeze, the PKGBUILD and test-qt (the early warning of a Qt release);
+security fixes are their own branches and never wait.
 
 Since 2026-11-22 (WP5) the daily maintenance makes **one isolated candidate per
 component**, or per small coherent group, instead of one combined candidate

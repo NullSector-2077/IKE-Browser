@@ -31,7 +31,7 @@ function sig(win) {
     var x = c.getContext('2d');
     x.textBaseline = 'top'; x.font = '16px sans-serif'; x.fillStyle = '#f60'; x.fillRect(5, 5, 100, 20);
     x.fillStyle = '#069'; x.fillText('I.K.E. paths', 2, 10);
-    return [hash(c.toDataURL()), win.navigator.hardwareConcurrency];
+    return [/* the pixels read (1.1.27: every export varies) */ hash(x.getImageData(0, 0, 200, 40).data.join()), win.navigator.hardwareConcurrency];
   } catch (e) { return 'error ' + e; }
 }
 function box() { return document.getElementById('box'); }

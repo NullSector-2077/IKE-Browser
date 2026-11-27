@@ -63,6 +63,7 @@
  "lang_url",
  "language",
  "last_app_check",
+ "last_darklists_update",
  "last_fast_update",
  "last_lists_update",
  "lazy_restore",
