@@ -340,6 +340,8 @@ def chain(env=os.environ):
             print("%s: marked unavailable by the weekly check (not free, or billing): skipped" % name, flush=True)
             continue
         models = [m.strip() for m in (env.get(models_var) or "").split(",") if m.strip()] or list(default)
+        # the provider's new free models the weekly check found (AUTOFIX_DISCOVERED), after the configured ones
+        models += [m for m in REGISTRY.discovered(env, name) if m not in models]
         for m in models:
             if not REGISTRY.is_free_model(name, m):
                 print("%s: %s is not a free model (%s only): refused" % (
@@ -527,15 +529,37 @@ def classify(status):
     return "temporary"
 
 
+# How much a model reasons before it answers (2026-11-27, run 45983654916: Z.AI, OpenRouter and Groq models alike
+# spent the whole answer on their reasoning and gave no text, "cutoff"). "less": the request asks for little
+# reasoning; "off": none, the same model asked again after a cutoff. Each provider's own parameter, read on
+# 2026-11-27: docs.z.ai/guides/capabilities/thinking-mode ("thinking": {"type": "disabled"}, GLM-4.7 thinks by
+# default); console.groq.com/docs/reasoning (reasoning_effort: low|medium|high for gpt-oss, none|default for
+# Qwen 3.8 27B); openrouter.ai/docs/use-cases/reasoning-tokens (reasoning.effort minimal ... none; a model whose
+# reasoning is mandatory refuses "none": then the next model). An unknown host gets nothing.
+def reasoning_params(url, model, level):
+    """The provider's own parameters for reasoning "less" or "off" ({} for "" or an unknown provider)."""
+    model = str(model or "").lower()
+    if level not in ("less", "off"):
+        return {}
+    if "openrouter.ai/" in url:
+        return {"reasoning": {"effort": "minimal" if level == "less" else "none", "exclude": True}}
+    if "api.z.ai/" in url:
+        return {"thinking": {"type": "disabled"}} if level == "off" else {}
+    if "api.groq.com/" in url:
+        if "gpt-oss" in model:
+            return {"reasoning_effort": "low"}
+        if "qwen3.8" in model:
+            return {"reasoning_effort": "none"} if level == "off" else {}
+    return {}
+
+
 def ask(url, key, model, messages, timeout=REQUEST_TIMEOUT, opener=urllib.request.urlopen,
-        max_tokens=MAX_TOKENS, temperature=0.1, meter=None):
+        max_tokens=MAX_TOKENS, temperature=0.1, meter=None, reasoning="less"):
     """The model's answer text, or raises (kind, detail). meter(status, headers, usage, body): what
     the answer says about the quota (tools/ai-quota.py), also for an error."""
     request = {"model": model, "messages": messages, "temperature": 0.1, "max_tokens": max_tokens}
-    if "openrouter.ai/" in url:
-        # 2026-11-25: free reasoning models spent the whole answer on their reasoning and gave no text ("no JSON
-        # object in the answer"): little reasoning, not sent back (openrouter.ai/docs, reasoning tokens)
-        request["reasoning"] = {"effort": "low", "exclude": True}
+    # 2026-11-25/27: free reasoning models spent the whole answer on their reasoning and gave no text
+    request.update(reasoning_params(url, model, reasoning))
     if temperature != 0.1:
         request["temperature"] = min(0.3, max(0.0, float(temperature)))      # always low: never above 0.3
     body = json.dumps(request).encode()
@@ -954,6 +978,7 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
     most = inner.INNER_TRIES if inner else 2
     answers, stops = 0, 0
     busy, minute_waits = 0, 0
+    reasoning = "less"
     while tries < most:
         tries += 1
         size = 0
@@ -980,7 +1005,7 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
                 budget.note(provider, size, "fix", usage=usage, headers=headers, status=status, body=body)
         try:
             answer = ask(url, key, model, messages, opener=opener, max_tokens=tokens,
-                         temperature=run.get("temperature", 0.1), meter=meter)
+                         temperature=run.get("temperature", 0.1), meter=meter, reasoning=reasoning)
         except Stop as s:
             if budget is not None and not seen:
                 budget.note(provider, 0, "fix", requests=1)        # asked, no answer read: one request all the same
@@ -990,6 +1015,13 @@ def one_model(url, key, model, base, tokens, deadline, opener, workdir, shown, a
             print("  stopped: %s (%s)" % (kind, for_log(s.args[1])), flush=True)
             if len(s.args) > 4 and s.args[4] == "model":
                 return "quota", "", refused             # this model's pool upstream: the next model, no wait
+            if kind == "cutoff" and reasoning != "off" and reasoning_params(url, model, "off") \
+                    and time.monotonic() < deadline:
+                # its reasoning took all the room: the same model once more, with its reasoning off
+                reasoning = "off"
+                print("  asked again with its reasoning off", flush=True)
+                tries -= 1
+                continue
             # a busy service (503): asked again after a growing pause (BACKOFF, or its own short Retry-After)
             if kind == "temporary" and code == 503 and busy < len(BACKOFF):
                 pause = wait if 0 < wait <= 60 else BACKOFF[busy]
@@ -1117,6 +1149,8 @@ def _ping_one(url, key, model, opener):
             timeout=60, opener=opener, max_tokens=16)
         return "ok"
     except Stop as e:
+        if e.args and e.args[0] == "cutoff":
+            return "ok"                 # it answered: 16 tokens are too few for a reasoning model's text
         return e.args[0] if e.args else "temporary"
 
 

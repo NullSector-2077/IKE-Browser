@@ -1,184 +1,232 @@
-"""Fetch Dark Reader's compatibility lists for the next I.K.E. launch."""
+"""Dark Reader's lists, kept up to date by I.K.E. itself (1.1.27, the owner's
+decision: "no new version every day for simple lists").
+
+Dark Reader's site fixes, its list of sites that are dark already and the
+hints that recognise a site's own dark theme change almost every day. Until
+1.1.26 each change made a new version of I.K.E. (the daily maintenance rebuilt
+ike/resources/darkreader-data.json). Now the browser fetches the three lists
+from Dark Reader's repository once a day, as it fetches the filter lists, and
+uses them in place of the copy it came with; a new version is made only for a
+new Dark Reader engine.
+
+What is fetched is read the way tools/build-darkreader.py reads it (the same
+functions, copied: tests/test_darklists.py keeps the two copies identical)
+and checked the same way
+before anything uses it: data for Dark Reader only (CSS for a style element,
+selectors, flags), nothing that could be a script, the common fix first, and
+lists not much shorter than the copy I.K.E. came with (a cut or broken
+download is refused). Https only, from raw.githubusercontent.com only, no
+cookies, the browser's own User-Agent; nothing about the user is sent. A
+download that fails or is refused changes nothing: the lists in use stay.
+
+No Qt here except the background thread (made when a download starts).
+"""
 
 import json
-import os
 import re
-import tempfile
 import time
-import urllib.request
-from datetime import datetime
+from urllib.parse import urlsplit
 
-from PyQt6.QtCore import QThread
-
-from . import doh
-from .config import CACHE_DIR
-
-CACHE = CACHE_DIR / "darkreader-lists.json"
-HEAD = "https://api.github.com/repos/darkreader/darkreader/commits/main"
-RAW = "https://raw.githubusercontent.com/darkreader/darkreader/"
-FILES = ("dynamic-theme-fixes.config", "dark-sites.config", "detector-hints.config")
-LIMIT = 2 * 1024 * 1024
-INTERVAL = 24 * 3600
-
-FIX_FIELDS = {"INVERT": "invert", "CSS": "css", "IGNORE INLINE STYLE": "ignoreInlineStyle",
-              "IGNORE IMAGE ANALYSIS": "ignoreImageAnalysis", "IGNORE CSS URL": "ignoreCSSUrl"}
-HINT_FIELDS = {"TARGET": "target", "MATCH": "match", "NO DARK THEME": "noDarkTheme",
-               "SYSTEM THEME": "systemTheme", "IFRAME": "iframe"}
-COMMAND = re.compile(r"^[A-Z]+(?: [A-Z]+){0,2}$")
-# Reject constructs that can create external CSS requests, including escaped
-# or comment-split spellings. The bundled fixes remain available for these.
-EXTERNAL_CSS = re.compile(r"[@\\]|/\*|\b(?:url|src|image|image-set)\s*\(", re.I)
-SELECTOR_BREAKOUT = re.compile(r"[{};\\]")
+SOURCE = "https://raw.githubusercontent.com/darkreader/darkreader/main/src/config/"
+FILES = {"fixes": "dynamic-theme-fixes.config", "dark_sites": "dark-sites.config",
+         "detector_hints": "detector-hints.config"}
+HOST = "raw.githubusercontent.com"
+MAX_BYTES = 8 * 1024 * 1024
+UPDATE_INTERVAL = 24 * 3600
+RETRY_FAILED_AFTER = 3 * 3600
+# a list fetched with less than this share of the entries of the copy I.K.E.
+# came with is taken for a broken download (Dark Reader's lists only grow)
+MIN_SHARE = 0.5
+STORE_NAME = "darkreader-lists.json"
 
 
-def _lines(text):
-    return [line.strip() for line in text.splitlines() if line.strip()]
+# --- reading Dark Reader's lists (as tools/build-darkreader.py reads them) --------
+
+FIX_COMMANDS = {"INVERT": "invert", "CSS": "css", "IGNORE INLINE STYLE": "ignoreInlineStyle",
+                "IGNORE IMAGE ANALYSIS": "ignoreImageAnalysis", "IGNORE CSS URL": "ignoreCSSUrl"}
+HINT_COMMANDS = {"TARGET": "target", "MATCH": "match", "NO DARK THEME": "noDarkTheme",
+                 "SYSTEM THEME": "systemTheme", "IFRAME": "iframe"}
+COMMAND_LINE = re.compile(r"^[A-Z]+(\s[A-Z]+){0,2}$")
+# what can never be in data for Dark Reader (CSS, selectors, flags)
+DATA_SCRIPT_MARKS = ("<script", "</style", "javascript:", "vbscript:", "expression(", "-moz-binding",
+                     "behavior:", "data:text/html", "data:text/javascript", "data:application/javascript",
+                     "onload=", "onerror=")
 
 
-def _blocks(text, fields):
-    for block in re.split(r"^[ \t]*={2,}[ \t]*$", text.replace("\r", ""), flags=re.M):
+def parse_array(text):
+    return [s.strip() for s in text.replace("\r", "").split("\n") if s.strip()]
+
+
+def parse_blocks(text, commands, value):
+    """Dark Reader's parseSitesFixesConfig, in Python."""
+    out = []
+    for block in re.split(r"^\s*={2,}\s*$", text.replace("\r", ""), flags=re.M):
         lines = block.split("\n")
-        marks = [i for i, line in enumerate(lines) if COMMAND.fullmatch(line)]
+        marks = [i for i, ln in enumerate(lines) if COMMAND_LINE.match(ln)]
         if not marks:
             continue
-        entry = {"url": _lines("\n".join(lines[:marks[0]]))}
-        for start, end in zip(marks, marks[1:] + [len(lines)]):
-            name = fields.get(lines[start])
-            if not name:
+        entry = {"url": parse_array("\n".join(lines[:marks[0]]))}
+        for n, i in enumerate(marks):
+            command = lines[i].strip()
+            end = marks[n + 1] if n + 1 < len(marks) else len(lines)
+            prop = commands.get(command)
+            if prop:
+                entry[prop] = value(command, "\n".join(lines[i + 1:end]))
+        out.append(entry)
+    return out
+
+
+def fix_value(command, text):
+    return text.strip() if command == "CSS" else parse_array(text)
+
+
+def hint_value(command, text):
+    if command == "TARGET":
+        return text.strip()
+    if command in ("NO DARK THEME", "SYSTEM THEME"):
+        return True
+    return parse_array(text)
+
+
+def parse(texts):
+    """The three lists from the texts of Dark Reader's three files (keyed as FILES)."""
+    return {"fixes": parse_blocks(texts["fixes"], FIX_COMMANDS, fix_value),
+            "dark_sites": parse_array(texts["dark_sites"]),
+            "detector_hints": parse_blocks(texts["detector_hints"], HINT_COMMANDS, hint_value)}
+
+
+def data_problems(data):
+    """What in the lists is not data for Dark Reader: unknown fields, values
+    that are not text, anything that looks like a script ([] when none)."""
+    allowed = {"fixes": {"url"} | set(FIX_COMMANDS.values()), "detector_hints": {"url"} | set(HINT_COMMANDS.values())}
+    out = []
+    for part, keys in allowed.items():
+        if not isinstance(data.get(part), list):
+            out.append("%s: not a list" % part)
+            continue
+        for n, entry in enumerate(data[part]):
+            if not isinstance(entry, dict):
+                out.append("%s[%d]: not an entry" % (part, n))
                 continue
-            value = "\n".join(lines[start + 1:end]).strip()
-            if name in ("noDarkTheme", "systemTheme"):
-                entry[name] = True
-            elif name in ("css", "target"):
-                entry[name] = value
-            else:
-                entry[name] = [item for item in _lines(value)
-                               if len(item) <= 2048 and not SELECTOR_BREAKOUT.search(item)]
-        yield entry
+            if set(entry) - keys:
+                out.append("%s[%d]: unknown fields %s" % (part, n, sorted(set(entry) - keys)))
+            for key, value in entry.items():
+                values = value if isinstance(value, list) else [value]
+                for v in values:
+                    if v is True:
+                        continue
+                    if not isinstance(v, str):
+                        out.append("%s[%d].%s: not text" % (part, n, key))
+                        continue
+                    low = re.sub(r"\s+", "", v.lower())
+                    hit = next((m for m in DATA_SCRIPT_MARKS if m.replace(" ", "") in low), "")
+                    if hit:
+                        urls = entry.get("url") if isinstance(entry.get("url"), list) else []
+                        out.append("%s[%d].%s (%s): %r" % (part, n, key, ", ".join(map(str, urls[:2]))[:80], hit))
+    if not isinstance(data.get("dark_sites"), list) or not all(isinstance(s, str) for s in data["dark_sites"]):
+        out.append("dark_sites: not text")
+    return out
 
 
-def _revision(commit, date):
-    if not isinstance(commit, str) or not re.fullmatch(r"[a-f0-9]{40}", commit):
-        raise ValueError("invalid Dark Reader revision")
-    if not isinstance(date, str):
-        raise ValueError("invalid Dark Reader revision date")
-    datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")
+def check(lists, bundled=None):
+    """Why the fetched lists cannot be used, or "" (bundled: the copy I.K.E. came with)."""
+    problems = data_problems(lists)
+    if problems:
+        return "not data for Dark Reader: %s" % "; ".join(problems[:3])
+    fixes = lists["fixes"]
+    if not fixes or fixes[0].get("url", [])[:1] != ["*"]:
+        return "the site fixes do not start with the common fix"
+    if bundled:
+        for part in FILES:
+            have = len(bundled.get(part) or ())
+            if have and len(lists[part]) < have * MIN_SHARE:
+                return "%s: %d entries where I.K.E. came with %d" % (part, len(lists[part]), have)
+    return ""
 
 
-def unpack(snapshot, bundled):
-    """Validate downloaded text and build the two engines' shared data."""
-    commit, date = snapshot["commit"], snapshot["date"]
-    _revision(commit, date)
-    texts = snapshot["texts"]
-    if (not isinstance(texts, list) or len(texts) != len(FILES)
-            or not all(isinstance(t, str) and 0 < len(t) <= LIMIT for t in texts)):
-        raise ValueError("invalid Dark Reader list size")
-    if date[:10] < bundled.get("lists_date", ""):
-        raise ValueError("Dark Reader lists are older than the bundle")
-    known_regex = {url for key in ("fixes", "detector_hints") for entry in bundled[key]
-                   for url in entry["url"] if url.startswith("/")}
-    known_regex.update(url for url in bundled["dark_sites"] if url.startswith("/"))
+# --- the copy fetched by the browser ----------------------------------------------
 
-    def patterns(values):
-        return [v for v in values if len(v) <= 512 and (not v.startswith("/") or v in known_regex)]
-
-    fixes = list(_blocks(texts[0], FIX_FIELDS))
-    dark = patterns(_lines(texts[1]))
-    hints = list(_blocks(texts[2], HINT_FIELDS))
-    if not fixes or fixes[0]["url"] != ["*"] or not dark or not hints:
-        raise ValueError("incomplete Dark Reader lists")
-    original_css = {tuple(entry["url"]): entry.get("css", "") for entry in bundled["fixes"]}
-    for fix in fixes:
-        css = fix.get("css", "")
-        if len(css) > 32768 or EXTERNAL_CSS.search(css):
-            fix["css"] = original_css.get(tuple(fix["url"]), "")
-    for entry in (*fixes, *hints):
-        entry["url"] = patterns(entry["url"])
-    return dict(bundled, lists_commit=commit, lists_date=date[:10],
-                fixes=[f for f in fixes if f["url"]], dark_sites=dark,
-                detector_hints=[h for h in hints if h["url"]])
+def store_path():
+    from .config import DATA_DIR
+    return DATA_DIR / STORE_NAME
 
 
-class NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise OSError("Dark Reader list redirect refused")
-
-
-def _read(url):
-    request = urllib.request.Request(url, headers={"Accept": "*/*", "User-Agent": "I.K.E. list updater"})
-    with doh.urlopen(request, timeout=15, handlers=(NoRedirect(),)) as response:
-        data = response.read(LIMIT + 1)
-    if len(data) > LIMIT:
-        raise ValueError("Dark Reader response is too large")
-    return data.decode("utf-8")
-
-
-def _cached(path):
-    with path.open("rb") as stream:
-        raw = stream.read(8 * LIMIT + 1)
-    if len(raw) > 8 * LIMIT:
-        raise ValueError("Dark Reader cache is too large")
-    return json.loads(raw)
-
-
-def load(bundled, path=CACHE):
+def load_fetched():
+    """The lists the browser fetched ({"lists_date", "fetched", "fixes", ...}), or None."""
     try:
-        return unpack(_cached(path), bundled)
-    except (OSError, ValueError, KeyError, TypeError):
-        return bundled
+        d = json.loads(store_path().read_text("utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(d, dict) or not isinstance(d.get("lists_date"), str) or check(d):
+        return None
+    return d
 
 
-def refresh(bundled, path=CACHE, read=_read):
-    head = json.loads(read(HEAD))
-    commit, date = head["sha"], head["commit"]["committer"]["date"]
-    _revision(commit, date)
-    if commit == bundled.get("lists_commit") or date[:10] < bundled.get("lists_date", ""):
-        return False
-    try:
-        current = _cached(path)
-        unpack(current, bundled)
-        if commit == current["commit"] or date < current["date"]:
-            return False
-    except (OSError, ValueError, KeyError, TypeError):
-        pass
-    snapshot = {"commit": commit, "date": date,
-                "texts": [read(f"{RAW}{commit}/src/config/{name}") for name in FILES]}
-    unpack(snapshot, bundled)
+def newer_than(fetched, bundled):
+    """Are the fetched lists at least as new as the copy I.K.E. came with?"""
+    return bool(fetched) and fetched.get("lists_date", "") >= (bundled or {}).get("lists_date", "")
+
+
+def fetch(bundled=None, opener=None):
+    """Fetch, read and check the three lists (blocking; the background thread
+    runs it). Returns the lists to store, or raises ValueError with the reason."""
+    if opener is None:
+        from . import doh
+        opener = doh.urlopen
+    import urllib.request
+
+    from . import osinfo
+    texts = {}
+    for part, name in FILES.items():
+        url = SOURCE + name
+        req = urllib.request.Request(url, headers={"User-Agent": osinfo.browser_user_agent()})
+        with opener(req, timeout=40) as r:
+            final = urlsplit(r.geturl())
+            if final.scheme != "https" or (final.hostname or "").lower() != HOST:
+                raise ValueError("%s: redirected away from %s" % (name, HOST))
+            length = r.headers.get("Content-Length")
+            if length and int(length) > MAX_BYTES:
+                raise ValueError("%s: too large" % name)
+            raw = r.read(MAX_BYTES + 1)
+        if len(raw) > MAX_BYTES or b"\x00" in raw:
+            raise ValueError("%s: too large or not text" % name)
+        texts[part] = raw.decode("utf-8")
+    lists = parse(texts)
+    why = check(lists, bundled)
+    if why:
+        raise ValueError(why)
+    lists["lists_date"] = time.strftime("%Y-%m-%d", time.gmtime())
+    lists["fetched"] = int(time.time())
+    return lists
+
+
+def save(lists):
+    path = store_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(dir=path.parent, mode="w", encoding="utf-8", delete=False) as out:
-        temporary = out.name
-        try:
-            json.dump(snapshot, out, ensure_ascii=False)
-            out.flush()
-            os.fsync(out.fileno())
-            os.replace(temporary, path)
-        finally:
-            if os.path.exists(temporary):
-                os.unlink(temporary)
-    return True
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(lists, separators=(",", ":")), "utf-8")
+    tmp.replace(path)
 
 
-class Checker(QThread):
-    def run(self):
-        from .darkfixes import bundled_data
-        try:
-            refresh(bundled_data())
-        except (OSError, ValueError, KeyError, TypeError):
-            pass
-
-
-def due():
-    stamp = CACHE.with_suffix(".checked")
-    try:
-        if time.time() - stamp.stat().st_mtime < INTERVAL:
-            return False
-    except FileNotFoundError:
-        pass
-    except OSError:
+def needs_update(config):
+    if not config["auto_update"]:
         return False
-    try:
-        stamp.parent.mkdir(parents=True, exist_ok=True)
-        stamp.touch()
-    except OSError:
-        return False
-    return True
+    return time.time() - (config.get("last_darklists_update") or 0) > UPDATE_INTERVAL
+
+
+def make_thread(bundled, parent=None):
+    """A background thread that fetches, checks and stores the lists; its
+    signal done(ok, reason) comes back on the thread that made it."""
+    from PyQt6.QtCore import QThread, pyqtSignal
+
+    class Fetch(QThread):
+        done = pyqtSignal(bool, str)
+
+        def run(self):
+            try:
+                save(fetch(bundled))
+                self.done.emit(True, "")
+            except Exception as e:          # the lists in use stay as they are
+                self.done.emit(False, str(e)[:300])
+
+    return Fetch(parent)

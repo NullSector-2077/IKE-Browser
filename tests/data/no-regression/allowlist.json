@@ -568,6 +568,101 @@
    ],
    "why": "A frame reads what the page reads: its canvas row carries the page's canvas text measure, changed by the width noise that is never none (fix/width-noise-never-zero).",
    "accepted": "the owner asked for every fingerprinting fix at Strict and Maximum (2026-11-24); entry written by Claude from the values GitHub's runner measured on PR #175"
+  },
+  {
+   "key": "fingerprint-config/*/ffua",
+   "why": "Google's sites see a current Firefox with the protections on (1.1.27, the owner's decision): the Firefox of the calendar instead of the fixed Firefox 140, given to every Google page and to a Google sign-in embedded anywhere, with the engine's client hints sent empty (they said \"Chromium\" beside Firefox); Google's sensitive services keep the user's level instead of \"off\" / \"Compatibility\" (Strict and Maximum's language, GPC and the filter lists now apply there). PayPal, Stripe, Microsoft and Apple unchanged.",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "fingerprint-config/*/ffsites",
+   "why": "Google's sites see a current Firefox with the protections on (1.1.27, the owner's decision): the Firefox of the calendar instead of the fixed Firefox 140, given to every Google page and to a Google sign-in embedded anywhere, with the engine's client hints sent empty (they said \"Chromium\" beside Firefox); Google's sensitive services keep the user's level instead of \"off\" / \"Compatibility\" (Strict and Maximum's language, GPC and the filter lists now apply there). PayPal, Stripe, Microsoft and Apple unchanged.",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "fingerprint-config/*/ffsignin",
+   "why": "Google's sites see a current Firefox with the protections on (1.1.27, the owner's decision): the Firefox of the calendar instead of the fixed Firefox 140, given to every Google page and to a Google sign-in embedded anywhere, with the engine's client hints sent empty (they said \"Chromium\" beside Firefox); Google's sensitive services keep the user's level instead of \"off\" / \"Compatibility\" (Strict and Maximum's language, GPC and the filter lists now apply there). PayPal, Stripe, Microsoft and Apple unchanged.",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "fingerprint-config/*/sites.*google.com",
+   "why": "Google's sites see a current Firefox with the protections on (1.1.27, the owner's decision): the Firefox of the calendar instead of the fixed Firefox 140, given to every Google page and to a Google sign-in embedded anywhere, with the engine's client hints sent empty (they said \"Chromium\" beside Firefox); Google's sensitive services keep the user's level instead of \"off\" / \"Compatibility\" (Strict and Maximum's language, GPC and the filter lists now apply there). PayPal, Stripe, Microsoft and Apple unchanged.",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "fingerprint-config/*/sites.accounts.youtube.com",
+   "why": "Google's sites see a current Firefox with the protections on (1.1.27, the owner's decision): the Firefox of the calendar instead of the fixed Firefox 140, given to every Google page and to a Google sign-in embedded anywhere, with the engine's client hints sent empty (they said \"Chromium\" beside Firefox); Google's sensitive services keep the user's level instead of \"off\" / \"Compatibility\" (Strict and Maximum's language, GPC and the filter lists now apply there). PayPal, Stripe, Microsoft and Apple unchanged.",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "request-headers/*/hands-off-google-*/*",
+   "why": "Google's sites see a current Firefox with the protections on (1.1.27, the owner's decision): the Firefox of the calendar instead of the fixed Firefox 140, given to every Google page and to a Google sign-in embedded anywhere, with the engine's client hints sent empty (they said \"Chromium\" beside Firefox); Google's sensitive services keep the user's level instead of \"off\" / \"Compatibility\" (Strict and Maximum's language, GPC and the filter lists now apply there). PayPal, Stripe, Microsoft and Apple unchanged.",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "request-headers/*/hands-off-other-tracker/*",
+   "why": "Google's sites see a current Firefox with the protections on (1.1.27, the owner's decision): the Firefox of the calendar instead of the fixed Firefox 140, given to every Google page and to a Google sign-in embedded anywhere, with the engine's client hints sent empty (they said \"Chromium\" beside Firefox); Google's sensitive services keep the user's level instead of \"off\" / \"Compatibility\" (Strict and Maximum's language, GPC and the filter lists now apply there). PayPal, Stripe, Microsoft and Apple unchanged.",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "request-headers/*/login-google/*",
+   "why": "Google's sites see a current Firefox with the protections on (1.1.27, the owner's decision): the Firefox of the calendar instead of the fixed Firefox 140, given to every Google page and to a Google sign-in embedded anywhere, with the engine's client hints sent empty (they said \"Chromium\" beside Firefox); Google's sensitive services keep the user's level instead of \"off\" / \"Compatibility\" (Strict and Maximum's language, GPC and the filter lists now apply there). PayPal, Stripe, Microsoft and Apple unchanged.",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "request-headers/*/page-sensitive-upgrade/*",
+   "why": "Google's sites see a current Firefox with the protections on (1.1.27, the owner's decision): the Firefox of the calendar instead of the fixed Firefox 140, given to every Google page and to a Google sign-in embedded anywhere, with the engine's client hints sent empty (they said \"Chromium\" beside Firefox); Google's sensitive services keep the user's level instead of \"off\" / \"Compatibility\" (Strict and Maximum's language, GPC and the filter lists now apply there). PayPal, Stripe, Microsoft and Apple unchanged.",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/balanced/canvas",
+   "why": "Every export of a canvas varies (1.1.27, the owner's decision: Cover Your Tracks showed a \"unique\" fingerprint): toDataURL / toBlob get a varying lowest bit on a few edge pixels on top of the site's noise, from the site's key and the number of exports, so the exported picture's hash changes; getImageData (the second value) is unchanged and the noise is still applied. (Not pinned to values: the pictures' hashes depend on the computer's fonts; to be pinned to the values GitHub's runner measures.)",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/balanced/canvas_blob",
+   "why": "Every export of a canvas varies (1.1.27, the owner's decision: Cover Your Tracks showed a \"unique\" fingerprint): toDataURL / toBlob get a varying lowest bit on a few edge pixels on top of the site's noise, from the site's key and the number of exports, so the exported picture's hash changes; getImageData (the second value) is unchanged and the noise is still applied. (Not pinned to values: the pictures' hashes depend on the computer's fonts; to be pinned to the values GitHub's runner measures.)",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/balanced/frame",
+   "why": "Every export of a canvas varies (1.1.27, the owner's decision: Cover Your Tracks showed a \"unique\" fingerprint): toDataURL / toBlob get a varying lowest bit on a few edge pixels on top of the site's noise, from the site's key and the number of exports, so the exported picture's hash changes; getImageData (the second value) is unchanged and the noise is still applied. (Not pinned to values: the pictures' hashes depend on the computer's fonts; to be pinned to the values GitHub's runner measures.)",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/maximum/canvas",
+   "why": "Every export of a canvas varies (1.1.27, the owner's decision: Cover Your Tracks showed a \"unique\" fingerprint): toDataURL / toBlob get a varying lowest bit on a few edge pixels on top of the site's noise, from the site's key and the number of exports, so the exported picture's hash changes; getImageData (the second value) is unchanged and the noise is still applied. (Not pinned to values: the pictures' hashes depend on the computer's fonts; to be pinned to the values GitHub's runner measures.)",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/maximum/canvas_blob",
+   "why": "Every export of a canvas varies (1.1.27, the owner's decision: Cover Your Tracks showed a \"unique\" fingerprint): toDataURL / toBlob get a varying lowest bit on a few edge pixels on top of the site's noise, from the site's key and the number of exports, so the exported picture's hash changes; getImageData (the second value) is unchanged and the noise is still applied. (Not pinned to values: the pictures' hashes depend on the computer's fonts; to be pinned to the values GitHub's runner measures.)",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/maximum/frame",
+   "why": "Every export of a canvas varies (1.1.27, the owner's decision: Cover Your Tracks showed a \"unique\" fingerprint): toDataURL / toBlob get a varying lowest bit on a few edge pixels on top of the site's noise, from the site's key and the number of exports, so the exported picture's hash changes; getImageData (the second value) is unchanged and the noise is still applied. (Not pinned to values: the pictures' hashes depend on the computer's fonts; to be pinned to the values GitHub's runner measures.)",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/strict/canvas",
+   "why": "Every export of a canvas varies (1.1.27, the owner's decision: Cover Your Tracks showed a \"unique\" fingerprint): toDataURL / toBlob get a varying lowest bit on a few edge pixels on top of the site's noise, from the site's key and the number of exports, so the exported picture's hash changes; getImageData (the second value) is unchanged and the noise is still applied. (Not pinned to values: the pictures' hashes depend on the computer's fonts; to be pinned to the values GitHub's runner measures.)",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/strict/canvas_blob",
+   "why": "Every export of a canvas varies (1.1.27, the owner's decision: Cover Your Tracks showed a \"unique\" fingerprint): toDataURL / toBlob get a varying lowest bit on a few edge pixels on top of the site's noise, from the site's key and the number of exports, so the exported picture's hash changes; getImageData (the second value) is unchanged and the noise is still applied. (Not pinned to values: the pictures' hashes depend on the computer's fonts; to be pinned to the values GitHub's runner measures.)",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "fingerprint/strict/frame",
+   "why": "Every export of a canvas varies (1.1.27, the owner's decision: Cover Your Tracks showed a \"unique\" fingerprint): toDataURL / toBlob get a varying lowest bit on a few edge pixels on top of the site's noise, from the site's key and the number of exports, so the exported picture's hash changes; getImageData (the second value) is unchanged and the noise is still applied. (Not pinned to values: the pictures' hashes depend on the computer's fonts; to be pinned to the values GitHub's runner measures.)",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
+  },
+  {
+   "key": "network/fresh-profile",
+   "why": "Dark Reader's lists are fetched by the browser itself once a day (1.1.27, the owner's decision: no new version every day for simple lists): a fresh profile with automatic updates on contacts raw.githubusercontent.com (darkreader/darkreader, three list files, documented in README.md).",
+   "accepted": "the owner asked for these changes on 2026-11-27 (1.1.27: Google's sites see a current Firefox with the protections on, Cover Your Tracks' randomized canvas, Dark Reader's lists fetched by the browser); entry written by Claude"
   }
  ]
 }

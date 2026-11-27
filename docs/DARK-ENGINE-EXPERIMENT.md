@@ -332,3 +332,7 @@ rendered in the three modes (the failing text areas reported there are layout
 shifts of live adverts and 1-px separators, checked by eye); YouTube and
 GitHub's styles are not reachable from here. The owner's check
 (`tests/dark_engine/owner-check.sh`) opens 32 sites on the owner's computer.
+
+Note (2026-11-27): main's own fetch of Dark Reader's lists (1.1.27, #188,
+`ike/darklists.py`, stored in the data folder) replaced the experiment's
+version; the engine keeps only its filter on top (`darkfixes.engine_css`).

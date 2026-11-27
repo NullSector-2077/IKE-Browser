@@ -193,13 +193,28 @@ jobs:
       - name: Git (for the checkout)
         # the databases are the snapshot's (above): an upgrade, not a new download of them
         run: |
-          if ! pacman -Su --noconfirm --needed git; then
+          # pacman, then again with the snapshot's archive first and the mirrors after it, one file at a time
+          # and with no limit of slowness, after growing pauses (2026-11-25: a mirror had dropped a signature of
+          # the snapshot, 404; 2026-11-27: the archive, asked by every part at once five files at a time, sent
+          # nothing for 10 s and pacman skipped it). Never another database: every part tests the same packages.
+          # Downloaded files stay in pacman's cache
+          pac() {
+            pacman "$@" && return 0
             archive=$(grep -m1 '^Server = https://archive.archlinux.org/' /etc/pacman.d/mirrorlist || true)
-            [ -n "$archive" ] || exit 1
-            echo "::warning::a mirror lacked a file of the snapshot's packages: the Arch Linux Archive alone"
-            echo "$archive" > /etc/pacman.d/mirrorlist
-            pacman -Su --noconfirm --needed git
-          fi
+            if [ -n "$archive" ]; then
+              mirrors=$(grep '^Server' /etc/pacman.d/mirrorlist | grep -vF "$archive" || true)
+              printf '%s\n%s\n' "$archive" "$mirrors" > /tmp/mirrorlist.again
+              cp /tmp/mirrorlist.again /etc/pacman.d/mirrorlist
+              sed -i 's/^#\?ParallelDownloads.*/ParallelDownloads = 1/' /etc/pacman.conf
+              for pause in 30 120 300; do
+                echo "::warning::a file of the snapshot's packages could not be taken: the archive first, then the mirrors, again in ${pause} s"
+                sleep "$pause"
+                pacman --disable-download-timeout "$@" && return 0
+              done
+            fi
+            return 1
+          }
+          pac -Su --noconfirm --needed git
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -231,13 +246,28 @@ jobs:
           # a mirror may already have dropped a file of the snapshot's version (2026-11-25:
           # zxing-cpp-3.1.1-1's signature answered 404 and pacman gave up): then the
           # snapshot's own archive alone, which keeps every version
-          if ! pacman -S --noconfirm --needed "${pkgs[@]}"; then
+          # pacman, then again with the snapshot's archive first and the mirrors after it, one file at a time
+          # and with no limit of slowness, after growing pauses (2026-11-25: a mirror had dropped a signature of
+          # the snapshot, 404; 2026-11-27: the archive, asked by every part at once five files at a time, sent
+          # nothing for 10 s and pacman skipped it). Never another database: every part tests the same packages.
+          # Downloaded files stay in pacman's cache
+          pac() {
+            pacman "$@" && return 0
             archive=$(grep -m1 '^Server = https://archive.archlinux.org/' /etc/pacman.d/mirrorlist || true)
-            [ -n "$archive" ] || exit 1
-            echo "::warning::a mirror lacked a file of the snapshot's packages: the Arch Linux Archive alone"
-            echo "$archive" > /etc/pacman.d/mirrorlist
-            pacman -S --noconfirm --needed "${pkgs[@]}"
-          fi
+            if [ -n "$archive" ]; then
+              mirrors=$(grep '^Server' /etc/pacman.d/mirrorlist | grep -vF "$archive" || true)
+              printf '%s\n%s\n' "$archive" "$mirrors" > /tmp/mirrorlist.again
+              cp /tmp/mirrorlist.again /etc/pacman.d/mirrorlist
+              sed -i 's/^#\?ParallelDownloads.*/ParallelDownloads = 1/' /etc/pacman.conf
+              for pause in 30 120 300; do
+                echo "::warning::a file of the snapshot's packages could not be taken: the archive first, then the mirrors, again in ${pause} s"
+                sleep "$pause"
+                pacman --disable-download-timeout "$@" && return 0
+              done
+            fi
+            return 1
+          }
+          pac -S --noconfirm --needed "${pkgs[@]}"
           # the compiler names the engine's cache (a new Rust builds it anew)
           echo "rust=$(rustc -V | tr -c 'A-Za-z0-9.\n' '-')" >> "$GITHUB_OUTPUT"
       # What this run really tests: pacman's versions of the components I.K.E.

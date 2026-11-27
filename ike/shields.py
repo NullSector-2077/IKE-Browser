@@ -24,14 +24,30 @@ from .config import (
     CACHE_DIR,
     DATA_DIR,
     FIREFOX_UA,
+    GOOGLE_SIGNIN_HOSTS,
+    GOOGLE_SITES,
     LEVEL_NAMES,
     LOGIN_HOSTS,
     PAYMENT_SITES,
     RES_DIR,
     SENSITIVE_HOSTS,
+    google_owned,
+    google_site,
     payment_owned,
     rank,
 )
+
+# The client hints that name the engine ("Chromium";v="140"): Firefox sends
+# none. Qt cannot take a header away from a request, only set it: on Google's
+# sites they go out empty, never contradicting the Firefox identity (1.1.27).
+CHROMIUM_HINTS = (b"Sec-CH-UA", b"Sec-CH-UA-Mobile", b"Sec-CH-UA-Platform")
+
+
+def firefox_request(first_host, host, initiator_host):
+    """A request that carries the Firefox identity (1.1.27): every request of
+    a page of Google's sites, the navigation of a Google sign-in page
+    embedded anywhere, and what that sign-in page loads itself."""
+    return google_site(first_host) or host in GOOGLE_SIGNIN_HOSTS or initiator_host in GOOGLE_SIGNIN_HOSTS
 
 TRACKING_PARAMS = {
     "fbclid", "gclid", "gclsrc", "dclid", "gbraid", "wbraid", "msclkid", "yclid",
@@ -651,10 +667,20 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         if lv >= 3 and rtype in _WORKER_SCRIPTS and cfg.site_opt(first_host, "fp") is not False:
             info.block(True)           # no worker from a file without the protection (1.1.25)
             return
-        if host == "accounts.google.com" and cfg["login_compat"]:
-            # Google refuses sign-in from embedded Chromium engines; it accepts
-            # the same request when it comes with a Firefox identity.
-            info.setHttpHeader(b"User-Agent", FIREFOX_UA.encode())
+        if cfg["login_compat"]:
+            try:
+                init_host = info.initiator().host().lower()
+            except AttributeError:
+                init_host = ""
+            if firefox_request(first_host, host, init_host):
+                # Google refuses sign-in from Qt WebEngine's Chromium; it accepts
+                # the same request from a current Firefox (1.1.27: on all of
+                # Google's sites, the engine's own client hints emptied; until
+                # 1.1.26 only accounts.google.com got an old Firefox 140 with
+                # the hints still saying "Chromium")
+                info.setHttpHeader(b"User-Agent", FIREFOX_UA.encode())
+                for name in CHROMIUM_HINTS:
+                    info.setHttpHeader(name, b"")
 
         if main:
             # a new page starts: restart the per-site counters, except when this
@@ -675,13 +701,17 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
                     info.redirect(QUrl(clean))
                     return
 
-        if (not main and lv <= 2 and first_known and host_site == first_site
+        if (not main and lv <= 2 and first_known
+                and (host_site == first_site or (google_owned(host) and google_site(first_host)))
                 and first_site not in s.full_blocking_sites()):
             # "Same site, free way" (1.1.15): at Balanced and below, what a site
             # asks of itself is not checked against the filter lists - faster
             # (most requests of a page are the site's own) and fewer broken sites. The ads and trackers of
             # other companies stay blocked, element hiding stays on, Strict and
-            # Maximum block everything, and the video sites always do.
+            # Maximum block everything, and the video sites always do. On
+            # Google's sites (1.1.27) Google's own domains (gstatic.com,
+            # googleapis.com...) count as the site, as Firefox's entity list
+            # counts them; its ad and analytics domains are not among them.
             if cfg["send_gpc"]:
                 info.setHttpHeader(b"Sec-GPC", b"1")
             return
@@ -1266,6 +1296,8 @@ class Shields(QObject):
             return True
         if cfg["login_compat"] and request.origin.host().lower() in LOGIN_HOSTS:
             return True                           # "Sign in with Google" and similar
+        if google_site(host) and google_owned(request.origin.host()):
+            return True                           # Google's own domains on Google's sites (1.1.27)
         if payment_owned(request.origin.host()):
             return True                           # PayPal's and Stripe's frames in a shop (1.1.14)
         if mode != "3p":
@@ -1360,7 +1392,8 @@ class Shields(QObject):
             sites = dict(cfg["site_levels"])
             if cfg["login_compat"] and rank(cfg["shield_level"]) > 1:
                 for h in LOGIN_HOSTS:
-                    sites.setdefault(h, "compatibility")
+                    if not google_site(h):            # Google's: protections on, as Firefox (1.1.27)
+                        sites.setdefault(h, "compatibility")
             for h in SENSITIVE_HOSTS:
                 # as config.sensitive_hands_off: nothing changed in the page
                 # (1.1.14; "compatibility" from 1.1.12 still added the GPC
@@ -1374,6 +1407,7 @@ class Shields(QObject):
                       "nofp": [h for h, o in cfg["site_opts"].items() if o.get("fp") is False],
                       "payframes": list(PAYMENT_SITES),
                       "ffua": FIREFOX_UA if cfg["login_compat"] else "",
+                      "ffsignin": list(GOOGLE_SIGNIN_HOSTS), "ffsites": list(GOOGLE_SITES),
                       "os": ident["os"], "platform": ident["platform"],
                       "platformVersion": ident["platform_version"],
                       "ffAppVersion": ident["firefox_app_version"],
