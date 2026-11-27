@@ -17,6 +17,11 @@
   white X. The ring that opens when something is
   blocked is centred on the octagon again, and the rising "+N" starts right
   after the number (tests/test_launcher_icons.py).
+- **The toolbar's Screenshot button has a menu** (the owner): Visible part
+  (Ctrl+Shift+S), Whole page and Selected area, the same entries as Page →
+  Screenshot…, in I.K.E.'s Plasma-style menu; a click opens it (it took the
+  visible part at once), with no arrow beside the icon, as Print and Zoom
+  (tests/test_screenshot_menu.py).
 - **The small icons say I K E** (the owner): at 16, 22 and 24 px the
   application icon showed a plain light dot in the octagon; it now shows the
   letters I K E drawn pixel by pixel (the K blue, as in the large logo), the
