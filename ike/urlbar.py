@@ -132,6 +132,7 @@ class UrlBar(QLineEdit):
 
     # --- the shield inside the field, at its right end (1.1.10) ---------------
     END_MARGIN = 6
+    END_VERTICAL_MARGIN = 2
 
     def set_end_widget(self, widget):
         """Put widget at the right end inside the field. Qt's own buttons on
@@ -151,8 +152,9 @@ class UrlBar(QLineEdit):
         w = self._end
         if w is None:
             return
-        frame = self.style().pixelMetric(QStyle.PixelMetric.PM_DefaultFrameWidth, None, self) if self.hasFrame() else 0
-        h = max(1, self.height() - 2 * max(2, frame + 1))
+        # The style's frame metric also includes text padding (six pixels in Breeze).
+        # This button is painted separately, with room for the visible field outline.
+        h = max(1, self.height() - 2 * self.END_VERTICAL_MARGIN)
         if w.iconSize().height() != h:
             w.setIconSize(QSize(h, h))
         width = w.sizeHint().width()

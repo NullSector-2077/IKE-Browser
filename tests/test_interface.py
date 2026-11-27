@@ -4,29 +4,64 @@
 
 def test_shield_icon_levels(run_ike):
     out = run_ike("""
+        from PyQt6.QtCore import QSize, QUrl
+        from ike.config import LEVELS, LOGIN_HOSTS, SENSITIVE_HOSTS
+        from ike.shieldpanel import LEVEL_LETTER, TOOLBAR_SHIELD_GROW, shield_icon
 
         def steps(ike, qapp, out):
             yield 500
-            from ike.shieldpanel import shield_icon
-            res = {}
-            for level in ("off", "compatibility", "balanced", "strict", "maximum"):
-                for size in (16, 22):
+            out["letters"] = LEVEL_LETTER
+            for size in (16, 22):
+                glyphs = []
+                for level in LEVELS:
                     img = shield_icon(level, size).pixmap(size, size).toImage()
-                    w, h = img.width(), img.height()
-                    # the centre is a solid colour at every protection level
-                    c = img.pixelColor(w // 2, h // 2)
-                    res["%s-%d" % (level, size)] = [c.red(), c.green(), c.blue(), c.alpha()]
-            out["pixels"] = res
+                    fill, rim = ("#343c46", "#c4cbd3") if level == "off" else ("#061e37", "#3daee9")
+                    assert img.pixelColor(0, 0).alpha() == 0
+                    pixels = {(x, y): img.pixelColor(x, y) for x in range(size) for y in range(size)}
+                    colours = {pixel.name() for pixel in pixels.values() if pixel.alpha() == 255}
+                    assert {fill, rim} <= colours, (level, size, colours)
+                    ink = [(x, y) for (x, y), pixel in pixels.items()
+                           if min(pixel.red(), pixel.green(), pixel.blue()) > 215 and pixel.alpha() > 200]
+                    assert len(ink) >= 4, (level, size)
+                    for axis in zip(*ink):
+                        assert abs((min(axis) + max(axis) + 1) / 2 - size / 2) <= 1, (level, size)
+                    glyphs.append(tuple(ink))
+                assert len(set(glyphs)) == len(LEVELS), size
+
             win = ike.windows[0]
-            out["button_icon"] = not win.shield_btn.icon().isNull()
-            ike.config["shield_level"] = "strict"
-            win.update_shield()
-            out["menu_icon"] = not win.m_level.icon().isNull()
+            btn = win.shield_btn
+            panel = win.shield_panel
+            actions = {action.data(): action for action in win.level_group.actions()}
+            for level in LEVELS:
+                expected = shield_icon(level).pixmap(16, 16).toImage()
+                assert actions[level].icon().pixmap(16, 16).toImage() == expected
+                for combo in (panel.site_level, panel.global_level):
+                    assert combo.itemIcon(combo.findData(level)).pixmap(16, 16).toImage() == expected
+
+            ike.config["shield_level"] = "maximum"
+            login, sensitive = LOGIN_HOSTS[0], SENSITIVE_HOSTS[0]
+            hosts = [("example.test", "maximum"), ("child.override.test", "strict"),
+                     ("off.test", "off"), (login, "compatibility"), (sensitive, "compatibility")]
+            for host, level in (("override.test", "strict"), ("off.test", "off")):
+                ike.config.set_site_level(host, level)
+            for host, level in hosts:
+                win.current_view().setHtml("<p>Test page", QUrl("https://" + host + "/"))
+                yield 400
+                assert win.current_host() == host
+                win.update_shield()
+                panel.refresh()
+                yield 350
+                size = QSize(btn.iconSize())
+                expected = shield_icon(level, grow=TOOLBAR_SHIELD_GROW).pixmap(size).toImage()
+                assert btn.icon().pixmap(size).toImage() == expected, host
+                expected = shield_icon(level).pixmap(16, 16).toImage()
+                assert win.m_level.icon().pixmap(16, 16).toImage() == expected, host
+                assert panel.master.icon().pixmap(16, 16).toImage() == expected, host
+                assert panel.site_level.currentData() == level and panel.global_level.currentData() == "maximum"
+            out["hosts"] = len(hosts)
     """)
-    for key, (r, g, b, a) in out["pixels"].items():
-        assert a > 200, key
-        assert (r, g, b) == ((54, 59, 67) if key.startswith("off") else (13, 32, 67)), key
-    assert out["button_icon"] and out["menu_icon"]
+    assert out["letters"] == {"compatibility": "C", "balanced": "B", "strict": "S", "maximum": "M"}
+    assert out["hosts"] == 5
 
 
 def test_toolbar_shield_is_larger_in_the_same_button(run_ike):
@@ -93,7 +128,7 @@ def test_toolbar_shield_is_larger_in_the_same_button(run_ike):
                 bg = img.pixelColor(img.width() - 1, 0)
                 rows = [y for y in range(img.height())
                         if any(abs(img.pixelColor(x, y).lightness() - bg.lightness()) > 70
-                               for x in range(round((side + btn.INSET + btn.GAP) * ratio), img.width() - 1))]
+                               for x in range(round((side + btn.GAP) * ratio), img.width() - 1))]
                 out["counter"].append((min(rows) + max(rows) + 1 - img.height()) / (2 * ratio))
             btn.setText("")
             win.urlbar.place_end()
@@ -132,8 +167,9 @@ def test_toolbar_shield_is_larger_in_the_same_button(run_ike):
     top, bottom, height = out["shown"]
     # the drawing nearly fills the toolbar's icon box and stays inside the button
     assert 0.9 * out["side"] <= bottom - top <= out["side"], out["shown"]
-    assert top >= 0 and bottom <= height, out["shown"]
-    assert 4 <= out["margin"] <= 10
+    assert 0 <= top <= 1.5 and 0 <= height - bottom <= 1.5, out["shown"]
+    assert abs(top - (height - bottom)) <= 1, out["shown"]
+    assert out["margin"] == 4
     assert all(abs(offset) <= 1.5 for offset in out["counter"]), out["counter"]
     assert out["inside_toolbar"]
     assert out["heights"] == [True], out["heights"]

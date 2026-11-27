@@ -11,7 +11,7 @@ changed and where.
 |---|---|
 | Removed the one-time import of the earlier installation and the old-vault fallback (every installation has completed it) | `ike/legacy.py` and `tests/test_legacy.py` deleted; `ike/app.py`, `ike/passwords.py`, `PKGBUILD` (`conflicts` / `replaces` gone) |
 | Logo, application icons and wordmark drawn as shapes from Orbitron (SIL OFL), shipped from the approved artwork | `ike/resources/ike.svg`, `ike/resources/wordmark.svg`, `data/icons/`, `ike/resources/newtab.html`, `licenses/LICENSE.orbitron`, `docs/THIRD-PARTY.md` |
-| Protection hexagon drawn as a regular vector, sized to the address field | `ike/shieldpanel.py` (`paint_shield`, `shield_icon`, `TOOLBAR_SHIELD_GROW`) |
+| Protection octagon drawn as a regular vector with the applied level, sized to the address field | `ike/shieldpanel.py` (`paint_shield`, `shield_icon`, `TOOLBAR_SHIELD_GROW`) |
 | Link preview bar removed | `ike/window.py` |
 
 ### Link preview bar

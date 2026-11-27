@@ -2,10 +2,11 @@
 
 ## 1.1.27
 
-- I.K.E. has a new hexagonal logo, dedicated application icons for small sizes,
-  a new wordmark and a local 4K WebP Earth background on Home and New Tab.
-- The protection control now shows a hexagon with a centred count. Reload
-  precedes Home, bookmarks overflow uses two Forward arrows, the page-mode
+- I.K.E. has a new Breeze octagonal logo, dedicated icons for small sizes and
+  the new wordmark on frosted glass over the local 4K WebP Earth background on
+  Home and New Tab. About I.K.E. shows the logo alongside the original text.
+- The protection control now shows the applied level inside an octagon, with a centred count.
+  Reload precedes Home, bookmarks overflow uses two Forward arrows, the page-mode
   button shows a sun or a moon, and About I.K.E. sits above Quit.
 
 - Dark Reader (engine and lists): 4.9.135, lists 26d0621d65 (2026-11-25) -> 4.9.135, lists 2bd262585f (2026-11-25) (lists changed)

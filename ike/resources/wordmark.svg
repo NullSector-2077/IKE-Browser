@@ -1,23 +1,23 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1834 160" width="1834" height="160">
   <title>Internet Kontrol Experience</title>
-  <desc>Original I.K.E. capitals with custom chamfered cyber lowercase; shared typographic baseline.</desc>
+  <desc>Original approved cyber wordmark geometry; silver-gray lettering and Breeze-blue K matching the octagonal I.K.E. icon.</desc>
   <defs>
     <linearGradient id="cyan" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#C6E8FF"/>
-      <stop offset=".52" stop-color="#B4DFFF"/>
-      <stop offset="1" stop-color="#A3CFEF"/>
+      <stop offset="0" stop-color="#F1F3F6"/>
+      <stop offset=".48" stop-color="#DEE4EB"/>
+      <stop offset="1" stop-color="#CBD4DF"/>
     </linearGradient>
     <linearGradient id="blue" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#37A3FA"/>
-      <stop offset=".52" stop-color="#1494F2"/>
-      <stop offset="1" stop-color="#0789E8"/>
+      <stop offset="0" stop-color="#65C2EF"/>
+      <stop offset=".48" stop-color="#3DAEE9"/>
+      <stop offset="1" stop-color="#299BD4"/>
     </linearGradient>
     <linearGradient id="edge-light" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#D8FCFF" stop-opacity=".55"/>
-      <stop offset=".18" stop-color="#D8FCFF" stop-opacity=".27"/>
-      <stop offset=".55" stop-color="#D8FCFF" stop-opacity=".06"/>
-      <stop offset="1" stop-color="#D8FCFF" stop-opacity="0"/>
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".55"/>
+      <stop offset=".18" stop-color="#FFFFFF" stop-opacity=".27"/>
+      <stop offset=".55" stop-color="#FFFFFF" stop-opacity=".06"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
     </linearGradient>
     <clipPath id="clip-i-stem-wings">
       <path d="M103 252 H124 L143 271 H165 L184 252 H205 L187 270 H173 L164 279 V333 L173 342 H187 L205 360 H184 L165 341 H143 L124 360 H103 L121 342 H135 L144 333 V279 L135 270 H121 Z"/>
@@ -44,9 +44,9 @@
   <g id="letter-i" transform="translate(-88.000 -236)">
     <path id="i-stem-wings" d="M103 252 H124 L143 271 H165 L184 252 H205 L187 270 H173 L164 279 V333 L173 342 H187 L205 360 H184 L165 341 H143 L124 360 H103 L121 342 H135 L144 333 V279 L135 270 H121 Z" fill="url(#cyan)"/>
     <path d="M103 252 H124 L143 271 H165 L184 252 H205 L187 270 H173 L164 279 V333 L173 342 H187 L205 360 H184 L165 341 H143 L124 360 H103 L121 342 H135 L144 333 V279 L135 270 H121 Z" fill="none" stroke="url(#edge-light)" stroke-width="1.65" stroke-linejoin="miter" clip-path="url(#clip-i-stem-wings)"/>
-    <path id="i-trapezoid-top" d="M132 252 H176 L163 265 H145 Z" fill="url(#blue)"/>
+    <path id="i-trapezoid-top" d="M132 252 H176 L163 265 H145 Z" fill="url(#cyan)"/>
     <path d="M132 252 H176 L163 265 H145 Z" fill="none" stroke="url(#edge-light)" stroke-width="1.65" stroke-linejoin="miter" clip-path="url(#clip-i-trapezoid-top)"/>
-    <path id="i-trapezoid-bottom" d="M145 347 H163 L176 360 H132 Z" fill="url(#blue)"/>
+    <path id="i-trapezoid-bottom" d="M145 347 H163 L176 360 H132 Z" fill="url(#cyan)"/>
     <path d="M145 347 H163 L176 360 H132 Z" fill="none" stroke="url(#edge-light)" stroke-width="1.65" stroke-linejoin="miter" clip-path="url(#clip-i-trapezoid-bottom)"/>
   </g>
   <path d="M0 -63 H11 L14 -60 17 -63 H50 L62 -51 V0 H48 V-45 L44 -49 H18 L14 -45 V0 H0 Z" fill="url(#cyan)" fill-rule="evenodd" transform="translate(126.000 124)"/>
@@ -59,7 +59,7 @@
   <g id="letter-k" transform="translate(352.000 -236)">
     <path id="k-main" d="M248 265 261 252H278V300L321 262 342 283 316 307 369 353 362 360H334L290 319 278 330V347L265 360H248Z" fill="url(#blue)"/>
     <path d="M248 265 261 252H278V300L321 262 342 283 316 307 369 353 362 360H334L290 319 278 330V347L265 360H248Z" fill="none" stroke="url(#edge-light)" stroke-width="1.65" stroke-linejoin="miter" clip-path="url(#clip-k-main)"/>
-    <path id="k-tip" d="M325 258 332 252H376L346 279Z" fill="url(#cyan)"/>
+    <path id="k-tip" d="M325 258 332 252H376L346 279Z" fill="url(#blue)"/>
     <path d="M325 258 332 252H376L346 279Z" fill="none" stroke="url(#edge-light)" stroke-width="1.65" stroke-linejoin="miter" clip-path="url(#clip-k-tip)"/>
   </g>
   <path d="M12 -63 H51 L63 -51 V-12 L51 0 H12 L0 -12 V-51 Z M18 -49 L14 -45 V-18 L18 -14 H45 L49 -18 V-45 L45 -49 Z" fill="url(#cyan)" fill-rule="evenodd" transform="translate(737.000 124)"/>
@@ -69,7 +69,7 @@
   <path d="M12 -63 H51 L63 -51 V-12 L51 0 H12 L0 -12 V-51 Z M18 -49 L14 -45 V-18 L18 -14 H45 L49 -18 V-45 L45 -49 Z" fill="url(#cyan)" fill-rule="evenodd" transform="translate(986.000 124)"/>
   <path d="M0 -77 L14 -82 V-17 L18 -13 H25 V0 H12 L0 -12 Z" fill="url(#cyan)" fill-rule="evenodd" transform="translate(1058.000 124)"/>
   <g id="letter-e" transform="translate(719.000 -236)">
-    <path id="e-top" d="M429 252 H526 L502 276 H440 L402 314 V279 Z" fill="url(#blue)"/>
+    <path id="e-top" d="M429 252 H526 L502 276 H440 L402 314 V279 Z" fill="url(#cyan)"/>
     <path d="M429 252 H526 L502 276 H440 L402 314 V279 Z" fill="none" stroke="url(#edge-light)" stroke-width="1.65" stroke-linejoin="miter" clip-path="url(#clip-e-top)"/>
     <path id="e-main" d="M430 294 H520 L496 318 H446 L428 336 H526 L502 360 H416 L404 348 V320 Z" fill="url(#cyan)"/>
     <path d="M430 294 H520 L496 318 H446 L428 336 H526 L502 360 H416 L404 348 V320 Z" fill="none" stroke="url(#edge-light)" stroke-width="1.65" stroke-linejoin="miter" clip-path="url(#clip-e-main)"/>
