@@ -90,16 +90,24 @@ def check(names, chromium, search=gh_search, source=source_at, pause=None):
     """[{"name", "main", "now", "file"}]: "present", "absent" or "not verified" on Chromium's development branch
     (main) and at the users' version (now)."""
     import time
-    pause = pause or (lambda: time.sleep(SEARCH_PAUSE))
+    pause = pause or (lambda seconds=SEARCH_PAUSE: time.sleep(seconds))
     rows = []
     for name in names:
         row = {"name": name, "main": "not verified", "now": "not verified", "file": ""}
-        try:
-            paths = [p for p in search('"%s" repo:chromium/chromium' % name) if p.endswith((".cc", ".h", ".mm"))]
-        except Exception:
+        paths = None
+        for attempt in range(2):            # once more after a minute: GitHub's limits of code search
+            try:
+                paths = [p for p in search('"%s" repo:chromium/chromium' % name) if p.endswith((".cc", ".h", ".mm"))]
+                break
+            except Exception as e:
+                row["why"] = str(e).replace("\n", " ")[:160]
+                if attempt == 0:
+                    pause(60)
+        if paths is None:
             rows.append(row)
             pause()
             continue
+        row.pop("why", None)
         row["main"] = "present" if paths else "absent"
         if paths and VERSION.match(chromium or ""):
             # the declaring file is a .cc (a header only names the feature): those first. "absent" only when every
@@ -150,7 +158,8 @@ def main(argv=None):
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     lines = ["### Chromium features I.K.E. sets (tools/engine-features.py)", "",
              "| Feature | Chromium's development branch | Users' Chromium %s |" % (a.chromium or "?"), "|---|---|---|"]
-    lines += ["| `%s` | %s | %s |" % (r["name"], r["main"], r["now"]) for r in rows]
+    lines += ["| `%s` | %s | %s |" % (r["name"], r["main"], r["now"] + (" (%s)" % r["why"] if r.get("why") else ""))
+              for r in rows]
     print("\n".join(lines))
     if summary:
         with open(summary, "a", encoding="utf-8") as f:
