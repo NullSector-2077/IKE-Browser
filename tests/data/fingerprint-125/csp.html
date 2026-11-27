@@ -1,0 +1,14 @@
+<!doctype html><title>csp</title><body><script>
+window.__run = function () {
+  return new Promise(function (ok) {
+    var seen = [];
+    document.addEventListener('securitypolicyviolation', function (e) { seen.push(e.blockedURI); });
+    try {
+      var w = new Worker('/dw.js'); w.onmessage = function (e) { ok({got: typeof e.data === 'object' ? 'data' : e.data, csp: seen}); };
+      w.onerror = function (e) { ok({got: e instanceof ErrorEvent ? 'ErrorEvent ' + e.message : 'Event', csp: seen}); };
+      w.postMessage('go');
+    } catch (e) { ok({got: 'THROW ' + e.name, csp: seen}); }
+    setTimeout(function () { ok({got: 'timeout', csp: seen}); }, 8000);
+  });
+};
+</script></body>

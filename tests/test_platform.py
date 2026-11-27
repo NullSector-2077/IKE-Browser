@@ -45,7 +45,8 @@ def test_identity():
     assert osinfo.chrome_user_agent(140) == (
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/140.0.0.0 Safari/537.36")
-    assert (ident["platform"], ident["platform_version"]) == ("Linux", "6.0.0")
+    # 1.1.25: no kernel version, as the engine itself gives it to service and shared workers
+    assert (ident["platform"], ident["platform_version"]) == ("Linux", "")
 
 
 # ---- Widevine module checks -------------------------------------------------

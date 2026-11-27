@@ -151,13 +151,16 @@ def steps(ike, qapp, out):
     out["mark_after"] = mark(win, i)
     out["after_load"] = running(win)
     out["title"] = view.title()
-    # the new tab page loads at once: it never shows the mark
+    # A new tab never shows the mark. Compare against its own icon, whose
+    # artwork may already contain pixels in the palette's accent colour.
     fast = win.add_tab("ike:newtab", background=True)
-    seen = []
+    unchanged = []
     for _ in range(8):
         yield 60
-        seen.append(mark(win, win.views.index(fast)))
-    out["mark_fast"] = max(seen)
+        shown = win.tabbar.tabIcon(win.views.index(fast)).pixmap(32, 32).toImage()
+        base = fast.tab_icon.pixmap(32, 32).toImage()
+        unchanged.append(shown == base)
+    out["fast_icon_unchanged"] = all(unchanged)
 
     # --- a page that never finishes: the mark stops turning after a while, the timer stops
     win.MARK_TURNS_FOR = 1.2
@@ -234,7 +237,7 @@ def test_effects_and_what_stays_the_same_without_them(run_ike, slow_site, mode):
     assert out["idle_start"] == [] and out["idle_end"] == [] and out["after_load"] == []
     assert out["after_menu"] == []
     # the loading mark: never for a page that loads at once, there while a slow one loads
-    assert out["mark_at_once"] == 0 and out["mark_fast"] == 0
+    assert out["mark_at_once"] == 0 and out["fast_icon_unchanged"]
     assert out["mark_loading"] > 8 and out["mark_after"] == 0 and out["title"] == "slow"
     assert out["vtab_icon_same"]
     assert out["mark_turned"] is effects             # it turns only with the effects on

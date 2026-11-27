@@ -21,7 +21,8 @@ yet it lists every change merged since the last published version:
    merged by a person's order, one line each;
 4. the updates that are **still being retried** (the maintenance ledger's "retrying" and "blocked"
    entries, the open pull requests of the automation): nothing the owner must do, but what this
-   version does not contain yet;
+   version does not contain yet; first, in bold, the work that asked no AI at all for two days or more
+   in a row (the watchdog, tools/ai-quota.py stuck_text: "niente deve rimanere indietro");
 5. the **free quota of each AI provider** (part 2 of AUTOMAT, tools/ai-quota.py): what was used today
    and in the last days, the limit, what is left, and whether the limit was verified or is a careful
    guess.
@@ -169,6 +170,8 @@ def gather(repo, api=gh_api):
         if not isinstance(state, dict) or not isinstance(state.get("days"), dict):
             raise ValueError("not the quota's record")
         info["quota"] = quota.summary(quota.load_limits(), state)
+        # the watchdog (2026-11-25): work that asked no AI at all for days in a row, said plainly
+        info["stuck"] = quota.stuck_text(state)
     except Exception:
         info["unread"].append("l'uso della quota gratuita degli assistenti AI")
     return info
@@ -283,6 +286,8 @@ def body(version, repo, owner, info):
                 "possibile leggerle).", ""]
     pending = info.get("pending") or []
     out += ["### Aggiornamenti ancora in corso", ""]
+    if info.get("stuck"):
+        out += ["**%s**" % plain(info["stuck"], 900), ""]
     if pending:
         out.append("Non sono in questa versione. Non devi fare niente: AUTOMAT (la manutenzione automatica) li riprova ogni "
                    "giorno "

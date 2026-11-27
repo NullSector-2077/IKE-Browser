@@ -9,7 +9,7 @@ import shutil
 import sys
 
 import pytest
-from conftest import APP, ROOT
+from conftest import APP
 from test_security import JS
 
 sys.path.insert(0, str(APP))
@@ -69,14 +69,14 @@ GATHER = """(function () {
   }
   add("greeting", ".greet", "#greet-t", 4.5); add("greeting line", ".greet", "#greet-l", 4.5);
   add("clock", ".corner", ".clock", 4.5); add("date", ".corner", ".date", 4.5);
+  add("weather", ".corner", "#weather .wtxt", 4.5); add("weather details", ".corner", ".wx-v", 4.5);   // 1.1.25
   add("counter", ".stats", ".stats b", 3); add("counter label", ".stats", ".stats span", 4.5);
-  add("wordmark", "h1", "h1 svg path:not(.k)", 4.5, "fill"); add("K", "h1", "h1 svg .k", 3, "fill");
   add("settings", ".nt-settings .name", ".nt-settings .name", 4.5);
   add("photo button", ".nt-photo .name", ".nt-photo .name", 4.5);
   add("add tile", ".tile.add .name", ".tile.add .name", 4.5);
   return {rows: out, body: document.body.className, bg: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(),
-          k: document.querySelectorAll("h1 svg path.k").length, kvar: getComputedStyle(document.documentElement).getPropertyValue("--k").trim(), label: document.querySelector("h1 svg").getAttribute("aria-label"),
-          title: document.querySelector("h1 svg title").textContent, glass: !!document.getElementById("glass-data")};
+          label: document.querySelector("h1 img").alt, markBack: getComputedStyle(document.querySelector("h1")).backgroundColor,
+          glass: !!document.getElementById("glass-data")};
 })()"""
 
 STEPS = JS + r'''
@@ -84,8 +84,14 @@ def steps(ike, qapp, out):
     import os
     from PyQt6.QtCore import QPoint, QUrl
     from ike import newtabbg
+    import time
     win = ike.windows[0]
     win.resize(1100, 700)
+    # 1.1.25: the weather and its details in the corner, put in place (no request: the data is fresh)
+    ike.config["weather_city"], ike.config["weather_lat"], ike.config["weather_lon"] = "Roma", 41.89, 12.51
+    ike.weather.data = {"key": [41.89, 12.51, "celsius"], "time": time.time(), "temp": 12, "code": 2, "wind": 14.4,
+                        "wind_dir": 312.0, "feels": 10.2, "humidity": 78.0, "pressure": 1016.4,
+                        "rain": 20.0}
     view = win.current_view()
     yield 800
     shots = SHOTS
@@ -99,7 +105,13 @@ def steps(ike, qapp, out):
         ike.config["newtab_bg_veil"] = VEIL
         view.load(QUrl("ike:newtab"))
         yield 1800
-        out[name] = yield from js(view, GATHER)
+        for _ in range(10):
+            state = yield from js(view, GATHER)
+            if state is not None:
+                break
+            yield 250
+        assert state is not None, name
+        out[name] = state
         yield 300
         view.grab().save(os.path.join(shots, SCHEME.replace(":", "-") + "-" + name + ".png"))
 '''
@@ -111,7 +123,9 @@ def run_scheme(run_ike, tmp_path, scheme, veil=35, names=("white", "black", "bus
     shots.mkdir(exist_ok=True)
     script = (STEPS.replace("PHOTOS", repr([(n, photos.get(n, "")) for n in names]))
               .replace("GATHER", repr(GATHER)).replace("SHOTS", repr(str(shots))).replace("SCHEME", repr(scheme)).replace("VEIL", str(veil)))
-    out = run_ike(script, settings={"ui_scheme": scheme, "newtab_bg": ""}, timeout=240)
+    out = run_ike(script, settings={"ui_scheme": scheme, "newtab_bg": ""}, timeout=240,
+                  env={"IKE_TEST_WEATHER": "http://127.0.0.1:9",
+                       "QTWEBENGINE_CHROMIUM_FLAGS": "--disable-dev-shm-usage"})
     keep = os.environ.get("IKE_TEST_SHOTS")
     if keep:
         os.makedirs(keep, exist_ok=True)
@@ -137,7 +151,7 @@ def check(out, shots, scheme, names=("white", "black", "busy", "default")):
             ratio = _ratio(colour, (c.red(), c.green(), c.blue()))
             assert ratio >= least - 0.1, (scheme, name, label, ratio, least, colour, (c.red(), c.green(), c.blue()), cls)
             seen += 1
-    assert seen >= len(names) * 9
+    assert seen >= len(names) * 11                                  # 1.1.25: the weather and its details too
     del app
 
 
@@ -156,8 +170,7 @@ def test_every_text_reads_over_any_photo(run_ike, tmp_path, scheme):
     out, shots = run_scheme(run_ike, tmp_path, scheme)
     check(out, shots, scheme)
     first = out["white"]
-    assert first["k"] in (0, 1) and first["label"] == "Internet Kontrol Experience"       # the K path: brand-k branch
-    assert first["title"] == "Internet Kontrol Experience"
+    assert first["label"] == "Internet Kontrol Experience" and first["markBack"] == "rgb(8, 20, 39)"
 
 
 def test_a_strong_or_no_veil_changes_nothing_about_the_guarantee(run_ike, tmp_path):
@@ -166,20 +179,10 @@ def test_a_strong_or_no_veil_changes_nothing_about_the_guarantee(run_ike, tmp_pa
         check(out, shots, "theme:ike", names=("white", "busy"))
 
 
-def test_the_k_colour_and_nothing_extra_without_a_photo(run_ike, tmp_path):
-    out, _shots = run_scheme(run_ike, tmp_path, "theme:ike", names=("none",))
+@pytest.mark.parametrize("scheme", ["theme:ike", "light"])
+def test_wordmark_keeps_its_contrast_without_a_photo(run_ike, tmp_path, scheme):
+    out, _shots = run_scheme(run_ike, tmp_path, scheme, names=("none",))
     page = out["none"]
     assert page["body"].strip() in ("fx", "") and page["glass"] is False
-    assert page["kvar"] == "#7df3ff"                                   # the light cyan on a dark page
-    assert not [r for r in page["rows"] if "g0" in r[4]]               # no pane classes without a photo
-    out, _shots = run_scheme(run_ike, tmp_path, "light", names=("none",))
-    page = out["none"]
-    bg, k = page["bg"], page["kvar"]
-    ratio = _ratio((int(k[1:3], 16), int(k[3:5], 16), int(k[5:7], 16)),
-                   (int(bg[1:3], 16), int(bg[3:5], 16), int(bg[5:7], 16)))
-    assert ratio >= 3.0 and k != "#7df3ff"                             # darkened until it reads on a light page
-    # the K of the wordmark takes it once the wordmark has the K as a path of its own (class k)
-    css = (ROOT / "ike" / "resources" / "newtab.html").read_text("utf-8")
-    assert "h1 svg .k{fill:var(--k)}" in css
-
-
+    assert page["markBack"] == "rgb(8, 20, 39)"
+    assert page["label"] == "Internet Kontrol Experience"

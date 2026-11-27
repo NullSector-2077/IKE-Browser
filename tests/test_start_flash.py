@@ -14,6 +14,8 @@ import threading
 
 import pytest
 
+from ike.uistyle import contrast
+
 FRAMES = r'''
 def steps(ike, qapp, out):
     import time
@@ -84,7 +86,8 @@ def _lightness(name):
 
 def _run(run_ike, site, **settings):
     out = run_ike(FRAMES % site, settings=dict({"https_only": False}, **settings),
-                  env={"IKE_TEST_DELAY": "0"}, timeout=90)
+                  # Two 4K background images can exceed a headless container's shared memory.
+                  env={"IKE_TEST_DELAY": "0", "QTWEBENGINE_CHROMIUM_FLAGS": "--disable-dev-shm-usage"}, timeout=90)
     assert out["loaded"] == [True, True], out["loaded"]
     assert all(len(f) > 5 for f in out["frames"]), out["frames"]
     # The page never jumps (1.1.23): the bookmarks bar of the new tab page
@@ -114,7 +117,12 @@ def test_a_dark_new_tab_page_is_dark_from_the_first_frame(run_ike, site, scheme,
     for frames in out["frames"]:
         for t, seen, backdrop, _size in frames:
             assert backdrop == bg, (t, backdrop)
-            assert all(_lightness(c) < 60 for c in seen), (t, seen, frames[:5])
+            if photo:
+                # Saturated blue pixels can have high HSL lightness while remaining visibly dark.
+                # White and the bright unpainted colours still fail this check.
+                assert all(contrast(c, "#ffffff") >= 7 for c in seen), (t, seen, frames[:5])
+            else:
+                assert all(_lightness(c) < 60 for c in seen), (t, seen, frames[:5])
     assert out["site_backdrop"] == ("#181a1b" if dark == "on" else "#ffffff"), out["site_backdrop"]
 
 

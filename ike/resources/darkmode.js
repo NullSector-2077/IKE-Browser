@@ -49,8 +49,10 @@
   }
 
   function go(site) {
-  var CFG = {theme: __IKE_DR_THEME__, common: __IKE_DR_COMMON__, fix: site.fix, detect: site.detect,
-             hints: site.hints, topHost: topHost};
+  // the colours: the site's own when it has them (1.1.25, the dark mode panel), else every site's
+  var CFG = {theme: site.theme || __IKE_DR_THEME__, common: __IKE_DR_COMMON__, fix: site.fix,
+             detect: site.detect, hints: site.hints, topHost: topHost};
+  var styles = strictPolicyStyles();
   var DR;
   try {
     var module = { exports: {} }, exports = module.exports;
@@ -60,6 +62,203 @@ __IKE_DR_LIB__
     DR = module.exports;
   } catch (e) { return; }
   if (!DR || typeof DR.enable !== 'function') return;
+
+  // --- styles under a strict Content-Security-Policy (1.1.26) ---
+  // A page whose policy allows style sheets from its own site only ("default-src
+  // 'self'", "style-src 'self'": archlinux.org, for one) blocks every <style>
+  // element added to it, Dark Reader's too: the page stayed light. A <style>
+  // made in this isolated world whose sheet the policy refused is given to the
+  // page as a constructed style sheet instead (adoptedStyleSheets, which the
+  // policy does not cover, as the CSSOM), with the same text and rules, in the
+  // order of the <style> elements, after the page's own sheets. Only the
+  // <style> elements made here (by Dark Reader or by this script) are copied:
+  // the page's own inline styles stay blocked, its policy is not touched. On a
+  // page without such a policy nothing changes: every <style> has its sheet.
+  // Dark Reader's code is not changed: the copy works on the DOM it uses, so
+  // it survives its updates. Dark Reader does not see the copies among the
+  // page's constructed sheets (it would darken them again).
+  function strictPolicyStyles() {
+    var none = { sheets: function () { return []; } };
+    var docDesc = Object.getOwnPropertyDescriptor(Document.prototype, 'adoptedStyleSheets');
+    var textDesc = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent');
+    if (!docDesc || !docDesc.get || !docDesc.set || !textDesc || typeof CSSStyleSheet !== 'function') return none;
+    var srDesc = window.ShadowRoot && Object.getOwnPropertyDescriptor(ShadowRoot.prototype, 'adoptedStyleSheets');
+    var kinds = [window.HTMLStyleElement, window.SVGStyleElement].filter(function (k) {
+      return k && Object.getOwnPropertyDescriptor(k.prototype, 'sheet');
+    });
+    var sheetGet = kinds.map(function (k) { return Object.getOwnPropertyDescriptor(k.prototype, 'sheet').get; });
+    var own = new WeakSet();          // the <style> elements made in this world
+    var mirrors = new Map();          // <style> -> {sheet, text}
+    var copies = new WeakSet();       // every copy ever made
+    var placed = new Map();           // root (document or shadow root) -> its copies, in order
+    var due = false;
+    var watcher = new MutationObserver(function () { refresh(); });
+
+    function adoptedDesc(root) { return root instanceof Document ? docDesc : srDesc; }
+    function kindOf(el) {
+      for (var i = 0; i < kinds.length; i++) if (el instanceof kinds[i]) return i;
+      return -1;
+    }
+    function nativeSheet(el, k) { try { return sheetGet[k].call(el); } catch (e) { return null; } }
+    function refused(el) {
+      var k = kindOf(el);
+      return k >= 0 && own.has(el) && el.isConnected && nativeSheet(el, k) === null &&
+        (!el.type || /^\s*text\/css\s*$/i.test(el.type));
+    }
+    function setText(m, text) {
+      m.text = text;
+      try { m.sheet.replaceSync(text); } catch (e) {}
+    }
+    function mirror(el) {
+      var m = mirrors.get(el);
+      if (!m) {
+        var sheet;
+        try { sheet = new CSSStyleSheet({ media: el.media || '' }); } catch (e) { sheet = new CSSStyleSheet(); }
+        m = { sheet: sheet, text: null };
+        mirrors.set(el, m);
+        copies.add(sheet);
+        watcher.observe(el, { childList: true, characterData: true, subtree: true });
+      }
+      if (el.parentNode) watcher.observe(el.parentNode, { childList: true });
+      var text = textDesc.get.call(el);
+      if (text !== m.text) setText(m, text);
+      schedule();
+      return m;
+    }
+    function check(node) {
+      if (!node || node.nodeType !== 1 && node.nodeType !== 11) return;
+      if (kindOf(node) >= 0) { if (refused(node)) mirror(node); return; }
+      if (!node.firstElementChild) return;
+      var found = node.querySelectorAll('style');
+      for (var i = 0; i < found.length; i++) if (refused(found[i])) mirror(found[i]);
+    }
+    function schedule() {
+      if (due) return;
+      due = true;
+      Promise.resolve().then(place);
+    }
+    function refresh() {
+      mirrors.forEach(function (m, el) {
+        var text = textDesc.get.call(el);
+        if (text !== m.text) setText(m, text);
+      });
+      schedule();
+    }
+    // the copies of each root, in the order of their <style> elements, after the page's own sheets
+    function place() {
+      due = false;
+      var byRoot = new Map();
+      mirrors.forEach(function (m, el) {
+        if (!el.isConnected) { mirrors.delete(el); return; }
+        var root = el.getRootNode();
+        if (!adoptedDesc(root)) return;
+        if (!byRoot.has(root)) byRoot.set(root, []);
+        byRoot.get(root).push(el);
+      });
+      placed.forEach(function (_s, root) { if (!byRoot.has(root)) byRoot.set(root, []); });
+      byRoot.forEach(function (els, root) {
+        els.sort(function (a, b) {
+          return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+        });
+        var ours = els.map(function (el) { return mirrors.get(el).sheet; });
+        var desc = adoptedDesc(root);
+        var now = Array.prototype.slice.call(desc.get.call(root));
+        var want = now.filter(function (s) { return !copies.has(s); }).concat(ours);
+        if (want.length !== now.length || want.some(function (s, i) { return s !== now[i]; })) {
+          try { desc.set.call(root, want); } catch (e) {}
+        }
+        if (ours.length) {
+          if (!placed.has(root)) {
+            // the page set its own constructed sheets (Dark Reader's proxy tells): ours go back after them
+            try { root.addEventListener('__darkreader__adoptedStyleSheetsChange', schedule); } catch (e) {}
+          }
+          placed.set(root, ours);
+        } else {
+          placed.delete(root);
+          try { root.removeEventListener('__darkreader__adoptedStyleSheetsChange', schedule); } catch (e) {}
+        }
+      });
+    }
+
+    // the <style> elements made here
+    var create = Document.prototype.createElement, createNS = Document.prototype.createElementNS;
+    Document.prototype.createElement = function () {
+      var el = create.apply(this, arguments);
+      if (kindOf(el) >= 0) own.add(el);
+      return el;
+    };
+    Document.prototype.createElementNS = function () {
+      var el = createNS.apply(this, arguments);
+      if (kindOf(el) >= 0) own.add(el);
+      return el;
+    };
+    // their sheet: the copy when the policy refused it
+    kinds.forEach(function (k, i) {
+      Object.defineProperty(k.prototype, 'sheet', {
+        configurable: true, enumerable: true,
+        get: function () {
+          var s = nativeSheet(this, i);
+          if (s || !refused(this)) return s;
+          return mirror(this).sheet;
+        }
+      });
+      // a new text makes a new sheet, as for a <style> of the page
+      Object.defineProperty(k.prototype, 'textContent', {
+        configurable: true, enumerable: true,
+        get: function () { return textDesc.get.call(this); },
+        set: function (v) {
+          textDesc.set.call(this, v);
+          var m = mirrors.get(this);
+          if (m) setText(m, textDesc.get.call(this));
+          else if (refused(this)) mirror(this);
+        }
+      });
+    });
+    // a <style> put into the page, or taken out of it, by this world
+    function after(proto, name, nodes) {
+      var f = proto && proto[name];
+      if (typeof f !== 'function') return;
+      proto[name] = function () {
+        var r = f.apply(this, arguments);
+        if (nodes) for (var i = 0; i < arguments.length; i++) check(arguments[i]);
+        if (mirrors.size) schedule();
+        return r;
+      };
+    }
+    after(Node.prototype, 'insertBefore', true);
+    after(Node.prototype, 'appendChild', true);
+    after(Node.prototype, 'replaceChild', true);
+    after(Node.prototype, 'removeChild', false);
+    ['append', 'prepend', 'before', 'after', 'replaceWith'].forEach(function (n) {
+      after(Element.prototype, n, true);
+    });
+    after(Element.prototype, 'remove', false);
+    after(window.DocumentFragment && DocumentFragment.prototype, 'append', true);
+    after(window.DocumentFragment && DocumentFragment.prototype, 'prepend', true);
+    // Dark Reader looks at the page's constructed sheets: the copies are not among them
+    [[Document.prototype, docDesc], [window.ShadowRoot && ShadowRoot.prototype, srDesc]].forEach(function (pd) {
+      var proto = pd[0], desc = pd[1];
+      if (!proto || !desc || !desc.get || !desc.set) return;
+      Object.defineProperty(proto, 'adoptedStyleSheets', {
+        configurable: true, enumerable: desc.enumerable,
+        get: function () {
+          var list = desc.get.call(this);
+          if (!placed.has(this)) return list;
+          return Array.prototype.filter.call(list, function (s) { return !copies.has(s); });
+        },
+        set: function (v) {
+          var ours = placed.get(this);
+          if (!ours || !v) { desc.set.call(this, v); return; }
+          desc.set.call(this, Array.prototype.filter.call(v, function (s) { return !copies.has(s); }).concat(ours));
+        }
+      });
+    });
+    return { sheets: function () {
+      var all = [];
+      placed.forEach(function (s) { all = all.concat(s); });
+      return all;
+    } };
+  }
 
   // Style sheets of other sites cannot be read by a page; the browser fetches
   // them instead (top frame only, style sheets only).
@@ -190,6 +389,8 @@ __IKE_DR_LIB__
         } catch (e) {}
       });
     }
+    // and the copies of Dark Reader's styles under a strict policy
+    sheets = sheets.concat(styles.sheets());
     sheets.forEach(function (s) { s.disabled = true; });
     var dark = false;
     try { dark = hasBuiltInDarkTheme(); } catch (e) {}
@@ -263,7 +464,8 @@ __IKE_DR_LIB__
     if (early && document.head && early.parentNode !== document.head) {
       try { document.head.insertBefore(early, document.head.firstChild); } catch (e) {}
     }
-    try { DR.enable(CFG.theme, fix); } catch (e) {}
+    try { DR.enable(drTheme(CFG.theme), fix); running = true; } catch (e) {}
+    hideBars(running && CFG.theme.scrollbarColor === 'hidden');
     if (early) {
       var s = early;
       early = null;
@@ -273,10 +475,44 @@ __IKE_DR_LIB__
     // or a frame the hints name, as in the extension)
     if (CFG.detect && (window.top === window || (CFG.hints || []).some(function (h) { return h.iframe; }))) {
       detect(function (dark) {
-        if (dark) { try { DR.disable(); } catch (e) {} }
+        if (dark) { running = false; hideBars(false); try { DR.disable(); } catch (e) {} }
       });
     }
   }
+
+  // --- the colours of the dark mode panel (1.1.25) ---
+  // "hidden" scroll bars are I.K.E.'s: Dark Reader leaves them alone, a style hides them
+  var running = false, bars = null;
+  function drTheme(t) {
+    var o = {};
+    for (var k in t) { if (Object.prototype.hasOwnProperty.call(t, k)) o[k] = t[k]; }
+    if (o.scrollbarColor === 'hidden') o.scrollbarColor = '';
+    return o;
+  }
+  function hideBars(on) {
+    if (!on) {
+      if (bars) { try { bars.remove(); } catch (e) {} bars = null; }
+      return;
+    }
+    if (bars && bars.isConnected) return;
+    var root = document.head || document.documentElement;
+    if (!root) return;
+    bars = document.createElement('style');
+    bars.className = 'darkreader darkreader--ike-bars';
+    bars.textContent = '*{scrollbar-width:none!important}';
+    root.appendChild(bars);
+  }
+  // Called by the browser in this isolated world when the colours change (the page
+  // cannot reach it): the page takes them at once, without being loaded again. The
+  // colours were checked by the browser; a page that is not dark stays as it is.
+  window.__ikeDarkTheme = function (theme) {
+    if (!theme || typeof theme !== 'object') return false;
+    CFG.theme = theme;
+    if (!running) return false;
+    try { DR.enable(drTheme(theme), fix); } catch (e) { return false; }
+    hideBars(theme.scrollbarColor === 'hidden');
+    return true;
+  };
   if (document.head) { start(); return; }
   cover();
   new MutationObserver(function (_m, obs) {

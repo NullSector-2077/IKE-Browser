@@ -1,0 +1,20 @@
+<!doctype html><body><script>
+window.__run = async function () {
+  var o = {}, c = document.createElement('canvas'); c.width = c.height = 32; var g = c.getContext('webgl', { preserveDrawingBuffer: true });
+  var wrong = 0, list = [];
+  for (var k = 0; k < 64; k++) { var r = (k * 37) & 255, gg = (k * 91 + 5) & 255, b = (k * 13 + 77) & 255; g.clearColor(r / 255, gg / 255, b / 255, 1); g.clear(g.COLOR_BUFFER_BIT);
+    var px = new Uint8Array(32 * 32 * 4); g.readPixels(0, 0, 32, 32, g.RGBA, g.UNSIGNED_BYTE, px); var bad = 0; for (var i = 0; i < px.length; i += 4) if (px[i] !== r || px[i + 1] !== gg || px[i + 2] !== b) bad++; if (bad) { wrong++; list.push([r, gg, b, bad, px[0], px[1], px[2]]); } }
+  o.flatColoursWrong = wrong + ' of 64'; o.examples = list.slice(0, 4);
+  // 2D: the same via drawImage(webgl canvas) -> getImageData and via 1x1 reads
+  // 2D random picture round trip rate
+  var c2 = document.createElement('canvas'); c2.width = c2.height = 128; var x = c2.getContext('2d'), id = x.createImageData(128, 128);
+  for (i = 0; i < id.data.length; i++) id.data[i] = (i % 4 === 3) ? 255 : (Math.imul(i, 2654435761) >>> 24);
+  x.putImageData(id, 0, 0); var d = x.getImageData(0, 0, 128, 128).data, n = 0; for (i = 0; i < d.length; i += 4) if (d[i] !== id.data[i] || d[i + 1] !== id.data[i + 1] || d[i + 2] !== id.data[i + 2]) n++; o.putRandomChangedPixels = n + ' of 16384';
+  // put the noisy read back and read again (idempotence claimed)
+  var im = x.getImageData(0, 0, 128, 128); var c3 = document.createElement('canvas'); c3.width = c3.height = 128; var y = c3.getContext('2d'); y.putImageData(im, 0, 0); var d3 = y.getImageData(0, 0, 128, 128).data; n = 0; for (i = 0; i < d3.length; i++) if (d3[i] !== im.data[i]) n++; o.rereadChangedBytes = n;
+  // toBlob/toDataURL vs getImageData on the same canvas: decode PNG via createImageBitmap -> draw in a flat? (drawImage marks rich) skip
+  // tiny canvas as CreepJS
+  var res = {}; for (var t = 0; t < 1; t++) { var cc = document.createElement('canvas'); cc.width = cc.height = 2; var z = cc.getContext('2d'); z.fillStyle = '#000'; z.fillRect(0, 0, 2, 2); z.fillStyle = '#fff'; z.fillRect(2, 2, 1, 1); z.beginPath(); z.arc(0, 0, 2, 0, 1, true); z.closePath(); z.fill(); o.creep2x2 = z.getImageData(0, 0, 2, 2).data.join(''); }
+  return o;
+};
+</script></body>

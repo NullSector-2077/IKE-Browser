@@ -267,7 +267,10 @@ again with it, which starts them. It is only in those steps: no AI ever sees
 it, and the automatic fix's push checks once more that nothing under
 `.github/` changes. Without it nothing crashes and nothing is weakened: the
 verified candidate is "retrying", the owner gets one note that says how to
-make the token, and it merges by itself once the token exists. Branch
+make the token, and it merges by itself once the token exists. A fine-grained token
+expires: the weekly check (`health.yml`, `tools/automation-health.py` `token_problem`)
+reads GitHub's header `GitHub-Authentication-Token-Expiration` and opens the issue "Automation
+health" 21 days before the date, or at once when GitHub refuses the token (2026-11-25). Branch
 protection is never changed, no check is faked, no run is approved by API.
 
 **The informed signature** (`tools/release-notice.py`, `release-ready.yml`).
@@ -746,6 +749,114 @@ count). The signing notice shows, per provider, what real work and the backgroun
 **Antigravity and the background**: one session of the agent counts ten requests of Gemini's twenty a day,
 so a class 3 or 4 session fits only when real work left that much; it then waits like any other.
 
+### No deadlock of the free quotas (2026-11-25)
+
+A real jam, found on 2026-11-25: PR #111 (`automation/update/lists-2026-11-22`) was "retrying", yet for
+three days no attempt landed, because every provider was skipped for a reason of its own and so nobody
+was ever asked: Antigravity by the rotation (the attempt started with Z.AI), Z.AI as "spent today" (a
+429 of **concurrency**, Z.AI's code 1302, was one of its "day words"), OpenRouter by the reviewers'
+reserve (no other provider had room for a review that day), Groq because the request (7,678 tokens) was
+larger than its limit of 6,000 tokens a minute, which no later day could change. The owner's rule is
+that nothing stays behind, so none of these may hold forever. What changed (`tools/ai-quota.py`,
+`tools/ai-quota.json`, `tools/autofix-reserve.py`, `tools/autofix-agent.py`; the proofs, with a drill
+of that day's four reasons, are `tests/test_automat_deadlock.py`):
+
+- **A request is fitted to the provider's minute** (`fitted`, `compact_message`): when it is larger than
+  the provider's limit of tokens per minute, it is made smaller, deterministically: the rules stay
+  whole; the end of the failure and the plan's notes (the reasons earlier fixes were refused among them)
+  each keep their share; the names of the files to change, and whole files to change while they fit; the
+  code around the failure takes what is left; the answer may shrink to `MIN_ANSWER` tokens. Only when
+  even that cannot fit is the provider skipped, with that reason ("even the smallest request ...").
+  A follow-up of the inner loop is fitted the same way. A provider that answers 413 or 429 with its
+  limit per minute ("Limit 6000") teaches it (`learned_minute_tokens`): it is kept in the day's record
+  and the request is fitted to it and asked again.
+- **A 429 says which limit** (`rate_limit_scope`): the day's quota only when the provider says so in its
+  words and not of a minute, when its own headers say nothing is left of its day, or when it asks to
+  wait more than an hour; a limit per minute, of concurrency or a busy service (`minute_words`, and for
+  Z.AI its codes 1302 and 1305, matched only as its `"code"`) is waited out and asked again in
+  the same run (at most `MINUTE_RETRIES` times, each wait at most `MINUTE_WAIT` seconds). When nothing
+  says which, it is a minute: one more request tomorrow costs less than a provider lost for a day. A 503
+  is asked again after 5, 15 and 45 seconds (`BACKOFF`, or its own short `Retry-After`).
+- **The reviewers' reserve has a way forward** (`Budget.way_forward`): when the reserve alone would leave
+  every provider unasked, a second pass asks the one whose fix leaves the most reviewers with room today
+  (the attempt's order breaks a tie). The fix is written now and **its two independent reviews come on a
+  later day**: the reserve only decides when, never whether. The verified merge still requires the
+  status `ai-review` of two (three for tier B) independent providers on that very commit, so the fix
+  waits on its branch, and the review is asked again every day until it comes. The fix's summary
+  and the status of the run say so (`reviews_deferred`). Never for background work (classes 3 and 4
+  simply wait), and never when fewer providers than the reviews need could ever review it (a key, not
+  marked unavailable). A review now counts within the provider's own minute (`review_size`): Groq, with
+  6,000 tokens a minute against the reserve's 9,000, never counted as a reviewer.
+- **The rotation never skips the only provider with room**: a later attempt still starts with the next
+  provider, unless no reserve can be asked (now, or with its reviews later) and Antigravity can: then
+  Antigravity goes on. Not rotated, Antigravity keeps the reviewers' reserve as before while a reserve
+  can be asked, and takes the way forward itself only when none can.
+- **The watchdog** (`ran --component`, `days_unasked`, `stuck_text`): each run of the automatic fix
+  records its branch as asked or unasked for the day in `quota.json`; a branch that asked nobody for two
+  days in a row (`UNASKED_DAYS`) is said plainly, in Italian, in the reserves' message (which reaches the
+  pull request), as a warning of the run, by `ai-quota.py show`, and in bold in the signing notice
+  before the updates still being retried. Nobody is mailed for it. A run whose attempt started with a
+  reserve (rotated) and asked nobody now counts as a day with no provider too.
+
+- **The stall of 2026-11-25 afternoon** (run 45625320020, PR #111 again): Z.AI was still "spent today"
+  from a mark written before the reading of its codes was fixed, and every OpenRouter model failed: five
+  answered 429 (the run waited 61 s on each, model after model, as if the whole account were blocked) and
+  the reasoning models gave no text ("no JSON object in the answer"). It was **not** the account's privacy
+  setting: that answers 404 "No endpoints found matching your data policy", which the reserve says
+  plainly (`DATA_POLICY`). What changed: a mark "spent today" carries the time it was written
+  (`spent_at`) and is **checked again with one request after `SPENT_RECHECK` (3 hours)**; a mark with
+  no time (written before this rule) holds for its day as before; only "it asked for money" never expires (`mark_expired`). A 429 of one
+  free model's pool upstream (`model_words` in `tools/ai-quota.json`: "rate-limited upstream") moves to
+  the next model at once and holds back none of OpenRouter's other models (`per_model`). Every error now
+  shows the provider's own words in the log (`error_words`, URLs and keys removed), so the next stall
+  says which limit it was. OpenRouter is asked for little reasoning, not sent back
+  (`"reasoning": {"effort": "low", "exclude": true}`), and an answer cut off before its text says so
+  (`cutoff`) instead of "no JSON object".
+- **Gemini's real quota, learned** (2026-11-25): Google publishes no numbers for the free tier ("can be
+  viewed in Google AI Studio"), so `requests_per_day` of Antigravity in `tools/ai-quota.json` is an
+  estimate. Gemini's 429 names the limit it hit and its value (`google.rpc.QuotaFailure`: `quotaId`
+  `GenerateRequestsPerDayPerProjectPerModel-FreeTier`, `quotaValue`): `learned_quotas` reads it,
+  `Budget.learn` keeps it for the rest of the provider's day as its day limit of requests (and a
+  `PerMinute` token limit as its minute), from the reviewers' calls and from Antigravity's errors alike.
+
+**From the providers' own pages** (read on 2026-11-25 on each provider's own page or code: every
+provider in `tools/ai-quota.json` has `source_urls`, `source_verified_on` and a `signals_source` or
+`words_source` that says what each value rests on). `source_verified_on` is the day the value was read
+on the provider's page. It is not a person's check, so `"verified"` stays `false`: the file's rule is
+that a person verifies a number.
+
+- **Gemini** (`ai.google.dev/gemini-api/docs/rate-limits`): limits are per project, not per key; the
+  requests of a day reset at midnight Pacific; no free numbers are published for the text models any
+  more (careful values stay). Which limit a 429 is comes from Google's own gemini-cli code, not from
+  the documentation: a quotaId with `PerDay` or `Daily`, or `limit: 0`, is the day, read before a
+  short retryDelay; a retryDelay over 300 seconds is the day too (`day_wait_seconds`). The new
+  Interactions API names them (`rate_limit_exceeded`, `too_many_requests`: a minute; `quota_exceeded`:
+  the day). `MODEL_CAPACITY_EXHAUSTED` is a busy model (the next model).
+- **Groq** (`console.groq.com/docs/rate-limits`): `openai/gpt-oss-120b`, `openai/gpt-oss-20b` and
+  `qwen/qwen3.8-27b` take 30 requests and 8,000 tokens a minute, 1,000 requests and 200,000 tokens a
+  day on the free plan, per organisation; `x-ratelimit-*-requests` is always the day's,
+  `x-ratelimit-*-tokens` always the minute's; `retry-after` only on a 429. The wording of the 429's
+  message ("per minute (TPM)", "per day (RPD)") is not shown on the official pages.
+- **Z.AI** (`docs.z.ai/api-reference/api-code`): every limit is a 429 and only the string
+  `error.code` tells which: 1302 (rate limit) and 1305 (overloaded) wait; 1308, 1309, 1310, 1311,
+  1313 and 1314-1321 are not asked again today; 1113 asks for money. 1303 is not on Z.AI's list. The
+  free models are `glm-4.7-flash` (200K of context, 128K of output) and `glm-4.5-flash`; no number of
+  their limits is published.
+- **OpenRouter** (`openrouter.ai/docs/api-reference/limits`): 20 requests a minute and 50 a day for
+  all its free models together (1,000 a day only after 10 credits bought: none), failed requests
+  count, the day ends at 00:00 UTC. The documented 429 says only `error_type: rate_limit_exceeded`,
+  for a minute and a day alike; its `X-RateLimit-*` headers come only with a 429 (also inside
+  `error.metadata.headers`) and are read as the minute's. `limit_source`
+  (`openrouter_free_tier_per_minute`, `upstream_provider_shared_pool`: a minute;
+  `openrouter_free_tier_daily`: the day) is shown only on OpenRouter's blog: not verified. A 404 "No
+  endpoints found matching your data policy" is the account's privacy setting, not a quota and not a
+  model that is gone: the message says so plainly and the other providers go on.
+- **The default models** (`tools/ai-providers.py`): Antigravity and the Gemini API `Gemini 4 Hydrogen`,
+  then 3.8 Flash, 3.6 Flash, 3.5 Flash Lite (Antigravity's free plan keeps only Gemini 4 Hydrogen after
+  2026-11-30; a model that is no longer offered, `MODEL_GONE`, makes way for the next one instead of
+  stopping the agent); Groq `openai/gpt-oss-120b`, `qwen/qwen3.8-27b`, `openai/gpt-oss-20b`; Z.AI
+  `glm-4.7-flash`, `glm-4.5-flash`; OpenRouter rebuilt from its own list each run (see "Reserves" below).
+
 ## What runs by itself
 
 | When | What | Workflow | Result |
@@ -860,9 +971,10 @@ lists into the bundled engine: see "The default filter lists" below).
 ### When a builder refuses a new upstream version
 
 Two of the components are not copied but built, with I.K.E.'s own changes:
-Dark Reader (`tools/build-darkreader.py`: the proxy taken out of the engine
-and I.K.E.'s speed patches, `PATCHES`, each of which must find its text, its
-"anchor", exactly once) and uBlock Origin's scriptlets
+Dark Reader (`tools/build-darkreader.py`: the proxy taken out of the engine,
+I.K.E.'s speed patches, `PATCHES`, each of which must find its text, its
+"anchor", exactly once, and the checks of "Dark Reader's builder: the rules
+of every update" below) and uBlock Origin's scriptlets
 (`tools/build-ubo-scriptlets.mjs`: `builtinScriptlets` of
 `src/js/resources/scriptlets.js`, read with Node.js). Since 1.1.20 (the
 owner's decision) `tools/check-components.py` keeps two kinds of trouble
@@ -871,7 +983,7 @@ apart:
 | What happened | Called | What it does |
 |---|---|---|
 | An upstream source could not be read: the network, crates.io, PyPI, npm, GitHub, `git clone`, npm's hash that does not match | **source unreachable** | Infrastructure. The report's row says "check failed: source unreachable: ..."; `--apply` applies **nothing** and exits 1 (fail closed); the maintenance's check step fails and the automatic fix opens "GitHub or the runner failed: Daily maintenance candidate", no AI. The next daily run tries again. |
-| The new version was downloaded, but I.K.E.'s builder does not accept it: a patch's anchor is gone or found twice, the proxy or `injectProxy` is not where it was, the npm package is laid out differently, the site fixes do not start with the common fix; uBlock Origin's library moved, the builder stopped, found no scriptlets, or a scriptlet needs an entry the library does not have | **builder refused**: a component incompatibility | That component **stays at the version in use, with I.K.E.'s changes** (never replaced by the unpatched upstream). Every other component is still applied and tested (the crates' security updates included); `--apply` exits 0. The report has a section for the owner, and since 2026-11-22 the builders' path starts (below): an AI may re-anchor the existing patches on `automation/builder/<id>` only; the guard refuses `tools/build-*` to every other run. |
+| The new version was downloaded, but I.K.E.'s builder does not accept it: the proxy or `injectProxy` is not where it was, the npm package is laid out differently, the site fixes do not start with the common fix or hold what could be a script, a link a person must judge, a changed network call, the API of I.K.E.'s Dark Reader panel gone, a result that does not parse (Dark Reader's speed patches no longer stop it since 2026-11-24: see below); uBlock Origin's library moved, the builder stopped, found no scriptlets, or a scriptlet needs an entry the library does not have | **builder refused**: a component incompatibility | That component **stays at the version in use, with I.K.E.'s changes** (never replaced by the unpatched upstream). Every other component is still applied and tested (the crates' security updates included); `--apply` exits 0. The report has a section for the owner, and since 2026-11-22 the builders' path starts (below): an AI may re-anchor the existing patches on `automation/builder/<id>` only; the guard refuses `tools/build-*` to every other run. |
 
 **How to read the report** (the `components` issue, the run's summary, and the
 maintenance candidate's pull request when other components changed). The
@@ -882,9 +994,9 @@ gives:
 
 - the component and its versions, in use -> new (for Dark Reader the engine
   version and the lists' commit; for uBlock Origin the commits);
-- the step that refused: for Dark Reader the patch by its name in `PATCHES`
-  (for instance "I.K.E.'s patch 'style-moves'"), or the proxy / `injectProxy`
-  / the site fixes; for uBlock Origin the builder;
+- the step that refused: for Dark Reader the proxy / `injectProxy` / the site
+  fixes, the links check, the network calls check, the panel's API or the
+  parse check; for uBlock Origin the builder;
 - the reason, as the builder said it;
 - "The new upstream version around the anchor": the anchor's lines no longer
   found, and the new engine's lines (numbered) around the first anchor line
@@ -892,6 +1004,39 @@ gives:
   uBlock Origin what the new checkout has where the builder looks (the file
   and its exports, or the files next to it);
 - the builder's log.
+
+**Dark Reader's builder: the rules of every update** (the owner's decisions
+of 2026-11-24; the comment at the top of `tools/build-darkreader.py`). Dark
+Reader keeps updating by itself; after every update the builder:
+
+| Step | What it does | When it stops (builder refused) |
+|---|---|---|
+| The proxy change (`PROXY_BLOCK`, `PROXY_EVENT`): the style-sheet proxy asked for by an event with the session's token, never an inline script | Made | Always when it cannot be made: without it Google's sites break, or a page could start the proxy. Not a speed patch |
+| The speed patches (`PATCHES`) | Each family is made when all its texts are found exactly once. A family that no longer fits is **left out**, with the families that need it (`PATCH_NEEDS`), and the update ships without it: the builder prints "speed patch left out: ...", `darkreader-data.json` records it (`"ike_build"`, written only when something was left out or removed), and the daily report's note, so the candidate's CHANGELOG line and the signing notice, name it | Never |
+| Links in `darkreader.js` and `darkreader-proxy.js` | Kept: the links of `LINKS_ALLOWED` (each with its reason: Dark Reader's site and MIT licence in its notices, `https://fonts.googleapis.com/` compared with a sheet's address, the SVG / XLink / XHTML namespaces) and a bare scheme the code compares with (`https://`, `moz-extension://`). Removed: any other link in a comment; a link of a denied kind in a string (the string becomes `""`) or in a template literal (only the link goes). Denied kinds (`LINK_DENY`): donation (Patreon, Open Collective, PayPal, Liberapay, Ko-fi, Buy Me a Coffee, GitHub Sponsors, "donate" pages), social (X / Twitter, Facebook, Mastodon, Reddit, YouTube channels, Discord, Telegram ...), news / blog / "what's new", analytics / telemetry, advertising | An unknown link in a string or template literal; a denied link the code compares with or looks up (removing it would change what the code does); a link the reader cannot place |
+| Network calls (`NETWORK_CALLS`): fetch, XMLHttpRequest, sendBeacon, WebSocket, EventSource, importScripts, counted in the code (4.9.135: fetch 4 times, nothing else) | Counted | A new kind or another count: a person reads the new call, then updates `NETWORK_CALLS` |
+| The API of I.K.E.'s Dark Reader panel (`PANEL_API`): `enable(theme, fixes)`, `disable`, `setFetchMethod` and the theme's fields (brightness, contrast, sepia, grayscale, mode, useFont, fontFamily, textStroke, the dark and light scheme colours, scrollbarColor, selectionColor) | Checked | Any of it gone (the panel and `darkmode.js` would break) |
+| The site fixes (`darkreader-data.json`): CSS put in a style element, selectors, flags. Sites' own image and font addresses in the CSS are allowed: they are the sites' assets, and this list is not scrubbed | Checked: no field but Dark Reader's, nothing but text | Anything that looks like a script (`DATA_SCRIPT_MARKS`: `<script`, `</style`, `javascript:`, `expression(`, `-moz-binding`, `behavior:`, an HTML or script `data:` address, `onload=` / `onerror=`): in Chromium none of the list can run as a script, and this keeps it so |
+| The result | Read again by the builder's own reader of scripts (`lex`): removing links must leave the same code; and `node --check` (when Node.js is there, as in the daily check) must accept the files whenever it accepts Dark Reader's own engine | When either says no |
+
+A build that stops writes nothing: the Dark Reader in use stays, nothing
+breaks, and the refusal waits for Claude or a person (the daily report says
+which step; the builders' path below cannot fix these steps, only anchors).
+Dark Reader's unused message types `MARK_NEWS_AS_READ` / `MARK_NEWS_AS_DISPLAYED`
+are left in: names of an enum, no link, nothing calls them, and removing them
+would need one more patch to keep anchored. `tests/test_darkreader.py` proves
+the rules: injected links of each kind (removed or stopping), a speed patch
+whose anchor is gone (left out, the others made, the script still parses), the
+proxy's anchor gone (stop), the panel's API, the site fixes, and the real
+engine made again from the shipped one, rebuilt byte for byte; a guard checks
+that the shipped `darkreader.js`, `darkreader-proxy.js` and `darkmode.js` have
+only allowed links. Pages whose Content-Security-Policy refuses added `<style>`
+elements (archlinux.org) are handled in `darkmode.js`, not by a patch: a
+`<style>` made in I.K.E.'s isolated world whose sheet the policy refused is
+given to the page as a constructed style sheet with the same rules
+(`tests/test_dark_csp.py`); it works on the DOM Dark Reader uses (its
+`<style>` elements, their `sheet` and `textContent`), so an update of Dark
+Reader needs nothing for it.
 
 **The builders' path** (WP11, 2026-11-22). The daily maintenance starts it by
 itself (`autofix.yml`, work `builder/<id>/<date>`, with the refusal above as
@@ -905,16 +1050,21 @@ again by the verified merge):
   in the same order, each replacement text byte-identical; only anchor texts
   may change, re-found in the new upstream engine; everything outside
   `PATCHES` byte-identical. Dark Reader keeps only measured patches (the
-  owner's decision of 2026-11-21): no patch can come in this way;
+  owner's decision of 2026-11-21): no patch can come in this way. Since
+  2026-11-24 a speed patch that no longer fits does not refuse the update
+  (it is left out, above), so this path starts only for a refusal; a left-out
+  patch is brought back by re-anchoring it under the same rule;
 - uBlock Origin (`tools/build-ubo-scriptlets.mjs`): only the path of the
   library it imports (a file under the checkout, ending in `.js`).
 
 The re-anchored builder then runs: `daily-maintenance.yml` (mode `builder`)
-applies the update on that branch with it (the builder itself refuses an
-anchor found not exactly once), and its tests prove the result:
-`tests/test_darkreader.py` checks that the shipped engine is Dark Reader's own
-npm engine with exactly I.K.E.'s changes (byte identity) and only the measured
-families, and the Dark Reader cost test runs with the whole suite. A builder
+applies the update on that branch with it (for uBlock Origin the builder
+itself refuses a library that is not there; for Dark Reader an anchor found
+not exactly once leaves its family out, said in the note), and its tests prove
+the result: `tests/test_darkreader.py` checks that the shipped engine is Dark
+Reader's own npm engine with exactly I.K.E.'s changes but the families
+recorded as left out (byte identity) and only the measured families, and the
+Dark Reader cost test runs with the whole suite. A builder
 that still refuses is given to the AI again, up to `FIX_ATTEMPTS`; then the
 branch is kept and the owner told. A person may always adapt a patch by hand
 in a pull request, as any change of `tools/`. Until the new version is merged,
@@ -1811,18 +1961,25 @@ never touched.
    no fix it could keep (quota, Google down, an error, nothing changed, or a
    fix refused for its size or pertinence), the reserves are asked one after
    the other, never together, from the clean checkout: Groq (`GROQ_API_KEY`,
-   models in the variable `AUTOFIX_GROQ_MODELS`, default `qwen/qwen3.8-27b`
-   then `openai/gpt-oss-120b`; its free plan takes about 8,000 tokens a minute,
-   so it gets only the failure and the code around it), then Z.AI
+   models in the variable `AUTOFIX_GROQ_MODELS`, default `openai/gpt-oss-120b`,
+   then `qwen/qwen3.8-27b` (a preview that may vanish at short notice), then
+   `openai/gpt-oss-20b`; its free plan takes 8,000 tokens a minute, so it gets
+   only the failure and the code around it, fitted to its minute), then Z.AI
    (`ZAI_API_KEY`, models in `AUTOFIX_ZAI_MODELS`, default `glm-4.7-flash`
    then `glm-4.5-flash`, Z.AI's free GLM Flash models, another family than
    the others, with the whole files too; added in 1.1.19, the owner's
    choice; its free limits are shown only in the account), then OpenRouter
    (`OPENROUTER_API_KEY`, models in `AUTOFIX_OPENROUTER_MODELS`, default
-   `cohere/north-mini-code:free` then `particle-ai/particle-1:free`, which also
-   get the whole files; when a listed free model is gone (HTTP 404, as
-   `cohere/north-mini-code:free` on 2026-11-20), the two free models with the
-   largest context that OpenRouter lists at that moment are asked too). Each reserve's fix goes through the same checker
+   `particle-ai/particle-1:free`, `nvidia/nemotron-3-ultra-550b-a55b:free`,
+   `inclusionai/ling-3.2-flash:free`, `google/gemma-4-31b-it:free`, which also
+   get the whole files). Since 2026-11-25 each run rebuilds OpenRouter's list
+   from OpenRouter's own `GET /api/v1/models` (`refreshed`): the listed models
+   that are still there at zero price, then the two free models with the
+   largest context it offers now, then the Free Models Router `openrouter/free`
+   as the last resort (it picks a free model at random and falls back only to
+   free models). Never a paid model and never a paid fallback. When the list
+   cannot be read, the configured models are asked as they are, and a listed
+   model that answers 404 still brings in the free models of the moment. Each reserve's fix goes through the same checker
    before it is kept; the next model is told why one was refused, and a
    refusal for safety stops them all. A provider
    without its key is skipped; free models change often, so the names live in

@@ -1,5 +1,7 @@
 # I.K.E. — Internet Kontrol Experience
 
+<img src="data/icons/ike-browser.svg" width="112" height="112" alt="I.K.E.">
+
 A light, independent web browser for Arch Linux focused on privacy: no
 telemetry, no accounts, no sponsored content, with ad blocking and
 fingerprinting protection built in.
@@ -9,7 +11,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.25** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.27** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -17,7 +19,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.25-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.27-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -53,13 +55,17 @@ profiles: `ike-browser --profile NAME`.
   stay blocked; ads served from the site's own domain are only hidden. Strict
   and Maximum check every request; YouTube is always checked.
 - Cookie banners refused and hidden automatically.
-- Fingerprinting protection (from Balanced, the default): canvas, WebGL, audio,
-  plugins, number of CPU cores, WebGL extensions and the graphics card change
-  from site to site and from session to session (at Balanced a common model
-  of the same maker chosen per site instead of the exact one; at Strict and
-  Maximum no name at all); Strict and Maximum also give common values for the
-  screen, fonts, memory, languages and voices. Not covered: workers a site
-  starts from a file of its own.
+- Fingerprinting protection (from Balanced, the default): canvas, WebGL, audio
+  and the number of CPU cores change from site to site and from session to
+  session; at Balanced also the plugins, the WebGL extensions and the graphics
+  card (a common model of the same maker chosen per site instead of the exact
+  one). Strict and Maximum give everyone the same values instead: one WebGL
+  identity (no card name, a fixed list of extensions, fixed limits never
+  above the real ones), Chrome's own PDF plugins, a common network speed,
+  screen, fonts, memory, languages and voices; their canvas noise is only
+  where a drawing has edges (never in plain colours); a worker a site starts
+  from a file of its own gets the same protection, and they start no service
+  worker and no shared worker from a site's file.
 - **Protected time zone** (the shield, off by default): every site sees the
   time zone UTC, in pages, frames and every kind of worker alike; I.K.E.'s
   own menus and its new tab clock keep yours. Some sites will show wrong
@@ -71,7 +77,9 @@ profiles: `ike-browser --profile NAME`.
   shield are never touched.
 - Sites see Chrome on Linux with the version of I.K.E.'s own engine: header,
   client hints and JavaScript agree (at Strict and Maximum only its major
-  number, today 140.0.0.0, in pages, workers and request headers). One
+  number, today 140.0.0.0, in pages, workers and request headers), with the
+  engine's own brand list (Chromium) and no kernel version, the same in every
+  kind of worker. One
   exception, on by default: Google's sign-in page sees Firefox, because Google
   refuses sign-in from embedded Chromium (Settings → Protection).
 - Automatic HTTPS, optional encrypted DNS (DNS over HTTPS, off by default),
@@ -121,6 +129,17 @@ profiles: `ike-browser --profile NAME`.
   dark theme; its lists come with each I.K.E. release), or with the engine's
   own dark mode, which is much lighter
   ([docs/review/tests-and-performance.md](docs/review/tests-and-performance.md)).
+  The toolbar's Dark mode button opens a panel: dark mode everywhere or on
+  this site, Dark or Light, brightness, contrast, sepia and grayscale (seen on
+  the page while the slider moves), and under "More" the font, text stroke,
+  colours, scroll bars and selection colour, for every site or for one.
+- The toolbar's Zoom button opens a panel (− and +, a slider, actual size,
+  the default zoom); the Downloads button (Ctrl+J) a list of the downloads
+  with pause and resume, speed and time left, retry, the downloads stopped
+  by I.K.E.'s checks and why; the last 50 are kept across restarts (never a
+  private window's), and clearing the history clears them.
+- "Bookmark this page" sits right after the address bar, filled when the
+  page is bookmarked.
 - Zoom kept for each site; videos and sounds that may not start by themselves
   (all sites, or one); the lock in the address bar opens the site's panel
   (connection, permissions, cookies, protection, zoom, autoplay).
@@ -147,7 +166,10 @@ profiles: `ike-browser --profile NAME`.
 - Reader mode with light, sepia or dark and the text size of your choice.
 - Free choice of search engines (Startpage by default since 1.1.19: the old default, DuckDuckGo, becomes Startpage once; another engine chosen is kept), suggestions, keywords; the
   engine in use right after the lock and in the new tab page, a click to change it.
-- New tab page with a clock and, for a city you choose, the weather; tiles of
+- New tab page with a clock and, for a city you choose, the weather (with a
+  discreet row of details: felt temperature, wind, humidity, pressure, chance
+  of precipitation; units of your choice: °C or °F, wind in km/h, mph, m/s or
+  knots, pressure in hPa, mbar, inHg or mmHg); tiles of
   your bookmarks or of the sites you visit most (up to 32, sixteen per row on
   a wide window); the trackers and ads blocked
   this month; your own photo as its background if you like (kept on the
@@ -170,6 +192,11 @@ profiles: `ike-browser --profile NAME`.
   bookmarks and downloads, protection and extensions, Settings and Help; every
   other command is under "More", as in the menu bar. Settings have a search
   field that finds an option by its name or its explanation, in any language.
+- One look for every menu: Breeze's on Plasma; with another widget style
+  I.K.E. draws them in the same way (rounded, a light shadow, the icons, texts
+  and shortcuts each on one line). History lists the last pages under Today,
+  Yesterday, This week and Earlier with their site, and "Clear recent
+  history…" deletes only the pages of the last hour, of today or all of them.
 - **Site resources** (Shift+Esc): memory, CPU and network of each open site,
   with optional limits that suspend or freeze greedy background tabs.
 - **Watched pages**: right-click a page, or a part of it such as a price, to be
@@ -237,7 +264,7 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 | Encrypted DNS provider | only if you turn DNS over HTTPS on | the names of the sites you visit |
 | Google Translate (or the address you set) | only when you translate a page | the address of the page |
 | Google's update service for Chrome components (update.googleapis.com), then Google's download servers (dl.google.com, *.gvt1.com) | only if you ask I.K.E. to install Widevine or to check for a newer one | one request that says only "a Chromium on x64 Linux, engine version N, wants the Widevine component" (as if none were installed; no cookies, no user or installation id, no other component), then a plain download of the package it names; the old dl.google.com/widevine-cdm/ folder only if that offers nothing |
-| Open-Meteo (open-meteo.com), free, no account, no key | weather on the new tab page, only after you choose a city | finding the city: its name, once; then only the city's coordinates (rounded) asking for the temperature, the weather and the wind, at most every 30 minutes and only when a new tab is open. Your location is never asked. Can be switched off in Settings → New tab page |
+| Open-Meteo (open-meteo.com), free, no account, no key | weather on the new tab page, only after you choose a city | finding the city: its name, once; then only the city's coordinates (rounded) asking for the current temperature, weather, wind (speed and direction), felt temperature, humidity, pressure and chance of precipitation (one request), at most every 30 minutes and only when a new tab is open. Your location is never asked. Can be switched off in Settings → New tab page |
 | The pages you chose to watch | at the interval you chose, only while I.K.E. is open | a normal page load, like a private window: without your cookies |
 | The sites of your user scripts | once a day, if automatic updates are on | a plain download of each script |
 | GitHub (github.com and its download servers) | once a day, unless I.K.E. updates are off | a plain download of the latest release's signed manifest, and of the update when you install it |

@@ -28,7 +28,7 @@ than the distribution's. On a system that is not updated, the engine is old.
 | uBlock Origin scriptlets | built from a pinned commit by `tools/build-ubo-scriptlets.mjs` | GPL-3.0 | — | Data file, checked daily |
 | Dark Reader | bundled script | MIT | — | Optional page dark mode; Qt's own is the default. Known not to be reliable (ROADMAP) |
 | Lucide, Phosphor icons | bundled SVG | ISC, MIT | — | |
-| Orbitron | not shipped: only shapes drawn from it | SIL OFL 1.1 | — | `tools/make-brand.py` |
+| Orbitron | not shipped: only shapes drawn from it | SIL OFL 1.1 | — | Approved brand artwork |
 
 ## Downloaded at run time
 

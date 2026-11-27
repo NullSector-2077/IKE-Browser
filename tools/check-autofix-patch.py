@@ -155,6 +155,8 @@ FORBIDDEN_FILES = {
     "tests/test_automat_priority.py", "tools/branch-sweep.py", "tests/test_branch_sweep.py",
     # 2026-11-24: the proofs of the stricter gate of the fingerprint protection
     "tests/test_strict_gate.py",
+    # 2026-11-25: the proofs that the free quotas can no longer deadlock AUTOMAT (PR #111)
+    "tests/test_automat_deadlock.py",
 }
 # the component manifest: with --auto an AI may add a missing entry (tools/fix-guard.py, rule 7)
 MANIFEST = "components.json"

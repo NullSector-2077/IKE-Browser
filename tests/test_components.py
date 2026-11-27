@@ -688,10 +688,14 @@ def darkreader_upstream(tool, monkeypatch, tmp_path, lib_text, version="9.9.9"):
 
 
 @pytest.mark.skipif(not shutil.which("git"), reason="needs git")
-def test_a_dark_reader_patch_that_no_longer_fits_is_reported_with_its_anchor(repo, tmp_path, monkeypatch):
-    """Dark Reader changes the text one of I.K.E.'s patches changes: the
-    report names the patch, the versions and the new engine's lines around
-    the anchor; nothing of Dark Reader is replaced."""
+def test_a_dark_reader_patch_that_no_longer_fits_is_left_out_and_said(repo, tmp_path, monkeypatch):
+    """Dark Reader changes the text one of I.K.E.'s speed patches changes (the
+    owner's decision of 2026-11-24): the update is still taken, without that
+    patch's family, and the note names it (so the candidate's CHANGELOG line
+    and the signing notice show it). The proxy change is no speed patch: when
+    its text is gone the builder refuses, and the report names the step, the
+    versions and the new engine's lines around it; nothing of Dark Reader is
+    replaced."""
     from test_darkreader import build_tool, fake_engine
     tool = load_tool()
     for rel in ("ike/resources/darkreader-data.json", "tools/build-darkreader.py"):
@@ -705,24 +709,45 @@ def test_a_dark_reader_patch_that_no_longer_fits_is_reported_with_its_anchor(rep
     src = darkreader_upstream(tool, monkeypatch, tmp_path, lib)
     results = tool.check_all(repo, work=tmp_path / "w", dr_src=src)
     dr = by_name(results)["Dark"]
+    assert not dr["refused"] and dr["update"] and not dr["error"], dr
+    assert "speed patches left out (no longer fit the new engine): style-moves" in dr["note"], dr["note"]
+    assert dr["latest"].startswith("9.9.9, lists")
+    built = Path(dr["_dir"])
+    engine = (built / "darkreader.js").read_bytes().decode()
+    assert "ikeStyleSibling" not in engine and "nextStyleSiblings.set(style, getNext(style));" in engine
+    data = json.loads((built / "darkreader-data.json").read_text())
+    assert [d["family"] for d in data["ike_build"]["speed_patches_dropped"]] == ["style-moves"]
+    cand = next(c for c in tool.candidates_of(results) if c["id"] == "darkreader")
+    assert "style-moves" in cand["note"] and not cand.get("refused")
+
+    # the proxy injection is not where it was: refused, with its step and the upstream lines
+    lib = fake_engine(patches).replace("proxyScript.remove();", "proxyScript.detach();")
+    src = darkreader_upstream(tool, monkeypatch, tmp_path / "p", lib)
+    results = tool.check_all(repo, work=tmp_path / "w2", dr_src=src)
+    dr = by_name(results)["Dark"]
     assert dr["refused"] and not dr["update"] and not dr["error"], dr
     rep = dr["refused"]
-    assert rep["step"] == "tools/build-darkreader.py, I.K.E.'s patch 'style-moves' (PATCHES)"
+    assert rep["step"] == "tools/build-darkreader.py, the proxy taken out of the engine (PROXY_BLOCK)"
     current = json.loads((ROOT / "ike/resources/darkreader-data.json").read_text())["version"]
     assert rep["current"].startswith(current + ", lists") and rep["latest"].startswith("9.9.9, lists")
-    assert "found 0 times instead of once" in rep["reason"] and "'style-moves'" in rep["log"]
-    assert "anchor lines not found in the new version (1 of 4):" in rep["context"]
-    assert "nextStyleSiblings.set(style, style.nextElementSibling);" in rep["context"]
-    assert 'the new version around the anchor line "function saveStylePosition(style) {"' in rep["context"]
-    assert "nextStyleSiblings.set(style, getNext(style));" in rep["context"]     # the upstream lines, numbered
+    assert "proxy injection" in rep["reason"] and "proxy injection" in rep["log"]
+    assert 'const proxyScript = createOrUpdateScript("darkreader--proxy");' in rep["context"]
+    assert "proxyScript.detach();" in rep["context"]                    # the upstream lines, numbered
     md = tool.to_markdown(results)
-    assert "**Dark Reader (engine and lists)**: %s" % rep["current"] in md and "patch 'style-moves'" in md
+    assert "**Dark Reader (engine and lists)**: %s" % rep["current"] in md and "(PROXY_BLOCK)" in md
+
+    # a link a person must judge: refused at the links check
+    lib = fake_engine(patches).replace("})();\r\n", 'var x = "https://cdn.unknown.example/a.js";\r\n})();\r\n')
+    src = darkreader_upstream(tool, monkeypatch, tmp_path / "l", lib)
+    dr = by_name(tool.check_all(repo, work=tmp_path / "w3", dr_src=src))["Dark"]
+    assert dr["refused"]["step"] == "tools/build-darkreader.py, the links check (LINKS_ALLOWED, LINK_DENY)", dr
+    assert "an unknown link in a string" in dr["refused"]["reason"]
 
     # Dark Reader's site unreachable: infrastructure, never "refused"
     def down(url, timeout=60):
         raise tool.SourceUnreachable("%s: timed out" % url)
     monkeypatch.setattr(tool, "fetch_source", down)
-    dr = by_name(tool.check_all(repo, work=tmp_path / "w2", dr_src=src))["Dark"]
+    dr = by_name(tool.check_all(repo, work=tmp_path / "w4", dr_src=src))["Dark"]
     assert dr["error"].startswith("source unreachable: SourceUnreachable") and not dr["refused"]
 
 

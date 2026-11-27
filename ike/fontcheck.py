@@ -54,8 +54,13 @@ def masked_names():
     return json.loads(m.group(1)) if m else []
 
 
-# the families every system answers to: never masked (fingerprint.js)
-KEPT = {"arial", "helvetica", "times", "times new roman", "courier", "courier new"}
+# the families every system answers to: never masked (fingerprint.js). Also
+# "Monospace", the engine's own family for monospace (shields.CHROME_FONTS):
+# fontconfig's name for it, which Qt lists among the installed families. A
+# worker draws monospace through that name, so its mask made a worker's
+# monospace another font, and a worker found other fonts than its page
+# (review of 1.1.25, round 3).
+KEPT = {"arial", "helvetica", "times", "times new roman", "courier", "courier new", "monospace"}
 
 
 def candidates(families=None):
@@ -96,6 +101,7 @@ def fonts_key():
     h = hashlib.sha1("\n".join(names).encode("utf-8"))
     h.update(hashlib.sha1(json.dumps(masked_names()).encode()).digest())
     h.update(b"installed families always")       # answers of 1.1.19 and before: asked again
+    h.update(b"monospace kept")                   # answers of 1.1.24 and before: asked again
     return h.hexdigest()
 
 

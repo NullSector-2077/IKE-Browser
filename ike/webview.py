@@ -336,9 +336,13 @@ class WebPage(QWebEnginePage):
             darkengine.prepare(profile, url.toString(), host or url.scheme() + ":", own_on,
                                self.app.shields.dark_chosen(host))
             return
-        theme = dict(cfg["dark_theme"]) if isinstance(cfg["dark_theme"], dict) else {}
+        # the colours, checked again here (darktheme.py): every site's, and the site's own (1.1.25)
+        from . import darktheme
+        theme = darktheme.for_page(cfg["dark_theme"])
+        own, has_own = darktheme.of(cfg, host) if host else (None, False)
         darkpages.prepare(profile, url.toString(), host or url.scheme() + ":", theme, reader_on,
-                          self.app.shields.dark_chosen(host))
+                          self.app.shields.dark_chosen(host),
+                          darktheme.for_page(own) if has_own and reader_on else None)
 
     def set_backdrop(self, colour):
         """The page's background colour, the one shown before it paints."""

@@ -1,0 +1,8 @@
+<!doctype html><script src="/info.js"></script><script>
+(async function(){
+  var o = await collect(); o.where = location.href;
+  // file worker from the cross-site frame
+  try { o.fileWorker = await new Promise(function (ok) { var w = new Worker('/dw.js'); w.onmessage = function (e) { ok(e.data); }; w.onerror = function (e) { ok('ERR ' + e.message); }; w.postMessage('go'); setTimeout(function () { ok('timeout'); }, 8000); }); } catch (e) { o.fileWorker = 'ERR ' + e; }
+  parent.postMessage({frame: location.search, data: o}, '*');
+})();
+</script>

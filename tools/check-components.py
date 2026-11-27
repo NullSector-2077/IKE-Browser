@@ -631,6 +631,17 @@ def darkreader_refused(root, work, src, meta, reason, log):
             fixes = src / "src" / "config" / "dynamic-theme-fixes.config"
             if fixes.is_file():
                 context = "\n".join(fixes.read_text("utf-8", "replace").splitlines()[:15])
+        # 2026-11-24 (the owner's decisions): the checks that wait for a person
+        elif "links: " in (log or ""):
+            step = "tools/build-darkreader.py, the links check (LINKS_ALLOWED, LINK_DENY)"
+        elif "network calls: " in (log or ""):
+            step = "tools/build-darkreader.py, the network calls check (NETWORK_CALLS)"
+        elif "I.K.E.'s panel uses" in (log or ""):
+            step = "tools/build-darkreader.py, the API I.K.E.'s Dark Reader panel uses (PANEL_API)"
+        elif "could be a script" in (log or ""):
+            step = "tools/build-darkreader.py, the site fixes' content (DATA_SCRIPT_MARKS)"
+        elif "does not parse" in (log or "") or "could not be read as a script" in (log or ""):
+            step = "tools/build-darkreader.py, the parse check (node --check, lex)"
     except Exception as e:          # the report must not hide the refusal itself
         context = "(the upstream lines could not be shown: %s)" % e
     return BuilderRefused({"component": "Dark Reader (engine and lists)", "current": current, "latest": latest,
@@ -677,6 +688,16 @@ def check_darkreader(root, work, dr_src=None):
     engine = vkey(new["version"]) > vkey(cur["version"])
     lists = darkreader_lists_hash(cur) != darkreader_lists_hash(new)
     note = ", ".join(x for x, on in (("new engine", engine), ("lists changed", lists)) if on)
+    # 2026-11-24: what the builder left out or removed is said with the update (the daily report, the
+    # candidate's CHANGELOG line, so the signing notice)
+    built = new.get("ike_build") or {}
+    dropped = [d.get("family", "?") for d in built.get("speed_patches_dropped") or ()]
+    if dropped:
+        note += "; speed patches left out (no longer fit the new engine): " + ", ".join(dropped)
+    links = built.get("links_removed") or ()
+    if links:
+        note += "; links removed from Dark Reader's code: %d (%s)" % (
+            len(links), ", ".join(sorted({"%s %s" % (r.get("kind", "?"), r.get("host", "?")) for r in links}))[:300])
     return {"current": "%s, lists %s (%s)" % (cur["version"], cur.get("lists_commit", "")[:10], cur.get("lists_date", "")),
             "latest": "%s, lists %s (%s)" % (new["version"], new["lists_commit"][:10], new["lists_date"]),
             "update": engine or lists, "note": note, "_dir": str(out)}
@@ -1316,15 +1337,37 @@ KNOWN_UNRUN_SCRIPTLETS = ("noeval", "nofab", "popads-dummy", "popads.net", "fing
 
 
 def ike_modules(root):
-    """ike.config and ike.scriptlets of this checkout (neither needs Qt)."""
+    """ike.config and ike.scriptlets of this checkout (neither needs Qt). Loaded on their own
+    when another copy of I.K.E. is already imported (a test that ran before in the same
+    process), which is put back afterwards: the check always reads the copy it was given."""
     root = Path(root).resolve()
-    if str(root) not in sys.path:
-        sys.path.insert(0, str(root))
-    import ike.config
-    import ike.scriptlets
-    if Path(ike.config.__file__).resolve().parent.parent != root:
-        raise RuntimeError("another copy of I.K.E. is imported: %s" % ike.config.__file__)
-    return ike.config, ike.scriptlets
+
+    def mine(mod):
+        return Path(mod.__file__).resolve().parent.parent == root
+
+    def ike_names():
+        return [k for k in sys.modules if k == "ike" or k.startswith("ike.")]
+
+    other = {k: sys.modules[k] for k in ike_names()}
+    if other and mine(other.get("ike") or next(iter(other.values()))):
+        other = {}
+    for k in other:
+        del sys.modules[k]
+    if str(root) in sys.path:
+        sys.path.remove(str(root))
+    sys.path.insert(0, str(root))
+    try:
+        import importlib
+        config = importlib.import_module("ike.config")
+        scriptlets = importlib.import_module("ike.scriptlets")
+    finally:
+        if other:
+            for k in ike_names():
+                del sys.modules[k]
+            sys.modules.update(other)
+    if not mine(config):
+        raise RuntimeError("another copy of I.K.E. is imported: %s" % config.__file__)
+    return config, scriptlets
 
 
 def engine_module(root):

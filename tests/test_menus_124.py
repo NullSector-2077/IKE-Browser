@@ -41,7 +41,7 @@ ENTRIES_1123 = [
     "Downloads", "Passwords…", "Fill login on this page", "Search open tabs…", "Translate page…",
     "Video in floating window", "Mute tab", "Suspend inactive tabs now", "Site resources…",
     "Watched pages…", "Search engines…", "Chrome Web Store", "Settings…", "Keyboard shortcuts",
-    "Check for I.K.E. updates", "About I.K.E.", "About Qt",
+    "Check for I.K.E. updates", "About Qt",
     # filled when their menu opens
     "Reopen closed tab", "Show all history", "Bookmark this page", "Manage bookmarks", "Manage containers…",
     "New profile…", "New workspace…", "Rename workspace…", "Delete workspace",
@@ -69,8 +69,8 @@ def walk(menu, seen=None, path="", found=None):
     seen.add(id(menu))
     menu.aboutToShow.emit()
     for a in menu.actions():
-        if a.isSeparator():
-            continue
+        if a.isSeparator() and not a.text():
+            continue                  # a section (1.1.25: Protection's title) is an entry with its name
         t = a.text().replace("&", "")
         if t.startswith("Bookmarks bar:"):
             t = "Bookmarks bar"
@@ -313,7 +313,15 @@ def steps(ike, qapp, out):
     btn = {k: win.nav.widgetForAction(a) for k, a, _x in win._nav_items}
     out["buttons"] = [btn[k] is not None and btn[k].isVisible() for k in NEW] if not win.toolbar_spilled else "spilled"
     # what each does
-    out["zoom_menu"] = [a.text() for a in win.act_tb_zoom.menu().actions()]
+    # 1.1.25: the Zoom button opens its panel (tests/test_zoom_panel.py); the ☰ menu keeps the submenu
+    out["zoom_menu"] = [a.text() for a in win.m_zoom.actions()]
+    out["zoom_button"] = [win.act_tb_zoom.menu() is None]
+    btn["zoom"].click()
+    yield 300
+    zmenu, _zpanel = win.panel_of("zoom")
+    out["zoom_button"].append(zmenu is not None and zmenu.isVisible())
+    if zmenu is not None:
+        zmenu.hide()
     out["print_menu"] = [a.text() for a in win.act_tb_print.menu().actions()]
     win.m_send.aboutToShow.emit()
     out["send_menu"] = [[a.text(), a.isEnabled()] for a in win.m_send.actions()]
@@ -347,6 +355,7 @@ def test_toolbar_buttons_to_add(run_ike, tmp_path):
     assert out["after"] == [True] * 5 and out["saved"] == [False] * 5
     assert out["buttons"] == [True] * 5, out["buttons"]
     assert out["zoom_menu"] == ["Zoom in", "Zoom out", "Actual size"]
+    assert out["zoom_button"] == [True, True]
     assert out["print_menu"] == ["Print…", "Save as PDF…"]
     # no KDE Connect here: one entry that says so, disabled
     assert out["send_menu"][0][1] is False and out["send_menu"][-1] == ["Desktop integration", True]

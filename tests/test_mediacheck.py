@@ -61,16 +61,14 @@ def test_about_shows_formats_and_engine_age(run_ike, site):
             yield 1500
             out["before"] = mc.known()
             out["text_before"] = win.about_text()
-            # Help menu: shown, then the entry chosen with real keys
-            help_menu = [a.menu() for a in win.menuBar().actions() if a.menu() and "Help" in a.text()][0]
-            entries = [a.text() for a in help_menu.actions()]
-            out["entries"] = entries
-            help_menu.popup(win.mapToGlobal(win.rect().center()))
+            menu = win.burger
+            out["entries"] = [a.text() for a in menu.actions()]
+            out["help"] = [a.text() for a in win.m_help_burger.actions()]
+            menu.popup(win.mapToGlobal(win.rect().center()))
             yield 300
-            for _ in range(entries.index("About I.K.E.") + 1):
-                QTest.keyClick(help_menu, Qt.Key.Key_Down)
-            # Return opens the dialog, which runs its own loop: sent from a timer
-            QTimer.singleShot(0, lambda: QTest.keyClick(help_menu, Qt.Key.Key_Return))
+            menu.setActiveAction(win.act_about)
+            # Return opens the dialog, which runs its own loop.
+            QTimer.singleShot(0, lambda: QTest.keyClick(menu, Qt.Key.Key_Return))
             box = None
             for _ in range(40):
                 yield 100
@@ -98,7 +96,8 @@ def test_about_shows_formats_and_engine_age(run_ike, site):
             out["engine"] = chromever.engine_major()
             out["presented"] = chromever.current(ike.config)
     """ % site)
-    assert "About I.K.E." in out["entries"]
+    assert out["entries"][-2:] == ["About I.K.E.", "Quit"]
+    assert "About I.K.E." not in out["help"]
     assert out["before"] is None
     assert "Video and audio formats: checking…" in out["text_before"]
     assert out["opened"]

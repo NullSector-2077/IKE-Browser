@@ -192,7 +192,14 @@ jobs:
           fi
       - name: Git (for the checkout)
         # the databases are the snapshot's (above): an upgrade, not a new download of them
-        run: pacman -Su --noconfirm --needed git
+        run: |
+          if ! pacman -Su --noconfirm --needed git; then
+            archive=$(grep -m1 '^Server = https://archive.archlinux.org/' /etc/pacman.d/mirrorlist || true)
+            [ -n "$archive" ] || exit 1
+            echo "::warning::a mirror lacked a file of the snapshot's packages: the Arch Linux Archive alone"
+            echo "$archive" > /etc/pacman.d/mirrorlist
+            pacman -Su --noconfirm --needed git
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -211,15 +218,26 @@ jobs:
         # their icons: Adwaita (GNOME), elementary (Xfce), MATE's, Papirus
         # (Cinnamon, and common with KDE)
         run: |
-          pacman -S --noconfirm --needed \
-              python python-pyqt6 python-pyqt6-webengine qt6-webengine qt6-webchannel qt6-svg \
-              python-cryptography python-jeepney publicsuffix-list python-pytest \
-              base-devel rust sudo nodejs \
-              ffmpeg dbus glib2 noto-fonts ttf-dejavu \
-              noto-fonts-cjk intel-media-driver libva-nvidia-driver \
-              breeze oxygen kvantum plasma-integration breeze-icons \
-              gtk3 xorg-server-xvfb lxqt-qtplugin \
-              adwaita-icon-theme elementary-icon-theme mate-icon-theme papirus-icon-theme
+          pkgs=(
+                python python-pyqt6 python-pyqt6-webengine qt6-webengine qt6-webchannel qt6-svg
+                python-cryptography python-jeepney publicsuffix-list python-pytest
+                base-devel rust sudo nodejs
+                ffmpeg dbus glib2 noto-fonts ttf-dejavu
+                noto-fonts-cjk intel-media-driver libva-nvidia-driver
+                breeze oxygen kvantum plasma-integration breeze-icons
+                gtk3 xorg-server-xvfb lxqt-qtplugin
+                adwaita-icon-theme elementary-icon-theme mate-icon-theme papirus-icon-theme
+          )
+          # a mirror may already have dropped a file of the snapshot's version (2026-11-25:
+          # zxing-cpp-3.1.1-1's signature answered 404 and pacman gave up): then the
+          # snapshot's own archive alone, which keeps every version
+          if ! pacman -S --noconfirm --needed "${pkgs[@]}"; then
+            archive=$(grep -m1 '^Server = https://archive.archlinux.org/' /etc/pacman.d/mirrorlist || true)
+            [ -n "$archive" ] || exit 1
+            echo "::warning::a mirror lacked a file of the snapshot's packages: the Arch Linux Archive alone"
+            echo "$archive" > /etc/pacman.d/mirrorlist
+            pacman -S --noconfirm --needed "${pkgs[@]}"
+          fi
           # the compiler names the engine's cache (a new Rust builds it anew)
           echo "rust=$(rustc -V | tr -c 'A-Za-z0-9.\n' '-')" >> "$GITHUB_OUTPUT"
       # What this run really tests: pacman's versions of the components I.K.E.

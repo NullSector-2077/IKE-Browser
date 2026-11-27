@@ -33,7 +33,11 @@ def identity():
         "os": "linux",
         "ua_os": "X11; Linux x86_64",
         "platform": "Linux",
-        "platform_version": "6.0.0",
+        # empty, as the engine itself reduces it (1.1.25: ReduceUserAgentData-
+        # LinuxPlatformVersion, app.PRIVACY_FEATURES): service and shared
+        # workers get the engine's value, never the profile's, and gave the
+        # real kernel version ("6.18.44") where the page said "6.0.0"
+        "platform_version": "",
         "firefox_ua": "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0",
         "firefox_app_version": "5.0 (X11)",
         "firefox_oscpu": "Linux x86_64",

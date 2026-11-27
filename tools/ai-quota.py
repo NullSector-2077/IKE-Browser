@@ -71,7 +71,7 @@ NAMES = ("Antigravity", "Groq", "Z.AI", "OpenRouter")
 # what is used when the data file cannot be read: very little, so nothing is drained by mistake
 FALLBACK = {"requests_per_day": 10, "requests_per_minute": 2, "tokens_per_day": 50000, "tokens_per_minute": 6000,
             "session_requests": 10, "verified": False, "source": "tools/ai-quota.json could not be read",
-            "headers": {}, "day_words": ["per day", "daily"]}
+            "headers": {}, "day_words": ["per day", "daily"], "minute_words": ["per minute", "concurrency"]}
 LIMIT_KEYS = ("requests_per_day", "requests_per_minute", "tokens_per_day", "tokens_per_minute")
 PURPOSES = ("fix", "review")
 # the classes of AI work (the owner's decision of 2026-11-24): the lower, the sooner
@@ -94,6 +94,15 @@ NEVER_LOW = ("automation/update/", "automation/builder/", "automation/update/sec
 LONG_LIVED = ("automation/autofix-main", "automation/daily-maintenance", "automation/audit")
 # the pending work could not be read (the plan's call to GitHub failed): background work pauses, real work never
 UNKNOWN = "unknown"
+# the start of the reason a fix waits for the reviewers' reserve (tools/autofix-reserve.py reads it)
+RESERVE_WHY = "the reviewers' reserve"
+# the tokens a fix is counted as when its request is not built yet (way_forward): a request fitted to a small limit
+# per minute (tools/autofix-reserve.py fitted), with its answer
+FIX_TOKENS = 4000
+# the watchdog (2026-11-25): a branch whose runs asked no provider at all for this many days in a row is named in the
+# notices ("niente deve rimanere indietro")
+UNASKED_DAYS = 2
+MAX_UNASKED = 40
 RESET = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 ZONE = re.compile(r"^[A-Za-z][A-Za-z0-9_+/-]{0,60}$")
 
@@ -140,8 +149,16 @@ def load_limits(path=None):
             conf["verified"] = raw.get("verified") is True
             conf["source"] = str(raw.get("source") or "")[:600]
             conf["headers"] = raw.get("headers") if isinstance(raw.get("headers"), dict) else {}
-            words = raw.get("day_words")
-            conf["day_words"] = [str(w) for w in words][:12] if isinstance(words, list) else FALLBACK["day_words"]
+            for field in ("day_words", "minute_words"):
+                words = raw.get(field)
+                conf[field] = [str(w) for w in words][:24] if isinstance(words, list) else FALLBACK[field]
+            # a 429 of one free model's own pool, busy upstream (per_model): data too, none by default
+            words = raw.get("model_words")
+            conf["model_words"] = [str(w) for w in words][:24] if isinstance(words, list) else []
+            # how a 429 is read is data too (rate_limit_scope): the wait above which it is the day's quota
+            wait = raw.get("day_wait_seconds")
+            conf["day_wait_seconds"] = wait if isinstance(wait, int) and not isinstance(wait, bool) and \
+                60 <= wait <= 86400 else DAY_WAIT
             conf["reset"] = _reset(raw.get("reset"))
             conf["shared_free_models"] = raw.get("shared_free_models") is True
             account = raw.get("account")
@@ -583,6 +600,126 @@ def retry_after(headers):
     return parse_duration(_header(headers, "retry-after"))
 
 
+def said(words, text):
+    """True when the text says one of the words: a plain word anywhere (case ignored), a "code:N" only as the
+    value of a "code" field (Z.AI's {"error": {"code": "1302", ...}}), never a number anywhere in the text."""
+    text = str(text or "")
+    for w in words or ():
+        w = str(w or "")
+        if not w:
+            continue
+        if w.startswith("code:"):
+            if re.search(r'"code"\s*:\s*"?%s(?![0-9])' % re.escape(w[5:]), text):
+                return True
+        elif w.lower() in text.lower():
+            return True
+    return False
+
+
+# a long wait the provider asks for: more than this is the day's quota, not a limit per minute
+DAY_WAIT = 3600
+# a mark "spent today" is checked again after this many seconds with one request (2026-11-25: a wrong mark,
+# written before the reading of Z.AI's codes was fixed, kept Z.AI unasked for the rest of the day). A mark of
+# money asked (not free) never expires; a mark with no time (written before this rule, or by hand) holds for the
+# day as before
+SPENT_RECHECK = 3 * 3600
+NEVER_EXPIRES = ("money", "not free")
+
+
+def mark_expired(why, at, now):
+    """True when a mark "spent today" may be checked again (SPENT_RECHECK): never for money asked."""
+    why = str(why or "")
+    if not why or any(w in why for w in NEVER_EXPIRES):
+        return False
+    if not isinstance(at, int) or isinstance(at, bool) or at <= 0:
+        return False
+    return now - at >= SPENT_RECHECK
+
+
+def per_model(conf, body):
+    """True when a 429 is one free model's own pool, busy upstream (OpenRouter: "temporarily rate-limited
+    upstream"): the next model is asked at once, and the provider's other models are not held back."""
+    return said((conf or {}).get("model_words") or (), body)
+# what a provider says of its limit per minute when a request is too large for it (Groq: "on tokens per minute
+# (TPM): Limit 6000, Requested 7678"): the limit is learned and the next request is fitted to it
+TPM_LIMIT = re.compile(r"(?:tokens per minute|\bTPM\b)\D{0,40}?\blimit\W{0,3}(\d{3,9})", re.I)
+
+
+def learned_minute_tokens(body):
+    """The limit of tokens per minute an error's text gives, or None."""
+    m = TPM_LIMIT.search(str(body or ""))
+    value = int(m.group(1)) if m else 0
+    return value if 100 <= value <= 10 ** 8 else None
+
+
+# Gemini's free tier publishes no numbers (ai.google.dev/gemini-api/docs/rate-limits, read on 2026-11-25: "can be
+# viewed in Google AI Studio"); its 429 names the limit it hit and its value (google.rpc.QuotaFailure: quotaId
+# "GenerateRequestsPerDayPerProjectPerModel-FreeTier", quotaValue "250"): the real quota of the project, learned
+QUOTA_FAILURE = re.compile(r'quotaId\W{1,6}([A-Za-z0-9_-]{3,120})(?:(?!quotaId).){0,600}?quotaValue\W{1,6}(\d{1,9})',
+                           re.S)
+
+
+def learned_quotas(body):
+    """{"day_requests", "minute_tokens"}: the limits a provider's own error names with their values (Gemini's
+    QuotaFailure), each only when it is plausible."""
+    out = {}
+    for quota_id, value in QUOTA_FAILURE.findall(str(body or "")[:20000]):
+        value, low = int(value), quota_id.lower()
+        if not 0 < value <= 10 ** 8:
+            continue
+        if "request" in low and ("perday" in low or "daily" in low):
+            out.setdefault("day_requests", value)
+        elif "token" in low and "perminute" in low and value >= 100:
+            out.setdefault("minute_tokens", value)
+    return out
+
+
+def body_headers(headers, body):
+    """The headers of an answer with those its error body carries (OpenRouter puts X-RateLimit-* inside
+    error.metadata.headers too: openrouter.ai/docs/api-reference/limits); the real headers count more."""
+    out = {}
+    try:
+        meta = ((json.loads(body or "{}") or {}).get("error") or {}).get("metadata") or {}
+        inner = meta.get("headers") if isinstance(meta, dict) else None
+        if isinstance(inner, dict):
+            out.update({str(k): str(v) for k, v in list(inner.items())[:20]})
+    except (ValueError, AttributeError, TypeError):
+        pass
+    try:
+        out.update({str(k): str(v) for k, v in (headers or {}).items()})
+    except AttributeError:
+        pass
+    return out
+
+
+def rate_limit_scope(conf, headers, body):
+    """What a 429 means (2026-11-25: a limit of concurrency taken for the day's quota left Z.AI unused for days):
+    ("minute", seconds to wait, why) for a limit per minute, of concurrency or a busy service, which is waited out
+    in the same run; ("day", 0, why) only for the day's quota: the provider says so in words and not of a minute,
+    its own headers say nothing is left of its day, or it asks to wait longer than its "day_wait_seconds" (data;
+    DAY_WAIT when the file has none). The words are data too (day_words, minute_words). When nothing
+    says which, a minute: one more request tomorrow costs less than a provider lost for a whole day."""
+    conf = conf or {}
+    headers = body_headers(headers, body)
+    wait = retry_after(headers)
+    daily = said(conf.get("day_words") or FALLBACK["day_words"], body)
+    minute = said(conf.get("minute_words") or FALLBACK["minute_words"], body)
+    seen = observe(conf, headers)
+    day_empty = any(o.get("window") == "day" and o.get("remaining") == 0 for o in seen.values())
+    minute_empty = [o for o in seen.values() if o.get("window") == "minute" and o.get("remaining") == 0]
+    if wait > int(conf.get("day_wait_seconds") or DAY_WAIT):
+        return "day", 0, "429: the quota of the day (retry after %d s)" % wait
+    if day_empty and not minute_empty:
+        return "day", 0, "429: the quota of the day (its headers say nothing is left today)"
+    if daily and not minute:
+        return "day", 0, "429: the quota of the day (it says so)"
+    if not wait and minute_empty:
+        wait = max([int(o.get("reset") or 0) for o in minute_empty] + [0])
+    why = "429: a limit per minute or of concurrency (%s)" % (
+        "it says so" if minute else "it does not say it is the day's")
+    return "minute", min(max(wait, 0), 120) or 60, why
+
+
 class Budget:
     """Today's budget of the providers, for one run. state is changed in memory only; delta() is what
     the run leaves for the job that writes the data branch."""
@@ -607,6 +744,9 @@ class Budget:
         self.blocked_until = {}         # provider -> time: a 429 with a short retry-after
         self.skipped = {}
         self.result = ""
+        self.last_429 = {}              # provider -> (scope, wait, why) of its last 429 in this run
+        # a fix may be written now and reviewed on a later day (way_forward: the deadlock of 2026-11-25)
+        self.defer_reviews = False
 
     # --- what is left ---
     def conf(self, provider):
@@ -623,13 +763,29 @@ class Budget:
         p = self._p(provider)
         return p["requests"], p["tokens"]
 
+    def moment(self):
+        """Now, in seconds since 1970 (the run's start and the time it has run)."""
+        return int(self.now.timestamp() + max(0, self.clock() - self.started))
+
+    def _mark(self, p, field):
+        """The mark of the field, or "" once it is old enough to be checked again (mark_expired)."""
+        why = p.get(field) or ""
+        if why and mark_expired(why, p.get(field + "_at"), self.moment()):
+            return ""
+        return why
+
     def spent(self, provider):
         """Why the provider is spent today for this run's class ("" when it is not): a 429 that work of class 3
-        or 4 got spends it only for classes 3 and 4 (spent_low), never for security fixes and real updates."""
+        or 4 got spends it only for classes 3 and 4 (spent_low), never for security fixes and real updates.
+        A mark older than SPENT_RECHECK is checked again with one request (mark_expired)."""
         p = self._p(provider)
-        if self.priority >= CI and p.get("spent_low"):
-            return p.get("spent") or p["spent_low"]
-        return p.get("spent") or ""
+        if self.priority >= CI and self._mark(p, "spent_low"):
+            return self._mark(p, "spent") or self._mark(p, "spent_low")
+        return self._mark(p, "spent")
+
+    def _set_mark(self, p, field, why):
+        p[field] = str(why)[:120]
+        p[field + "_at"] = self.moment()
 
     def day_limit(self, provider, kind):
         """Today's limit of requests or tokens: what the provider's own headers said, else the data file."""
@@ -767,8 +923,20 @@ class Budget:
         class: a background fix whose reviews would have to take the reserve waits too)."""
         r = self.limits["reserve"]
         return [n for n in self.available if n != author and n in self.limits["providers"] and not self.spent(n)
-                and not self._room(n, r["review_requests"], r["review_tokens"])
-                and not self.priority_why(n, r["review_requests"], r["review_tokens"], "review")]
+                and not self._room(n, r["review_requests"], self.review_size(n))
+                and not self.priority_why(n, r["review_requests"], self.review_size(n), "review")]
+
+    def review_size(self, provider):
+        """The tokens one review is counted as for this provider: the reserve's review_tokens, within the provider's
+        limit per minute (the same rule as background_status; 2026-11-25: Groq's 6,000 tokens a minute against
+        9,000 made it never count as a reviewer, whatever was left of its day)."""
+        size = self.limits["reserve"]["review_tokens"]
+        return min(size, self.minute_limit(provider, "tokens") or size)
+
+    def reviewers_ever(self, author):
+        """The providers other than the author that could review a fix on some day (a key, not marked unavailable),
+        whatever is left of today."""
+        return [n for n in self.available if n != author and n in self.limits["providers"]]
 
     def reviews_needed(self):
         r = self.limits["reserve"]
@@ -801,12 +969,55 @@ class Budget:
                     return False, ("this candidate already used its share of today's %s (%d of %d; while another "
                                    "real update is pending, at most %d%% of a provider's day goes to one candidate)" % (
                                        kind, int(mine.get(kind) or 0), limit, int(share * 100)))
+            if self.defer_reviews and self.priority <= UPDATE:
+                # the way forward when the reserve would leave every provider unasked (way_forward): the fix is
+                # written now and waits for its reviews on a later day. Never merged without them
+                # (tools/automerge.py requires the status ai-review), and only when enough other providers could
+                # review it at all
+                ever = self.reviewers_ever(provider)
+                if len(ever) < self.reviews_needed():
+                    return False, ("%s: after a fix by %s only %d other provider(s) could ever review it (%s), and "
+                                   "%d are needed: the fix waits" % (RESERVE_WHY, provider, len(ever),
+                                                                     ", ".join(ever) or "none", self.reviews_needed()))
+                return True, ""
             left = self.reviewers_left(provider)
             if len(left) < self.reviews_needed():
-                return False, ("the reviewers' reserve: after a fix by %s only %d other provider(s) would have room "
+                return False, ("%s: after a fix by %s only %d other provider(s) would have room "
                                "for a review today (%s), and %d are needed: the fix waits" % (
-                                   provider, len(left), ", ".join(left) or "none", self.reviews_needed()))
+                                   RESERVE_WHY, provider, len(left), ", ".join(left) or "none", self.reviews_needed()))
         return True, ""
+
+    def way_forward(self, names, sizes=None):
+        """Who writes the fix, when the reviewers' reserve alone would leave every provider unasked (the deadlock
+        of 2026-11-25, PR #111: nobody was asked for three days). names: the providers in the order of this
+        attempt; sizes: {name: (tokens, requests)} of a fix by each (default: FIX_TOKENS, one request). Returns
+        (name, "now") for the first one allows() lets through; else (name, "reviews-later") for the one that,
+        asked with its reviews left for a later day (defer_reviews), leaves the most reviewers with room today
+        (the order of names breaks a tie); else (None, why). Only for security fixes and real updates (classes 1
+        and 2): background work simply waits. The fix is never merged without its reviews."""
+        sizes = sizes or {}
+        names = [n for n in names if n in self.limits["providers"]]
+        why = ""
+        for n in names:
+            tokens, requests = sizes.get(n, (FIX_TOKENS, 1))
+            ok, no = self.allows(n, tokens, "fix", requests)
+            if ok:
+                return n, "now"
+            why = why or "%s: %s" % (n, no)
+        if self.priority > UPDATE or self.defer_reviews:
+            return None, why
+        best = []
+        self.defer_reviews = True
+        try:
+            for n in names:
+                tokens, requests = sizes.get(n, (FIX_TOKENS, 1))
+                if self.allows(n, tokens, "fix", requests)[0]:
+                    best.append((-len(self.reviewers_left(n)), names.index(n), n))
+        finally:
+            self.defer_reviews = False
+        if best:
+            return min(best)[2], "reviews-later"
+        return None, why
 
     def wait_seconds(self, provider, tokens, requests=1):
         """Seconds until the provider's limit per minute has room for this request (0: now)."""
@@ -873,26 +1084,50 @@ class Budget:
             obs["at"] = int(self.now.timestamp() + max(0, self.clock() - self.started))
             p["observed"][kind] = obs
             if obs.get("window") == "day" and obs.get("remaining") == 0:
-                p["spent"] = "its own headers say nothing is left today"
+                self._set_mark(p, "spent", "its own headers say nothing is left today")
             if obs.get("window") == "minute" and obs.get("remaining") == 0 and obs.get("reset"):
                 self.blocked_until[provider] = self.clock() + min(obs["reset"], 120)
+        if status in (413, 429):
+            # a request larger than the provider's limit per minute: its own text gives the limit, learned for the
+            # rest of its day (the next request is fitted to it: tools/autofix-reserve.py fitted)
+            tpm = learned_minute_tokens(body)
+            if tpm:
+                p["observed"]["tokens"] = {"limit": tpm, "window": "minute", "mark": p["tokens"], "learned": True,
+                                           "at": int(self.now.timestamp() + max(0, self.clock() - self.started))}
         if status == 429:
-            wait = retry_after(headers)
-            daily = any(w and w.lower() in str(body or "").lower() for w in conf.get("day_words") or ())
-            if daily or wait > 3600:
-                why = "429: the quota of the day (%s)" % ("it says so" if daily else "retry after %d s" % wait)
+            self.learn(provider, body)
+            scope, wait, why = rate_limit_scope(conf, headers, body)
+            self.last_429[provider] = (scope, wait, why)
+            if scope == "day":
                 # work of class 3 or 4 spends it only for itself: security fixes and real updates still ask
-                p["spent_low" if self.priority >= CI else "spent"] = why
-            else:
-                self.blocked_until[provider] = self.clock() + (wait if wait > 0 else 60)
+                self._set_mark(p, "spent_low" if self.priority >= CI else "spent", why)
+            elif not per_model(conf, body):
+                # one free model busy upstream holds back only that model, never the provider's others
+                self.blocked_until[provider] = max(self.blocked_until.get(provider, 0), self.clock() + wait)
         elif status == 402:
-            p["spent"] = "it asked for money (not free)"
+            self._set_mark(p, "spent", "it asked for money (not free)")
+
+    def learn(self, provider, body):
+        """The limits the provider's own error names with their values (learned_quotas), kept for the rest of its
+        day like a reading of its headers: Gemini's real quota of requests a day, and of tokens a minute."""
+        if provider not in self.limits["providers"]:
+            return {}
+        found = learned_quotas(body)
+        p = self._p(provider)
+        at = self.moment()
+        if found.get("day_requests"):
+            p["observed"]["requests"] = {"limit": found["day_requests"], "window": "day", "mark": p["requests"],
+                                         "learned": True, "at": at}
+        if found.get("minute_tokens") and (p["observed"].get("tokens") or {}).get("window") != "day":
+            p["observed"]["tokens"] = {"limit": found["minute_tokens"], "window": "minute", "mark": p["tokens"],
+                                       "learned": True, "at": at}
+        return found
 
     def mark_spent(self, provider, why):
         """Spent today: for everybody, except a quota answer (429) that work of class 3 or 4 got."""
         if provider in self.limits["providers"]:
             low = self.priority >= CI and "429" in str(why)
-            self._p(provider)["spent_low" if low else "spent"] = str(why)[:120]
+            self._set_mark(self._p(provider), "spent_low" if low else "spent", why)
 
     def delta(self):
         """What this run adds, for the job that writes the data branch (numbers and known names only); each
@@ -902,6 +1137,8 @@ class Budget:
                 "candidate": self.candidate, "calls": self.calls,
                 "spent": {n: p.get("spent") for n, p in mine.items() if p.get("spent")},
                 "spent_low": {n: p.get("spent_low") for n, p in mine.items() if p.get("spent_low")},
+                "spent_at": {n: {f: p.get(f + "_at") for f in ("spent", "spent_low") if p.get(f + "_at")}
+                             for n, p in mine.items() if p.get("spent_at") or p.get("spent_low_at")},
                 "accounts": {n: p.get("account") for n, p in mine.items() if p.get("account") in ("free", "not-free")},
                 "observed": {n: p.get("observed") for n, p in mine.items() if p.get("observed")},
                 "skipped": dict(self.skipped), "result": self.result}
@@ -952,10 +1189,15 @@ def merge(state, delta, now=None):
             mine["tokens"] = _count(mine.get("tokens")) + tokens
             if len(p["by"]) > 40:
                 del p["by"][sorted(p["by"])[0]]
+    marks_at = delta.get("spent_at") if isinstance(delta.get("spent_at"), dict) else {}
     for field in ("spent", "spent_low"):
         for name, why in (delta.get(field) or {}).items() if isinstance(delta.get(field), dict) else ():
             if name in NAMES and why:
-                _prov(state, day_of_provider(name), name)[field] = _text(why, 120)
+                p = _prov(state, day_of_provider(name), name)
+                p[field] = _text(why, 120)
+                at = (marks_at.get(name) or {}).get(field) if isinstance(marks_at.get(name), dict) else None
+                if isinstance(at, int) and not isinstance(at, bool) and 0 < at < 10 ** 11:
+                    p[field + "_at"] = at
     for name, tier in (delta.get("accounts") or {}).items() if isinstance(delta.get("accounts"), dict) else ():
         if name in NAMES and tier in ("free", "not-free"):
             _prov(state, day_of_provider(name), name)["account"] = tier
@@ -978,12 +1220,62 @@ def merge(state, delta, now=None):
     return bound(state, now)
 
 
-def ran(state, result, day=None, now=None):
-    """One run of the automatic fix: a provider answered, or none at all was free."""
+def ran(state, result, day=None, now=None, component=""):
+    """One run of the automatic fix: a provider answered, or none at all was free. component: the branch it worked
+    on, for the watchdog (days_unasked): the branches whose runs asked nobody today, and those that were answered."""
     d = _day(state, day or day_of(now))
     d["runs"] += 1
     d["answered" if result == "answered" else "no_provider"] += 1
+    component = str(component or "")
+    if re.fullmatch(r"automation/[A-Za-z0-9._/-]{1,110}", component):
+        field = "answered_for" if result == "answered" else "unasked"
+        row = d.get(field) if isinstance(d.get(field), dict) else {}
+        row[component] = _count(row.get(component)) + 1
+        while len(row) > MAX_UNASKED:
+            del row[sorted(row)[0]]
+        d[field] = row
     return state
+
+
+def days_unasked(state, component, now=None):
+    """How many days in a row, ending today or yesterday, the automatic fix ran on this branch and asked no provider
+    at all (no run of it was answered that day). A day with no run of it breaks the row only when it is older than
+    yesterday."""
+    today = now_utc(now).date()
+    count = 0
+    for back in range(KEEP_DAYS):
+        d = ((state or {}).get("days") or {}).get((today - dt.timedelta(days=back)).isoformat()) or {}
+        unasked = d.get("unasked") if isinstance(d.get("unasked"), dict) else {}
+        answered = d.get("answered_for") if isinstance(d.get("answered_for"), dict) else {}
+        if answered.get(component):
+            break
+        if not unasked.get(component):
+            if back == 0:
+                continue                           # nothing ran on it yet today: yesterday decides
+            break
+        count += 1
+    return count
+
+
+def stuck(state, now=None, days=UNASKED_DAYS):
+    """[(branch, days)] of the work that asked no provider at all for `days` days in a row or more (the watchdog of
+    2026-11-25: "niente deve rimanere indietro"), the longest first."""
+    names = set()
+    for d in ((state or {}).get("days") or {}).values():
+        if isinstance(d, dict) and isinstance(d.get("unasked"), dict):
+            names.update(str(n) for n in d["unasked"])
+    rows = [(n, days_unasked(state, n, now)) for n in sorted(names)]
+    return sorted([(n, k) for n, k in rows if k >= days], key=lambda r: (-r[1], r[0]))
+
+
+def stuck_text(state, now=None, days=UNASKED_DAYS):
+    """The watchdog's line for the notices, in Italian (the owner's language), or ""."""
+    rows = stuck(state, now, days)
+    if not rows:
+        return ""
+    return ("ATTENZIONE (niente deve rimanere indietro): da %d o più giorni di fila nessun assistente AI è stato "
+            "interpellato per: %s. AUTOMAT riprova ogni giorno; questo avviso resta finché qualcuno non viene "
+            "interpellato." % (days, ", ".join("%s (%d giorni)" % (_text(n, 120), k) for n, k in rows[:8])))
 
 
 def days_without_provider(state, now=None):
@@ -1103,6 +1395,7 @@ def main(argv=None):
     r = sub.add_parser("ran")
     r.add_argument("--state", required=True)
     r.add_argument("--result", required=True, choices=("answered", "no-provider"))
+    r.add_argument("--component", default="", help="the branch the run worked on (the watchdog: days_unasked)")
     s = sub.add_parser("show")
     s.add_argument("--state", required=True)
     s.add_argument("--limits")
@@ -1167,7 +1460,11 @@ def main(argv=None):
         print("the quota's record: %d day(s), %d bytes" % (len(state["days"]), len(json.dumps(state))))
         return 0
     if a.cmd == "ran":
-        Path(a.state).write_text(json.dumps(bound(ran(state, a.result)), indent=1, sort_keys=True) + "\n", "utf-8")
+        state = ran(state, a.result, component=a.component)
+        Path(a.state).write_text(json.dumps(bound(state), indent=1, sort_keys=True) + "\n", "utf-8")
+        if a.component and days_unasked(state, a.component) >= UNASKED_DAYS:
+            print("::warning title=AUTOMAT watchdog::%s asked no provider for %d days in a row" % (
+                _text(a.component, 120), days_unasked(state, a.component)))
         return 0
     limits = load_limits(a.limits)
     if a.cmd == "show":
@@ -1175,6 +1472,8 @@ def main(argv=None):
             print("%-12s requests %s/%s, tokens %s/%s%s%s" % (
                 row["provider"], row["requests"], row["requests_limit"], row["tokens"], row["tokens_limit"],
                 "" if row["verified"] else " (limit not verified)", " SPENT: " + row["spent"] if row["spent"] else ""))
+        for name, days in stuck(state):
+            print("WATCHDOG: %s asked no provider for %d days in a row" % (name, days))
         return 0
     names = tuple(n for n in a.available.split(",") if n) or None
     ok, why = Budget(limits, state, a.candidate, tier_b=a.tier_b, available=names,

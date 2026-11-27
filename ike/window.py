@@ -3,9 +3,10 @@
 import os
 import re
 import time
+from math import ceil
 
-from PyQt6.QtCore import QCoreApplication, QEvent, QPoint, QSize, Qt, QTimer, QUrl
-from PyQt6.QtGui import QAction, QActionGroup, QGuiApplication, QIcon, QKeySequence
+from PyQt6.QtCore import QCoreApplication, QEvent, QPoint, QPointF, QSize, Qt, QTimer, QUrl
+from PyQt6.QtGui import QAction, QActionGroup, QCursor, QGuiApplication, QIcon, QKeySequence, QPainter, QPixmap, QRegion
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -34,16 +35,54 @@ from . import APP_LONG_NAME, APP_NAME, __version__, effects, polish
 from .config import LEVEL_NAMES, LEVELS
 from .features import WindowFeatures, tab_icon
 from .i18n import T
-from .shieldpanel import TOOLBAR_SHIELD_GROW, ShieldPanel, shield_icon
+from .shieldpanel import TOOLBAR_SHIELD_GROW, ShieldButton, ShieldPanel, shield_icon
 from .tabs import AUDIO_ROLE, TabBar, VTabDelegate, VTabList
 from .uistyle import Switch
 from .urlbar import _URLISH, UrlBar, is_not_secure
 from .webview import WebView
 
+# Qt emits ThemeChange (210) even in PyQt builds that omit its enum name.
+THEME_CHANGE = QEvent.Type(210)
 NEWTAB = "ike:newtab"
 def icon(name, fallback=None):
     from .icons import themed
     return themed(name, fallback)
+
+
+def _now():
+    """The clock History's days are counted from (a test sets its own)."""
+    return time.time()
+
+
+def history_day(last, now):
+    """The group of a page of History by the day it was seen (last, seconds):
+    "today", "yesterday", "week" (two to six days ago) or "earlier"."""
+    import datetime
+    try:
+        seen = datetime.date.fromtimestamp(int(last or 0))
+        days = (datetime.date.fromtimestamp(now) - seen).days
+    except (OverflowError, OSError, ValueError):
+        return "earlier"
+    if days <= 0:
+        return "today"
+    if days == 1:
+        return "yesterday"
+    return "week" if days < 7 else "earlier"
+
+
+def history_day_name(day):
+    """The name of a group of History's pages, as its section shows it."""
+    return {"today": T("Today"), "yesterday": T("Yesterday"), "week": T("This week")}.get(day) or T("Earlier")
+
+
+def site_name(url):
+    """A page's site as History shows it: its host, without "www."."""
+    from urllib.parse import urlsplit
+    try:
+        host = (urlsplit(url or "").hostname or "").lower()
+    except ValueError:
+        return ""
+    return host[4:] if host.startswith("www.") and host.count(".") > 1 else host
 
 
 def plain_title(text):
@@ -214,27 +253,45 @@ class NavBar(QToolBar):
             p.end()
 
 
+MORE_SIDE = 26          # the "more" buttons (1.1.25): square and even, the 16-pixel arrows exactly in the middle
+
+
+def more_arrows(button):
+    """The navigation toolbar's "more" button: KDE's double arrow
+    (arrow-right-double; go-next where the theme has none; I.K.E.'s own drawing
+    of it otherwise), in a square even-sized button, so the arrows sit exactly in
+    its middle (1.1.25, the owner: the "»" text sat off centre)."""
+    button.setIcon(icon(("arrow-right-double", "go-next")))
+    button.setIconSize(QSize(16, 16))
+    button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+    button.setFixedSize(MORE_SIDE, MORE_SIDE)
+    button.setStyleSheet("QToolButton::menu-indicator { image: none; }")
+
+
+class _Gap(QWidget):
+    """A fixed room in the toolbar that also reports its width as its size hint
+    (the toolbar's own measures read the hints)."""
+
+    def sizeHint(self):
+        return self.minimumSize()
+
+
 class BookmarksBar(QToolBar):
     """The bookmarks in a row. Those that do not fit stay out of the row and are
-    listed, one under the other, in the menu of a "»" button at the right end."""
+    listed, one under the other, in the menu of a "more" button (a double arrow)
+    at the right end."""
 
     def __init__(self, title, parent):
         super().__init__(title, parent)
         self._marks = []
         self._busy = False
         self._more = QToolButton(self)
-        # the » glyph itself, as other browsers show it (an icon theme may map
-        # the arrow names to a bookmarks icon)
-        self._more.setText("»")
-        f = self._more.font()
-        if f.pointSizeF() > 0:
-            f.setPointSizeF(f.pointSizeF() * 1.3)
-            self._more.setFont(f)
-        self._more.setToolTip(T("More bookmarks"))
-        self._more.setAutoRaise(True)
-        self._more.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
-        self._more.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self._more.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         self._more.setStyleSheet("QToolButton::menu-indicator { image: none; }")
+        self._more.setToolTip(T("More bookmarks"))
+        self._more.setAccessibleName(T("More bookmarks"))
+        self._more.setAutoRaise(True)
+        self._more.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self._menu = QMenu(self._more)
         self._menu.setToolTipsVisible(True)
         self._more.setMenu(self._menu)
@@ -244,9 +301,46 @@ class BookmarksBar(QToolBar):
         self._timer.setInterval(0)
         self._timer.timeout.connect(self._reflow)
 
+    def refresh_arrows(self):
+        """Use two copies of the actual Forward glyph at its navigation size."""
+        nav = self.parentWidget().nav
+        forward = self.parentWidget().act_fwd.icon()
+        ratio = self.devicePixelRatioF()
+        key = (forward.cacheKey(), nav.iconSize(), ratio, self.palette().cacheKey())
+        if key == getattr(self, "_arrows_key", None):
+            return
+        self._arrows_key = key
+        arrow = forward.pixmap(nav.iconSize(), ratio)
+        bounds = QRegion(arrow.mask()).boundingRect()
+        if not bounds.isEmpty():
+            arrow = arrow.copy(bounds)
+        if "rtl" in forward.name().split("-"):
+            arrow = QPixmap.fromImage(arrow.toImage().flipped(Qt.Orientation.Horizontal))
+            arrow.setDevicePixelRatio(ratio)
+        gap = round(4 * ratio)
+        pair = QPixmap(2 * arrow.width() + gap, arrow.height())
+        pair.setDevicePixelRatio(ratio)
+        pair.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pair)
+        painter.drawPixmap(QPointF(), arrow)
+        painter.drawPixmap(QPointF((arrow.width() + gap) / ratio, 0), arrow)
+        painter.end()
+        width = ceil(pair.deviceIndependentSize().width())
+        height = ceil(pair.deviceIndependentSize().height())
+        self._more.setIcon(QIcon(pair))
+        self._more.setIconSize(QSize(width, height))
+        self._more.setFixedSize(max(MORE_SIDE, width + 10), MORE_SIDE)
+        self._timer.start()
+
+    def event(self, event):
+        result = super().event(event)
+        if event.type() == QEvent.Type.DevicePixelRatioChange and hasattr(self, "_timer"):
+            self.refresh_arrows()
+        return result
+
     def set_marks(self, entries, open_url, hint=""):
         """entries: [(icon, title, url)]. hint: text shown when there are none."""
-        self.clear()                     # also removes the "»" button from the row
+        self.clear()                     # also removes the "more" button from the row
         self._marks = []
         for icon, title, url in entries:
             a = self.addAction(icon, title[:24])
@@ -286,7 +380,7 @@ class BookmarksBar(QToolBar):
                 widths.append((btn.sizeHint().width() if btn is not None else 80) + gap)
             room = self.contentsRect().width() - 8
             if sum(widths) > room:
-                room -= self._more.sizeHint().width() + gap
+                room -= self._more.width() + gap
             self._menu.clear()
             used, overflow = 0, False
             for a, wd in zip(self._marks, widths):
@@ -524,9 +618,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_home = self._action(T("Home"), self.go_home, ["Alt+Home"],
                                      icon("go-home", SP.SP_DirHomeIcon),
                                      T("Open the home page"))
-        for a in (self.act_back, self.act_fwd, self.act_home, self.act_reload):
+        for a in (self.act_back, self.act_fwd, self.act_reload, self.act_home):
             tb.addAction(a)
-        self.home_sep_act = tb.addSeparator()      # fixed: always right after Reload, never moved (1.1.9)
+        self.home_sep_act = tb.addSeparator()      # fixed: always right after Home, never moved (1.1.9)
 
         def spacer():
             w = QWidget(self)
@@ -538,6 +632,15 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.urlbar = UrlBar(self)
         self.urlbar.returnPressed.connect(lambda: self.navigate(self.urlbar.text(), typed=True))
         self.urlbar_act = tb.addWidget(self.urlbar)
+        # 1.1.25 (the owner): "Bookmark this page" fixed just outside the address bar's right
+        # edge, 4 pixels after it and centred with it; it can be neither moved nor hidden, and
+        # the address bar is centred together with it (_centre_urlbar)
+        self.act_tb_bookmark = self._action(T("Bookmark this page"), self.toggle_bookmark, None, "bookmark-new",
+                                            T("Add or remove this page from bookmarks"))
+        self._bookmark_gap = _Gap(self)
+        self._bookmark_gap.setFixedSize(0, 1)
+        self.bookmark_gap_act = tb.addWidget(self._bookmark_gap)
+        tb.addAction(self.act_tb_bookmark)
         # the lock opens the site information panel (siteinfo.py)
         from .siteinfo import SiteInfoPanel
         self.site_info_menu = polish.round_menu(QMenu(self))
@@ -565,13 +668,13 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
         # Shield: protection level selector, inside the address bar at its right end (1.1.10;
         # 1.1.9: before the bar). A click opens its panel; no arrow beside it.
-        self.shield_btn = QToolButton(self.urlbar)
+        self.shield_btn = ShieldButton(self.urlbar)
         self.shield_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.shield_btn.setAutoRaise(True)
         self.shield_btn.setIconSize(QSize(20, 20))
         self.shield_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.shield_btn.clicked.connect(self.show_shield_menu)
-        self.shield_btn.setToolTip(T("I.K.E. Shield: choose the protection level"))
+        self.shield_btn.setAccessibleName(T("I.K.E. Shield: choose the protection level"))
         self.shield_menu = polish.round_menu(QMenu(self))
         self.shield_panel = ShieldPanel(self)
         # the panel scrolls when it is taller than the room below the shield (1.1.10: with
@@ -609,9 +712,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.store_act.setVisible(False)
         self.space_right_act = tb.addWidget(self._nav_spacers[1])
         A = self._action
-        # "Bookmark this page" on the toolbar; "Translate page" is in the address bar (1.1.6)
-        self.act_tb_bookmark = A(T("Bookmark this page"), self.toggle_bookmark, None, "bookmark-new",
-                                 T("Add or remove this page from bookmarks"))
+        # ("Bookmark this page": fixed after the address bar since 1.1.25, above;
+        # "Translate page" is in the address bar, 1.1.6)
         self.act_tb_reader = A(T("Reader mode"), self.toggle_reader, None,
                                icon(("view-readermode", "document-preview", "view-reader-symbolic",
                                      "x-office-document-symbolic")),
@@ -626,7 +728,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_tb_split = A(T("Split view"), self.toggle_split, None,
                               icon(("view-split-left-right", "view-dual-symbolic")),
                               T("Show two tabs side by side"))
-        self.act_dark = A(T("Dark mode for pages"), None, None, icon("weather-clear-night"),
+        # 1.1.25: its click opens the dark mode panel under it (darkpanel.py), made at the first click
+        self.dark_menu = None
+        self.act_dark = A(T("Dark mode for pages"), self.show_dark_panel, None, icon("weather-clear-night"),
                           T("Dark mode: everywhere or only on this site"))
         self.act_tb_private = A(T("New private window"),
                                 lambda: self.app.new_window(private=True), None,
@@ -635,13 +739,16 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_tb_clean = A(T("Clear this site's data"), self.clear_site_data, None,
                               icon(("edit-clear-history", "edit-clear-all-symbolic", "edit-clear-all", "edit-clear")),
                               T("Delete the cookies and stored data of the site in this tab"))
-        self.act_downloads = self._action(T("Downloads"), self.app.show_downloads, "Ctrl+J",
+        # 1.1.25: its click (and Ctrl+J) opens the downloads panel under it (downloadpanel.py);
+        # the panel's "Show all downloads" opens the downloads window
+        self.act_downloads = self._action(T("Downloads"), self.show_downloads_panel, "Ctrl+J",
                                           icon(("download", "folder-download-symbolic"), SP.SP_ArrowDown),
                                           T("Show downloaded files"))
         self._dl_icon = self.act_downloads.icon()
         # 1.1.24: buttons the user can add, hidden until chosen (config.TOOLBAR_ITEMS);
         # the menus of Zoom, Print and Send are given in _build_menus
-        self.act_tb_zoom = A(T("Zoom"), None, None, "zoom-in", T("Make the page larger or smaller"))
+        # 1.1.25: its click opens the zoom panel under it (zoompanel.py)
+        self.act_tb_zoom = A(T("Zoom"), self.show_zoom_panel, None, "zoom-in", T("Make the page larger or smaller"))
         self.act_tb_bookmarks = A(T("Manage bookmarks"), self.app.show_bookmarks, None,
                                   icon(("bookmarks-organize", "bookmarks", "user-bookmarks-symbolic")),
                                   T("Edit, import and export bookmarks"))
@@ -653,7 +760,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_tb_resources = A(T("Site resources"), self.app.show_resources, None,
                                   "utilities-system-monitor",
                                   T("Memory, CPU and network used by each site, with optional limits"))
-        for a in (self.act_tb_bookmark, self.act_tb_reader, self.act_tb_shot, self.act_tb_pip,
+        for a in (self.act_tb_reader, self.act_tb_shot, self.act_tb_pip,
                   self.act_tb_split, self.act_dark, self.act_tb_private, self.act_tb_clean,
                   self.act_downloads, self.act_tb_zoom, self.act_tb_bookmarks, self.act_tb_print,
                   self.act_tb_send, self.act_tb_resources):
@@ -674,16 +781,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.menu_btn.setToolTip(T("Menu"))
         # buttons that do not fit in a narrow window (see _fit_urlbar)
         self.more_btn = QToolButton(self)
-        self.more_btn.setText("»")
-        f = self.more_btn.font()
-        if f.pointSizeF() > 0:
-            f.setPointSizeF(f.pointSizeF() * 1.3)
-            self.more_btn.setFont(f)
+        more_arrows(self.more_btn)               # KDE's double arrow (1.1.25; "»" before)
         self.more_btn.setToolTip(T("More buttons"))
+        self.more_btn.setAccessibleName(T("More buttons"))
         self.more_btn.setAutoRaise(True)
-        self.more_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
         self.more_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.more_btn.setStyleSheet("QToolButton::menu-indicator { image: none; }")
         self.more_menu = effects.fading(QMenu(self.more_btn), self.app.config)
         self.more_btn.setMenu(self.more_menu)
         self.more_act = tb.addWidget(self.more_btn)
@@ -691,8 +793,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self._build_window_buttons(tb)
         self._update_max_button()
         right = self.win_sep_act
-        self._nav_items = [("bookmark", self.act_tb_bookmark, right),
-                           ("reader", self.act_tb_reader, right),
+        self._nav_items = [("reader", self.act_tb_reader, right),
                            ("screenshot", self.act_tb_shot, right),
                            ("pip", self.act_tb_pip, right),
                            ("split", self.act_tb_split, right),
@@ -709,6 +810,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self._menu_buttons = (self.act_dark, self.act_tb_zoom, self.act_tb_print, self.act_tb_send)
 
         self.bookbar = BookmarksBar(T("Bookmarks bar"), self)
+        self.nav.iconSizeChanged.connect(self.bookbar.refresh_arrows)
+        self.bookbar.refresh_arrows()
         self.bookbar.setObjectName("bookmarks")
         self.bookbar.setMovable(False)
         self.bookbar.setIconSize(QSize(16, 16))
@@ -784,7 +887,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_new_private = A(T("New private window"), lambda: self.app.new_window(private=True),
                                  "Ctrl+Shift+N", ("view-private", "preferences-system-privacy-symbolic"),
                                  T("Browse without saving history, cookies or cache"))
-        self.act_pdf = A(T("Save as PDF…"), self.save_pdf, None, ("application-pdf", "document-save"),
+        self.act_pdf = A(T("Save as PDF…"), self.save_pdf, None,
+                         ("document-export", "application-pdf", "document-save"),
                          T("Export the page as a PDF document"))
         self.act_print = A(T("Print…"), self.print_page, "Ctrl+P", "document-print",
                            T("Print the current page"))
@@ -877,15 +981,18 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                              T("Switch between: only on a new tab, always, hidden"))
         self.m_dark = menu(T("Dark mode for pages"), "weather-clear-night",
                            T("Dark mode: everywhere or only on this site"))
-        self.act_dark_all = QAction(T("On everywhere"), self, checkable=True)
+        self.act_dark_all = QAction(icon(("globe", "applications-internet", "web-browser")), T("On everywhere"),
+                                    self, checkable=True)
         self.act_dark_all.triggered.connect(lambda on: self._set_dark("on" if on else "off"))
-        self.act_dark_site = QAction(T("On for this site"), self, checkable=True)
+        self.act_dark_site = QAction(icon(("internet-web-browser", "web-browser", "applications-internet", "globe")),
+                                     T("On for this site"), self, checkable=True)
         self.act_dark_site.triggered.connect(
             lambda on: self.app.set_site_dark(self.current_host(), on))
         self.m_dark.addAction(self.act_dark_all)
         self.m_dark.addAction(self.act_dark_site)
         self.m_dark.aboutToShow.connect(self._fill_dark_menu)
-        self.act_dark.setMenu(self.m_dark)
+        # (the toolbar's Dark mode button opens its panel since 1.1.25: show_dark_panel;
+        # the View and ☰ menus keep this menu)
         self.act_fullscreen = A(T("Full screen"), self.toggle_fullscreen, "F11", "view-fullscreen",
                                 T("Show the page on the whole screen"))
         # 1.1.24: the page first (its size, how it is shown), then the tabs, then
@@ -900,7 +1007,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 else:
                     m_view.addAction(a)
             m_view.addSeparator()
-        m_view.addAction(A(T("Page source"), self.view_source, "Ctrl+U", ("text-html", "view-source"),
+        m_view.addAction(A(T("Page source"), self.view_source, "Ctrl+U",
+                           ("format-text-code", "text-html", "view-source"),
                            T("Show the HTML source of the page")))
         m_view.addAction(A(T("Developer tools"), lambda: self.open_devtools(), ["F12", "Ctrl+Shift+I"],
                            ("tools-report-bug", "bug-symbolic", "utilities-terminal-symbolic"),
@@ -919,6 +1027,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_clear = A(T("Clear browsing data…"), self.app.show_clear_data, "Ctrl+Shift+Del",
                            ("edit-clear-history", "edit-clear-all-symbolic", "edit-clear-all"),
                            T("Delete history, cookies and cache"))
+        # 1.1.25, the owner's choice: History's last entry clears only the pages visited
+        # (the last hour, today or all); "Clear browsing data…" stays under Protection
+        self.act_clear_recent = A(T("Clear recent history…"), self.app.show_clear_history, None,
+                                  ("edit-clear-history", "edit-clear-all-symbolic", "edit-clear-all"),
+                                  T("Delete the pages visited in the last hour, today or ever"))
 
         # --- Bookmarks
         self.m_bookmarks = mb.addMenu(T("&Bookmarks"))
@@ -946,7 +1059,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_update_lists = A(T("Update filter lists now"), self.app.update_now, None,
                                   "view-refresh", T("Download the latest blocking rules"))
         self.act_protection_settings = A(T("Protection settings…"), lambda: self.open_settings("protection"),
-                                         None, "security-high",
+                                         None, shield_icon("balanced", 16),
                                          T("Every protection option, with what it does"))
         protection = (*levels, None, self.act_repair, self.act_permissions, self.act_update_lists,
                       self.act_clear, None, self.act_protection_settings)
@@ -956,8 +1069,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                             T("How much I.K.E. blocks, and the tools to repair or clean a site"))
         for m in (m_protection, self.m_level):
             m.setToolTipsVisible(True)
-            title = m.addAction(T("Protection level for every site"))
-            title.setEnabled(False)
+            # 1.1.25: a real section's name (drawn small and dimmed), not a greyed entry
+            m.addSection(T("Protection level for every site"))
             for a in protection:
                 if a is None:
                     m.addSeparator()
@@ -978,7 +1091,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                 "Ctrl+Shift+A", ("preferences-plugin", "application-x-addon"),
                                 T("Switch I.K.E.'s own extensions on and off and change their options"))
         m_ext = mb.addMenu(T("E&xtensions"))
-        self.m_extensions = menu(T("I.K.E. extensions"), ("preferences-plugin", "application-x-addon"),
+        self.m_extensions = menu(T("I.K.E. extensions"), ("plugins", "preferences-plugin", "application-x-addon"),
                                  T("Features of I.K.E. you can switch on and off"))
         for m in (m_ext, self.m_extensions):
             m.setToolTipsVisible(True)
@@ -1008,13 +1121,12 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             for a in group:
                 m_tools.addAction(a)
 
-        # --- Help (no separator before "About I.K.E.": moved to with the arrow keys)
+        # --- Help
         m_help = mb.addMenu(T("&Help"))
         m_help.addAction(A(T("Keyboard shortcuts"), self.show_shortcuts, "F1",
                            "preferences-desktop-keyboard", T("List the keyboard shortcuts")))
         m_help.addAction(self.act_check_updates)
-        m_help.addAction(self.act_about)
-        about_qt = QAction(T("About Qt"), self)
+        about_qt = QAction(icon(("help-about", "dialog-information")), T("About Qt"), self)
         about_qt.triggered.connect(lambda: QMessageBox.aboutQt(self))
         m_help.addAction(about_qt)
         for m in (m_file, m_edit, m_view, self.m_history, self.m_bookmarks, m_protection, m_ext,
@@ -1026,7 +1138,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             an icon of its own and its name without the "&" of the menu bar."""
             m = menu(plain_title(src.title()), ico, tip)
             for a in src.actions():
-                if a.isSeparator():
+                if a.isSeparator() and a.text():
+                    m.addSection(a.text())
+                elif a.isSeparator():
                     m.addSeparator()
                 elif a.menu() is not None and a is a.menu().menuAction():
                     m.addMenu(a.menu())
@@ -1043,7 +1157,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.m_zoom = menu(T("Zoom"), "zoom-in", T("Make the page larger or smaller"))
         for a in (self.act_zoom_in, self.act_zoom_out, self.act_zoom_reset):
             self.m_zoom.addAction(a)
-        self.act_tb_zoom.setMenu(self.m_zoom)
+        # (the toolbar's Zoom button opens its panel since 1.1.25: show_zoom_panel)
         history = menu(T("History"), ("view-history", "document-open-recent-symbolic"),
                        T("Pages visited recently, and all the history"))
         history.aboutToShow.connect(lambda: self._fill_history(history))
@@ -1067,7 +1181,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                       (history, bookmarks, self.act_downloads),
                       (self.m_level, self.m_extensions, more),
                       (self.act_settings, self.m_help_burger),
-                      (self.act_quit,)):
+                      (self.act_about, self.act_quit)):
             if burger.actions():
                 burger.addSeparator()
             for a in group:
@@ -1078,7 +1192,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.burger = burger
         self.menu_btn.setMenu(effects.fading(burger, self.app.config))
 
-        # the toolbar buttons with a menu (1.1.24; Dark mode's is given above)
+        # the toolbar buttons with a menu (1.1.24; Dark mode's and Zoom's open their panels, 1.1.25)
         self.m_print = menu(T("Print or save as PDF"), "document-print", None)
         self.m_print.addAction(self.act_print)
         self.m_print.addAction(self.act_pdf)
@@ -1222,6 +1336,28 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_dark_all.setChecked(cfg["dark_mode"] == "on")
         self.act_dark_site.setEnabled(web and bool(host))
         self.act_dark_site.setChecked(web and self.app.shields.dark_for(host))
+
+    def sync_dark_icon(self, url=None):
+        """Show the page mode in effect for the current tab."""
+        if url is None:
+            view = self.current_view()
+            url = view.url() if view else QUrl()
+        cfg = self.app.config
+        host = url.host().lower() if url.scheme() in ("http", "https") else ""
+        dark = self.app.shields.dark_for(host)
+        if dark and cfg["dark_engine"] == "reader":
+            from . import darktheme
+            dark = darktheme.of(cfg, host)[0]["mode"] == 1
+        glyph = (icon(("weather-clear-night", "weather-clear-night-symbolic")) if dark
+                 else icon(("weather-clear", "weather-clear-symbolic")))
+        if glyph.cacheKey() != self.act_dark.icon().cacheKey():
+            self.act_dark.setIcon(glyph)
+
+    def _sync_forward_icon(self):
+        glyph = icon("go-next", QStyle.StandardPixmap.SP_ArrowForward)
+        if glyph.cacheKey() != self.act_fwd.icon().cacheKey():
+            self.act_fwd.setIcon(glyph)
+        self.bookbar.refresh_arrows()
 
     def _set_global_level(self, level):
         cfg = self.app.config
@@ -1600,7 +1736,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         n = len(self.closed_tabs)
         for i in range(n - 1, max(-1, n - 1 - self.CLOSED_SHOWN), -1):
             url, title = self.closed_tabs[i]
-            a = self._open_action(m, url, title)
+            a = self._open_action(m, url, title, site=True)
             a.triggered.disconnect()
             a.triggered.connect(lambda _c=False, u=url: self._reopen_url(u))
 
@@ -1968,13 +2104,16 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         dev.destroyed.connect(lambda _o=None, d=dev: self._devtools.remove(d)
                               if d in self._devtools else None)
 
-    def zoom(self, direction, view=None):
+    ZOOM_STEPS = (0.3, 0.5, 0.67, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0)
+
+    def zoom(self, direction, view=None, osd=True):
         """direction +1 / -1: one step; 0: the usual zoom. The choice is kept for
-        the site (not in a private window): its pages open at that zoom again."""
+        the site (not in a private window): its pages open at that zoom again.
+        osd=False: no box over the page (the zoom panel shows the value itself)."""
         v = view or self.current_view()
         if not v:
             return
-        steps = [0.3, 0.5, 0.67, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0]
+        steps = self.ZOOM_STEPS
         if direction == 0:
             v.setZoomFactor(self.app.config["default_zoom"])
         else:
@@ -1984,7 +2123,17 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 v.setZoomFactor(cands[0] if direction > 0 else cands[-1])
         self._remember_zoom(v)
         self._zoom_sign()
-        self.zoom_osd(v)
+        if osd:
+            self.zoom_osd(v)
+
+    def set_zoom(self, factor, view=None):
+        """The zoom panel's slider: this zoom for the page, kept for the site as zoom() keeps it."""
+        v = view or self.current_view()
+        if not v:
+            return
+        v.setZoomFactor(min(5.0, max(0.25, float(factor))))
+        self._remember_zoom(v)
+        self._zoom_sign()
 
     def zoom_osd(self, v):
         usual = self.app.config["default_zoom"]
@@ -2168,11 +2317,15 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         quietperms.sign(self)            # a site's question waiting in the address bar (1.1.24)
         marked = bool(v) and self.app.storage.is_bookmarked(url.toString())
         if not polish.popping(self, "star"):
-            self.act_tb_bookmark.setIcon(icon(("bookmarks", "starred-symbolic") if marked else "bookmark-new",
+            # 1.1.25: a page already bookmarked shows the filled bookmark (Breeze's
+            # bookmarks-bookmarked, I.K.E.'s own drawing of it where the theme has none)
+            self.act_tb_bookmark.setIcon(icon("bookmarks-bookmarked" if marked else "bookmark-new",
                                               SP.SP_DialogApplyButton if marked else SP.SP_DialogOpenButton))
         self.act_tb_bookmark.setToolTip(T("Remove bookmark") if marked else T("Bookmark this page"))
         self.urlbar.translate_act.setVisible(scheme in ("http", "https") and self.ext_on("translate"))
         self.sync_engine()
+        self.sync_dark_icon(url)
+        self._sync_forward_icon()
 
     def refresh_lookalike(self):
         """Settings changed (Sosia on or off, sites marked as fine, site tint):
@@ -2336,14 +2489,19 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     def fit_shield_menu(self, place=True):
         """The shield's panel as tall as its content, but never past the bottom of the
         screen: there it scrolls. place: the open menu is resized and kept on the screen."""
+        self._fit_panel(self.shield_panel, self.shield_scroll, self.shield_menu, self.shield_wa,
+                        self.shield_btn, place)
+
+    def _fit_panel(self, panel, scroll, menu, wa, anchor, place=True):
+        """A panel in its popup (the shield's, the dark mode's): as tall as its content,
+        never past the bottom of the screen, where it scrolls."""
         from PyQt6.QtGui import QActionEvent
-        panel, scroll, menu = self.shield_panel, self.shield_scroll, self.shield_menu
         panel.adjustSize()
-        want = panel.sizeHint()
-        screen = self.shield_btn.screen() or QGuiApplication.primaryScreen()
+        want = panel.sizeHint().expandedTo(panel.minimumSize())
+        screen = anchor.screen() or QGuiApplication.primaryScreen()
         area = screen.availableGeometry()
         top = (menu.geometry().top() if menu.isVisible()
-               else self.shield_btn.mapToGlobal(QPoint(0, self.shield_btn.height())).y())
+               else anchor.mapToGlobal(QPoint(0, anchor.height())).y())
         room = area.bottom() - max(area.top(), top) - 16
         height = min(want.height(), max(220, room))
         bar = scroll.verticalScrollBar().sizeHint().width() if height < want.height() else 0
@@ -2351,7 +2509,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                           else Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setFixedSize(want.width() + bar, height)
         # the menu measures its items again (it keeps the old size of the panel otherwise)
-        QCoreApplication.sendEvent(menu, QActionEvent(QEvent.Type.ActionChanged, self.shield_wa))
+        QCoreApplication.sendEvent(menu, QActionEvent(QEvent.Type.ActionChanged, wa))
         if place and menu.isVisible():
             size = menu.sizeHint()
             g = menu.geometry()
@@ -2366,6 +2524,144 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.fit_shield_menu(place=False)
         x = max(0, b.width() - menu.sizeHint().width())
         menu.popup(b.mapToGlobal(QPoint(x, b.height())))
+
+    # --- the panels of the toolbar's buttons (1.1.25: dark mode, zoom, downloads) ----
+    def _panel_popup(self, key, factory):
+        """The popup of a toolbar button's panel (panelkit.py), made the first time it
+        opens (nothing of it exists, or runs, before). key names it ("dark", "zoom",
+        "downloads"); factory(window) makes the panel, whose refresh() shows the
+        settings as they are each time it opens and whose optional commit() keeps
+        what is still waiting when it closes. Returns (menu, panel, scroll, action)."""
+        popups = self.__dict__.setdefault("_panels", {})
+        if key not in popups:
+            from PyQt6.QtWidgets import QScrollArea
+            menu = polish.round_menu(QMenu(self))
+            panel = factory(self)
+            scroll = QScrollArea(self)
+            scroll.setObjectName("ike_%s_scroll" % key)
+            scroll.setFrameShape(QFrame.Shape.NoFrame)
+            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            scroll.setWidgetResizable(True)
+            scroll.setWidget(panel)
+            scroll.viewport().setAutoFillBackground(False)
+            panel.setAutoFillBackground(False)
+            wa = QWidgetAction(menu)
+            wa.setDefaultWidget(scroll)
+            menu.addAction(wa)
+            menu.aboutToShow.connect(panel.refresh)
+            menu.aboutToShow.connect(lambda k=key: self.fit_panel(k, place=False))
+            if hasattr(panel, "commit"):
+                menu.aboutToHide.connect(panel.commit)      # a value still waiting is kept
+            if hasattr(panel, "closed"):
+                menu.aboutToHide.connect(panel.closed)
+            menu.aboutToHide.connect(lambda k=key: self.__dict__.setdefault("_panel_hidden_at", {})
+                                     .__setitem__(k, time.monotonic()))
+            effects.fading(menu, self.app.config)
+            popups[key] = (menu, panel, scroll, wa)
+        return popups[key]
+
+    PANEL_ACTIONS = {"dark": "act_dark", "zoom": "act_tb_zoom", "downloads": "act_downloads"}
+
+    def _panel_anchor(self, key):
+        """The panel's button, or » when it did not fit in the toolbar, or the menu."""
+        b = self.nav.widgetForAction(getattr(self, self.PANEL_ACTIONS[key]))
+        if b is not None and b.isVisible():
+            return b
+        return self.more_btn if self.more_btn.isVisible() else self.menu_btn
+
+    def fit_panel(self, key, place=True):
+        popup = self.__dict__.get("_panels", {}).get(key)
+        if popup is not None:
+            menu, panel, scroll, wa = popup
+            self._fit_panel(panel, scroll, menu, wa, self._panel_anchor(key), place)
+
+    def _show_panel(self, key, factory):
+        """A panel under its button, its right edge at the button's (a button on the
+        left of the toolbar: its left edge). The click on the button that has just
+        closed it leaves it closed."""
+        b = self._panel_anchor(key)
+        hidden = self.__dict__.get("_panel_hidden_at", {}).get(key, -9.0)
+        if time.monotonic() - hidden < 0.3 and b.rect().contains(b.mapFromGlobal(QCursor.pos())):
+            return None
+        menu, panel, _scroll, _wa = self._panel_popup(key, factory)
+        panel.refresh()
+        self.fit_panel(key, place=False)
+        x = b.width() - menu.sizeHint().width()
+        area = (b.screen() or QGuiApplication.primaryScreen()).availableGeometry()
+        if b.mapToGlobal(QPoint(x, 0)).x() < area.left():
+            x = 0
+        menu.popup(b.mapToGlobal(QPoint(x, b.height())))
+        return menu
+
+    def panel_of(self, key):
+        """(menu, panel) of a panel that has been opened, or (None, None)."""
+        popup = self.__dict__.get("_panels", {}).get(key)
+        return (popup[0], popup[1]) if popup is not None else (None, None)
+
+    # the dark mode panel (darkpanel.py)
+    @staticmethod
+    def _dark_factory(win):
+        from .darkpanel import DarkPanel
+        return DarkPanel(win)
+
+    def dark_popup(self):
+        """The popup of the Dark mode button, made the first time it opens."""
+        if self.dark_menu is None:
+            menu, panel, scroll, wa = self._panel_popup("dark", self._dark_factory)
+            self.dark_menu, self.dark_panel, self.dark_scroll, self.dark_wa = menu, panel, scroll, wa
+        return self.dark_menu
+
+    def fit_dark_menu(self, place=True):
+        self.fit_panel("dark", place)
+
+    def show_dark_panel(self, *_):
+        """The dark mode panel under its button."""
+        self.dark_popup()
+        self._show_panel("dark", self._dark_factory)
+
+    # the zoom panel (zoompanel.py)
+    @staticmethod
+    def _zoom_factory(win):
+        from .zoompanel import ZoomPanel
+        return ZoomPanel(win)
+
+    def show_zoom_panel(self, *_):
+        """The zoom panel under the toolbar's Zoom button: it stays open while the
+        zoom is changed."""
+        return self._show_panel("zoom", self._zoom_factory)
+
+    # the downloads panel (downloadpanel.py)
+    @staticmethod
+    def _downloads_factory(win):
+        from .downloadpanel import DownloadsPanel
+        return DownloadsPanel(win)
+
+    def show_downloads_panel(self, *_):
+        """The downloads panel under the toolbar's Downloads button (Ctrl+J). Opening
+        it is seeing the finished downloads: the green ring goes, as it did when the
+        downloads window was opened."""
+        self.app.downloads_seen()
+        return self._show_panel("downloads", self._downloads_factory)
+
+    def open_dark_settings(self):
+        """Settings → Appearance, at the dark mode of pages."""
+        dlg = self.open_settings("appearance")
+        target = getattr(dlg, "dark", None)
+        if target is None:
+            return dlg
+
+        def reveal():
+            try:
+                area = target.parentWidget()
+                while area is not None and not hasattr(area, "ensureWidgetVisible"):
+                    area = area.parentWidget()
+                if area is not None:
+                    area.ensureWidgetVisible(target, 50, 80)
+                target.setFocus(Qt.FocusReason.OtherFocusReason)
+            except RuntimeError:
+                pass
+        QTimer.singleShot(0, reveal)
+        return dlg
 
     SHIELD_EVERY_MS = 100
 
@@ -2393,13 +2689,15 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         n = self.app.shields.total(host) if host else 0
         new = shield_icon(level, grow=TOOLBAR_SHIELD_GROW)
         shown = getattr(self, "_shield_shown", None)
-        fading = self.__dict__.get("_ike_icon_fades", {}).get("shield")
         if shown is not None and shown != level:
             # another level: the icon fades into the new one (1.1.9)
             polish.fade_icon(self, "shield", self.shield_btn.icon(), new, cfg, self.shield_btn.setIcon,
                              ms=260, name="shield_fade")
-        elif fading is None or fading.state() != fading.State.Running:
+        elif shown is None:
             self.shield_btn.setIcon(new)
+        if shown != level:
+            tip = T("I.K.E. Shield: choose the protection level")
+            self.shield_btn.setToolTip("%s — %s" % (tip, T(LEVEL_NAMES[level])))
         self._shield_shown = level
         text = str(n) if n and level != "off" else ""
         if text != self.shield_btn.text():
@@ -2440,15 +2738,33 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             return icon(("globe", "web-browser-symbolic"), QStyle.StandardPixmap.SP_FileIcon)
         return ic
 
-    def _open_action(self, menu, url, title):
-        label = (title or url).replace("&", "&&")
-        a = menu.addAction(self.site_icon(url), label if len(label) < 60 else label[:59] + "…")
+    HISTORY_SHOWN = 15       # the pages listed under History
+    TITLE_ROOM = 290         # px: a page's title in History, shortened in its middle beyond it (1.1.25)
+
+    def _open_action(self, menu, url, title, site=False):
+        """An entry that opens url. site (History, 1.1.25): the title shortened
+        in its middle to TITLE_ROOM px and the site on the right, dimmed (in the
+        column of the shortcuts, so every desktop style puts it there)."""
+        if site:
+            label = menu.fontMetrics().elidedText(title or url, Qt.TextElideMode.ElideMiddle, self.TITLE_ROOM)
+            label = label.replace("&", "&&")
+            host = site_name(url)
+            if host:
+                label += "\t" + host
+        else:
+            label = (title or url).replace("&", "&&")
+            label = label if len(label) < 60 else label[:59] + "…"
+        a = menu.addAction(self.site_icon(url), label)
         a.setToolTip(url)
         a.setStatusTip(url)
         a.triggered.connect(lambda _c=False, u=url: self.navigate(u))
         return a
 
     def _fill_history(self, m=None):
+        """History (the menu bar's and the ☰ menu's): going back and forward,
+        the closed tabs, then the last pages under the day they were seen
+        (Today, Yesterday, This week, Earlier: 1.1.25), then all the history
+        and "Clear recent history…"."""
         m = m or self.m_history
         m.clear()
         m.addAction(self.act_back)
@@ -2457,12 +2773,17 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         m.addAction(self.act_reopen)
         m.addMenu(self.m_closed)
         self.m_closed.menuAction().setEnabled(bool(self.closed_tabs))
+        now = _now()
+        day = None
+        for url, title, last in self.app.storage.history(limit=self.HISTORY_SHOWN):
+            d = history_day(last, now)
+            if d != day:
+                m.addSection(history_day_name(d))
+                day = d
+            self._open_action(m, url, title, site=True)
         m.addSeparator()
         m.addAction(self.act_history)
-        m.addAction(self.act_clear)
-        m.addSeparator()
-        for url, title, _last in self.app.storage.history(limit=15):
-            self._open_action(m, url, title)
+        m.addAction(self.act_clear_recent)
 
     def _fill_bookmarks(self, m=None):
         m = m or self.m_bookmarks
@@ -2745,6 +3066,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             return
         from .toolbar import LEFT, RIGHT, spill
         nav, layout = self.nav, self.toolbar_layout
+        self._fit_bookmark_gap()
         movable = {act for _key, act, _anchor in self._nav_items}
         skip = (self.urlbar_act, self.space_left_act, self.space_right_act, self.more_act)
         fixed = 0                                # everything that is neither a movable button nor the bar
@@ -2788,8 +3110,53 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self._urlbar_width, self._urlbar_room = width, room
         QTimer.singleShot(0, self._centre_urlbar)        # after the toolbar's layout
 
+    BOOKMARK_GAP = 4            # px between the address bar's right edge and "Bookmark this page" (1.1.25)
+
+    def _fit_bookmark_gap(self):
+        """The room between the address bar and its bookmark button: BOOKMARK_GAP
+        pixels whatever the style puts between two items of a toolbar (Breeze 0,
+        Fusion 1): the toolbar's own spacing on both sides of a small spacer."""
+        spacing = max(0, self.nav.layout().spacing())
+        width = max(0, self.BOOKMARK_GAP - 2 * spacing)
+        if self._bookmark_gap.width() != width:
+            self._bookmark_gap.setFixedSize(width, 1)
+        self.bookmark_gap_act.setVisible(width > 0)
+
+    def _bookmark_block(self):
+        """The width the bookmark button adds to the address bar (its gap and the
+        button), as the toolbar lays them out."""
+        gap = max(0, self.nav.layout().spacing())
+        extra = 0
+        for a in (self.bookmark_gap_act, self.act_tb_bookmark):
+            w = self.nav.widgetForAction(a)
+            if w is not None and a.isVisible():
+                extra += w.sizeHint().width() + gap
+        return extra
+
+    def _free_room(self):
+        """The width the toolbar leaves to the address bar and the free rooms on both of its
+        sides, from the sizes of the other items it shows now and its own edges; None when it
+        cannot be measured."""
+        nav = self.nav
+        flexible = (self._nav_spacers[0], self._nav_spacers[1], self.urlbar)
+        shown = []
+        for a in nav.actions():
+            w = nav.widgetForAction(a)
+            if w is not None and a.isVisible():      # (a button just rebuilt is shown by the next layout)
+                shown.append(w)
+        if len(shown) < 4 or any(w not in shown for w in flexible):
+            return None
+        # the toolbar's edges, as QToolBarLayout keeps them: the style's item margin and frame
+        st = nav.style()
+        edge = (st.pixelMetric(QStyle.PixelMetric.PM_ToolBarItemMargin, None, nav)
+                + st.pixelMetric(QStyle.PixelMetric.PM_ToolBarFrameWidth, None, nav))
+        spacing = max(0, nav.layout().spacing())
+        others = sum(max(w.sizeHint().width(), w.minimumWidth()) for w in shown if w not in flexible)
+        return nav.width() - 2 * edge - others - spacing * (len(shown) - 1)
+
     def _centre_urlbar(self):
-        """Put the middle of the address bar in the middle of the window.
+        """Put the middle of the address bar and its bookmark button, one block
+        (1.1.25), in the middle of the window.
 
         The free room left of the address bar gets the width that does it; the
         room on the right takes the rest. When the buttons on one side leave
@@ -2805,6 +3172,13 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         except (RuntimeError, AttributeError):
             return
         room = getattr(self, "_urlbar_room", 0)            # both free rooms and the bar
+        # 1.1.25: _fit_urlbar's room keeps a margin of safety (2 pixels for each item, 16 for the
+        # edges); the room the toolbar really leaves, measured, lets the block of the bar and its
+        # bookmark button sit exactly in the middle when it fits (never more than a little over
+        # the estimate: a layout not done yet is not trusted)
+        exact = self._free_room()
+        if exact is not None and room <= exact <= room + 48:
+            room = exact
         # what stands between the left free room and the bar (nothing since 1.1.10), from the
         # sizes of the items (their positions may still be those of the last layout)
         acts = self.nav.actions()
@@ -2817,10 +3191,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         half = centre - start - between
         if room <= 0 or half <= 0:
             return
+        extra = self._bookmark_block()         # the bookmark button after the bar: one block with it
         wanted = getattr(self, "_urlbar_width", ub.width())
-        centred = min(wanted, 2 * half, 2 * (room - half))
+        centred = min(wanted, 2 * half - extra, 2 * (room - half) + extra)
         width = centred if centred >= min(wanted, self.width() // 2) else wanted
-        pad = max(0, min(half - width // 2, room - width))
+        pad = max(0, min(half - (width + extra) // 2, room - width))
         if ub.width() != width:
             ub.setFixedWidth(width)
         if left.width() != pad or left.maximumWidth() != pad:
@@ -2833,13 +3208,12 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 and not isinstance(child, QToolButton):
             return
         m = effects.fading(QMenu(self), self.app.config)
-        title = m.addAction(T("Toolbar buttons"))
-        title.setEnabled(False)
-        m.addSeparator()
+        # 1.1.25: a real section's name (drawn small and dimmed, it parts the menu itself)
+        m.addSection(T("Toolbar buttons"))
         self._fill_toolbar_buttons(m, clear=False)
         m.addSeparator()
         m.addAction(self.act_customise)
-        reset = m.addAction(T("Reset to default layout"))
+        reset = m.addAction(icon(("edit-reset", "edit-undo")), T("Reset to default layout"))
         chosen = m.exec(self.nav.mapToGlobal(pos))
         if chosen is reset:
             self.reset_toolbar()
@@ -2854,8 +3228,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         hidden = self.app.config["toolbar_hidden"]
         from . import ikeextensions
         off = ikeextensions.toolbar_keys_off(self.app.config)
-        for key, act in (("back", self.act_back), ("forward", self.act_fwd), ("home", self.act_home),
-                         ("reload", self.act_reload)) \
+        for key, act in (("back", self.act_back), ("forward", self.act_fwd)) \
                 + tuple((key, act) for key, act, _anchor in self._nav_items):
             if key == "menu" or key in off:
                 continue
@@ -3033,6 +3406,13 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         name = (base.name() if base is not None else "").lower()
         self.nav.set_opaque(name in self.FLAT_STYLES)
 
+    def event(self, event):
+        result = super().event(event)
+        if event.type() == THEME_CHANGE and hasattr(self, "bookbar"):
+            self.sync_dark_icon()
+            self._sync_forward_icon()
+        return result
+
     def changeEvent(self, event):
         if event.type() == QEvent.Type.WindowStateChange:
             self._update_max_button()           # the diamond while maximized, the arrow otherwise
@@ -3045,9 +3425,14 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             for a in self.level_group.actions():
                 a.setIcon(shield_icon(a.data(), 16))
             self.update_shield()
+            self.urlbar.place_end()
             for v in self.all_views():
                 if v.url().scheme() == "ike":
                     v.reload()
+        if (event.type() in (QEvent.Type.PaletteChange, QEvent.Type.StyleChange)
+                and hasattr(self, "bookbar")):
+            self.sync_dark_icon()
+            self._sync_forward_icon()
         super().changeEvent(event)
 
     def repair_site(self):

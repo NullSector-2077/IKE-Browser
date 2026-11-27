@@ -68,7 +68,8 @@ def test_menu_bar_and_burger_menu(run_ike):
             out["settings_in_tools"] = "Settings…" in tools and "Settings…" not in edit
             out["settings_keys"] = win.act_settings.shortcut().toString()
             out["help"] = [a.text() for a in menus["&Help"].actions()]
-            out["protection"] = [a.text() for a in menus["&Protection"].actions() if not a.isSeparator()]
+            # its title is a section since 1.1.25: an entry with its name, still the first
+            out["protection"] = [a.text() for a in menus["&Protection"].actions() if not a.isSeparator() or a.text()]
             out["extensions"] = [a.text() for a in menus["E&xtensions"].actions() if not a.isSeparator()]
             # the same QActions in both places
             # (1.1.24: "Check for I.K.E. updates" is under ☰ → Help, the menu bar's Help with an icon)
@@ -96,10 +97,10 @@ def test_menu_bar_and_burger_menu(run_ike):
                              "Print…", "Save as PDF…", "Save page as…", "Screenshot…",
                              "History", "Bookmarks", "Downloads",
                              "Protection", "I.K.E. extensions", "More",
-                             "Settings…", "Help", "Quit"]
+                             "Settings…", "Help", "About I.K.E.", "Quit"]
     assert out["no_icon"] == [] and out["no_tip"] == [], out
     assert out["settings_in_tools"] and out["settings_keys"] == "Ctrl+,"
-    assert out["help"][:3] == ["Keyboard shortcuts", "Check for I.K.E. updates", "About I.K.E."]
+    assert out["help"][:3] == ["Keyboard shortcuts", "Check for I.K.E. updates", "About Qt"]
     assert out["protection"][1:6] == ["Off", "Compatibility", "Balanced", "Strict", "Maximum"]
     assert {"Repair this site", "Site permissions…", "Update filter lists now",
             "Clear browsing data…"} <= set(out["protection"])
@@ -208,7 +209,7 @@ NOT_DEFAULT = {
     "show_menubar": True, "bookmarks_bar": "always", "system_titlebar": False, "vtabs_autohide": True,
     "start_maximized": False, "ui_effects": False, "site_tint": False,
     # (1.1.24: the buttons a user can add start hidden in a profile that did not know them)
-    "toolbar_hidden": ["home", "pip", "zoom", "bookmarks", "print", "send", "resources"],
+    "toolbar_hidden": ["back", "pip", "zoom", "bookmarks", "print", "send", "resources"],
     "default_zoom": 1.25, "search_suggestions": False, "shield_level": "strict", "https_only": False,
     "block_third_party_cookies": False, "strip_tracking_params": False, "trim_referrer": False,
     "send_gpc": False, "webrtc_hide_ip": False, "clear_on_exit": True, "repair_button": False,

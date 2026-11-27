@@ -1,8 +1,251 @@
 # Changelog
 
+## 1.1.27
+
+- I.K.E. has a new hexagonal logo, dedicated application icons for small sizes,
+  a new wordmark and a local 4K WebP Earth background on Home and New Tab.
+- The protection control now shows a hexagon with a centred count. Reload
+  precedes Home, bookmarks overflow uses two Forward arrows, the page-mode
+  button shows a sun or a moon, and About I.K.E. sits above Quit.
+
+- Dark Reader (engine and lists): 4.9.135, lists 26d0621d65 (2026-11-25) -> 4.9.135, lists 2bd262585f (2026-11-25) (lists changed)
+
+## 1.1.26
+
+- Rust crates of the AdBlock engine: 88 crates -> 88 crates (psl 2.1.261 -> 2.1.263)
+- Dark Reader (engine and lists): 4.9.135, lists 586f4b900d (2026-11-24) -> 4.9.135, lists 26d0621d65 (2026-11-25) (lists changed)
+
 ## 1.1.25
 
+- **Weather units you can choose** (the owner): in Settings, next to the
+  temperature (°C / °F), the wind speed can be shown in km/h, mph, m/s or
+  knots and the pressure in hPa, millibar, inHg or mmHg. "Automatic" (the
+  default) follows the temperature as before (°C: km/h and hPa; °F: mph and
+  inHg), so nothing changes for anyone who does not choose. The conversions
+  are done on the computer from the service's km/h and hPa (the request is
+  the same); the new tab shows the choice the next time it is drawn. New
+  settings `weather_wind_unit` and `weather_pressure_unit`, a value that is
+  not one of the choices falling back to the default; tests/test_newtab_weather.py,
+  tests/test_settings.py.
+- **The History window shows the sites' icons** (the owner): "Show all history"
+  lists every page with its site's stored icon (the globe when none is
+  stored, nothing fetched for it) and every day with a calendar icon;
+  tests/test_extras_124.py.
+- **A panel for the toolbar's Dark mode button** (the owner approved its
+  look): a click opens it under the button, as the shield's panel opens, in
+  place of the menu with two entries ("On everywhere" and "On for this site"
+  stay in the View and ☰ menus as they were). In it: dark mode for every site
+  (the switch of the title) and for this site; Dark or Light (Dark Reader's
+  two modes); Brightness, Contrast, Sepia and Grayscale with their values and
+  a "Reset" button; under "More" the text font (only one of the computer's
+  fonts), the text stroke, the background and text colours (of the dark or
+  of the light colours, as chosen), the scroll bars (Automatic, Hidden or a
+  colour), the colour of selected text, and "Only for this site" (the
+  choices kept for that site alone); at the end "Dark mode settings…", which
+  opens Settings → Appearance at the dark mode of pages. No link outside
+  I.K.E. (no Dark Reader news, donations or social sites). A slider moved
+  shows on the page of the tab at once (after 0.12 s, Dark Reader takes the
+  new colours in the page's isolated world: the page is not loaded again);
+  let go, the colours are kept and every open page gets them, and the pages
+  loaded afterwards. With Chromium's own dark mode the colours do nothing:
+  they are greyed, with the note "The sliders work with Dark Reader". Every
+  value is checked before it is kept or reaches a page (ranges, colours as
+  `#rrggbb`, a font name that can be written in a style sheet), and nothing a
+  page does can change them; the panel is made at its first click and does
+  nothing while closed (`ike/darkpanel.py`, `ike/darktheme.py`,
+  tests/test_dark_panel.py). The settings keep Dark Reader's whole theme
+  (`dark_theme`, with Dark Reader's own defaults; those of 1.1.24 are
+  completed, their three values kept) and the sites with colours of their
+  own (`dark_site_themes`). One visible change: the scroll bars of dark
+  pages follow the page's colours ("Automatic", the default of the Dark
+  Reader extension on Linux); they were left as the engine draws them.
+- **Panels for the toolbar's Zoom and Downloads buttons** (the owner approved
+  their look), made at their first click with the dark mode panel's frame
+  (`ike/panelkit.py`, the popup machinery shared in `window._panel_popup`):
+  - **Zoom** (`ike/zoompanel.py`): the site's name, − 110 % +, a slider over
+    the same steps as Ctrl and +/− (30 % to 400 %) with 30 %, 100 % and 400 %
+    under their ticks, "Remembered for this site" (or "Not remembered in a
+    private window"), "Actual size" (Ctrl+0), the default zoom (the same
+    setting as Settings → Appearance, which keeps it; the pages at the old
+    default follow it) and "Also with Ctrl and the mouse wheel". It stays
+    open while the zoom changes, without the box over the page. The ☰ menu
+    keeps its Zoom submenu.
+  - **Downloads** (`ike/downloadpanel.py`, `ike/downloadlist.py`; Ctrl+J
+    and the button open it, the downloads window stays under "Show all
+    downloads"): one row per download with the icon of its kind, its name
+    shortened in the middle and one line of state: while it runs the bytes,
+    the speed and the time left (smoothed over time) with a slim bar; paused;
+    size, site and time once done; a program from a site visited before with
+    a shield; why it failed, in red, with "Retry" always there; a download
+    stopped by I.K.E.'s checks with the reason, in red, and "Download
+    anyway…", which asks the very same question again with "Cancel" chosen.
+    Its actions are small buttons shown under the mouse or the keyboard's
+    focus (pause, resume, cancel, open the file, show it in its folder,
+    retry, remove it from the list); a right click gives them all with Ark
+    or the calendar where the desktop has them and "Copy link address". New:
+    pause and resume, the speed and time left, retry (the same address
+    again through every check of a new download), the stopped downloads
+    listed, one entry removed. At its foot "Show all downloads", "Open the
+    downloads folder" and "Clear the list" (what ended leaves the list; what
+    runs and the files stay). Opening it clears the green "done" ring, as
+    the downloads window did. The list survives a restart (the owner's
+    choice): the last 50 entries of normal windows, metadata only (name,
+    place, address, size, state, time, site, a short note), in I.K.E.'s
+    database next to the history; a private window shows its own downloads
+    only and never writes them; clearing the history (or all browsing data)
+    clears it.
+- **The "more" buttons show KDE's double arrow**: the bookmarks bar's and the
+  toolbar's buttons for what does not fit show `arrow-right-double` (I.K.E.'s
+  own drawing where the theme has none) in a square 26 × 26 button, the
+  arrows exactly in its middle (measured on the painted pixels at scale 1 and
+  2); they showed the "»" text, a little off centre.
+- **"Bookmark this page" fixed after the address bar** (the owner's design):
+  4 pixels after its right edge, centred with it in height; it can no longer
+  be moved or hidden (settings that moved or hid it are mended once; it
+  left the toolbar's lists and Settings → Appearance), and the address bar
+  and the button are centred in the window as one block (the room the
+  toolbar really leaves is measured, so the block sits exactly in the
+  middle when it fits). A page already bookmarked shows the filled bookmark
+  (Breeze's `bookmarks-bookmarked`, I.K.E.'s own drawing where the theme has
+  none). The shipped Breeze set was built again from breeze-icons 6.32.0
+  for the new names.
+- **One look for every menu, and a new History menu** (the owner approved the
+  pictures; the menus keep the same entries, in the same order and places).
+  On KDE Plasma, Breeze still draws the menus (and Oxygen and Kvantum where
+  they are the style). With any other widget style (Fusion, Qt's Windows…)
+  I.K.E. draws them itself, as Breeze does: a rounded panel with a light
+  shadow, rows of one height, one column for the icons kept also where an
+  entry has none (every text starts on one line), a column for a switch
+  (an option turned on and off) or a radio (a choice among several) only in
+  the menus that have one, the keyboard shortcuts dimmed on one right edge,
+  the arrows of submenus in one column, thin separators, the entry under the
+  mouse in the accent colour with a thin outline, a submenu 2 to 3 px from
+  its menu on either side and from right to left too (`ike/uistyle.py`). On
+  every desktop:
+  - every entry has an icon where KDE has one: "Save as PDF…"
+    (document-export), "Page source" (format-text-code), "I.K.E.
+    extensions" (plugins), "About Qt", "Reset to default layout", the two
+    entries of "Dark mode for pages", a tab's "Tab group", "Move to
+    workspace" and "Reopen in container" and their entries (a group's or a
+    container's colour as a dot), a link's "Open link in container" (each
+    container's colour), the workspaces, profiles and containers menus, and in
+    "Send to device" each device as a phone, a tablet, a computer or a
+    television, as KDE Connect says;
+  - the titles inside two menus, Protection's "Protection level for every
+    site" and the toolbar menu's "Toolbar buttons", are real section names
+    (small and dimmed, where the texts start), no longer greyed entries;
+  - **History**: Back, Forward, Home, Reopen closed tab and Recently closed
+    tabs at the top, with their shortcuts; then the last 15 pages under Today,
+    Yesterday, This week (the five days before) and Earlier, each with its
+    icon, its title shortened in its middle to 290 px (no longer cut after 60
+    characters) and its site on the right, dimmed; the recently closed tabs
+    show their site too. At the bottom "Show all history" (Ctrl+H) and the new
+    **"Clear recent history…"**, which deletes only the pages visited in the
+    last hour, today or all of them (a small window to choose; "all" is the
+    history part of "Clear browsing data"): cookies, cache, permissions,
+    passwords, bookmarks and the private windows are left as they are.
+    "Clear browsing data…" (Ctrl+Shift+Del) stays under Protection. The new
+    texts in all 59 language packs; tests/test_menus_125.py.
+
+- **The weather's symbol and its text aligned** (the owner: they were not):
+  the symbol (about two centimetres since 1.1.24) has a square box of its own
+  and the text a box beside it, both on the same middle line; the text wraps
+  in its own column for a long name or language, and the block stays flush
+  right with the clock. Fonts draw a symbol higher or lower in its line: the
+  page draws it once on a small canvas to see where its ink really is and
+  moves it to the middle of its box, whatever the font and the zoom. In a low
+  window (or at a large zoom) the symbol is at most 13 % of the window's
+  height. Measured on the page drawn for real at 100, 150 and 200 % and in
+  every language: the boxes and the ink of the pixels
+  (tests/test_newtab_weather.py).
+- **A few weather details, as in Plasma's weather widget, kept simple** (the
+  owner: minimalist, nothing cluttered; the wind and the pressure): under the
+  weather one discreet row of five small symbols drawn in the text's colour
+  with their values, all on one middle line, flush right: felt temperature,
+  wind (speed and the point of the compass it comes from), humidity, pressure
+  at sea level and chance of precipitation. °C goes with km/h and hPa, °F with
+  mph and inHg (as mph already goes with °F). Each value is read aloud with its
+  name (the name also shows on hover). They come with the same single request
+  to Open-Meteo, which now also asks for `wind_direction_10m`,
+  `apparent_temperature`, `relative_humidity_2m`, `pressure_msl` and
+  `precipitation_probability` (still only the rounded coordinates and the
+  temperature unit are sent; the wind always comes in km/h and the pressure
+  in hPa, turned into mph and inHg by I.K.E.). Should the service refuse the
+  last one, the request is made once more at once without it. Over a photo the
+  row sits on the same frosted glass as the clock and reads at 4.5:1
+  (tests/test_newtab_readability.py). The row never wraps: in a small window,
+  or where the corner would meet the figures under the search field, it gives
+  way.
+- **23 more greeting lines for the moments of the day and of the week**, short
+  and a little witty, in all 59 languages: early morning, mid-morning, the
+  lunch break, late afternoon, evening, late night and deep night, the first
+  working day of the week, the evening before the weekend and the weekend
+  (the week of the page's language: Monday and Friday in most of Europe,
+  Sunday and Thursday in the Gulf). Nothing about a religion; a holiday the
+  user chose still wins all day, and "Greetings only" still shows no line.
+  Chosen at random as before (tests/test_greeting.py).
+- **Dark Reader keeps updating by itself, cleaned of useless links** (the
+  owner's decisions of 2026-11-24, `tools/build-darkreader.py`). After every
+  update the builder removes from Dark Reader's code every link it does not
+  need: any link in a comment, and donation, social, news, analytics and
+  advertising links in its texts. Only the links Dark Reader needs or its MIT
+  licence's notice stay, each listed with its reason; none is ever contacted.
+  A link nobody has judged yet, a new network call, a missing part of what
+  I.K.E.'s Dark Reader panel uses, or site fixes that look like a script stop
+  the update: the Dark Reader in use stays until Claude or a person looks.
+- **A speed patch that no longer fits no longer holds Dark Reader back**: the
+  update ships without it (and without the patches that depend on it), and
+  the update's notes and the signing notice say which. The proxy change that
+  keeps Google's sites working is not optional: without it the update waits.
 - Dark Reader (engine and lists): 4.9.135, lists 16a1eccbfa (2026-11-21) -> 4.9.135, lists 586f4b900d (2026-11-24) (lists changed)
+- **Fingerprinting: what the sites' own checks found** (a run of I.K.E.
+  against browserleaks.com and CreepJS, the owner's decisions of 2026-11-24,
+  then three rounds of an independent adversarial review; docs/SECURITY.md,
+  tests/test_fingerprint_125.py, tests/test_fingerprint_125_workers.py):
+  - at every level the page, its frames, every kind of worker and the request
+    headers give the same brand list in the same order, the same Chrome
+    version and no kernel version. Service and shared workers get the
+    engine's own client hints, never the profile's: they said "Chromium"
+    only, the engine's full version and the real kernel (6.18.44) where the
+    page said "Google Chrome", 140.0.0.0 and 6.0.0. The profile now keeps the
+    engine's own list, versions and order ("Google Chrome" is no longer
+    added) and the engine leaves the kernel out (the platform version is
+    empty everywhere);
+  - Strict and Maximum (also a site set to Strict by itself): a worker a site
+    starts from a file of its own (classic or module, nested, in a frame of
+    another site) gets the same protection as the page: it starts from a
+    blob holding the protection, which then runs the site's script with its
+    real address (relative addresses, location and errors as before): a
+    classic script by the engine's own `importScripts` (the page no longer
+    waits for it, "use strict" kept), a module by `import()` with the
+    messages posted before it ran held and delivered in order (one posted at
+    once was lost). Where a page's security policy forbids that, the worker
+    is refused, never started without the protection, and the page sees no
+    policy report naming the protection. No service worker and no shared worker
+    from a site's own file (one registered before at a lower level is
+    unregistered);
+  - Strict and Maximum: Chrome's own five PDF plugins with their two types
+    (the two invented ones had no type: "missing mimetype"); one WebGL
+    identity for everyone (still no card name, a fixed list of extensions
+    common cards all have, a fixed floor of limits never above the real
+    ones, in pages, frames, workers and WebGL 2; plain colours read back
+    exactly); canvas noise only on opaque pixels at an edge, none on a canvas
+    of solid rectangles, of the page's own pixels or of such a canvas copied,
+    and the same for a pixel read alone as for the whole picture ("pixel data
+    modified" no more); text widths whose noise does not depend on a font's
+    name (two missing fonts measure the same, as in Chrome), in workers too;
+    the same fonts found by measuring text in the page, its frames and every
+    kind of worker (a frame of the site's own found every installed font,
+    workers lost Times New Roman once the font check had run);
+    no secret handed to a function a page could have replaced (a page that
+    replaced a frame's toString caught the value that told I.K.E. apart);
+    the languages as the header says them ("it-IT", "it"); one common network
+    speed in JavaScript and in the client hints (4g, 50 ms, 10 Mbit/s).
+    Maximum stays different from Strict by its language only;
+  - Balanced: inline workers show the page's languages (a shared worker gave
+    the engine's single one).
+  - What it costs (docs/review/tests-and-performance.md, tests/measure_fp125.py):
+    see "1.1.25 fingerprinting" there.
 
 ## 1.1.24
 
@@ -1430,7 +1673,7 @@ when Plasma's animations are set to "Instant"):
   number appears (it stayed 8 pixels off until something else moved).
 
 Package 1.1.9-2 (1.1.9-1 had the graphic touches and Plasma parts, without the toolbar below).
-`docs/screenshots/ike-1.1.9.jpg` shows the new tab page with the default toolbar.
+[The archived screenshot](https://github.com/NullSector-2077/IKE-Browser/blob/v1.1.26/docs/screenshots/ike-1.1.9.jpg) shows the new tab page with the default toolbar.
 
 **Toolbar** (the owner's arrangement as the default):
 

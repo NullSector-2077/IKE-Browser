@@ -507,7 +507,9 @@ def test_toolbar_window_buttons_and_address_bar(run_ike, pages):
                   timeout=150)
     assert out["icon_size"] == 24 and out["smooth"] is True
     assert "phosphor-bold" in out["sets"]
-    assert "translate" not in out["order"] and out["order"][:3] == ["shield", "reload", "bookmark"]
+    # 1.1.6 turned "translate" into "bookmark"; 1.1.25 fixed it after the address bar, out of the arrangement
+    assert "translate" not in out["order"] and "bookmark" not in out["order"]
+    assert "reload" not in out["order"] and out["order"][:3] == ["shield", "reader", "downloads"]
     assert out["normal"] == ["Maximize", "window-maximize"] or out["normal"][0] == "Maximize"
     assert out["maximized"][0] == "Restore"
     assert out["normal_again"] == "Maximize"
@@ -548,7 +550,7 @@ def steps(ike, qapp, out):
         "settings: !!document.querySelector('a.nt-settings[href^=\"ike:open?what=settings&k=\"]'), "
         "photo: !!document.querySelector('a.nt-photo[href^=\"ike:open?what=background&k=\"]'), "
         "corner: getComputedStyle(document.querySelector('.corner')).bottom, "
-        "logo: !!document.querySelector('img.logo'), name: !!document.querySelector('h1 svg')})")))
+        "logo: !!document.querySelector('img.logo'), name: !!document.querySelector('h1 img')})")))
     # a click on "Background photo": the Settings open at the new tab page's own page
     yield from js(view, "document.querySelector('a.nt-photo').click(); 1")
     yield 1200

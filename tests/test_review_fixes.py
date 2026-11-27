@@ -1132,19 +1132,21 @@ HA_PROBE = r"""
     return bad.join(',');
   });
   // the hidden extension through a replaced filter, toLowerCase, or a name that changes
+  // (1.1.25: an extension Strict hides; the debug-renderer one is offered there, naming the shared card)
+  var HID = 'EXT_clip_control';
   await step('filterList', function () {
     var f = Array.prototype.filter;
     Array.prototype.filter = function () { return this; };
-    try { return gl.getSupportedExtensions().indexOf('WEBGL_debug_renderer_info') >= 0; } finally { Array.prototype.filter = f; }
+    try { return gl.getSupportedExtensions().indexOf(HID) >= 0; } finally { Array.prototype.filter = f; }
   });
   await step('lowerExt', function () {
     var l = String.prototype.toLowerCase;
     String.prototype.toLowerCase = function () { return 'x'; };
-    try { return gl.getExtension('WEBGL_debug_renderer_info') !== null; } finally { String.prototype.toLowerCase = l; }
+    try { return gl.getExtension(HID) !== null; } finally { String.prototype.toLowerCase = l; }
   });
   await step('twoFacedExt', function () {
     var k = 0;
-    return gl.getExtension({ toString: function () { return k++ ? 'WEBGL_debug_renderer_info' : 'x'; } }) !== null;
+    return gl.getExtension({ toString: function () { return k++ ? HID : 'x'; } }) !== null;
   });
   // the full version through a replaced map or split
   await step('versionLeak', async function () {
@@ -1165,8 +1167,8 @@ HA_PROBE = r"""
     return k.join() === k.slice().sort().join();
   });
   // inline workers whose prelude a replaced slice or Blob check would skip
-  // (with the prelude the worker hides the debug-renderer extension at Strict)
-  var WORKER_NOISE = "var g = new OffscreenCanvas(4, 4).getContext('webgl'); postMessage(g && !g.getExtension('WEBGL_debug_renderer_info') ? 1 : 0)";
+  // (with the prelude the worker hides EXT_clip_control at Strict, 1.1.25)
+  var WORKER_NOISE = "var g = new OffscreenCanvas(4, 4).getContext('webgl'); postMessage(g && !g.getExtension('EXT_clip_control') ? 1 : 0)";
   await step('sliceWorker', function () {
     var url = URL.createObjectURL(new Blob([WORKER_NOISE], {type: 'text/javascript'}));
     var sl = String.prototype.slice, w;
@@ -1653,7 +1655,7 @@ V_PROBE = r"""
   await step('modulePic', function () { return worker(PIC + "postMessage((h >>> 0).toString(16));", { type: 'module' }); });
   await step('nested', function () {
     var inner = URL.createObjectURL(new Blob(["var g = new OffscreenCanvas(4, 4).getContext('webgl');" +
-      "postMessage(g ? (g.getExtension('WEBGL_debug_renderer_info') ? 'exposed' : 'hidden') : 'no webgl')"], {type: 'text/javascript'}));
+      "postMessage(g ? (g.getExtension('EXT_clip_control') ? 'exposed' : 'hidden') : 'no webgl')"], {type: 'text/javascript'}));
     return worker("var w = new Worker(" + JSON.stringify(inner) + "); w.onmessage = function (e) { postMessage(e.data); };");
   });
   // V-5: WebGL numbers given as text; V-6: a float16 read rounded to 8 bits
@@ -1704,7 +1706,7 @@ def test_fp_verify_the_second_round_of_bypasses_is_closed(run_ike):
     a, b = runs
     assert a["ctorAudio"] == "none" or a["ctorAudio"] != b["ctorAudio"], (a, b)
     assert a["ctorList"] is False, a
-    assert a["setterFaces"] == 0 and a["setterPlugins"] == 7, a
+    assert a["setterFaces"] == 0 and a["setterPlugins"] == 5, a     # Chrome's five PDF viewers at Strict (1.1.25)
     assert a["classicPic"] != a["modulePic"], a            # a module worker has a seed of its own
     assert a["nested"] == "hidden", a
     assert a["glText"] != b["glText"], (a, b)
