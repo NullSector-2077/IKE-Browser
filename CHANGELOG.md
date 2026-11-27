@@ -49,8 +49,8 @@
   smaller and its letter too, so its rim no longer nearly touches the bar's
   border; the navigation and bookmarks bars a little lower (35 and 30 px
   instead of 39 and 34 at the usual scale; buttons, icons and the address
-  field keep their size); the bookmarks bar's "more" button shows its two
-  arrows at exactly the Forward arrow's size, touching, as one double arrow.
+  field keep their size); the bookmarks bar's "more" button shows KDE's own
+  double arrow (as Falkon), exactly as tall and as thick as the Forward arrow.
 - Measured, not changed (the study's security part): Qt WebEngine has no
   revocation list of Chrome's (a revoked certificate opens), and, as Chrome
   140, it no longer applies its built-in HSTS preload list; I.K.E.'s own
