@@ -511,7 +511,7 @@ and since 1.1.24 KDE's Breeze icons (`breeze-icons`: the icons I.K.E. uses,
 built by `tools/build-breeze-icons.py` from breeze-icons' newest release tag;
 only a change of those icons makes an update, and a release that lost one of
 them is refused and kept at the version in use, as it has no patches an AI
-could re-anchor), and since 1.1.28 Brave's debounce list (`brave-debounce`:
+could re-anchor), and since 1.1.29 Brave's debounce list (`brave-debounce`:
 `ike/resources/brave-debounce.json`, a plain download of
 `brave-lists/debounce.json` from https://github.com/brave/adblock-lists,
 followed on its `master` branch: any newer commit is a candidate, checked by

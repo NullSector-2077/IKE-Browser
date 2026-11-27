@@ -1,4 +1,4 @@
-"""1.1.28: skip the tracker's stop, and Google's AMP copies (ike/debounce.py).
+"""1.1.29: skip the tracker's stop, and Google's AMP copies (ike/debounce.py).
 
 A link that only passes through a tracker, with the real address written
 inside it, opens that address at once; the rules are Brave's public debounce

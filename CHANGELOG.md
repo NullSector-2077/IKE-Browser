@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.28
+## 1.1.29
 
 - **Skip the tracker's stop** (the owner's decision of 2026-11-27, from
   Brave): a link that only passes through a tracker, with the real address
@@ -24,6 +24,8 @@
   protection again (tests/test_debounce.py). Google's AMP pages on a
   publisher's own site are left as they are: telling them apart needs a
   script in every page and a second load, for pages a computer rarely gets.
+
+## 1.1.28
 
 - **The I.K.E. Dark Engine** (the owner's decision): I.K.E.'s own dark mode
   for pages, a choice beside Dark Reader and Chromium's own (Settings → Web

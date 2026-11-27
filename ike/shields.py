@@ -533,7 +533,7 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
     def _skip_tracker(self, info, url, host):
         """A link that only passes through a tracker on its way, with the real
         address written inside it (newsletters, affiliate links, Google's AMP
-        copies), opens that address at once (1.1.28, debounce.py); True when
+        copies), opens that address at once (1.1.29, debounce.py); True when
         it did. Balanced and above, with "Remove tracking parameters from
         links" on; the site's own "params" option (what "Repair this site"
         turns off) leaves it off, for the tracker's site and for the site
