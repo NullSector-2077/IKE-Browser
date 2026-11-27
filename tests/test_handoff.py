@@ -527,7 +527,9 @@ def steps(ike, qapp, out):
     for a in menu.actions():
         if a.text().startswith("Open the page source in "):
             a.trigger()
-    for _ in range(60):
+    # up to 30 s (2026-11-27: after heavy tests of the same shard a CI runner needed
+    # more than 6 s for the three downloads); it goes on as soon as all three are open
+    for _ in range(300):
         yield 100
         if len(opened) >= 3:
             break
@@ -586,7 +588,8 @@ def test_handoffs_are_shown_only_when_the_desktop_has_the_app(run_ike, files_sit
     # the image and the PDF fetched by the engine into a private folder, the page's code
     # written there; the "image" that holds a desktop file is never handed over
     names = sorted(o[0].split("-", 2)[2] for o in out["opened"])
-    assert names == ["127.0.0.1-source.txt", "doc.pdf", "pic.png"], out["opened"]
+    assert names == ["127.0.0.1-source.txt", "doc.pdf", "pic.png"], (
+        out["opened"], out.get("handoff_dir"), out.get("downloads_listed"), (out.get("_stderr") or "")[-4000:])
     by_name = {o[0].split("-", 2)[2]: o for o in out["opened"]}
     assert by_name["pic.png"][1].startswith("89504e47") and by_name["doc.pdf"][1].startswith("255044462d")
     assert all(o[2] == "0o700" for o in out["opened"])
