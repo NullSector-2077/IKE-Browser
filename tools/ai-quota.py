@@ -181,6 +181,12 @@ def load_priority(raw):
             out[key] = good if good else PRIORITY[key]
         else:
             out[key] = PRIORITY[key]
+    # TEMPORARY (the owner, 2026-11-27): until this date (UTC, inclusive) the AUTOMAT drill (automation/update/
+    # drill-*) may use the free quotas at any hour, not only in the leftover window, while no real update is
+    # pending; then the rule of 2026-11-24 is back by itself. Removed once the drill succeeds with the free AIs
+    until = str(raw.get("drill_any_hour_until") or "")
+    if re.fullmatch(r"\d{4}-\d\d-\d\d", until):
+        out["drill_any_hour_until"] = until
     for key, low, high in (("release_hours", 0, 12), ("pending_days", 1, 7)):
         value = raw.get(key)
         ok = isinstance(value, (int, float)) and not isinstance(value, bool) and low <= value <= high
@@ -902,6 +908,13 @@ class Budget:
         return False, ("its day's leftovers go to the background only in its last %s hours (%.1f hours to its "
                        "%sreset)" % (self.limits["priority"]["release_hours"], hours, "" if checked else "unverified "))
 
+    def drill_any_hour(self):
+        """True while the owner's temporary rule holds (priority "drill_any_hour_until", a date of today or later)
+        for this run, which is the drill's (automation/update/drill-*)."""
+        until = self.limits["priority"].get("drill_any_hour_until") or ""
+        return bool(until) and self.candidate.startswith("automation/update/drill-") and \
+            self.now.date().isoformat() <= until
+
     def paused(self, provider=None):
         """Why work of class 3 or 4 pauses now ("" when it may run): work of class 1 or 2 is pending or retrying.
         Never lifted while it is: real updates may always use everything."""
@@ -925,6 +938,8 @@ class Budget:
         why = self.paused(provider)
         if why:
             return why
+        if self.drill_any_hour():
+            return ""                    # the owner's temporary rule: the drill at any hour, nothing real pending
         ok, why = self.leftover_window(provider)
         return "" if ok else "class %d (%s) uses only what real work leaves: %s" % (klass, CLASSES[klass], why)
 
@@ -1347,7 +1362,9 @@ def background_status(limits, state, memory=None, now=None, available=None, pend
     limits = limits or load_limits()
     pending = pending_all(memory, limits, now, prs) if pending is None else list(pending)
     names = tuple(available) if available is not None else NAMES
-    budget = Budget(limits, state, "", now=now, available=names, pending=pending)
+    # read by the drill's scheduler: its own work (the owner's temporary rule drill_any_hour_until applies to it)
+    budget = Budget(limits, state, "automation/update/drill-" if klass == BACKGROUND else "", now=now,
+                    available=names, pending=pending)
     reserve = limits["reserve"]
     room, released, why = [], [], ""
     for name in names:

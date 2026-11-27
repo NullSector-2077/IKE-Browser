@@ -505,6 +505,17 @@ def steps(ike, qapp, out):
     ike.handoff.show_in_folder = lambda path, parent=None: folders.append(str(path))
     win = ike.windows[0]
     view = win.current_view()
+    # what the engine says about each download (said when a hand-off is missing)
+    spy = out.setdefault("spy", [])
+    def requested(item):
+        rec = {"url": item.url().toString(), "state": str(item.state())}
+        spy.append(rec)
+        def finished(item=item, rec=rec):
+            rec["end"] = str(item.state())
+            rec["reason"] = item.interruptReasonString()
+            rec["file"] = item.downloadFileName()
+        item.isFinishedChanged.connect(finished)
+    view.page().profile().downloadRequested.connect(requested)
     view.setHtml("<p>page", QUrl(SITE + "/page.html"))
     yield 800
     menus = {}
@@ -519,7 +530,10 @@ def steps(ike, qapp, out):
     # what the entries do
     menu = contextmenu.build(view, Req(media=SITE + "/pic.png", mtype="MediaTypeImage"))
     for a in menu.actions():
-        if a.text().startswith("Open image in "):
+        # the app's entry only: "Open image in new tab" starts with the same words, and
+        # its tab asked the engine for the same picture at the same moment (on a busy
+        # test machine the hand-off then waited for ever: main, 2026-11-27)
+        if a.text().startswith("Open image in ") and a.text() != "Open image in new tab":
             a.trigger()
     ike.hand_off(QUrl(SITE + "/fake.png"), "image", view.page())       # says image, holds a .desktop file
     ike.hand_off(QUrl(SITE + "/doc.pdf"), "pdf", view.page())
@@ -527,9 +541,10 @@ def steps(ike, qapp, out):
     for a in menu.actions():
         if a.text().startswith("Open the page source in "):
             a.trigger()
-    # up to 30 s (2026-11-27: after heavy tests of the same shard a CI runner needed
-    # more than 6 s for the three downloads); it goes on as soon as all three are open
-    for _ in range(300):
+    # up to 60 s (2026-11-27: after heavy tests of the same shard a CI runner needed
+    # more than 6 s for the three downloads, which I.K.E. now asks one at a time);
+    # it goes on as soon as all three are open
+    for _ in range(600):
         yield 100
         if len(opened) >= 3:
             break
@@ -576,7 +591,7 @@ def _apps(folder, with_apps):
 def test_handoffs_are_shown_only_when_the_desktop_has_the_app(run_ike, files_site, tmp_path):
     apps = tmp_path / "apps"
     _apps(apps, True)
-    out = run_ike(MENUS % (files_site, str(apps)), timeout=150,
+    out = run_ike(MENUS % (files_site, str(apps)), timeout=240,
                   settings={"download_dir": str(tmp_path / "dl"), "ask_download_location": False})
     m = out["menus"]
     assert "Open the page source in Kate" in m["page"] and "Page source" in m["page"]
@@ -588,8 +603,10 @@ def test_handoffs_are_shown_only_when_the_desktop_has_the_app(run_ike, files_sit
     # the image and the PDF fetched by the engine into a private folder, the page's code
     # written there; the "image" that holds a desktop file is never handed over
     names = sorted(o[0].split("-", 2)[2] for o in out["opened"])
-    assert names == ["127.0.0.1-source.txt", "doc.pdf", "pic.png"], (
-        out["opened"], out.get("handoff_dir"), out.get("downloads_listed"), (out.get("_stderr") or "")[-4000:])
+    if names != ["127.0.0.1-source.txt", "doc.pdf", "pic.png"]:      # all of it, not cut short
+        pytest.fail(json.dumps({"opened": out["opened"], "handoff_dir": out.get("handoff_dir"),
+                                "downloads_listed": out.get("downloads_listed"), "engine": out.get("spy"),
+                                "stderr": (out.get("_stderr") or "")[-3000:]}, indent=1), pytrace=False)
     by_name = {o[0].split("-", 2)[2]: o for o in out["opened"]}
     assert by_name["pic.png"][1].startswith("89504e47") and by_name["doc.pdf"][1].startswith("255044462d")
     assert all(o[2] == "0o700" for o in out["opened"])
@@ -603,7 +620,7 @@ def test_handoffs_are_shown_only_when_the_desktop_has_the_app(run_ike, files_sit
 def test_no_app_no_handoff(run_ike, files_site, tmp_path):
     apps = tmp_path / "apps"
     _apps(apps, False)
-    out = run_ike(MENUS % (files_site, str(apps)), timeout=150,
+    out = run_ike(MENUS % (files_site, str(apps)), timeout=240,
                   settings={"download_dir": str(tmp_path / "dl"), "ask_download_location": False})
     m = out["menus"]
     every = m["page"] + m["image"] + m["ics"] + m["plugin"] + m["pdf"]

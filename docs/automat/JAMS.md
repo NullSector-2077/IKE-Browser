@@ -193,6 +193,20 @@ next to the code it guards.
 - **Rule**: before giving a task to the AIs, ask "can this be fixed in the files
   they may change?" If not, it is Claude's work, recorded as a gap.
 
+### 14. A test that failed only in CI hid a real defect (test_handoff, #201, #206, 2026-11-27)
+
+- **Sign**: `test_handoffs_are_shown_only_when_the_desktop_has_the_app` failed
+  in "tests shard 4/4" on every run of main after 1.1.28's merge, never
+  locally; a missing file changed from run to run. It blocked the signature
+  (`tools/publish.py` needs main's tests green).
+- **Cause**: longer waits did not help. What helped was making the test say
+  everything: the engine's own answer for each download (#206). It showed that
+  one hand-off download (the image already shown in the page) started and
+  never finished: "Open image in…" could do nothing for a user too.
+- **Rule**: when a test fails only sometimes, first make its failure message
+  complete (what the program and the engine said), then fix the cause. A
+  longer wait is never the fix; re-running is only a stop-gap.
+
 ## Prepared responses (what Claude does, in order)
 
 | Situation | First step | Never |
