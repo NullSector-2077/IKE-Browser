@@ -372,7 +372,29 @@ def gather_prs(repo, api, memory=None, limits=None, now=None, runs=True):
         prs["open"] = sorted({r for r in prs["open"] if r.startswith("automation/")})
     rows = [r for r in pending_work(memory, limits, now) if r not in prs["open"]]
     prs["closed"] = closed_branches(repo, api, rows, memory)
+    # 2026-11-27 (the drill): the row of a failure of main (automation/autofix-main) ends when main's tests are
+    # green again after it, whoever fixed main (that evening a person's pull request did, and the row kept the
+    # drill paused as if a real update were pending)
+    if FIX_OF_MAIN in rows and main_green_since(repo, api, ((memory or {}).get("streak") or {}).get(FIX_OF_MAIN)):
+        prs["closed"] = sorted(set(prs["closed"]) | {FIX_OF_MAIN})
     return prs
+
+
+FIX_OF_MAIN = "automation/autofix-main"
+
+
+def main_green_since(repo, api, row):
+    """True when main's newest finished Tests run (a cancelled one skipped) passed and started after the row's last
+    failure (after_last_failure). GET calls only; False when it cannot be read (rather wait than drop real work)."""
+    if not isinstance(row, dict):
+        return False
+    try:
+        runs = (api("repos/%s/actions/workflows/tests.yml/runs?branch=main&status=completed&per_page=10" % repo)
+                or {}).get("workflow_runs") or []
+    except Exception:                    # anything unread: rather wait than drop real work
+        return False
+    done = [r for r in runs if isinstance(r, dict) and r.get("conclusion") not in ("cancelled", "skipped")]
+    return bool(done) and done[0].get("conclusion") == "success" and after_last_failure(done[0].get("created_at"), row)
 
 
 def gh_api(path):

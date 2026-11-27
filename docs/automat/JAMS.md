@@ -207,6 +207,16 @@ next to the code it guards.
   complete (what the program and the engine said), then fix the cause. A
   longer wait is never the fix; re-running is only a stop-gap.
 
+### 16. A failure of main fixed by a person kept the drill paused (2026-11-27)
+
+- **Sign**: the drill's second attempt asked nobody: "paused for real updates
+  first: ... pending (automation/autofix-main)".
+- **Cause**: main's tests had failed that evening (a flaky test); the automatic
+  fix opened a row for `automation/autofix-main`; a person's pull request then
+  fixed main, so no automatic fix ever ended the row.
+- **Done**: that row ends when main's newest finished Tests run passed after it
+  (`tools/ai-quota.py` `main_green_since`), whoever fixed main.
+
 ## Prepared responses (what Claude does, in order)
 
 | Situation | First step | Never |

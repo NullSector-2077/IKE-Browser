@@ -175,3 +175,28 @@ def test_the_drill_may_use_the_quotas_at_any_hour_until_the_owners_date(quota):
     busy = quota.Budget(limits, quota.empty_state(), "automation/update/drill-qt", now=morning,
                         pending=["automation/update/crates"])
     assert busy.priority_why("Groq") != ""                                  # a real update first, always
+
+
+def test_a_failure_of_main_ends_when_mains_tests_are_green_again(quota):
+    """2026-11-27 (the drill): main's tests failed in the evening (a flaky test), the automatic fix opened a row for
+    automation/autofix-main, and a person's pull request fixed main. The row must end when main is green again,
+    or the drill stays paused as if a real update were pending."""
+    memory = {"streak": {"automation/autofix-main": {"date": "2026-11-27", "at": "2026-11-27T20:30:00Z", "n": 2}}}
+    now = dt.datetime(2026, 11, 27, 23, 30, tzinfo=dt.timezone.utc)
+
+    def api(green, at):
+        def call(path):
+            if path.startswith("repos/o/r/pulls"):
+                return []
+            if "workflows/tests.yml/runs" in path:
+                return {"workflow_runs": [{"conclusion": "cancelled", "created_at": "2026-11-27T23:00:00Z"},
+                                          {"conclusion": "success" if green else "failure", "created_at": at}]}
+            return {"workflow_runs": []}
+        return call
+    prs = quota.gather_prs("o/r", api(True, "2026-11-27T22:00:00Z"), memory, now=now)
+    assert "automation/autofix-main" in prs["closed"]
+    assert quota.pending_all(memory, now=now, prs=prs) == []
+    still = quota.gather_prs("o/r", api(False, "2026-11-27T22:00:00Z"), memory, now=now)
+    assert quota.pending_all(memory, now=now, prs=still) == ["automation/autofix-main"]
+    before = quota.gather_prs("o/r", api(True, "2026-11-27T20:00:00Z"), memory, now=now)   # green before it failed
+    assert quota.pending_all(memory, now=now, prs=before) == ["automation/autofix-main"]
