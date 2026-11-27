@@ -39,6 +39,7 @@ jobs:
       errors: ${{ steps.check.outputs.errors }}
       refused: ${{ steps.check.outputs.refused }}
       arch: ${{ steps.check.outputs.arch }}
+      arch_testing: ${{ steps.check.outputs.arch_testing }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -332,6 +333,32 @@ jobs:
           fi
           retry gh workflow run arch.yml --ref main
           echo "Arch's packages changed: \"Arch Linux\" started on main" >> "$GITHUB_STEP_SUMMARY"
+
+  # AUTOMAT block 2 (2026-11-27): a package of the tested closure entered Arch's [testing] in the last day
+  # (tools/check-components.py arch_testing_news): "Arch Linux (testing)" on main now, not on Wednesday only.
+  start-arch-testing:
+    needs: check
+    if: needs.check.outputs.arch_testing == 'new'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write        # start arch-testing.yml on main, nothing else
+    steps:
+      - name: Start "Arch Linux (testing)" on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          retry() { n=1; until "$@"; do [ "$n" -ge 3 ] && return 1; sleep $((n * 15)); n=$((n + 1)); done; }
+          busy=$(retry gh run list --workflow arch-testing.yml --branch main --limit 20 --json status \
+                 --jq '[.[] | select(.status != "completed")] | length')
+          if [ "${busy:-0}" != "0" ]; then
+            echo "\"Arch Linux (testing)\" is already queued or running on main: not started again"
+            exit 0
+          fi
+          retry gh workflow run arch-testing.yml --ref main
+          echo "Arch [testing] has new packages of I.K.E.'s closure: \"Arch Linux (testing)\" started on main" \
+            >> "$GITHUB_STEP_SUMMARY"
 
   # AUTOMAT (2026-11-22, nothing stays behind): every open pull request of the automation is judged
   # again once a day, and what its last verdict left for the next day is started: its checks again, or
