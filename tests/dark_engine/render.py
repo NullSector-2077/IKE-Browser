@@ -110,7 +110,7 @@ function definedAt(el,name){var res=[],props=[];
   ancestors:chain.slice(0,4).map(function(a){var o=a.outerHTML;return o.slice(0,o.indexOf('>')+1).slice(0,240);})};}
 var out=[],all=document.querySelectorAll('body *'),W=innerWidth,H=innerHeight;
 for(var i=0;i<all.length&&out.length<25;i++){var e=all[i],r=e.getBoundingClientRect();
- if(r.width*r.height<W*H*0.01||r.bottom<0||r.top>H||r.right<0||r.left>W)continue;
+ if(r.width*r.height<W*H*0.01||r.bottom+scrollY<0||r.top>H*6||r.right<0||r.left>W)continue;   // the page down to six screens, not only what is seen
  var cs=getComputedStyle(e);if(cs.visibility==='hidden'||+cs.opacity<0.3)continue;
  var bg=rgba(cs.backgroundColor),img=cs.backgroundImage;
  var light=bg&&bg[3]>0.5&&lum(bg)>0.5;
