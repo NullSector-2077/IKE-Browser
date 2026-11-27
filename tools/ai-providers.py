@@ -123,3 +123,31 @@ def is_free_model(provider, model):
     if provider == "OpenRouter" and model == FREE_ROUTER:
         return True
     return bool(model) and (not suffix or model.endswith(suffix))
+
+
+# The providers' new free models, found each week by tools/provider-check.py (discover) and passed to the automatic
+# fix as AUTOFIX_DISCOVERED ("Provider:model|model;Provider:model"): asked after the configured models, so a model
+# a provider adds (a new Gemini, a new Groq model) is used without a change here, and one it retires costs one
+# failed request. AUTOMAT block 2, 2026-11-27.
+DISCOVERED_VAR = "AUTOFIX_DISCOVERED"
+_SAFE_ID = __import__("re").compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{1,80}$")
+
+
+def discovered(env=None, provider=None):
+    """{provider: [model ids]} of AUTOFIX_DISCOVERED (or one provider's list); anything else ignored."""
+    import os
+    text = (env if env is not None else os.environ).get(DISCOVERED_VAR) or ""
+    out = {}
+    for part in str(text).split(";"):
+        name, _, models = part.partition(":")
+        if name in all_names() and name not in FREE_SUFFIX:
+            ok = [m for m in models.split("|") if _SAFE_ID.match(m)][:4]
+            if ok:
+                out[name] = ok
+    return out.get(provider, []) if provider else out
+
+
+def gemini_cli_name(model_id):
+    """The Antigravity CLI's name of a Gemini API id: "gemini-4-neon" -> "Gemini 4 Neon (High)"."""
+    words = str(model_id).split("-")
+    return " ".join(w if w[:1].isdigit() else w.capitalize() for w in words) + " (High)"

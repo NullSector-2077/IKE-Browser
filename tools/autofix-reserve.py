@@ -340,6 +340,8 @@ def chain(env=os.environ):
             print("%s: marked unavailable by the weekly check (not free, or billing): skipped" % name, flush=True)
             continue
         models = [m.strip() for m in (env.get(models_var) or "").split(",") if m.strip()] or list(default)
+        # the provider's new free models the weekly check found (AUTOFIX_DISCOVERED), after the configured ones
+        models += [m for m in REGISTRY.discovered(env, name) if m not in models]
         for m in models:
             if not REGISTRY.is_free_model(name, m):
                 print("%s: %s is not a free model (%s only): refused" % (

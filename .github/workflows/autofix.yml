@@ -151,6 +151,7 @@ jobs:
       recorded: ${{ steps.plan.outputs.recorded }}
       work: ${{ steps.plan.outputs.work }}
       unavailable: ${{ steps.providers.outputs.unavailable }}
+      discovered: ${{ steps.providers.outputs.discovered }}
       builder: ${{ steps.plan.outputs.builder }}
       first: ${{ steps.plan.outputs.first }}
       # AUTOMAT part 2
@@ -324,6 +325,11 @@ jobs:
           if ! printf '%s' "$names" | grep -Eq '^[A-Za-z.,]*$'; then names=""; fi
           echo "unavailable=$names" >> "$GITHUB_OUTPUT"
           if [ -n "$names" ]; then echo "Not asked (the weekly check found them not free): $names"; fi
+          # AUTOMAT block 2: the providers' new free models the weekly check found, asked after the configured ones
+          found=$(python3 -I tools/provider-check.py discovered --repo "$GITHUB_REPOSITORY" | tail -n 1 || true)
+          if ! printf '%s' "$found" | grep -Eq '^[A-Za-z0-9.:|;/_-]*$'; then found=""; fi
+          echo "discovered=$found" >> "$GITHUB_OUTPUT"
+          if [ -n "$found" ]; then echo "New free models (the weekly check): $found"; fi
       # a work started again by the daily check that has nothing to do any more
       # (an older failure, a finding that is gone): said to the ledger
       - name: The work's outcome when the plan skips it
@@ -435,6 +441,7 @@ jobs:
         env:
           MODE: ${{ needs.plan.outputs.mode }}
           UNAVAILABLE: ${{ needs.plan.outputs.unavailable }}
+          DISCOVERED: ${{ needs.plan.outputs.discovered }}
           BUILDER: ${{ needs.plan.outputs.builder }}
           FIRST: ${{ needs.plan.outputs.first }}
           # only whether each reserve has a key, never the key: a rotation to a provider without
@@ -479,6 +486,7 @@ jobs:
           if [ "$(printf '%s' "$AUTOMAT_TIER_B" | tr 'A-Z' 'a-z' | tr -d ' ')" = "on" ]; then touch "$RUNNER_TEMP/tier-b"; fi
           if [ "$MODE" = "lists" ]; then echo lists > "$RUNNER_TEMP/lists-mode"; fi
           printf '%s' "$UNAVAILABLE" | tr -cd 'A-Za-z.,' > "$RUNNER_TEMP/unavailable"
+          printf '%s' "$DISCOVERED" | tr -cd 'A-Za-z0-9.:|;/_-' > "$RUNNER_TEMP/discovered"
           # WP11: the builders' re-anchoring, that builder only
           case "$BUILDER" in darkreader|ubo-scriptlets) printf '%s' "$BUILDER" > "$RUNNER_TEMP/builder" ;; esac
           # the full chain: attempt n starts with the n-th free provider (tools/ai-providers.py)
@@ -837,6 +845,8 @@ jobs:
           if [ -s "$RUNNER_TEMP/first" ]; then first="--first $(cat "$RUNNER_TEMP/first")"; fi
           AUTOFIX_UNAVAILABLE="$(cat "$RUNNER_TEMP/unavailable" 2> /dev/null || true)"
           export AUTOFIX_UNAVAILABLE
+          AUTOFIX_DISCOVERED="$(cat "$RUNNER_TEMP/discovered" 2> /dev/null || true)"
+          export AUTOFIX_DISCOVERED
           if [ -z "$GEMINI_API_KEY" ]; then
             echo "GEMINI_API_KEY is not set: Antigravity skipped, the reserves go on"
             printf '{"result": "nokey", "model": "", "message": "", "detail": ""}' > "$out/status.json"
@@ -934,6 +944,8 @@ jobs:
           if [ -s "$RUNNER_TEMP/first" ]; then first="--first $(cat "$RUNNER_TEMP/first")"; fi
           AUTOFIX_UNAVAILABLE="$(cat "$RUNNER_TEMP/unavailable" 2> /dev/null || true)"
           export AUTOFIX_UNAVAILABLE
+          AUTOFIX_DISCOVERED="$(cat "$RUNNER_TEMP/discovered" 2> /dev/null || true)"
+          export AUTOFIX_DISCOVERED
           AUTOFIX_REVIEWERS="$(cat "$RUNNER_TEMP/reviewers" 2> /dev/null || true)"
           export AUTOFIX_REVIEWERS
           # also when Antigravity's step ran out of time: nothing of the agent keeps
