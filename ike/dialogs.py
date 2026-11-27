@@ -512,10 +512,10 @@ class _NavDelegate(QStyledItemDelegate):
     page of the area shown, in the same row, so a row is still a page."""
 
     AREA = Qt.ItemDataRole.UserRole + 7          # the area's name, on the first page of it shown
-    ROW = 36                                     # px: a page (its 28 px icon with room around it)
+    ROW = 34                                     # px: a page (its 28 px icon, 3 px above and below)
 
     def head_height(self, font):
-        return QFontMetrics(self.head_font(font)).height() + 10
+        return QFontMetrics(self.head_font(font)).height() + 7
 
     @staticmethod
     def head_font(font):
@@ -540,7 +540,7 @@ class _NavDelegate(QStyledItemDelegate):
             super().paint(painter, option, index)
             return
         head = self.head_height(option.font)
-        r = QRect(option.rect.left() + 6, option.rect.top(), option.rect.width() - 10, head - 3)
+        r = QRect(option.rect.left() + 6, option.rect.top(), option.rect.width() - 10, head - 2)
         painter.save()
         painter.setFont(self.head_font(option.font))
         colour = option.palette.color(QPalette.ColorRole.WindowText)
@@ -613,7 +613,7 @@ class SettingsDialog(QDialog):
         # 1.1.30, the owner: the pages' icons larger, 28 px (sharp on any
         # scale: drawn by the icon theme at the screen's own size)
         self.nav.setIconSize(QSize(28, 28))
-        self.nav.setSpacing(1)
+        self.nav.setSpacing(0)
         self._nav_delegate = _NavDelegate(self.nav)
         self.nav.setItemDelegate(self._nav_delegate)
         self.nav.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -657,9 +657,10 @@ class SettingsDialog(QDialog):
                        T("The search engines of the address bar and of the new tab page.")),
             "protection": (self._protection, ("security-high", "preferences-security"),
                            T("How much I.K.E. protects you: the level, the connections and the warnings.")),
-            "blocker": (self._blocker, ("edit-delete-shred", "process-stop", "dialog-cancel", "security-medium"),
+            "blocker": (self._blocker, ("preferences-web-browser-adblock", "edit-delete-shred", "process-stop",
+                                     "security-medium"),
                         T("The ad and tracker blocker, its filter lists and your own rules.")),
-            "privacy": (self._privacy, ("view-private", "preferences-system-privacy"),
+            "privacy": (self._privacy, ("preferences-web-browser-cookies", "view-private", "preferences-system-privacy"),
                         T("Encrypted DNS, containers and the data kept on this computer.")),
             "permissions": (self._permissions, ("preferences-desktop-user-password", "object-locked",
                                                 "preferences-security"),

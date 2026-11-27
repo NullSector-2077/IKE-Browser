@@ -157,7 +157,7 @@ profiles: `ike-browser --profile NAME`.
   two that are off until you choose them: automatic scrolling with the middle
   button, and opening the selected text with the middle button.
 - I.K.E.'s own pages for sites that cannot be reached, with "Try again".
-- Quiet permission questions (on by default; Settings → Privacy): a site
+- Quiet permission questions (on by default; Settings → Site permissions): a site
   asking for notifications, the location, the camera or the microphone shows
   a small sign in the address bar; a click answers. Notifications asked for
   without a click on the page are refused at once (not remembered).

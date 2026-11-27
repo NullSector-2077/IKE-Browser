@@ -153,7 +153,8 @@ def steps(ike, qapp, out):
     def first(m):
         a = [x for x in m.actions() if x.isVisible()][0]
         return [a.isSeparator(), a.text(), a.isEnabled()]
-    out["protection"] = [first(bar["&Protection"]), first(win.m_level)]
+    win.m_level.aboutToShow.emit()
+    out["protection"] = [first(bar["P&rivacy"]), first(win.m_level)]
     seen = {}
     def grab():
         shown = QApplication.activePopupWidget()
@@ -169,7 +170,7 @@ def steps(ike, qapp, out):
     win._toolbar_menu(win.nav.widgetForAction(win.act_reload).geometry().center())
     yield 100
     out["toolbar"] = seen
-    out["greyed_protection"] = [a.text() for a in bar["&Protection"].actions()
+    out["greyed_protection"] = [a.text() for a in bar["P&rivacy"].actions()
                                 if not a.isSeparator() and not a.isEnabled()]
 '''
 
@@ -208,8 +209,7 @@ def steps(ike, qapp, out):
     ike.storage.import_history([(u, t, int(when), 1) for u, t, when in rows])
     win.closed_tabs.append(("https://www.closed.example/x", "Closed tab"))
     res = {}
-    hist = [a.menu() for a in win.burger.actions() if a.menu() is not None and a.text() == "History"][0]
-    for name, m in (("bar", win.m_history), ("burger", hist)):
+    for name, m in (("bar", win.m_history),):
         m.aboutToShow.emit()
         res[name] = [["section" if a.isSeparator() and a.text() else "separator" if a.isSeparator() else "entry",
                       a.text(), a.toolTip(), not a.icon().isNull()] for a in m.actions()]
@@ -223,10 +223,20 @@ def steps(ike, qapp, out):
                                  for a in m.actions() if "\t" in a.text()]
     win.m_closed.aboutToShow.emit()
     res["closed"] = [a.text() for a in win.m_closed.actions()]
+    # ☰ → Bookmarks and history (1.1.30): the same commands, then the last pages
+    # visited (each with its site), the tabs closed last and the bookmarks, each under its name
+    lib = win.burger_menus["library"]
+    lib.aboutToShow.emit()
+    res["lib"] = [["section" if a.isSeparator() and a.text() else "separator" if a.isSeparator() else "entry",
+                   a.text()] for a in lib.actions()]
+    res["lib_acts"] = [a in lib.actions() for a in (win.act_back, win.act_fwd, win.act_home, win.act_reopen,
+                                                    win.act_history, win.act_clear_recent, win.act_bookmark,
+                                                    win.act_bookmarks)]
     res["keys"] = [win.act_history.shortcut().toString(), win.act_reopen.shortcut().toString(),
                    win.act_back.shortcut().toString()]
     bar = {a.text(): a.menu() for a in win.menuBar().actions()}
-    res["clear_data_in_protection"] = win.act_clear in bar["&Protection"].actions() and \
+    win.m_level.aboutToShow.emit()
+    res["clear_data_in_protection"] = win.act_clear in bar["P&rivacy"].actions() and \
         win.act_clear in win.m_level.actions()
     res["long_title"] = long_title
     res["room"] = W.Window.TITLE_ROOM if hasattr(W, "Window") else win.TITLE_ROOM
@@ -236,7 +246,7 @@ def steps(ike, qapp, out):
 
 def test_history_menu_by_day_with_the_site(run_ike):
     out = run_ike(HISTORY, timeout=90)
-    for name in ("bar", "burger"):
+    for name in ("bar",):
         rows = out[name]
         assert out[name + "_acts"] == [True] * 4 and out[name + "_closed"], name
         assert out[name + "_bottom"] == [True, True] and not out[name + "_clear_data"], name
@@ -268,6 +278,14 @@ def test_history_menu_by_day_with_the_site(run_ike):
         assert max(out[name + "_widths"]) <= out["room"]
         assert all(r[3] for r in pages)                              # each page with its icon
     assert out["closed"] == ["Closed tab\tclosed.example"]
+    lib = out["lib"]
+    assert all(out["lib_acts"]), out["lib_acts"]
+    sections = [r[1] for r in lib if r[0] == "section"]
+    assert sections == ["Recently visited", "Recently closed tabs"], sections
+    i = lib.index(["section", "Recently visited"])
+    visited = lib[i + 1:lib.index(["section", "Recently closed tabs"])]
+    assert [r[1].split("\t")[0] for r in visited][:1] == ["Page A"] and len(visited) == 8
+    assert lib[-1] == ["entry", "Closed tab\tclosed.example"]
     assert out["keys"] == ["Ctrl+H", "Ctrl+Shift+T", "Alt+Left"]
     assert out["clear_data_in_protection"]
 

@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.1.30 (in progress)
+
+- **Menus and Settings reorganised** (the owner's request; no function added
+  or removed, every shortcut unchanged: tests/test_menus_reorg.py compares
+  everything reachable with 1.1.29's inventory).
+  - The menu bar: File (open, save, print, downloads, backups, quit), Edit,
+    **Tabs** (new tabs and windows, containers, profiles, workspaces, close),
+    **Page** (zoom, reader, dark mode, translation, sound, source and
+    developer tools), View (only the window's bars), History, Bookmarks,
+    **Privacy** (levels, repairs, passwords, clearing data), Extensions, Tools
+    (command bar, resources, watched pages, search engines, Settings), Help
+    (now with About I.K.E.).
+  - The ☰ menu: no "More" any longer. New tab, window and private window,
+    then the owner's categories (Tabs and windows, Web page, Edit, File and
+    downloads, Audio and video, Bookmarks and history, Privacy and security,
+    Browser appearance, I.K.E. extensions, Performance and tools, Backup and
+    restore), Settings, Help, About, Quit; never more than two levels (a
+    submenu's entries are shown in place, under its name).
+  - Both are described in one place, `ike/menus.py`, and share the same
+    QActions.
+  - The extensions under five headings (Privacy and security, Browsing and
+    appearance, Audio and video, Productivity, System and resources), the
+    same in the menus and in Settings → I.K.E. extensions.
+  - Settings: the crowded pages split (**Web pages**: zoom, dark mode, the
+    Dark Engine, sound and DRM videos; **Ads and trackers**: the blocker and
+    its lists; **Site permissions**; the translation service under **Language
+    and translation**), and the 14 pages in four areas named in the list
+    (Basics, Appearance and browsing, Privacy and security, System and
+    extensions). Their icons 28 px (were 22). Every link and the names of
+    earlier versions open the right page; the search also finds an area by
+    its name.
+- **The Settings' search no longer misses options**: it could take an option
+  for one already seen (Python's id() of a short-lived Qt wrapper reused).
+- The note on Chrome extensions no longer names uBlock Origin, Dark Reader
+  and Consent-O-Matic: I.K.E. has all three built in (the owner).
+
 ## 1.1.29
 
 - **Sites see a more ordinary Chromium** (the Engine Privacy Layer study,

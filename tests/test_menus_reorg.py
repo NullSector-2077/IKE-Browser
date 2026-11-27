@@ -15,6 +15,7 @@
 import json
 from pathlib import Path
 
+from conftest import screen
 from ui_inventory import STEPS as INVENTORY
 
 BEFORE = json.loads((Path(__file__).parent / "data" / "ui-inventory-before.json").read_text("utf-8"))
@@ -172,6 +173,7 @@ def steps(ike, qapp, out):
     out["areas"] = [dlg.nav.item(i).data(_NavDelegate.AREA) for i in range(dlg.nav.count())]
     out["icon"] = [dlg.nav.iconSize().width(), dlg.nav.iconSize().height()]
     out["rows"] = [dlg.nav.visualItemRect(dlg.nav.item(i)).height() for i in range(dlg.nav.count())]
+    out["nav_scroll"] = dlg.nav.verticalScrollBar().maximum()          # the whole list in view
     found = {}
     for text in ("Translation service", "Filter lists", "Camera", "Do not let videos and sounds",
                  "Background depth", "Battery saver", "Privacy and security"):
@@ -206,8 +208,8 @@ def steps(ike, qapp, out):
 '''
 
 
-def test_links_search_extensions_and_settings_kept(run_ike):
-    out = run_ike("import json\n" + STEPS, timeout=180)
+def test_links_search_extensions_and_settings_kept(run_ike, tmp_path):
+    out = run_ike("import json\n" + STEPS, env=screen(tmp_path, 1366, 768), timeout=180)
     cats = out["categories"]
     assert cats == ["Privacy and security", "Browsing and appearance", "Audio and video", "Productivity",
                     "System and resources"]
@@ -234,7 +236,8 @@ def test_links_search_extensions_and_settings_kept(run_ike):
     assert areas == ["Basics", None, None, None, "Appearance and browsing", None, None, None,
                      "Privacy and security", None, None, None, "System and extensions", None], areas
     assert out["icon"] == [28, 28]
-    assert min(out["rows"]) >= 28 + 6, out["rows"]          # the icon never clipped
+    assert out["nav_scroll"] == 0, out["nav_scroll"]               # on a 1366 x 768 screen
+    assert min(out["rows"]) >= 28 + 6, out["rows"]          # the icon never clipped (3 px around it)
     f = out["found"]
     assert "language" in f["Translation service"] and "blocker" in f["Filter lists"]
     assert "permissions" in f["Camera"] and f["Do not let videos and sounds"] == ["sites"]

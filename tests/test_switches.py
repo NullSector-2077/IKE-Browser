@@ -376,7 +376,7 @@ def steps(ike, qapp, out):
         save(win.shield_menu, code + "-shield-site")
         win.shield_panel.adv_btn.setChecked(False)
         win.shield_menu.hide()
-        view = [a.menu() for a in win.menuBar().actions() if a.menu() is not None][2]
+        view = win.menubar_menus["view"]
         for name, menu in (("view", view), ("extensions", win.m_extensions), ("dark", win.m_dark)):
             menu.popup(win.mapToGlobal(QPoint(win.width() // 2 - 150, 60)))
             yield 120
