@@ -330,29 +330,32 @@ class BookmarksBar(QToolBar):
         self._timer.timeout.connect(self._reflow)
 
     def refresh_arrows(self):
-        """Use two copies of the actual Forward glyph at its navigation size."""
-        nav = self.parentWidget().nav
-        forward = self.parentWidget().act_fwd.icon()
+        """The desktop's own double arrow (arrow-right-double, as Falkon shows
+        it: 1.1.29, the owner), drawn exactly as tall and with strokes as thick
+        as the navigation bar's Forward arrow: both at the navigation's icon
+        size, the double one scaled to the Forward glyph's height when its
+        theme draws it otherwise."""
+        win = self.parentWidget()
+        nav = win.nav
+        forward = win.act_fwd.icon()
+        double = icon(("arrow-right-double",))
         ratio = self.devicePixelRatioF()
-        key = (forward.cacheKey(), nav.iconSize(), ratio, self.palette().cacheKey())
+        key = (forward.cacheKey(), double.cacheKey(), nav.iconSize(), ratio, self.palette().cacheKey())
         if key == getattr(self, "_arrows_key", None):
             return
         self._arrows_key = key
-        arrow = forward.pixmap(nav.iconSize(), ratio)
-        bounds = QRegion(arrow.mask()).boundingRect()
-        if not bounds.isEmpty():
-            arrow = arrow.copy(bounds)
-        if "rtl" in forward.name().split("-"):
-            arrow = QPixmap.fromImage(arrow.toImage().flipped(Qt.Orientation.Horizontal))
-            arrow.setDevicePixelRatio(ratio)
-        gap = 0                         # touching, as one double arrow (1.1.29, the owner; was 4)
-        pair = QPixmap(2 * arrow.width() + gap, arrow.height())
+
+        def glyph(ic):
+            pm = ic.pixmap(nav.iconSize(), ratio)
+            bounds = QRegion(pm.mask()).boundingRect()
+            return pm.copy(bounds) if not bounds.isEmpty() else pm
+        arrow, pair = glyph(forward), glyph(double)
+        if pair.height() != arrow.height() and pair.height() > 0:
+            pair = pair.scaledToHeight(arrow.height(), Qt.TransformationMode.SmoothTransformation)
         pair.setDevicePixelRatio(ratio)
-        pair.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(pair)
-        painter.drawPixmap(QPointF(), arrow)
-        painter.drawPixmap(QPointF((arrow.width() + gap) / ratio, 0), arrow)
-        painter.end()
+        if self.isRightToLeft() or "rtl" in forward.name().split("-"):
+            pair = QPixmap.fromImage(pair.toImage().flipped(Qt.Orientation.Horizontal))
+            pair.setDevicePixelRatio(ratio)
         width = ceil(pair.deviceIndependentSize().width())
         height = ceil(pair.deviceIndependentSize().height())
         self._more.setIcon(QIcon(pair))

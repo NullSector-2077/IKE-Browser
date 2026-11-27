@@ -43,9 +43,13 @@ def steps(ike, qapp, out):
     source = win.act_fwd.icon().pixmap(win.nav.iconSize(), ratio)
     source = source.copy(QRegion(source.mask()).boundingRect()).toImage()
     pair = more.icon().pixmap(more.iconSize(), ratio).toImage()
-    w, h = source.width(), source.height()
-    out["exact"] = [pair.copy(x, 0, w, h) == source for x in (0, pair.width() - w)]
-    out["gap"] = (pair.width() - 2 * w) / ratio
+    # 1.1.29 (the owner): the desktop's double arrow, as tall as the Forward glyph
+    from ike import icons as ike_icons
+    double = ike_icons.themed(("arrow-right-double",)).pixmap(win.nav.iconSize(), ratio)
+    double = double.copy(QRegion(double.mask()).boundingRect()).toImage()
+    out["double"] = [pair.height(), source.height(), pair.width() > source.width() * 1.3,
+                     pair.width() < source.width() * 2.2,
+                     pair == double if double.height() == source.height() else None]
     from ike import icons
     out["names"] = icons.seen.get(("arrow-right-double", "go-next"))
     # the toolbar's own: every button shown, a narrow window
@@ -74,10 +78,11 @@ def test_the_double_arrow_sits_in_the_middle(run_ike, tmp_path, scale, theme):
         shown, text, null, w, h, style, tooltip, name, offset, listed = out[key]
         assert shown and listed, (key, out[key])
         assert text == "" and not null and style == "ToolButtonIconOnly", (key, out[key])
-        assert h == 26 and (w > h if key == "bookmarks" else w == h), (key, w, h)
+        assert h == 26 and (w >= h if key == "bookmarks" else w == h), (key, w, h)
         assert tooltip == name == tip
         assert offset and max(abs(v) for v in offset) <= 1, (key, offset)
-    # 1.1.29 (the owner): the two arrows touch, as one double arrow (was 4 px apart)
-    assert out["exact"] == [True, True] and out["gap"] == 0, out
+    # 1.1.29 (the owner): the desktop's own double arrow, Forward's height
+    height, forward, _wider, _narrow, same = out["double"]
+    assert height == forward and same in (True, None), out["double"]
     assert out["names"] and out["names"][1] in ("arrow-right-double", "go-next"), out["names"]
     assert abs(out["toolbar_middle"]) <= 1, out["toolbar_middle"]
