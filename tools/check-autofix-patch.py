@@ -157,6 +157,8 @@ FORBIDDEN_FILES = {
     "tests/test_strict_gate.py",
     # 2026-11-25: the proofs that the free quotas can no longer deadlock AUTOMAT (PR #111)
     "tests/test_automat_deadlock.py",
+    # 2026-11-27: AUTOMAT's playbook, what the AIs are told (never changed by them)
+    "tools/automat-playbook.py", "tests/test_automat_playbook.py",
 }
 # the component manifest: with --auto an AI may add a missing entry (tools/fix-guard.py, rule 7)
 MANIFEST = "components.json"

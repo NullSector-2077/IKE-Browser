@@ -1420,7 +1420,7 @@ list-level problem gets one class, by the first matching rule of this table
 | `exception-without-blocking` | unsupported but harmless | no | an exception (`@@`) only for a blocking the engine never applies (`popup`, `cname`, `urlskip`, `header`, `permissions`, `denyallow`...): nothing to lift |
 | `exception-dropped` | breaking | yes | any other exception the engine drops (`@@`, `#@#`): it blocks or hides what the list unblocks, a site may break |
 | `trusted-scriptlet` | possible security regression | yes | a `trusted-...` scriptlet that does not run |
-| `protection-dropped` | possible security regression | yes | a blocking rule with an option that protects (`removeparam`, `csp`, `redirect`, `redirect-rule`, `permissions`, `header`, `urlskip`, `uritransform`, `inline-script`, `strict1p`, `strict3p`, `ipaddress`, `denyallow`, `to`, `method`, `popup`, `popunder`) that the engine drops or reads differently |
+| `protection-dropped` | possible security regression | yes (not for `ENGINE_LIMITS`) | a blocking rule with an option that protects (`removeparam`, `csp`, `redirect`, `redirect-rule`, `permissions`, `header`, `urlskip`, `uritransform`, `inline-script`, `strict1p`, `strict3p`, `ipaddress`, `denyallow`, `to`, `method`, `popup`, `popunder`) that the engine drops or reads differently |
 | `protective-list` | possible security regression | yes | any other dropped rule of a privacy or badware list (by its name: Privacy, Badware, Malicious, EasyPrivacy) |
 | `page-blocking` | possible security regression | yes | a dropped rule that blocks whole pages (`$doc`, `$document`, `$all`) |
 | `unknown-scriptlet` | breaking | yes | a scriptlet the bundled library does not know (list/library drift) |
@@ -1457,6 +1457,13 @@ expression or empty 19, `$permissions` 10, `$csp` with a content type 8,
 for a person (69 rules of uBlock Origin's own resources, 3 YouTube rules). These are the
 engine's gaps of today, not new regressions: they are written in the ledger
 once, and analysed one at a time.
+
+**Engine limits are not given to an AI** (2026-11-27, PR #111). `ENGINE_LIMITS` in `tools/filter-lists.py`
+names the engine's reasons that no change of I.K.E.'s adapter can fix; such a finding keeps its class but gets
+no AI analysis. The first: "csp with content type" (adblock-rust refuses `csp=` with `$doc`; the adapter may
+not drop an option, and I.K.E. applies no `$csp` rule at all, since Qt WebEngine cannot add a response header).
+PR #111 was an AI's guess at it: a helper nothing called and a function put inside a class; the static guard
+refused it. Such gaps are Claude's work (an engine update, or a browser feature with the owner).
 
 **The AI analysis** (one group, that is one option or one scriptlet, per
 attempt; one at a time, the most severe first, at most one started a day,
