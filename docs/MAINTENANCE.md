@@ -1724,6 +1724,14 @@ changes the browser gets its version when the owner orders the merge.
 
 ## One candidate per component
 
+**Low-risk candidates once a week** (2026-11-27, AUTOMAT made simpler at the owner's request). `crates`,
+`test-tools`, `test-libs` and every `ci-*` pin are made on Mondays only (`WEEKLY`, `WEEKLY_DAY`): in the week of
+2026-11-20 crates and ci-cargo-deny alone started 26 runs of Tests and 25 of Arch Linux, rebuilt as an upstream
+moved by a patch release. On other days the plan says `weekly`, and an open weekly candidate stays as it is (it
+still merges by itself when verified). Daily as before: the AdBlock engine, pyo3, a crate's new major version,
+uBlock Origin's scriptlets, Dark Reader, Breeze, the PKGBUILD and test-qt (the early warning of a Qt release);
+security fixes are their own branches and never wait.
+
 Since 2026-11-22 (WP5) the daily maintenance makes **one isolated candidate per
 component**, or per small coherent group, instead of one combined candidate
 (`daily-maintenance.yml`, `tools/update-candidates.py`):
