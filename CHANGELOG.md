@@ -86,6 +86,11 @@
 - The hidden switch of the experiment (`dark_engine_experiment`) becomes the
   choice in Settings by itself.
 
+- Copies handed to a desktop app (an image to the image viewer, a PDF to the
+  PDF reader) are asked of the engine one at a time: asked together on a busy
+  computer, one of them could be lost without a word (tests/test_handoff.py,
+  which now also says what the engine answered for each download).
+
 ### Also in this release: 1.1.27 (never published on its own)
 
 - I.K.E. has a new Breeze octagonal logo, dedicated icons for small sizes and

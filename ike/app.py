@@ -1111,12 +1111,40 @@ class IkeApp(QObject):
             return
         if url.scheme() not in ("http", "https") or page is None:
             return
-        self.__dict__.setdefault("_handoff_wait", {})[url.toString()] = (time.monotonic(), kind)
-        page.download(url, handoff.safe_name(name or url.fileName(), kind))
+        # one at a time: a second download asked of the engine before the first
+        # one has reached I.K.E. could be lost (seen on loaded test machines: the
+        # copies of three hand-offs asked together did not all arrive)
+        queue = self.__dict__.setdefault("_handoff_queue", [])
+        queue.append((page, url, kind, handoff.safe_name(name or url.fileName(), kind)))
+        if not self.__dict__.get("_handoff_busy"):
+            self._handoff_next()
+
+    HANDOFF_START_MS = 15000
+
+    def _handoff_next(self):
+        queue = self.__dict__.setdefault("_handoff_queue", [])
+        self._handoff_busy = None
+        while queue:
+            page, url, kind, fname = queue.pop(0)
+            key = url.toString()
+            self.__dict__.setdefault("_handoff_wait", {})[key] = (time.monotonic(), kind)
+            try:
+                page.download(url, fname)
+            except RuntimeError:                  # the page is gone meanwhile
+                self._handoff_wait.pop(key, None)
+                continue
+            self._handoff_busy = key
+            # the engine never answered: the next one is not kept waiting
+            QTimer.singleShot(self.HANDOFF_START_MS, lambda k=key: self._handoff_busy == k and self._handoff_next())
+            return
 
     def _handoff_download(self, item):
         wait = self.__dict__.get("_handoff_wait")
-        want = wait.pop(item.url().toString(), None) if wait else None
+        key = item.url().toString()
+        want = wait.pop(key, None) if wait else None
+        if self.__dict__.get("_handoff_busy") == key:
+            QTimer.singleShot(0, self._handoff_next)
+            self._handoff_busy = "next"
         if want is None or time.monotonic() - want[0] > self.HANDOFF_SECONDS:
             return False
         from . import handoff
