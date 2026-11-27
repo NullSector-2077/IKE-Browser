@@ -31,5 +31,5 @@ def darkpages():
     mod.__package__ = "ike"
     sys.modules["ike.darkpages"] = mod
     spec.loader.exec_module(mod)
-    mod.RES_DIR = Path(root) / "ike" / "resources"      # its darkreader.js, proxy and darkmode.js
+    mod.RES_DIR = Path(root) / "ike" / "resources"      # its darkreader.js, proxy and darkmode.js (DE_DR_ROOT)
     return mod

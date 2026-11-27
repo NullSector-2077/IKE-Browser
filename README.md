@@ -125,18 +125,16 @@ profiles: `ike-browser --profile NAME`.
 - Email links written with the web mail you choose (Gmail, Outlook.com, Proton
   Mail, Yahoo Mail) or with the computer's mail program; I.K.E. can also take
   the email links of other programs.
-- Page dark mode with the I.K.E. Dark Engine (1.1.28, I.K.E.'s own: Dark
-  Reader's colours at about half its cost, its own panel with four styles,
-  background depth, text brightness and dimmed pictures; it uses Dark
-  Reader's lists only), or with Dark Reader as its extension works (its fixes for single
-  sites, sites that are dark already left alone, its detector of a site's own
-  dark theme; its lists come with each I.K.E. release), or with the engine's
-  own dark mode, which is much lighter
+- Page dark mode with the I.K.E. Dark Engine (I.K.E.'s own, since 1.1.28; the
+  only one since 1.1.29: Dark Reader's colours at about half its cost, sites
+  that are dark already left alone, Dark Reader's lists for single sites), or
+  with the engine's own dark mode, which is much lighter
   ([docs/review/tests-and-performance.md](docs/review/tests-and-performance.md)).
-  The toolbar's Dark mode button opens a panel: dark mode everywhere or on
-  this site, Dark or Light, brightness, contrast, sepia and grayscale (seen on
-  the page while the slider moves), and under "More" the font, text stroke,
-  colours, scroll bars and selection colour, for every site or for one.
+  The toolbar's Dark mode button (a moon when on, a sun when off) opens the
+  "I.K.E. Dark Engine" panel: on or off, on or off for this site, four styles
+  (Graphite, Midnight, Warm, Nordic), background depth, text brightness and
+  dimmed pictures (seen on the page while the slider moves), finding sites
+  that are dark already, and Reset.
 - The toolbar's Zoom button opens a panel (− and +, a slider, actual size,
   the default zoom); the Downloads button (Ctrl+J) a list of the downloads
   with pause and resume, speed and time left, retry, the downloads stopped
@@ -306,7 +304,7 @@ and never with anything about its users ([docs/MAINTENANCE.md](docs/MAINTENANCE.
   itself once a day, like the filter lists, and checked before use (1.1.27):
   a change of the lists no longer makes a new version of I.K.E.
 - The components inside I.K.E. — the AdBlock engine, the uBlock Origin
-  scriptlets and Dark Reader — are checked for new versions every day by
+  scriptlets and Dark Reader's lists — are checked for new versions every day by
   GitHub Actions (and the engine's Rust crates against known
   vulnerabilities), which
   prepares a tested candidate release; it is merged once its tests are green,
@@ -343,7 +341,7 @@ I.K.E. stands on the work of these projects, each under its own licence:
 | [EasyList, EasyPrivacy, EasyList Italy](https://easylist.to/) by The EasyList authors | filter lists | GPL-3.0 / CC BY-SA 3.0 |
 | EasyList Cookie List (Fanboy's Cookiemonster) | filter list | CC BY 3.0 |
 | [Malicious URL Blocklist](https://gitlab.com/malware-filter/urlhaus-filter) by curben, from abuse.ch URLhaus | filter list | CC0 1.0 / MIT |
-| [Dark Reader](https://github.com/darkreader/darkreader) | dark mode for pages | MIT |
+| [Dark Reader](https://github.com/darkreader/darkreader) | its lists (fixes for single sites, sites dark already, dark theme hints), read by the I.K.E. Dark Engine | MIT |
 | Qt, Qt WebEngine (Chromium), PyQt6 | the window and the web engine, from the system | LGPL-3.0 / BSD / GPL-3.0 |
 | Lucide, Phosphor Icons | icon sets | ISC / MIT |
 | [Breeze icons](https://invent.kde.org/frameworks/breeze-icons) by KDE | icon set (the icons I.K.E. uses) | LGPL-3.0 |

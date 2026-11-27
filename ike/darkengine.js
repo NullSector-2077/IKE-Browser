@@ -2,8 +2,8 @@
 // dark mode for pages: one pass over the page's style sheets and inline styles,
 // one generated override style sheet per source sheet, then only the nodes and
 // sheets added later, in batches. No re-analysis of the whole page.
-// Also: style sheets of other sites (fetched as I.K.E. fetches them for Dark
-// Reader, resources/darkmode.js), rules added by script (insertRule, adopted
+// Also: style sheets of other sites (fetched through I.K.E.'s page bridge),
+// rules added by script (insertRule, adopted
 // sheets: the known sheets' lengths are compared with each batch), open shadow
 // roots, CSS variables (one mapping per use: background, text, border), shadows,
 // light background pictures (made dark; photos kept).
@@ -18,7 +18,7 @@
   // Installed for the whole profile, it does nothing on its own: a small script
   // per dark site (darkengine.py) registers that site's fix in
   // window.__ikeDECfg, and only a frame whose top site is registered is made
-  // dark (as resources/darkmode.js does for Dark Reader).
+  // dark.
   var reg = window.__ikeDECfg || (window.__ikeDECfg = {});
   var topHost = '';
   try {
@@ -839,8 +839,7 @@
       rec.root = null;
     }
   }
-  // a style sheet of another site: its text comes as Dark Reader's own does in
-  // I.K.E. (resources/darkmode.js): a plain fetch without cookies, else the
+  // a style sheet of another site: its text comes by a plain fetch without cookies, else the
   // browser's own fetch (passwords.py PageBridge.fetchCss: the same address the
   // page loaded, style sheets only, checked by the filter lists)
   var bridgeWait = null, asks = {}, seq = 0;

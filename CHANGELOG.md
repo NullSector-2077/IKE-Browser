@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased (1.1.29)
+
+- **Dark Reader leaves I.K.E.** (the owner's decision, after trying the I.K.E.
+  Dark Engine in 1.1.28): the I.K.E. Dark Engine is the dark mode for pages,
+  Chromium's own the other choice (Settings → Web pages → Dark mode method).
+  A profile that had Dark Reader gets the engine by itself; Dark Reader's
+  colours and per-site themes leave the profile (`dark_theme`,
+  `dark_site_themes`), its engine, panel and theme modules go (`darkpages.py`,
+  `darkpanel.py`, `darktheme.py`, `resources/darkreader.js`,
+  `resources/darkreader-proxy.js`) with their tests. The toolbar's Dark mode
+  button always opens the "I.K.E. Dark Engine" panel; with Chromium's own dark
+  mode its look is greyed, with a note. Dark Reader's lists stay (MIT,
+  `darkfixes.py`, `darklists.py`), fetched by the browser once a day.
+- **No white while a page arrives**: a page that is plainly light is darkened
+  as soon as its body and its style sheets are there, and what arrives after
+  is handled as it comes (a slowly arriving shop was white for about 2 s, now
+  never); a page that may say "dark already" is judged at DOMContentLoaded as
+  before (tests/test_dark_engine_detect.py).
+- **No white flash in frames**: a page in a frame is covered dark until the
+  engine has mapped it, then a frame meant to be transparent is transparent
+  again (Speedometer 3.1: frames with more than a quarter of light pixels 211
+  → 12, the rest its grey picture placeholders).
+- **AUTOMAT follows Dark Reader's lists only**: the engine, its builder and its
+  re-anchoring are gone (`tools/build-darkreader-lists.py` rebuilds the
+  shipped lists byte for byte with `ike/darklists.py`'s own functions); the
+  lists are checked every day and fetched by the browser itself (no
+  candidate).
+- The Dark Engine's check on the owner's computer also writes `diagnose.txt`:
+  the large light areas the engine left and where their colour comes from (a
+  rule of a sheet, an inline style, a sheet the page cannot read, a frame, a
+  picture).
+
 ## 1.1.28
 
 - **The I.K.E. Dark Engine** (the owner's decision): I.K.E.'s own dark mode
