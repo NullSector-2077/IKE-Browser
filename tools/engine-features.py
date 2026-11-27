@@ -82,9 +82,15 @@ def source_at(version, path, opener=urllib.request.urlopen):
         raise RuntimeError(type(e).__name__)
 
 
-def check(names, chromium, search=gh_search, source=source_at):
+MAX_FILES = 6
+SEARCH_PAUSE = 7                # GitHub's code search: 10 questions a minute
+
+
+def check(names, chromium, search=gh_search, source=source_at, pause=None):
     """[{"name", "main", "now", "file"}]: "present", "absent" or "not verified" on Chromium's development branch
     (main) and at the users' version (now)."""
+    import time
+    pause = pause or (lambda: time.sleep(SEARCH_PAUSE))
     rows = []
     for name in names:
         row = {"name": name, "main": "not verified", "now": "not verified", "file": ""}
@@ -92,22 +98,29 @@ def check(names, chromium, search=gh_search, source=source_at):
             paths = [p for p in search('"%s" repo:chromium/chromium' % name) if p.endswith((".cc", ".h", ".mm"))]
         except Exception:
             rows.append(row)
+            pause()
             continue
         row["main"] = "present" if paths else "absent"
         if paths and VERSION.match(chromium or ""):
-            for path in paths[:4]:
+            # the declaring file is a .cc (a header only names the feature): those first. "absent" only when every
+            # file read at the users' version lacks the declaration (2026-11-27: a header read first said absent)
+            ordered = sorted(paths, key=lambda p: (not p.endswith(".cc"), p))[:MAX_FILES]
+            read = 0
+            for path in ordered:
                 try:
                     text = source(chromium, path)
                 except Exception:
                     continue
-                if text is not None and declares(text, name):
+                if text is None:
+                    continue
+                read += 1
+                if declares(text, name):
                     row["now"], row["file"] = "present", path
                     break
-                if text is not None:
-                    row["now"] = "absent"           # the file is there, without the declaration
-            if row["now"] == "absent":
-                row["file"] = paths[0]
+            if row["now"] != "present" and read == len(ordered):
+                row["now"] = "absent"
         rows.append(row)
+        pause()
     return rows
 
 
