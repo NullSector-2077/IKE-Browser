@@ -87,7 +87,8 @@ BURGER = (
          "act_reopen", "act_search_tabs", "act_split", "-",
          "act_close_tab", "act_close_window",
          ("inline", "m_containers"), ("inline", "m_workspaces"), ("inline", "m_profiles"))),
-    ("category", "page", _t("Web page"), ("text-html", "internet-web-browser", "applications-internet"),
+    ("category", "page", _t("Web page"), ("internet-web-browser", "applications-internet", "text-html",
+                                             "view-readermode"),
      _t("Find, zoom, read, translate, dark mode and the page's source"), (
          "act_find", "act_reader", "act_translate", "act_fullscreen",
          ("section", _t("Zoom")), "act_zoom_in", "act_zoom_out", "act_zoom_reset",

@@ -649,7 +649,7 @@ class SettingsDialog(QDialog):
                            "translation of pages.")),
             "appearance": (self._appearance, ("preferences-desktop-theme", "preferences-desktop"),
                            T("Colours and icons of I.K.E., the window's bars and the toolbar's buttons.")),
-            "sites": (self._sites, ("internet-web-browser", "applications-internet", "text-html"),
+            "sites": (self._sites, ("internet-web-browser", "applications-internet", "text-html", "view-readermode"),
                       T("How pages are shown: their size, dark mode, sound and protected videos.")),
             "newtab": (self._newtab_page, ("tab-new", "document-new"),
                        T("What the page of a new tab shows: tiles, clock, weather and a photo.")),
