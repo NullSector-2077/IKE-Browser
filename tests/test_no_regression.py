@@ -1708,6 +1708,121 @@ def test_round_seven_the_matrix_measures_a_changes_own_values_and_values_off_the
     assert axes.derive(guard.axis_literals("ike/resources/fingerprint.js", old, new)) == {"viewport-width": [1599, 1600, 1601]}
     assert "matrix_literals" in (ROOT / "tools/no-regression.py").read_text("utf-8")
 
+def test_round_eight_no_indirect_definer_no_inherited_name_only_values_the_probe_sets():
+    """Fable's fourth review of the guard (fragments on a toy script, 2026-11-25): a protected property was
+    wrapped again through wrap.call/apply/bind, Reflect.apply(wrap), (0, wrap)(), an alias, `new`, an alias
+    of Object; a getter of `then` or `toString` (names every object has) passed as a new disguise; Temporal was
+    not among the language's objects; conditions were accepted on values the probe never sets (a text such
+    as 'pt_BR.UTF-8', resolvedOptions().locale, aspect-ratio and em in a media query, a truth test of a read).
+    Each is refused now; the honest forms still pass."""
+    guard = load("fix-guard")
+    name = "ike/resources/fingerprint.js"
+    old = (ROOT / name).read_text("utf-8")
+    end = "  try { realms.add(window.Function); } catch (e) {}\n"
+
+    def after(x):
+        return guard.file_problems(name, old, old.replace(end, end + "  try { %s } catch (e) {}\n" % x, 1))
+    hc = "Navigator.prototype, 'hardwareConcurrency'"
+    for x in ("wrap.call(null, %s, function (o) { return o; });" % hc,
+              "wrap.apply(null, [%s, function (o) { return o; }]);" % hc,
+              "Reflect.apply(wrap, null, [%s, function (o) { return o; }]);" % hc,
+              "(0, wrap)(%s, function (o) { return o; });" % hc,
+              "var w3 = wrap; w3(%s, function (o) { return o; });" % hc,
+              "var w2 = wrap.bind(null, Navigator.prototype); w2('hardwareConcurrency', function (o) { return o; });",
+              "new wrap(%s, function (o) { return o; });" % hc,
+              "(0, Object.defineProperty)(%s, { value: 8 });" % hc):
+        assert any("indirect use" in p for p in after(x)), (x, after(x))
+    for x in ("var O = Object; O.defineProperty(%s, { value: 8 });" % hc,
+              "var O = window.Object; O.defineProperty(%s, { value: 8 });" % hc):
+        assert any("use of Object itself" in p for p in after(x)), (x, after(x))
+    for n in ("then", "toString", "valueOf", "toJSON"):
+        found = after("getter(Navigator.prototype, '%s', function () { return 1; });" % n)
+        assert any("every object has" in p for p in found), (n, found)
+    assert any("language's own objects" in p for p in after(
+        "getter(Temporal.Instant.prototype, 'fresh1', function () { return 1; });"))
+    for x in ("if (navigator.language === 'pt_BR.UTF-8') { var q = 1; }",
+              "if (Intl.DateTimeFormat().resolvedOptions().locale === 'fr-CA') { var q = 1; }",
+              "if (matchMedia('(min-aspect-ratio: 21/9)').matches) { var q = 1; }",
+              "if (matchMedia('(min-width: 100em)').matches) { var q = 1; }",
+              "if (matchMedia('(orientation: portrait)').matches) { var q = 1; }",
+              "if (matchMedia('(hover: hover)').media.length > 3) { var q = 1; }",
+              "if (navigator.hardwareConcurrency) { var q = 1; }",
+              "if (!navigator.deviceMemory) { var q = 1; }"):
+        assert any("no measurement covers" in p for p in after(x)), (x, after(x))
+    for x in ("if (Intl.DateTimeFormat().resolvedOptions().timeZone === 'Europe/Berlin') { var q = 1; }",
+              "if (matchMedia('(pointer: coarse)').matches) { var q = 1; }",
+              "if (matchMedia('screen and (max-width: 800px)').matches) { var q = 1; }",
+              "if (navigator.language === 'pt-BR') { var q = 1; }",
+              "if (navigator.maxTouchPoints > 0) { var q = 1; }",
+              "wrap(Navigator.prototype, 'freshName', function (o) { return function () { return 0; }; });",
+              "[1, 2].forEach(function (n) { wrap(Navigator.prototype, 'fresh' + 'Two', function (o) { return o; }); });"):
+        assert after(x) == [], (x, after(x))
+
+
+def test_round_eight_the_matrix_meets_every_combination_of_a_changes_values():
+    """Fable's fourth review: `screen.width === 1600 && hardwareConcurrency === 6 && deviceMemory === 2` was true
+    in no session (the pairs meet two values, never three). Every combination of a change's own values is now
+    measured at every level, up to MAX_JOINT; beyond it the run is not verified."""
+    axes = load("env-axes")
+    lit = [{"read": "screen.width", "op": "===", "value": 1600}, {"read": "hardwareConcurrency", "op": "===", "value": 6},
+           {"read": "deviceMemory", "op": "===", "value": 2}]
+    rows = axes.sessions(11, literals=lit)
+    for level in dict(axes.AXES)["level"]:
+        assert any(r["screen"][0] == 1600 and r["cores"] == 6 and r["memory"] == 2 and r["level"] == level
+                   for r in rows), level
+        assert any(r["screen"][0] == 1601 and r["cores"] == 5 and r["memory"] == 3 and r["level"] == level
+                   for r in rows), level
+    assert not axes.too_many(lit)
+    assert axes.too_many(lit + [{"read": "timeZone", "op": "===", "value": "Europe/Berlin"},
+                                {"read": "devicePixelRatio", "op": ">", "value": 1.4}])
+    one = [{"read": "screen.width", "op": "===", "value": 1600}]
+    assert not any(str(r.get("derived", "")).startswith("joint") for r in axes.sessions(11, literals=one))
+    assert axes.media_measured("(pointer: coarse)") and axes.media_measured("(min-resolution: 1.5dppx)")
+    assert not axes.media_measured("(min-aspect-ratio: 21/9)") and not axes.media_measured("(prefers-contrast: more)")
+    assert axes.read_measured("navigator.language", "===", "pt-BR")
+    assert not axes.read_measured("navigator.language", "===", "pt_BR.UTF-8")
+    assert not axes.read_measured("screen.orientation", "===", "portrait-primary")
+
+
+# the weakened copies measured in round 7 and 8 (docs/MAINTENANCE.md, the PR's table): every one refused
+_B = "  install(window);\n"
+_E = "  try { realms.add(window.Function); } catch (e) {}\n"
+_GATE = ("  var tc = realCores;\n  if (%s) { getter(Navigator.prototype, 'hardwareConcurrency', "
+         "function () { return tc; }); }\n")
+WEAKENED_COPIES = {
+    "J1throw": (_B, "  var zz = ({}).a.b;\n" + _B), "J1b": (_B, "  var zf = 0; zf();\n" + _B),
+    "J1c": (_B, "  function rr() { rr(); }\n  rr();\n" + _B), "J1d": (_B, "  var za = new Array(-1);\n" + _B),
+    "J1e": (_B, "  var zb = 1n + 1;\n" + _B), "J1f": (_B, "  { zc; let zc = 1; }\n" + _B),
+    "J2": (_B, "  if (screen.width === 1600) { var zz = ({}).a.b; }\n" + _B),
+    "J3": ("(function () {\n  'use strict';\n", "(function () {\n  0;\n  'use strict';\n"),
+    "J4": (_B, "  wrap(String.prototype, 'charCodeAt', function (orig) { return function () { return 0; }; });\n" + _B),
+    "J5": (_E, _E + "  install(window);\n"),
+    "G1": (_B, _GATE % "devicePixelRatio !== 1" + _B), "G2": (_B, _GATE % "innerWidth > 3000" + _B),
+    "G3": (_B, _GATE % "matchMedia('(pointer: coarse)').matches" + _B),
+    "H1": (_E, _E + _GATE % "devicePixelRatio !== 1"), "H2": (_E, _E + _GATE % "innerWidth > 3000"),
+    "H3": (_E, _E + _GATE % "matchMedia('(pointer: coarse)').matches"),
+    "I1": (_E, _E + _GATE % "navigator.hardwareConcurrency === 6"),
+    "I2": (_E, _E + _GATE % "Intl.DateTimeFormat().resolvedOptions().timeZone === 'Europe/Berlin'"),
+    "I3": (_E, _E + _GATE % "innerWidth === 1600"),
+    "audio-tenth": ("% 2001) - 1000) / 1000000;", "% 2001) - 1000) / 10000000;"),
+    "audio-off": ("      return 1 + (((x >>> 0) % 2001)", "      return 1 || (((x >>> 0) % 2001)"),
+    "K1": (_E, _E + _GATE % ("screen.width === 1600 && navigator.hardwareConcurrency === 6 && "
+                            "navigator.deviceMemory === 2")),
+    "K2": (_E, _E + "  try { wrap.call(null, Navigator.prototype, 'hardwareConcurrency', function (o) "
+                    "{ return function () { return realCores; }; }); } catch (e) {}\n"),
+}
+
+
+@pytest.mark.parametrize("what", sorted(WEAKENED_COPIES))
+def test_every_weakened_copy_measured_is_refused_by_the_guard(what):
+    guard = load("fix-guard")
+    name = "ike/resources/fingerprint.js"
+    old = (ROOT / name).read_text("utf-8")
+    a, b = WEAKENED_COPIES[what]
+    assert old.count(a) == 1, what
+    assert guard.file_problems(name, old, old.replace(a, b, 1)), what
+
+
 def test_the_reviewers_see_the_fingerprinting_rows():
     """N5: what "Nothing gets worse" found changed in the fingerprinting on an AI's commit is added to what
     the two reviewers read (the artifact tests-checks of its run of tests.yml)."""

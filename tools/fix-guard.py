@@ -877,6 +877,12 @@ def page_script_problems(name, run, had, known=(), structural=True):
 #      old script's pure helpers and its property helpers (PAGE_HELPERS: install(window) again is a
 #      person's); a measured value counts as measured only compared with a literal (the probe adds sessions
 #      at that value and beside it: axis_literals, tools/env-axes.py derive).
+#  (h) round 8 (Fable's fourth review): use a function that defines properties other than as the direct
+#      callee of a call (wrap.call, .apply, .bind, Reflect.apply(wrap), (0, wrap)(), an alias, new, a tag),
+#      or Object and Reflect other than by their functions' names; define a name every object has
+#      (INHERITED_NAMES: then, toString, valueOf...); compare a covered read with a value the probe cannot
+#      set (tools/env-axes.py read_measured, media_measured). The probe measures every combination of a
+#      change's own values (env-axes.py _joint_rows).
 # A text that does not parse is refused (and the rules on lines say what they see).
 
 ENV_NAMES = frozenset("""

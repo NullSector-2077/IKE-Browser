@@ -219,15 +219,40 @@ covers. Where an older paragraph below still says "waits for a person" or
      `sslice`, `rng`... and `wrap`, `getter`, `setter`, which rule (f)
      judges). `install(window)` again, or any other old function, is a
      person's to call.
-   - *A measured value, as the matrix measures it.* It may be compared with
-     a literal, negated, or be a condition's own test. A value kept in a name
-     and compared later is not measured. The touch points are compared only
-     with 0 to 5.
+   - *A measured value, as the matrix measures it.* It is compared with a
+     literal the probe can set (round 8: `tools/env-axes.py read_measured`;
+     a text such as `'pt_BR.UTF-8'` or a read with no axis, such as the
+     orientation, is refused). A value kept in a name and compared later is
+     not measured, nor a truth test of a read (`!navigator.deviceMemory`,
+     `cores || 4`), nor a method of its result
+     (`resolvedOptions().locale`). The touch points are compared only with 0
+     to 5 (or tested for truth: 0 and 5 are both in the matrix). `matchMedia`
+     counts only as `matchMedia(q).matches`, with a query whose every feature
+     the matrix sets on both sides (`media_measured`: widths, heights and
+     resolutions in px or dppx, pointer, hover, colour scheme, motion, forced
+     colours; not aspect-ratio, orientation, `em` or `prefers-contrast`).
    - *One re-wrap opening.* A property the old script protects may be wrapped
      again only as a copy of one of its old calls with exactly the names the
      engine renamed changed (`tools/engine-renames.json`, written by
      AUTOMAT's recipes from the engine's interfaces, tier B; empty today):
      never a changed body, and every other name must mean what it meant.
+
+   **Round 8** (Fable's fourth review, by fragments on a toy script) added:
+   - *Definers only called directly.* A function that defines a property
+     (`wrap`, `getter`, `setter`, any old helper that defines one, an alias
+     such as `DEFPROP`, `Object.defineProperty` and the like) appears in new
+     code only as the direct callee of a call, where rule (f) judges what it
+     is given. `wrap.call(...)`, `wrap.apply`, `wrap.bind`,
+     `Reflect.apply(wrap, ...)`, `(0, wrap)(...)`, an alias, `new wrap(...)`
+     and a tag re-wrapped a protected property. `Object` and `Reflect` are
+     used only by their functions' names (an alias of `Object` hid
+     `defineProperty`).
+   - *No name every object has.* No new getter or definition of `then`,
+     `toString`, `valueOf`, `toJSON`, `constructor` or the well-known
+     symbols: the old code's coercions and promises look them up.
+   - *More of the language's objects.* `Temporal`, `WebAssembly`,
+     `DOMException`, `Float16Array`, `AsyncIterator` and `console` join
+     `BUILTINS`.
 
    *What it accepts and refuses*, measured on 2026-11-25:
    - **Weakened copies:** all 46 made in the reviews are refused. These
@@ -2824,7 +2849,11 @@ computer) and without a display, with the real browser of each commit:
   and beside it (1599, 1600, 1601: a threshold measured on both sides), at
   every level, the zoom at 100 % so the page reads exactly that value. The
   same values join the pairs, and both sides measure them alike. More than
-  24 such values make the run not verified.
+  24 such values make the run not verified. Since round 8 (a condition
+  joining a width, a number of cores and an amount of memory was true in no
+  session: the pairs meet two values, never three) every combination of a
+  change's own values, one of each kind, is measured at every level; more
+  than 128 such sessions (`MAX_JOINT`) make the run not verified.
 
   Each session is a page of its own in one browser run, with a noise key of
   its own (the run's keys in turn), so every one of the few values `main`
@@ -3139,7 +3168,9 @@ computer; it now has 10 s), 6 more with round 5's measures (2026-11-25,
 passes; the 240 pairs of 16 snapshots with independent keys, each with its
 56 sessions of the matrix, gave none worse. With round 7's matrix (64
 sessions, off-grid values included) 6 more gave 6 passes, and of 240 more
-pairs one was worse. That one came from the hidden extensions' list on the
+pairs one was worse; with round 8's guard and matrix (`main` 462d854, the
+same fingerprint.js as 1.1.27's) 6 more gave 6 passes, about 330 s each,
+two at once on 4 cores. That one worse pair came from the hidden extensions' list on the
 first machine, fewer names changed than on `main` in the sessions' mean
 (4.62 against 3.12), a chance the estimate above allows, not the matrix. A
 check takes about 365 s on a 4-core computer running two at once (the late
