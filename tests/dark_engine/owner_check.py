@@ -76,6 +76,31 @@ SITES = {
 EXPECTED_CONTENT = {}
 
 
+def _in_unreadable(urls, names):
+    """The sheets the page cannot read, fetched here (no cookies): where they
+    define the variables of the light areas (definitions and @property)."""
+    import re
+    import urllib.request
+    lines = []
+    if not names:
+        return lines
+    for u in urls:
+        if not u.startswith(("http://", "https://")):
+            continue
+        try:
+            req = urllib.request.Request(u.split("#")[0], headers={"User-Agent": "Mozilla/5.0"})
+            text = urllib.request.urlopen(req, timeout=20).read(4 * 1024 * 1024).decode("utf-8", "replace")
+        except Exception as e:                      # noqa: BLE001 - a report, never a failure
+            lines.append("   (could not fetch %s: %s)" % (u[:100], e))
+            continue
+        for n in sorted(names):
+            hits = [m.start() for m in re.finditer(r"(@property\s+)?" + re.escape(n) + r"\s*[:{]", text)][:4]
+            for h in hits:
+                s = text.rfind("}", 0, h) + 1
+                lines.append("   in unreadable sheet %s: %s" % (u[:70], " ".join(text[max(s, h - 160):h + 120].split())))
+    return lines
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("out", nargs="?", default=str(Path.home() / ("ike-dark-check-" + datetime.date.today().isoformat())))
@@ -154,6 +179,7 @@ def main():
             continue
         if not d:
             continue
+        wanted = set()
         diag.append("== %s: %d sheets (%d the page cannot read), %d frames"
                     % (n, d.get("sheets", 0), len(d.get("unreadable", [])), d.get("frames", 0)))
         for u in d.get("unreadable", []):
@@ -163,8 +189,16 @@ def main():
                         " frame " + e["frame"] if e.get("frame") else "", " (shadow host)" if e.get("shadowHost") else ""))
             for r in e.get("rules", []):
                 diag.append("      rule: %s" % r)
+            for v in e.get("vars", []):
+                diag.append("      variable %s = %s" % (v["name"], v["value"] or "(empty)"))
+                for w in v.get("where", []) + v.get("property", []):
+                    diag.append("         %s" % w)
+                for a in v.get("ancestors", []):
+                    diag.append("         inside %s" % a)
+                wanted.add(v["name"])
             if e.get("inline"):
                 diag.append("      inline style: %s" % e["inline"])
+        diag.extend(_in_unreadable(d.get("unreadable", []), wanted))
     (out / "diagnose.txt").write_text("\n".join(diag) + "\n")
     print((out / "metrics.txt").read_text())
     print("\n".join(lines))

@@ -93,6 +93,20 @@ function rulesFor(el){var found=[];function walk(list,href){for(var j=0;j<list.l
  try{if(r.selectorText&&r.style&&(r.style.backgroundColor||r.style.background)&&el.matches(r.selectorText))found.push((href||'inline')+' :: '+r.selectorText.slice(0,80)+' { background: '+(r.style.backgroundColor||r.style.background).slice(0,60)+' }');
  else if(r.cssRules)walk(r.cssRules,href);}catch(e){}}}
  for(var k=0;k<sheets.length;k++)walk(sheets[k].cssRules,(sheets[k].href||'').slice(-60));return found;}
+// where a variable used by a light area's rules gets its value: the element and
+// its ancestors (a style attribute, a rule of a readable sheet), @property
+function varsOf(list){var names={};list.forEach(function(s){var re=/var\(\s*(--[\w-]+)/g,m;while((m=re.exec(s)))names[m[1]]=1;});return Object.keys(names).slice(0,4);}
+function definedAt(el,name){var res=[],props=[];
+ function walk(list,href){for(var j=0;j<list.length;j++){var r=list[j];try{
+  if(r.constructor&&r.constructor.name==='CSSPropertyRule'&&r.name===name)props.push('@property '+name+' initial-value '+r.initialValue+' inherits '+r.inherits+' ('+(href||'inline')+')');
+  else if(r.selectorText&&r.style&&r.style.getPropertyValue(name))walkRule(r,href);
+  else if(r.cssRules)walk(r.cssRules,href);}catch(e){}}}
+ var chain=[];for(var a=el;a&&a.nodeType===1&&chain.length<20;a=a.parentElement)chain.push(a);
+ function walkRule(r,href){for(var c=0;c<chain.length;c++){try{if(chain[c].matches(r.selectorText)){res.push('rule on '+label(chain[c])+' :: '+(href||'inline')+' :: '+r.selectorText.slice(0,80)+' { '+name+': '+r.style.getPropertyValue(name).trim().slice(0,60)+(r.style.getPropertyPriority(name)?' !important':'')+' }');return;}}catch(e){}}}
+ for(var k=0;k<sheets.length&&res.length<6;k++)walk(sheets[k].cssRules,(sheets[k].href||'').slice(-60));
+ for(var c=0;c<chain.length;c++){var at=chain[c].getAttribute('style')||'';if(at.indexOf(name)>=0)res.push('style attribute on '+label(chain[c])+': '+at.slice(Math.max(0,at.indexOf(name)-20),at.indexOf(name)+80));}
+ return {name:name,value:getComputedStyle(el).getPropertyValue(name).trim().slice(0,80),where:res.slice(0,8),property:props.slice(0,2),
+  ancestors:chain.slice(0,4).map(function(a){var o=a.outerHTML;return o.slice(0,o.indexOf('>')+1).slice(0,240);})};}
 var out=[],all=document.querySelectorAll('body *'),W=innerWidth,H=innerHeight;
 for(var i=0;i<all.length&&out.length<25;i++){var e=all[i],r=e.getBoundingClientRect();
  if(r.width*r.height<W*H*0.01||r.bottom<0||r.top>H||r.right<0||r.left>W)continue;
@@ -102,7 +116,8 @@ for(var i=0;i<all.length&&out.length<25;i++){var e=all[i],r=e.getBoundingClientR
  if(!light&&!(/^(IMG|IFRAME|CANVAS|VIDEO|EMBED|OBJECT)$/.test(e.tagName)))continue;
  out.push({el:label(e),rect:[Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)],
   bg:cs.backgroundColor,image:img.slice(0,80),inline:(e.getAttribute('style')||'').slice(0,120),
-  shadowHost:!!e.shadowRoot,frame:e.tagName==='IFRAME'?(e.src||'(no src)').slice(0,80):null,rules:light?rulesFor(e):[]});}
+  shadowHost:!!e.shadowRoot,frame:e.tagName==='IFRAME'?(e.src||'(no src)').slice(0,80):null,rules:light?rulesFor(e):[]});
+ var last=out[out.length-1];if(last.rules.length)last.vars=varsOf(last.rules).map(function(n){return definedAt(e,n);});}
 return JSON.stringify({light:out,unreadable:unreadable.slice(0,20),sheets:document.styleSheets.length,
  adopted:document.adoptedStyleSheets.length,frames:document.querySelectorAll('iframe').length});})()"""
 

@@ -1,7 +1,8 @@
 """The I.K.E. Dark Engine on the hard cases of modern sites (an independent review
 of round 3): Tailwind's colours with a variable alpha, colour channels in
 variables (design systems, shadcn/ui), editors whose text must stay the user's,
-gradient text, charts, shadow roots on plain elements, pages that name their
+gradient text, charts, shadow roots on plain elements, registered custom
+properties (@property's initial value), pages that name their
 elements like the document's own methods, logical borders, animations, a dark
 hero over a light page, and a frame filled by script. Real engine, local pages.
 """
@@ -52,6 +53,16 @@ PAGES = {
     "hero": """<!doctype html><style>body{background:#fff;color:#222;margin:0}
       .hero{background:#111;color:#fff;height:100vh}</style><div class="hero">Welcome</div>""" + LONG,
     "print": """<!doctype html><style>body{background:#ffffff;color:#222}</style><p>Printed page</p>""",
+    "registered": """<!doctype html><style>body{background:#fff;color:#111;margin:0}
+      @property --band-bg { syntax: '<color>'; inherits: true; initial-value: #ffffff; }
+      @property --card-bg { syntax: '<color>'; inherits: false; initial-value: rgb(250, 250, 250); }
+      @property --ink { syntax: '<color>'; inherits: true; initial-value: #222222; }
+      .band .inner{background:var(--band-bg);color:var(--ink);height:120px}
+      .card{background-color:var(--card-bg);height:60px}
+      .own{--band-bg:#fffbe6}</style>
+      <div class="band"><div id="band" class="inner">A band of the home page</div></div>
+      <div id="card" class="card">Card</div>
+      <div class="band own"><div id="own" class="inner">Its own colour</div></div>""",
     "frame": """<!doctype html><style>body{background:#fff;color:#222}</style><iframe id="fr" width="300" height="120"></iframe>
       <script>var d=document.getElementById('fr').contentDocument;
       d.body.innerHTML='<p id="x" style="background:#ffffff;color:#222222">Message in a frame</p>';</script>""",
@@ -107,6 +118,9 @@ READS = {
     "print": "dispatchEvent(new Event('beforeprint'));var a=getComputedStyle(document.body).backgroundColor;"
              "dispatchEvent(new Event('afterprint'));var b=getComputedStyle(document.body).backgroundColor;"
              "return {printed:a,after:b}",
+    "registered": "function s(i){return getComputedStyle(document.getElementById(i));}"
+                  "return {band:s('band').backgroundColor,ink:s('band').color,card:s('card').backgroundColor,"
+                  "own:s('own').backgroundColor}",
     "frame": "var p=document.getElementById('fr').contentDocument.getElementById('x');"
              "return {bg:getComputedStyle(p).backgroundColor,color:getComputedStyle(p).color}",
 }
@@ -166,5 +180,8 @@ def test_hard_cases(run_ike, site):
     assert light(p["body"]) < 0.3, p                                            # darkened, not left as it is
     p = out["print"]
     assert p["printed"] == "rgb(255, 255, 255)" and light(p["after"]) < 0.3, p    # paper gets the page's colours
+    p = out["registered"]                                                       # @property's initial values
+    assert light(p["band"]) < 0.3 and light(p["card"]) < 0.3 and light(p["ink"]) > 0.6, p
+    assert light(p["own"]) < 0.3 and p["own"] != p["band"], p                  # the page's own value still wins
     p = out["frame"]
     assert light(p["bg"]) < 0.3 and light(p["color"]) > 0.6, p

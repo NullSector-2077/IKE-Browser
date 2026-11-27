@@ -22,6 +22,14 @@
   engine has mapped it, then a frame meant to be transparent is transparent
   again (Speedometer 3.1: frames with more than a quarter of light pixels 211
   → 12, the rest its grey picture placeholders).
+- **Colours kept in registered variables are darkened too**: a page that
+  gives a colour only as the initial value of a registered custom property
+  (`@property --x { initial-value: #fff }`, used as `var(--x)`) kept it light,
+  so a band of a shop's home page stayed white under text made light. The
+  engine now sets the mapped value with no specificity (at the root, or on
+  every element when the property is not inherited), so a value the page sets
+  itself still wins (tests/test_dark_engine_hard.py). The owner's check also
+  says where a light area's variables get their value.
 - **AUTOMAT follows Dark Reader's lists only**: the engine, its builder and its
   re-anchoring are gone (`tools/build-darkreader-lists.py` rebuilds the
   shipped lists byte for byte with `ike/darklists.py`'s own functions); the

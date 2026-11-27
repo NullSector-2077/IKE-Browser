@@ -641,6 +641,24 @@
     }
     stats.rules++;
   }
+  // a registered custom property (@property) gives its initial value where
+  // nothing sets it: a page's light default would stay light (a band of a
+  // shop's home page drawn with background: var(--background-color), the
+  // colour only in @property's initial-value). Its mapped value is set with no
+  // specificity at the root (inherited) or on every element (not inherited), so
+  // any value the page sets itself, mapped where it is, still wins.
+  var registeredDone = new WeakMap();
+  function isPropertyRule(r) { return typeof r.inherits === 'boolean' && 'initialValue' in r && typeof r.name === 'string'; }
+  function registered(r) {
+    var sheet = baseSheet || (baseEl && baseEl.sheet);
+    if (!sheet || !r.initialValue || r.name.indexOf('--') !== 0) return;
+    var done = registeredDone.get(sheet);
+    if (!done) registeredDone.set(sheet, done = new Set());
+    if (done.has(r.name)) return;
+    done.add(r.name);
+    var d = defineVar(r.name, r.initialValue);
+    if (d) try { sheet.insertRule((r.inherits ? ':where(:root)' : ':where(*)') + '{' + d + '}', sheet.cssRules.length); } catch (e) {}
+  }
   function inPlace(list, base, from) {
     for (var i = from || 0; i < list.length; i++) {
       var r = list[i];
@@ -651,6 +669,8 @@
         inPlace(r.cssRules, base, 0);
       } else if (r.styleSheet) {                     // @import
         try { inPlace(r.styleSheet.cssRules, r.styleSheet.href || base, 0); } catch (e) {}
+      } else if (isPropertyRule(r)) {
+        registered(r);
       }
     }
   }
@@ -675,6 +695,8 @@
         else out.push(inner.join('\n'));
       } else if (r.styleSheet) {                     // @import
         try { rules(r.styleSheet.cssRules, out, r.styleSheet.href || base, again); } catch (e) {}
+      } else if (isPropertyRule(r)) {
+        registered(r);
       }
     }
   }
