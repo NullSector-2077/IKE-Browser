@@ -137,7 +137,7 @@ def main():
             (Path(tmp) / n / "manifest.json").write_text(json.dumps(
                 {"url": u, "entry": "index", "site": urllib.parse.urlsplit(u).hostname,
                  "expected_content": EXPECTED_CONTENT.get(n)}))
-        env = dict(os.environ, QT_QPA_PLATFORM=os.environ.get("QT_QPA_PLATFORM", "offscreen"), DE_DIAG="1", DE_CLICK=a.click)
+        env = dict(os.environ, QT_QPA_PLATFORM=os.environ.get("QT_QPA_PLATFORM", "offscreen"), DE_DIAG="1", DE_CLICK=a.click, DE_SCROLL="1")
         # Dark Reader left I.K.E. in 1.1.29: it is compared only when a checkout of 1.1.28
         # is given (DE_DR_ROOT, tests/dark_engine/drcompare.py)
         global MODES
@@ -182,8 +182,8 @@ def main():
     (out / "times.txt").write_text("\n".join(lines) + "\n")
     # the light areas left by the Dark Engine and where their colour comes from (diagnose.txt)
     diag = []
-    for n in names:
-        p = shots / ("%s__proto.diag.json" % n)
+    for n, m in [(n, m) for n in names for m in MODES if m.startswith("proto")]:
+        p = shots / ("%s__%s.diag.json" % (n, m))
         try:
             d = json.loads(p.read_text())
         except (OSError, ValueError):
@@ -191,8 +191,9 @@ def main():
         if not d:
             continue
         wanted = set()
-        diag.append("== %s: %d sheets (%d the page cannot read), %d frames"
-                    % (n, d.get("sheets", 0), len(d.get("unreadable", [])), d.get("frames", 0)))
+        diag.append("== %s%s: %d sheets (%d the page cannot read), %d frames"
+                    % (n, "" if m == "proto" else " (" + m + ")", d.get("sheets", 0), len(d.get("unreadable", [])),
+                       d.get("frames", 0)))
         for u in d.get("unreadable", []):
             diag.append("   unreadable sheet: %s" % u)
         for e in d.get("light", []):

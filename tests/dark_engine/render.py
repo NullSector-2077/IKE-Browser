@@ -426,12 +426,25 @@ def main():
 
         # DE_CLICK=text: a button or link with that text is clicked first (a site's
         # age or cookie question), then the page is given the time to settle again
+        # DE_SCROLL=1: the page is scrolled down six screens and back first, as a
+        # reader does, so that what a page loads only when it is reached is there
+        def scroll_then_shoot():
+            if job["finished"]:
+                return
+            if not os.environ.get("DE_SCROLL"):
+                shoot()
+                return
+            page.runJavaScript(
+                "(function(){var i=0,h=innerHeight;var t=setInterval(function(){i++;scrollTo(0,i*h/2);"
+                "if(i>=12){clearInterval(t);setTimeout(function(){scrollTo(0,0)},800);}},300);})()", 0,
+                lambda _: None if job["finished"] else QTimer.singleShot(6000, shoot))
+
         def click_then_shoot():
             if job["finished"]:
                 return
             text = os.environ.get("DE_CLICK", "")
             if not text:
-                shoot()
+                scroll_then_shoot()
                 return
             page.runJavaScript(
                 "(function(t){t=t.toLowerCase();var es=document.querySelectorAll('button,a,[role=button],input[type=submit]');"
@@ -439,7 +452,7 @@ def main():
                 "if(s&&s.indexOf(t)>=0){es[i].click();return true;}}return false;})(%s)" % json.dumps(text), 0,
                 lambda clicked: None if job["finished"] else (
                     print("clicked", mode, name, bool(clicked), flush=True),
-                    QTimer.singleShot(max(settle, 4000), shoot)))
+                    QTimer.singleShot(max(settle, 4000), scroll_then_shoot)))
 
         def poll():
             if job["finished"]:
