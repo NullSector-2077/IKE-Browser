@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "Video DRM (Widevine): neinstalat — Netflix și servicii similare nu vor reda",
 "Dark": "Întunecat",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (poate fi setat pentru fiecare site, imediat)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader oferă culori mai bune; cel din Chromium este integrat în motor și mai ușor.",
 "Dark mode for pages": "Mod întunecat pentru pagini",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Modul întunecat pentru pagini va fi dezactivat. I.K.E. trebuie repornit pentru a-l aplica; filele vor fi redeschise. Reporniți acum?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Modul întunecat pentru pagini va fi activat. I.K.E. trebuie repornit pentru a-l aplica; filele vor fi redeschise. Reporniți acum?",
@@ -1321,6 +1320,24 @@
 "W": "V",
 "NW": "NV",
 "Pressure": "Presiune",
-"Automatic goes with the temperature unit.": "Automat urmează unitatea de temperatură."
+"Automatic goes with the temperature unit.": "Automat urmează unitatea de temperatură.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "Modul întunecat propriu al I.K.E.: ușor și rapid",
+"Style": "Stil",
+"Graphite": "Grafit",
+"Midnight": "Miezul nopții",
+"Warm": "Cald",
+"Nordic": "Nordic",
+"Background depth": "Adâncimea fundalului",
+"Text brightness": "Luminozitatea textului",
+"Dim pictures": "Estompează imaginile",
+"Leave sites that are dark already as they are": "Lasă site-urile deja întunecate așa cum sunt",
+"Style, depth, text and pictures back to their defaults": "Stilul, adâncimea, textul și imaginile revin la valorile implicite",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine este propriu I.K.E.: culorile Dark Reader la jumătate din cost. Dark Reader rămâne disponibil; cel din Chromium este integrat în motor și cel mai ușor.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Culorile paginilor întunecate. Și în panoul butonului Mod întunecat din bara de instrumente.",
+"How dark the backgrounds are.": "Cât de întunecate sunt fundalurile.",
+"How bright the text is.": "Cât de luminos este textul.",
+"Photos and videos a little darker. 0%: as they are.": "Fotografii și videoclipuri puțin mai întunecate. 0%: ca atare.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Site-urile cu o temă întunecată proprie o păstrează, chiar dacă nu o declară."
 }
 }

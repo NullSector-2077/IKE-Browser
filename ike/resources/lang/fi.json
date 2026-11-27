@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM-video (Widevine): ei asennettu — Netflix ja vastaavat palvelut eivät toimi",
 "Dark": "Tumma",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (voidaan asettaa sivustokohtaisesti, välitön)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader antaa parempia värejä; Chromiumin oma on rakennettu moottoriin ja kevyempi.",
 "Dark mode for pages": "Tumma tila sivuille",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Sivujen tumma tila poistetaan käytöstä. I.K.E. täytyy käynnistää uudelleen, jotta muutos tulee voimaan; välilehtesi avataan uudelleen. Käynnistetäänkö uudelleen nyt?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Sivujen tumma tila otetaan käyttöön. I.K.E. täytyy käynnistää uudelleen, jotta muutos tulee voimaan; välilehtesi avataan uudelleen. Käynnistetäänkö uudelleen nyt?",
@@ -1321,6 +1320,24 @@
 "W": "L",
 "NW": "LU",
 "Pressure": "Ilmanpaine",
-"Automatic goes with the temperature unit.": "Automaattinen noudattaa lämpötilan yksikköä."
+"Automatic goes with the temperature unit.": "Automaattinen noudattaa lämpötilan yksikköä.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "I.K.E.:n oma tumma tila: kevyt ja nopea",
+"Style": "Tyyli",
+"Graphite": "Grafiitti",
+"Midnight": "Keskiyö",
+"Warm": "Lämmin",
+"Nordic": "Pohjoismainen",
+"Background depth": "Taustan syvyys",
+"Text brightness": "Tekstin kirkkaus",
+"Dim pictures": "Himmennä kuvia",
+"Leave sites that are dark already as they are": "Jätä jo tummat sivustot sellaisikseen",
+"Style, depth, text and pictures back to their defaults": "Tyyli, syvyys, teksti ja kuvat takaisin oletuksiin",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine on I.K.E.:n oma: Dark Readerin värit puolella kustannuksella. Dark Reader pysyy käytettävissä; Chromiumin oma on rakennettu moottoriin ja kevein.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Tummien sivujen värit. Myös työkalupalkin Tumma tila -painikkeen paneelissa.",
+"How dark the backgrounds are.": "Kuinka tummat taustat ovat.",
+"How bright the text is.": "Kuinka kirkasta teksti on.",
+"Photos and videos a little darker. 0%: as they are.": "Valokuvat ja videot hieman tummempia. 0%: sellaisenaan.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Sivustot, joilla on oma tumma teema, säilyttävät sen, vaikka eivät ilmoittaisi sitä."
 }
 }

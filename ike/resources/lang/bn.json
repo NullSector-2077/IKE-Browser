@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM ভিডিও (Widevine): ইনস্টল করা নেই — Netflix ও অনুরূপ পরিষেবা চলবে না",
 "Dark": "গাঢ়",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (প্রতি সাইটে ঠিক করা যায়, তাৎক্ষণিক)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader আরও ভালো রং দেয়; Chromium-এরটি ইঞ্জিনেই তৈরি এবং হালকা।",
 "Dark mode for pages": "পেজের জন্য ডার্ক মোড",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "পেজের জন্য ডার্ক মোড বন্ধ করা হবে। এটি কার্যকর করতে I.K.E. কে পুনরায় চালু করতে হবে; আপনার ট্যাবগুলো আবার খুলবে। এখনই পুনরায় চালু করবেন?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "পেজের জন্য ডার্ক মোড চালু করা হবে। এটি কার্যকর করতে I.K.E. কে পুনরায় চালু করতে হবে; আপনার ট্যাবগুলো আবার খুলবে। এখনই পুনরায় চালু করবেন?",
@@ -1321,6 +1320,24 @@
 "W": "পশ্চিম",
 "NW": "উত্তর-পশ্চিম",
 "Pressure": "বায়ুচাপ",
-"Automatic goes with the temperature unit.": "স্বয়ংক্রিয় বিকল্পটি তাপমাত্রার একককে অনুসরণ করে।"
+"Automatic goes with the temperature unit.": "স্বয়ংক্রিয় বিকল্পটি তাপমাত্রার একককে অনুসরণ করে।",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "I.K.E.-এর নিজস্ব ডার্ক মোড: হালকা ও দ্রুত",
+"Style": "স্টাইল",
+"Graphite": "গ্রাফাইট",
+"Midnight": "মধ্যরাত",
+"Warm": "উষ্ণ",
+"Nordic": "নর্ডিক",
+"Background depth": "পটভূমির গভীরতা",
+"Text brightness": "লেখার উজ্জ্বলতা",
+"Dim pictures": "ছবি ম্লান করুন",
+"Leave sites that are dark already as they are": "যেসব সাইট আগে থেকেই ডার্ক সেগুলো যেমন আছে তেমন রাখুন",
+"Style, depth, text and pictures back to their defaults": "স্টাইল, গভীরতা, লেখা ও ছবি ডিফল্টে ফিরিয়ে আনুন",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine I.K.E.-এর নিজস্ব: Dark Reader-এর রং অর্ধেক খরচে। Dark Reader পাওয়া যাবে; Chromium-এরটি ইঞ্জিনের ভেতরেই আছে এবং সবচেয়ে হালকা।",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "ডার্ক পেজের রং। টুলবারের ডার্ক মোড বোতামের প্যানেলেও আছে।",
+"How dark the backgrounds are.": "পটভূমি কতটা গাঢ়।",
+"How bright the text is.": "লেখা কতটা উজ্জ্বল।",
+"Photos and videos a little darker. 0%: as they are.": "ছবি ও ভিডিও একটু গাঢ়। 0%: যেমন আছে।",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "নিজস্ব ডার্ক থিমযুক্ত সাইট তা বজায় রাখে, ঘোষণা না করলেও।"
 }
 }

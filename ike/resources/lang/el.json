@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "Βίντεο DRM (Widevine): δεν είναι εγκατεστημένο — το Netflix και παρόμοιες υπηρεσίες δεν θα παίζουν",
 "Dark": "Σκούρο",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (ρυθμίζεται ανά ιστότοπο, άμεσα)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Το Dark Reader δίνει καλύτερα χρώματα· η δική του λειτουργία του Chromium είναι ενσωματωμένη στη μηχανή και πιο ελαφριά.",
 "Dark mode for pages": "Σκούρα λειτουργία για τις σελίδες",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Η σκούρα λειτουργία για τις σελίδες θα απενεργοποιηθεί. Το I.K.E. πρέπει να επανεκκινήσει για να εφαρμοστεί· οι καρτέλες σας θα ανοίξουν ξανά. Επανεκκίνηση τώρα;",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Η σκούρα λειτουργία για τις σελίδες θα ενεργοποιηθεί. Το I.K.E. πρέπει να επανεκκινήσει για να εφαρμοστεί· οι καρτέλες σας θα ανοίξουν ξανά. Επανεκκίνηση τώρα;",
@@ -1321,6 +1320,24 @@
 "W": "Δ",
 "NW": "ΒΔ",
 "Pressure": "Πίεση",
-"Automatic goes with the temperature unit.": "Το αυτόματο ακολουθεί τη μονάδα θερμοκρασίας."
+"Automatic goes with the temperature unit.": "Το αυτόματο ακολουθεί τη μονάδα θερμοκρασίας.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "Η δική του σκούρα λειτουργία του I.K.E.: ελαφριά και γρήγορη",
+"Style": "Στυλ",
+"Graphite": "Γραφίτης",
+"Midnight": "Μεσάνυχτα",
+"Warm": "Ζεστό",
+"Nordic": "Σκανδιναβικό",
+"Background depth": "Βάθος φόντου",
+"Text brightness": "Φωτεινότητα κειμένου",
+"Dim pictures": "Μείωση φωτεινότητας εικόνων",
+"Leave sites that are dark already as they are": "Άφησε τους ήδη σκούρους ιστότοπους ως έχουν",
+"Style, depth, text and pictures back to their defaults": "Στυλ, βάθος, κείμενο και εικόνες στις προεπιλογές τους",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "Το I.K.E. Dark Engine είναι δικό του I.K.E.: τα χρώματα του Dark Reader με το μισό κόστος. Το Dark Reader παραμένει διαθέσιμο· το δικό του Chromium είναι ενσωματωμένο στη μηχανή και το πιο ελαφρύ.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Τα χρώματα των σκούρων σελίδων. Και στον πίνακα του κουμπιού Σκούρα λειτουργία της γραμμής εργαλείων.",
+"How dark the backgrounds are.": "Πόσο σκούρα είναι τα φόντα.",
+"How bright the text is.": "Πόσο φωτεινό είναι το κείμενο.",
+"Photos and videos a little darker. 0%: as they are.": "Φωτογραφίες και βίντεο λίγο πιο σκούρα. 0%: όπως είναι.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Οι ιστότοποι με δικό τους σκούρο θέμα το διατηρούν, ακόμη κι όταν δεν το δηλώνουν."
 }
 }

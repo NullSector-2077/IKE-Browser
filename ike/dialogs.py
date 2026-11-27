@@ -1011,7 +1011,35 @@ class SettingsDialog(QDialog):
         self.dark_engine = QComboBox()
         self.dark_engine.addItem(T("Dark Reader (can be set per site, immediate)"), "reader")
         self.dark_engine.addItem(T("Chromium Auto Dark Mode (can be set per site, immediate)"), "engine")
+        self.dark_engine.addItem(T("I.K.E. Dark Engine"), "ike")
         self.dark_engine.setCurrentIndex(max(0, self.dark_engine.findData(self.cfg["dark_engine"])))
+        # the I.K.E. Dark Engine's look (1.1.28): the same as in its panel
+        from PyQt6.QtWidgets import QSlider
+
+        from . import darkengine
+        look = darkengine.clean_look(self.cfg["dark_engine_look"])
+        self.de_style = QComboBox()
+        for key, label in (("graphite", T("Graphite")), ("midnight", T("Midnight")), ("warm", T("Warm")),
+                           ("nordic", T("Nordic"))):
+            self.de_style.addItem(label, key)
+        self.de_style.setCurrentIndex(max(0, self.de_style.findData(look["style"])))
+        self.de_sliders = {}
+        for key in ("depth", "text", "pictures"):
+            lo, hi = darkengine.RANGES[key]
+            sl = QSlider(Qt.Orientation.Horizontal)
+            sl.setRange(lo, hi)
+            sl.setPageStep(10)
+            sl.setValue(look[key])
+            value = QLabel("%d%%" % look[key])
+            value.setMinimumWidth(value.fontMetrics().horizontalAdvance("100%") + 4)
+            value.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            sl.valueChanged.connect(lambda n, v=value: v.setText("%d%%" % n))
+            row = QHBoxLayout()
+            row.addWidget(sl, 1)
+            row.addWidget(value)
+            self.de_sliders[key] = (sl, row)
+        self.de_detect = Switch(T("Leave sites that are dark already as they are"))
+        self.de_detect.setChecked(look["detect"])
         self.dark_pdf = Switch(T("Show PDFs with dark colours"))
         self.dark_pdf.setChecked(bool(self.cfg["dark_pdf"]))
         from . import icons
@@ -1057,10 +1085,21 @@ class SettingsDialog(QDialog):
              T("Makes bright pages dark. Single sites: ☰ → Dark mode for pages. Part of the "
                "“Dark mode for pages” extension."))
         _row(g, T("Dark mode method"), self.dark_engine,
-             T("Dark Reader gives better colours; Chromium's own is built into the engine and lighter."))
+             T("The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. "
+               "Dark Reader stays available; Chromium's own is built into the engine and the lightest."))
         _row(g, "", _wrapping(self.dark_pdf),
              T("In I.K.E.'s own PDF viewer the pages are shown with their colours turned around: "
                "light text on a dark page. Off by default."))
+        lay.addWidget(box)
+        box, g = self._group(T("I.K.E. Dark Engine"))
+        _row(g, T("Style"), self.de_style,
+             T("The colours of the dark pages. Also in the panel of the toolbar's Dark mode button."))
+        _row(g, T("Background depth"), self.de_sliders["depth"][1], T("How dark the backgrounds are."))
+        _row(g, T("Text brightness"), self.de_sliders["text"][1], T("How bright the text is."))
+        _row(g, T("Dim pictures"), self.de_sliders["pictures"][1],
+             T("Photos and videos a little darker. 0%: as they are."))
+        _row(g, "", _wrapping(self.de_detect),
+             T("Sites with a dark theme of their own keep it, also when they do not declare it."))
         lay.addWidget(box)
         lay.addStretch(1)
         return w
@@ -1942,6 +1981,12 @@ class SettingsDialog(QDialog):
         if dark_choice != cfg["dark_mode"] or dark_engine != cfg["dark_engine"]:
             from PyQt6.QtCore import QTimer
             QTimer.singleShot(0, lambda: self.app.set_dark_mode(dark_choice, self.parent(), dark_engine))
+        from . import darkengine
+        look = darkengine.clean_look({"style": self.de_style.currentData(), "detect": self.de_detect.isChecked(),
+                                      **{k: sl.value() for k, (sl, _r) in self.de_sliders.items()}})
+        if look != darkengine.clean_look(cfg["dark_engine_look"]):
+            cfg["dark_engine_look"] = look
+            self.app.engine_look_changed()
         engines = self._engine_rows()
         if engines:
             cfg["search_engines"] = engines

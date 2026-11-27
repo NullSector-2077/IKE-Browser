@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM வீடியோ (Widevine): நிறுவப்படவில்லை — Netflix போன்ற சேவைகள் இயங்காது",
 "Dark": "இருள்",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (தளத்திற்கு ஒன்றாக அமைக்கலாம், உடனடி)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader சிறந்த நிறங்களைத் தரும்; Chromium-இன் சொந்தம் இயந்திரத்திலேயே உள்ளது, எடை குறைவு.",
 "Dark mode for pages": "பக்கங்களுக்கான இருள் பயன்முறை",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "பக்கங்களுக்கான இருள் பயன்முறை அணைக்கப்படும். இதைச் செயல்படுத்த I.K.E. மறுதொடக்கம் செய்ய வேண்டும்; உங்கள் தாவல்கள் மீண்டும் திறக்கப்படும். இப்போது மறுதொடக்கம் செய்யவா?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "பக்கங்களுக்கான இருள் பயன்முறை இயக்கப்படும். இதைச் செயல்படுத்த I.K.E. மறுதொடக்கம் செய்ய வேண்டும்; உங்கள் தாவல்கள் மீண்டும் திறக்கப்படும். இப்போது மறுதொடக்கம் செய்யவா?",
@@ -1321,6 +1320,24 @@
 "W": "மேற்கு",
 "NW": "வடமேற்கு",
 "Pressure": "அழுத்தம்",
-"Automatic goes with the temperature unit.": "தானியங்கி தேர்வு வெப்பநிலை அலகைப் பின்பற்றும்."
+"Automatic goes with the temperature unit.": "தானியங்கி தேர்வு வெப்பநிலை அலகைப் பின்பற்றும்.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "I.K.E.-இன் சொந்த இருள் பயன்முறை: இலகுவானது, வேகமானது",
+"Style": "பாணி",
+"Graphite": "கிராஃபைட்",
+"Midnight": "நள்ளிரவு",
+"Warm": "வெம்மை",
+"Nordic": "நோர்டிக்",
+"Background depth": "பின்னணி ஆழம்",
+"Text brightness": "உரையின் ஒளிர்வு",
+"Dim pictures": "படங்களை மங்கச் செய்",
+"Leave sites that are dark already as they are": "ஏற்கெனவே இருளாக உள்ள தளங்களை அப்படியே விடு",
+"Style, depth, text and pictures back to their defaults": "பாணி, ஆழம், உரை, படங்கள் இயல்புநிலைக்குத் திரும்பும்",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine I.K.E.-இன் சொந்தம்: Dark Reader-இன் நிறங்கள் பாதிச் செலவில். Dark Reader தொடர்ந்து கிடைக்கும்; Chromium-இன் சொந்தம் இயந்திரத்திலேயே உள்ளது, மிக இலகுவானது.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "இருள் பக்கங்களின் நிறங்கள். கருவிப்பட்டியின் இருள் பயன்முறை பொத்தானின் பலகத்திலும் உள்ளன.",
+"How dark the backgrounds are.": "பின்னணிகள் எவ்வளவு இருளாக உள்ளன.",
+"How bright the text is.": "உரை எவ்வளவு ஒளிர்கிறது.",
+"Photos and videos a little darker. 0%: as they are.": "புகைப்படங்களும் வீடியோக்களும் சற்று இருளாக. 0%: அப்படியே.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "சொந்த இருள் தீம் உள்ள தளங்கள் அதை அறிவிக்காவிட்டாலும் தக்கவைக்கும்."
 }
 }

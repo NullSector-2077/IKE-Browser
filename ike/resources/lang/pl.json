@@ -932,7 +932,6 @@
 "Which buttons the toolbar shows. To move them, right-click the toolbar.": "Jakie przyciski pokazuje pasek narzędzi. Aby je przenieść, kliknij pasek narzędzi prawym przyciskiem.",
 "The size of the pages you have not zoomed yourself. 1.0 is the normal size.": "Rozmiar stron, których nie powiększałeś samodzielnie. 1.0 to normalny rozmiar.",
 "Makes bright pages dark. Single sites: ☰ → Dark mode for pages. Part of the “Dark mode for pages” extension.": "Przyciemnia jasne strony. Pojedyncze witryny: ☰ → Tryb ciemny dla stron. Część rozszerzenia „Tryb ciemny dla stron”.",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader daje lepsze kolory; własny tryb Chromium jest wbudowany w silnik i lżejszy.",
 "The time and the date at the bottom of the page.": "Godzina i data u dołu strony.",
 "The same switch as the “Weather on the new tab page” extension.": "Ten sam przełącznik co rozszerzenie „Pogoda na stronie nowej karty”.",
 "Degrees Celsius or Fahrenheit.": "Stopnie Celsjusza lub Fahrenheita.",
@@ -1321,6 +1320,24 @@
 "W": "W",
 "NW": "NW",
 "Pressure": "Ciśnienie",
-"Automatic goes with the temperature unit.": "Automatycznie zależy od jednostki temperatury."
+"Automatic goes with the temperature unit.": "Automatycznie zależy od jednostki temperatury.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "Własny tryb ciemny I.K.E.: lekki i szybki",
+"Style": "Styl",
+"Graphite": "Grafit",
+"Midnight": "Północ",
+"Warm": "Ciepły",
+"Nordic": "Nordycki",
+"Background depth": "Głębia tła",
+"Text brightness": "Jasność tekstu",
+"Dim pictures": "Przyciemnij obrazy",
+"Leave sites that are dark already as they are": "Zostaw już ciemne witryny bez zmian",
+"Style, depth, text and pictures back to their defaults": "Styl, głębia, tekst i obrazy z powrotem do ustawień domyślnych",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine to własny silnik I.K.E.: kolory Dark Readera za połowę kosztu. Dark Reader nadal jest dostępny; ten od Chromium jest wbudowany w silnik i najlżejszy.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Kolory ciemnych stron. Także w panelu przycisku Tryb ciemny na pasku narzędzi.",
+"How dark the backgrounds are.": "Jak ciemne są tła.",
+"How bright the text is.": "Jak jasny jest tekst.",
+"Photos and videos a little darker. 0%: as they are.": "Zdjęcia i filmy nieco ciemniejsze. 0%: bez zmian.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Witryny z własnym ciemnym motywem zachowują go, nawet gdy go nie zgłaszają."
 }
 }

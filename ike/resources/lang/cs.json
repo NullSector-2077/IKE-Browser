@@ -932,7 +932,6 @@
 "Which buttons the toolbar shows. To move them, right-click the toolbar.": "Která tlačítka panel nástrojů ukazuje. Chcete-li je přesunout, klikněte na panel nástrojů pravým tlačítkem.",
 "The size of the pages you have not zoomed yourself. 1.0 is the normal size.": "Velikost stránek, které jste sami nezvětšili ani nezmenšili. 1.0 je normální velikost.",
 "Makes bright pages dark. Single sites: ☰ → Dark mode for pages. Part of the “Dark mode for pages” extension.": "Ztmaví světlé stránky. Jednotlivé weby: ☰ → Tmavý režim pro stránky. Součást rozšíření „Tmavý režim pro stránky“.",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader dává lepší barvy; vlastní režim Chromium je zabudovaný v jádru a lehčí.",
 "The time and the date at the bottom of the page.": "Čas a datum dole na stránce.",
 "The same switch as the “Weather on the new tab page” extension.": "Stejný přepínač jako rozšíření „Počasí na stránce nového panelu“.",
 "Degrees Celsius or Fahrenheit.": "Stupně Celsia nebo Fahrenheita.",
@@ -1321,6 +1320,24 @@
 "W": "Z",
 "NW": "SZ",
 "Pressure": "Tlak",
-"Automatic goes with the temperature unit.": "Automaticky se řídí jednotkou teploty."
+"Automatic goes with the temperature unit.": "Automaticky se řídí jednotkou teploty.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "Vlastní tmavý režim I.K.E.: lehký a rychlý",
+"Style": "Styl",
+"Graphite": "Grafit",
+"Midnight": "Půlnoc",
+"Warm": "Teplý",
+"Nordic": "Nordický",
+"Background depth": "Hloubka pozadí",
+"Text brightness": "Jas textu",
+"Dim pictures": "Ztlumit obrázky",
+"Leave sites that are dark already as they are": "Nechat stránky, které jsou už tmavé, jak jsou",
+"Style, depth, text and pictures back to their defaults": "Styl, hloubka, text a obrázky zpět na výchozí hodnoty",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine je vlastní řešení I.K.E.: barvy Dark Readeru za poloviční cenu. Dark Reader zůstává k dispozici; ten od Chromia je zabudovaný v jádře a nejlehčí.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Barvy tmavých stránek. Také v panelu tlačítka Tmavý režim na liště nástrojů.",
+"How dark the backgrounds are.": "Jak tmavá jsou pozadí.",
+"How bright the text is.": "Jak jasný je text.",
+"Photos and videos a little darker. 0%: as they are.": "Fotky a videa o něco tmavší. 0%: beze změny.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Stránky s vlastním tmavým motivem si ho ponechají, i když ho neohlásí."
 }
 }

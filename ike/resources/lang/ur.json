@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM ویڈیو (Widevine): انسٹال نہیں — Netflix اور اس جیسی سروسز نہیں چلیں گی",
 "Dark": "گہرا",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (ہر سائٹ کے لیے مقرر ہو سکتا ہے، فوری)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader بہتر رنگ دیتا ہے؛ Chromium کا اپنا موڈ انجن میں شامل ہے اور ہلکا ہے۔",
 "Dark mode for pages": "صفحات کے لیے ڈارک موڈ",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "صفحات کا ڈارک موڈ بند کر دیا جائے گا۔ اسے لاگو کرنے کے لیے I.K.E. کو دوبارہ شروع کرنا ہو گا؛ آپ کے ٹیبز دوبارہ کھل جائیں گے۔ ابھی دوبارہ شروع کریں؟",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "صفحات کا ڈارک موڈ آن کر دیا جائے گا۔ اسے لاگو کرنے کے لیے I.K.E. کو دوبارہ شروع کرنا ہو گا؛ آپ کے ٹیبز دوبارہ کھل جائیں گے۔ ابھی دوبارہ شروع کریں؟",
@@ -1321,6 +1320,24 @@
 "W": "مغرب",
 "NW": "شمال مغرب",
 "Pressure": "دباؤ",
-"Automatic goes with the temperature unit.": "خودکار درجہ حرارت کی اکائی کے مطابق چلتا ہے۔"
+"Automatic goes with the temperature unit.": "خودکار درجہ حرارت کی اکائی کے مطابق چلتا ہے۔",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "I.K.E. کا اپنا ڈارک موڈ: ہلکا اور تیز",
+"Style": "انداز",
+"Graphite": "گرافائٹ",
+"Midnight": "آدھی رات",
+"Warm": "گرم",
+"Nordic": "نورڈک",
+"Background depth": "پس منظر کی گہرائی",
+"Text brightness": "متن کی چمک",
+"Dim pictures": "تصاویر مدھم کریں",
+"Leave sites that are dark already as they are": "جو سائٹس پہلے ہی ڈارک ہیں انہیں جیسا ہے ویسا رہنے دیں",
+"Style, depth, text and pictures back to their defaults": "انداز، گہرائی، متن اور تصاویر ڈیفالٹ پر واپس",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine I.K.E. کا اپنا ہے: Dark Reader کے رنگ آدھی لاگت پر۔ Dark Reader دستیاب رہتا ہے؛ Chromium کا اپنا انجن میں شامل ہے اور سب سے ہلکا ہے۔",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "ڈارک صفحات کے رنگ۔ ٹول بار کے ڈارک موڈ بٹن کے پینل میں بھی۔",
+"How dark the backgrounds are.": "پس منظر کتنے گہرے ہیں۔",
+"How bright the text is.": "متن کتنا روشن ہے۔",
+"Photos and videos a little darker. 0%: as they are.": "تصاویر اور ویڈیوز قدرے گہری۔ 0%: جیسی ہیں۔",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "اپنی ڈارک تھیم والی سائٹس اسے برقرار رکھتی ہیں، چاہے وہ اس کا اعلان نہ کریں۔"
 }
 }

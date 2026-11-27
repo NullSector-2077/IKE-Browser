@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM-videó (Widevine): nincs telepítve – a Netflix és hasonló szolgáltatások nem fognak lejátszani",
 "Dark": "Sötét",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (webhelyenként állítható, azonnali)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "A Dark Reader szebb színeket ad; a Chromium saját módja a motorba van beépítve, és könnyebb.",
 "Dark mode for pages": "Sötét mód az oldalakhoz",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Az oldalak sötét módja ki lesz kapcsolva. Az alkalmazáshoz az I.K.E.-nek újra kell indulnia; a lapjai újra megnyílnak. Újraindítja most?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Az oldalak sötét módja be lesz kapcsolva. Az alkalmazáshoz az I.K.E.-nek újra kell indulnia; a lapjai újra megnyílnak. Újraindítja most?",
@@ -1321,6 +1320,24 @@
 "W": "Ny",
 "NW": "ÉNy",
 "Pressure": "Légnyomás",
-"Automatic goes with the temperature unit.": "Az automatikus a hőmérséklet mértékegységét követi."
+"Automatic goes with the temperature unit.": "Az automatikus a hőmérséklet mértékegységét követi.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "Az I.K.E. saját sötét módja: könnyű és gyors",
+"Style": "Stílus",
+"Graphite": "Grafit",
+"Midnight": "Éjfél",
+"Warm": "Meleg",
+"Nordic": "Északi",
+"Background depth": "Háttér mélysége",
+"Text brightness": "Szöveg fényessége",
+"Dim pictures": "Képek tompítása",
+"Leave sites that are dark already as they are": "A már eleve sötét webhelyek maradjanak úgy, ahogy vannak",
+"Style, depth, text and pictures back to their defaults": "Stílus, mélység, szöveg és képek vissza az alapértékekre",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "Az I.K.E. Dark Engine az I.K.E. saját megoldása: a Dark Reader színei feleannyi erőforrással. A Dark Reader továbbra is elérhető; a Chromium sajátja a motorba van építve, és a legkönnyebb.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "A sötét oldalak színei. Az eszköztár Sötét mód gombjának paneljén is.",
+"How dark the backgrounds are.": "Mennyire sötétek a hátterek.",
+"How bright the text is.": "Mennyire fényes a szöveg.",
+"Photos and videos a little darker. 0%: as they are.": "A fotók és videók kicsit sötétebbek. 0%: eredeti.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "A saját sötét témájú webhelyek megtartják azt, akkor is, ha nem jelzik."
 }
 }

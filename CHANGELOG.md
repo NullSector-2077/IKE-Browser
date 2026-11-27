@@ -1,6 +1,31 @@
 # Changelog
 
-## 1.1.27
+## 1.1.28
+
+- **The I.K.E. Dark Engine** (the owner's decision): I.K.E.'s own dark mode
+  for pages, a choice beside Dark Reader and Chromium's own (Settings → Web
+  pages → Dark mode method → I.K.E. Dark Engine; Dark Reader stays the
+  default and stays available while the engine is tried). It gives Dark
+  Reader's colours at about half its cost (Speedometer 3.1 here: -15 % from
+  the page without dark mode, Dark Reader -32 %), uses only Dark Reader's
+  lists (MIT, the rules it can use: `darkfixes.engine_css`), recognises sites
+  that are dark already also when they do not declare it, never hides an
+  element, keeps what the user writes in editors and mails as written, prints
+  the page's own colours, and a page cannot stop it. Measured against Dark
+  Reader's own test scenarios (122 of 125 alike, the 3 others deliberate) and
+  page by page (docs/DARK-ENGINE-EXPERIMENT.md).
+- **Its own panel** under the toolbar's Dark mode button (a moon when the page
+  is dark, a sun when it is not), in I.K.E.'s Plasma look: "I.K.E. Dark
+  Engine", on everywhere and on this site, four styles drawn in their own
+  colours (Graphite, as Dark Reader; Midnight; Warm; Nordic), background
+  depth, text brightness, dimmed pictures, sites dark already left as they
+  are; a slider shows its effect on the page at once and every open page
+  takes the look when it is let go, nothing loaded again. The same options
+  in Settings (a box "I.K.E. Dark Engine"). Every language pack has its texts.
+- The hidden switch of the experiment (`dark_engine_experiment`) becomes the
+  choice in Settings by itself.
+
+### Also in this release: 1.1.27 (never published on its own)
 
 - I.K.E. has a new Breeze octagonal logo, dedicated icons for small sizes and
   the new wordmark on frosted glass over the local 4K WebP Earth background on

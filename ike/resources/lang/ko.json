@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM 동영상 (Widevine): 설치되지 않음 — Netflix 등의 서비스를 재생할 수 없습니다",
 "Dark": "어두운 테마",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (사이트별 설정 가능, 즉시 적용)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader는 색이 더 좋고, Chromium 자체 기능은 엔진에 내장되어 더 가볍습니다.",
 "Dark mode for pages": "페이지 다크 모드",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "페이지 다크 모드가 꺼집니다. 적용하려면 I.K.E.를 다시 시작해야 하며 탭은 다시 열립니다. 지금 다시 시작하시겠습니까?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "페이지 다크 모드가 켜집니다. 적용하려면 I.K.E.를 다시 시작해야 하며 탭은 다시 열립니다. 지금 다시 시작하시겠습니까?",
@@ -1321,6 +1320,24 @@
 "W": "서",
 "NW": "북서",
 "Pressure": "기압",
-"Automatic goes with the temperature unit.": "자동은 온도 단위를 따릅니다."
+"Automatic goes with the temperature unit.": "자동은 온도 단위를 따릅니다.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "I.K.E. 자체 다크 모드: 가볍고 빠름",
+"Style": "스타일",
+"Graphite": "그래파이트",
+"Midnight": "미드나이트",
+"Warm": "웜",
+"Nordic": "노르딕",
+"Background depth": "배경 깊이",
+"Text brightness": "텍스트 밝기",
+"Dim pictures": "이미지 어둡게",
+"Leave sites that are dark already as they are": "이미 어두운 사이트는 그대로 두기",
+"Style, depth, text and pictures back to their defaults": "스타일, 깊이, 텍스트, 이미지를 기본값으로 되돌립니다",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine은 I.K.E. 자체 엔진입니다: Dark Reader의 색상을 절반의 부담으로. Dark Reader도 계속 사용할 수 있으며, Chromium 자체 기능은 엔진에 내장되어 가장 가볍습니다.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "어두운 페이지의 색상입니다. 도구 모음의 다크 모드 버튼 패널에도 있습니다.",
+"How dark the backgrounds are.": "배경이 얼마나 어두운지입니다.",
+"How bright the text is.": "텍스트가 얼마나 밝은지입니다.",
+"Photos and videos a little darker. 0%: as they are.": "사진과 동영상을 조금 어둡게 합니다. 0%: 그대로.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "자체 다크 테마가 있는 사이트는 선언하지 않아도 그대로 유지합니다."
 }
 }

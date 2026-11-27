@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "Vídeo amb DRM (Widevine): no instal·lat — Netflix i serveis similars no es reproduiran",
 "Dark": "Fosc",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (es pot definir per lloc web, immediat)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader dona millors colors; el de Chromium ve integrat al motor i és més lleuger.",
 "Dark mode for pages": "Mode fosc per a les pàgines",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "El mode fosc per a les pàgines es desactivarà. I.K.E. s'ha de reiniciar per aplicar-ho; les teves pestanyes es tornaran a obrir. Vols reiniciar ara?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "El mode fosc per a les pàgines s'activarà. I.K.E. s'ha de reiniciar per aplicar-ho; les teves pestanyes es tornaran a obrir. Vols reiniciar ara?",
@@ -1321,6 +1320,24 @@
 "W": "O",
 "NW": "NO",
 "Pressure": "Pressió",
-"Automatic goes with the temperature unit.": "Automàtic segueix la unitat de temperatura."
+"Automatic goes with the temperature unit.": "Automàtic segueix la unitat de temperatura.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "El mode fosc propi d'I.K.E.: lleuger i ràpid",
+"Style": "Estil",
+"Graphite": "Grafit",
+"Midnight": "Mitjanit",
+"Warm": "Càlid",
+"Nordic": "Nòrdic",
+"Background depth": "Profunditat del fons",
+"Text brightness": "Brillantor del text",
+"Dim pictures": "Atenua les imatges",
+"Leave sites that are dark already as they are": "Deixa tal com estan els llocs que ja són foscos",
+"Style, depth, text and pictures back to their defaults": "Estil, profunditat, text i imatges tornen als valors per defecte",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "L'I.K.E. Dark Engine és propi d'I.K.E.: els colors de Dark Reader amb la meitat del cost. Dark Reader continua disponible; el de Chromium està integrat al motor i és el més lleuger.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Els colors de les pàgines fosques. També al tauler del botó Mode fosc de la barra d'eines.",
+"How dark the backgrounds are.": "Com de foscos són els fons.",
+"How bright the text is.": "Com de brillant és el text.",
+"Photos and videos a little darker. 0%: as they are.": "Fotos i vídeos una mica més foscos. 0%: tal com són.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Els llocs amb un tema fosc propi el mantenen, també quan no el declaren."
 }
 }

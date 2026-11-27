@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM vaizdo įrašai (Widevine): neįdiegta – Netflix ir panašios paslaugos nebus rodomos",
 "Dark": "Tamsi",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (galima nustatyti kiekvienai svetainei, iš karto)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader suteikia gražesnes spalvas; paties Chromium režimas įtaisytas variklyje ir lengvesnis.",
 "Dark mode for pages": "Tamsusis puslapių režimas",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Tamsusis puslapių režimas bus išjungtas. Kad jis būtų pritaikytas, I.K.E. turi būti paleista iš naujo; jūsų skirtukai bus atidaryti iš naujo. Paleisti iš naujo dabar?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Tamsusis puslapių režimas bus įjungtas. Kad jis būtų pritaikytas, I.K.E. turi būti paleista iš naujo; jūsų skirtukai bus atidaryti iš naujo. Paleisti iš naujo dabar?",
@@ -1321,6 +1320,24 @@
 "W": "V",
 "NW": "ŠV",
 "Pressure": "Slėgis",
-"Automatic goes with the temperature unit.": "Automatiškai seka temperatūros vienetą."
+"Automatic goes with the temperature unit.": "Automatiškai seka temperatūros vienetą.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "Paties I.K.E. tamsusis režimas: lengvas ir greitas",
+"Style": "Stilius",
+"Graphite": "Grafitas",
+"Midnight": "Vidurnaktis",
+"Warm": "Šiltas",
+"Nordic": "Šiaurietiškas",
+"Background depth": "Fono gylis",
+"Text brightness": "Teksto ryškumas",
+"Dim pictures": "Pritemdyti paveikslėlius",
+"Leave sites that are dark already as they are": "Jau tamsių svetainių nekeisti",
+"Style, depth, text and pictures back to their defaults": "Stilius, gylis, tekstas ir paveikslėliai grąžinami į numatytuosius",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine yra paties I.K.E.: Dark Reader spalvos perpus pigiau. Dark Reader lieka prieinamas; Chromium savasis įtaisytas variklyje ir yra pats lengviausias.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Tamsių puslapių spalvos. Taip pat įrankių juostos mygtuko Tamsusis režimas skydelyje.",
+"How dark the backgrounds are.": "Kiek tamsūs fonai.",
+"How bright the text is.": "Kiek ryškus tekstas.",
+"Photos and videos a little darker. 0%: as they are.": "Nuotraukos ir vaizdo įrašai kiek tamsesni. 0%: kaip yra.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Svetainės su savo tamsia tema ją išsaugo, net jei jos nedeklaruoja."
 }
 }

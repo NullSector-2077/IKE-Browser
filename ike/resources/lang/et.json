@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM-video (Widevine): pole paigaldatud — Netflix ja sarnased teenused ei esita",
 "Dark": "Tume",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (saab seadistada saidi kaupa, kohe)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader annab paremad värvid; Chromiumi enda oma on mootorisse sisseehitatud ja kergem.",
 "Dark mode for pages": "Lehtede tume režiim",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Lehtede tume režiim lülitatakse välja. Selle rakendamiseks tuleb I.K.E. taaskäivitada; sinu kaardid avatakse uuesti. Kas taaskäivitada kohe?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Lehtede tume režiim lülitatakse sisse. Selle rakendamiseks tuleb I.K.E. taaskäivitada; sinu kaardid avatakse uuesti. Kas taaskäivitada kohe?",
@@ -1321,6 +1320,24 @@
 "W": "lääs",
 "NW": "loe",
 "Pressure": "Õhurõhk",
-"Automatic goes with the temperature unit.": "Automaatne järgib temperatuuriühikut."
+"Automatic goes with the temperature unit.": "Automaatne järgib temperatuuriühikut.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "I.K.E. enda tume režiim: kerge ja kiire",
+"Style": "Stiil",
+"Graphite": "Grafiit",
+"Midnight": "Südaöö",
+"Warm": "Soe",
+"Nordic": "Põhjamaine",
+"Background depth": "Tausta sügavus",
+"Text brightness": "Teksti heledus",
+"Dim pictures": "Tuhmista pilte",
+"Leave sites that are dark already as they are": "Jäta juba tumedad saidid nii, nagu need on",
+"Style, depth, text and pictures back to their defaults": "Stiil, sügavus, tekst ja pildid tagasi vaikeväärtustele",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine on I.K.E. enda oma: Dark Readeri värvid poole väiksema kuluga. Dark Reader jääb kättesaadavaks; Chromiumi oma on mootorisse sisse ehitatud ja kõige kergem.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Tumedate lehtede värvid. Ka tööriistariba nupu Tume režiim paneelis.",
+"How dark the backgrounds are.": "Kui tumedad taustad on.",
+"How bright the text is.": "Kui hele tekst on.",
+"Photos and videos a little darker. 0%: as they are.": "Fotod ja videod veidi tumedamad. 0%: nagu on.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Oma tumeda teemaga saidid säilitavad selle ka siis, kui nad seda ei deklareeri."
 }
 }

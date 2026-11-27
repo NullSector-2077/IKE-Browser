@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM бейнесі (Widevine): орнатылмаған — Netflix және ұқсас қызметтер ойнатылмайды",
 "Dark": "Қараңғы",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (сайттар бойынша орнатуға болады, бірден)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader түстерді жақсырақ береді; Chromium-ның өз режимі қозғалтқышқа кіріктірілген және жеңілірек.",
 "Dark mode for pages": "Беттерге арналған қараңғы режим",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Беттерге арналған қараңғы режим өшіріледі. Қолдану үшін I.K.E. қайта іске қосылуы керек; қойындыларыңыз қайта ашылады. Қазір қайта іске қосу керек пе?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Беттерге арналған қараңғы режим қосылады. Қолдану үшін I.K.E. қайта іске қосылуы керек; қойындыларыңыз қайта ашылады. Қазір қайта іске қосу керек пе?",
@@ -1321,6 +1320,24 @@
 "W": "Б",
 "NW": "СБ",
 "Pressure": "Қысым",
-"Automatic goes with the temperature unit.": "Автоматты режим температура бірлігіне сәйкес келеді."
+"Automatic goes with the temperature unit.": "Автоматты режим температура бірлігіне сәйкес келеді.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "I.K.E.-тің өз қараңғы режимі: жеңіл әрі жылдам",
+"Style": "Стиль",
+"Graphite": "Графит",
+"Midnight": "Түн ортасы",
+"Warm": "Жылы",
+"Nordic": "Солтүстік",
+"Background depth": "Фон тереңдігі",
+"Text brightness": "Мәтін жарықтығы",
+"Dim pictures": "Суреттерді күңгірттеу",
+"Leave sites that are dark already as they are": "Қараңғы сайттарды өзгеріссіз қалдыру",
+"Style, depth, text and pictures back to their defaults": "Стиль, тереңдік, мәтін және суреттер әдепкі күйіне оралады",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine — I.K.E.-тің өзіндік шешімі: Dark Reader түстері екі есе арзанға. Dark Reader қолжетімді болып қала береді; Chromium-ның өзінікі қозғалтқышқа кіріктірілген және ең жеңіл.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Қараңғы беттердің түстері. Құралдар тақтасындағы «Қараңғы режим» түймесінің панелінде де бар.",
+"How dark the backgrounds are.": "Фондар қаншалықты қараңғы.",
+"How bright the text is.": "Мәтін қаншалықты жарық.",
+"Photos and videos a little darker. 0%: as they are.": "Фото мен бейне сәл күңгірт. 0%: өзгеріссіз.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Өз қараңғы тақырыбы бар сайттар оны жарияламаса да сақтайды."
 }
 }

@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "فيديو DRM (Widevine): غير مثبّت — لن تعمل Netflix والخدمات المشابهة",
 "Dark": "داكن",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (يمكن ضبطه لكل موقع، فوري)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "يعطي Dark Reader ألوانًا أفضل؛ أما وضع Chromium فهو مدمج في المحرّك وأخف.",
 "Dark mode for pages": "الوضع الداكن للصفحات",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "سيتم إيقاف الوضع الداكن للصفحات. يحتاج I.K.E. إلى إعادة التشغيل لتطبيق ذلك؛ وستُعاد فتح علامات التبويب. هل تريد إعادة التشغيل الآن؟",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "سيتم تفعيل الوضع الداكن للصفحات. يحتاج I.K.E. إلى إعادة التشغيل لتطبيق ذلك؛ وستُعاد فتح علامات التبويب. هل تريد إعادة التشغيل الآن؟",
@@ -1321,6 +1320,24 @@
 "W": "غرب",
 "NW": "شمال غرب",
 "Pressure": "الضغط الجوي",
-"Automatic goes with the temperature unit.": "يتبع الاختيار التلقائي وحدة درجة الحرارة."
+"Automatic goes with the temperature unit.": "يتبع الاختيار التلقائي وحدة درجة الحرارة.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "الوضع الداكن الخاص بـ I.K.E.: خفيف وسريع",
+"Style": "النمط",
+"Graphite": "الجرافيت",
+"Midnight": "منتصف الليل",
+"Warm": "دافئ",
+"Nordic": "نوردي",
+"Background depth": "عمق الخلفية",
+"Text brightness": "سطوع النص",
+"Dim pictures": "تعتيم الصور",
+"Leave sites that are dark already as they are": "اترك المواقع الداكنة أصلاً كما هي",
+"Style, depth, text and pictures back to their defaults": "النمط والعمق والنص والصور إلى إعداداتها الافتراضية",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine هو المحرك الخاص بـ I.K.E.: ألوان Dark Reader بنصف تكلفته. يبقى Dark Reader متاحًا؛ ومحرك Chromium مدمج في المحرك وهو الأخف.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "ألوان الصفحات الداكنة. وهي أيضًا في لوحة زر الوضع الداكن في شريط الأدوات.",
+"How dark the backgrounds are.": "مدى قتامة الخلفيات.",
+"How bright the text is.": "مدى سطوع النص.",
+"Photos and videos a little darker. 0%: as they are.": "الصور ومقاطع الفيديو أغمق قليلًا. 0%: كما هي.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "المواقع التي لها سمة داكنة خاصة بها تحتفظ بها، حتى لو لم تُعلن عنها."
 }
 }

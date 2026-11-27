@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM-video (Widevine): niet geïnstalleerd — Netflix en vergelijkbare diensten worden niet afgespeeld",
 "Dark": "Donker",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (per site in te stellen, direct)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader geeft mooiere kleuren; die van Chromium zit in de engine zelf en is lichter.",
 "Dark mode for pages": "Donkere modus voor pagina’s",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "De donkere modus voor pagina’s wordt uitgeschakeld. I.K.E. moet opnieuw starten om dit toe te passen; je tabbladen worden opnieuw geopend. Nu opnieuw starten?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "De donkere modus voor pagina’s wordt ingeschakeld. I.K.E. moet opnieuw starten om dit toe te passen; je tabbladen worden opnieuw geopend. Nu opnieuw starten?",
@@ -1321,6 +1320,24 @@
 "W": "W",
 "NW": "NW",
 "Pressure": "Luchtdruk",
-"Automatic goes with the temperature unit.": "Automatisch volgt de temperatuureenheid."
+"Automatic goes with the temperature unit.": "Automatisch volgt de temperatuureenheid.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "De eigen donkere modus van I.K.E.: licht en snel",
+"Style": "Stijl",
+"Graphite": "Grafiet",
+"Midnight": "Middernacht",
+"Warm": "Warm",
+"Nordic": "Noords",
+"Background depth": "Achtergronddiepte",
+"Text brightness": "Teksthelderheid",
+"Dim pictures": "Afbeeldingen dimmen",
+"Leave sites that are dark already as they are": "Sites die al donker zijn ongemoeid laten",
+"Style, depth, text and pictures back to their defaults": "Stijl, diepte, tekst en afbeeldingen terug naar de standaardwaarden",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "De I.K.E. Dark Engine is van I.K.E. zelf: de kleuren van Dark Reader voor de helft van de kosten. Dark Reader blijft beschikbaar; die van Chromium is in de engine ingebouwd en de lichtste.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "De kleuren van de donkere pagina’s. Ook in het paneel van de knop Donkere modus in de werkbalk.",
+"How dark the backgrounds are.": "Hoe donker de achtergronden zijn.",
+"How bright the text is.": "Hoe helder de tekst is.",
+"Photos and videos a little darker. 0%: as they are.": "Foto’s en video’s iets donkerder. 0%: zoals ze zijn.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Sites met een eigen donker thema houden dat, ook als ze het niet aangeven."
 }
 }

@@ -932,7 +932,6 @@
 "Which buttons the toolbar shows. To move them, right-click the toolbar.": "Katere gumbe prikazuje orodna vrstica. Za premik jih z desnim klikom na orodno vrstico.",
 "The size of the pages you have not zoomed yourself. 1.0 is the normal size.": "Velikost strani, ki jih nisi sam povečal ali pomanjšal. 1.0 je običajna velikost.",
 "Makes bright pages dark. Single sites: ☰ → Dark mode for pages. Part of the “Dark mode for pages” extension.": "Zatemni svetle strani. Posamezna spletna mesta: ☰ → Temni način za strani. Del razširitve »Temni način za strani«.",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader daje lepše barve; Chromiumov lastni je vgrajen v pogon in lažji.",
 "The time and the date at the bottom of the page.": "Ura in datum na dnu strani.",
 "The same switch as the “Weather on the new tab page” extension.": "Isto stikalo kot pri razširitvi »Vreme na strani novega zavihka«.",
 "Degrees Celsius or Fahrenheit.": "Stopinje Celzija ali Fahrenheita.",
@@ -1321,6 +1320,24 @@
 "W": "Z",
 "NW": "SZ",
 "Pressure": "Tlak",
-"Automatic goes with the temperature unit.": "Samodejno sledi enoti temperature."
+"Automatic goes with the temperature unit.": "Samodejno sledi enoti temperature.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "Lasen temni način I.K.E.: lahek in hiter",
+"Style": "Slog",
+"Graphite": "Grafit",
+"Midnight": "Polnoč",
+"Warm": "Topel",
+"Nordic": "Nordijski",
+"Background depth": "Globina ozadja",
+"Text brightness": "Svetlost besedila",
+"Dim pictures": "Zatemni slike",
+"Leave sites that are dark already as they are": "Že temnih spletnih mest ne spreminjaj",
+"Style, depth, text and pictures back to their defaults": "Slog, globina, besedilo in slike nazaj na privzeto",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine je I.K.E.-jev lasten: barve Dark Readerja za polovico stroška. Dark Reader ostaja na voljo; Chromiumov je vgrajen v pogon in najlažji.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Barve temnih strani. Tudi v plošči gumba Temni način v orodni vrstici.",
+"How dark the backgrounds are.": "Kako temna so ozadja.",
+"How bright the text is.": "Kako svetlo je besedilo.",
+"Photos and videos a little darker. 0%: as they are.": "Fotografije in videoposnetki malo temnejši. 0%: kot so.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Spletna mesta z lastno temno temo jo obdržijo, tudi če je ne navedejo."
 }
 }

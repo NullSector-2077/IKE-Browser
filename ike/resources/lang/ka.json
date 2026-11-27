@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM ვიდეო (Widevine): დაყენებული არ არის — Netflix და მსგავსი სერვისები არ ითამაშებს",
 "Dark": "მუქი",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (საიტის მიხედვით დაყენებადი, მყისიერი)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader უკეთეს ფერებს იძლევა; Chromium-ის საკუთარი ძრავშია ჩაშენებული და უფრო მსუბუქია.",
 "Dark mode for pages": "გვერდების მუქი რეჟიმი",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "გვერდების მუქი რეჟიმი გამოირთვება. გამოსაყენებლად I.K.E. უნდა გადაიტვირთოს; თქვენი ჩანართები თავიდან გაიხსნება. გადაიტვირთოს ახლა?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "გვერდების მუქი რეჟიმი ჩაირთვება. გამოსაყენებლად I.K.E. უნდა გადაიტვირთოს; თქვენი ჩანართები თავიდან გაიხსნება. გადაიტვირთოს ახლა?",
@@ -1321,6 +1320,24 @@
 "W": "დ",
 "NW": "ჩდ",
 "Pressure": "წნევა",
-"Automatic goes with the temperature unit.": "ავტომატური მიჰყვება ტემპერატურის ერთეულს."
+"Automatic goes with the temperature unit.": "ავტომატური მიჰყვება ტემპერატურის ერთეულს.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "I.K.E.-ს საკუთარი მუქი რეჟიმი: მსუბუქი და სწრაფი",
+"Style": "სტილი",
+"Graphite": "გრაფიტი",
+"Midnight": "შუაღამე",
+"Warm": "თბილი",
+"Nordic": "ნორდიკული",
+"Background depth": "ფონის სიღრმე",
+"Text brightness": "ტექსტის სიკაშკაშე",
+"Dim pictures": "სურათების დაბინდვა",
+"Leave sites that are dark already as they are": "უკვე მუქი საიტები დარჩეს როგორც არის",
+"Style, depth, text and pictures back to their defaults": "სტილი, სიღრმე, ტექსტი და სურათები ნაგულისხმევზე დაბრუნდეს",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine I.K.E.-ს საკუთარია: Dark Reader-ის ფერები ნახევარ ფასად. Dark Reader ისევ ხელმისაწვდომია; Chromium-ის საკუთარი ძრავშია ჩაშენებული და ყველაზე მსუბუქია.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "მუქი გვერდების ფერები. ასევე ხელსაწყოთა ზოლის „მუქი რეჟიმის“ ღილაკის პანელში.",
+"How dark the backgrounds are.": "რამდენად მუქია ფონები.",
+"How bright the text is.": "რამდენად კაშკაშაა ტექსტი.",
+"Photos and videos a little darker. 0%: as they are.": "ფოტოები და ვიდეოები ოდნავ მუქი. 0%: როგორც არის.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "საკუთარი მუქი თემის მქონე საიტები მას ინარჩუნებს, მაშინაც კი, როცა არ აცხადებს."
 }
 }
