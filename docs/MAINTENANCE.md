@@ -1526,6 +1526,13 @@ Those runs report to the finding's entry by its branch
 
 ### Free AI providers, checked every week (WP9)
 
+**The weekly scoreboard** (2026-11-27, the owner: "simple, but it must work"). `health.yml` runs
+`tools/automat-scoreboard.py` (GET calls only) and edits one issue, "AUTOMAT: tabellone settimanale", in
+Italian: the automation's pull requests merged in the last 7 days and how many by themselves, those still
+waiting and for how long, the AI work of the week from AUTOMAT's memory (runs, answered, no provider, requests
+per provider), the runs of Tests and Arch Linux that passed only when started again (flaky tests or the
+infrastructure, with their jobs), and whether `main`'s latest runs passed.
+
 **New models found by AUTOMAT itself** (block 2, 2026-11-27; the owner: AUTOMAT keeps up with the providers and
 updates the models' names by itself). The weekly check also reads each provider's own list of models (Gemini
 API `GET /models`; Groq and Z.AI `GET .../models`), leaves out what is not text (embeddings, images, speech,
