@@ -267,7 +267,10 @@ again with it, which starts them. It is only in those steps: no AI ever sees
 it, and the automatic fix's push checks once more that nothing under
 `.github/` changes. Without it nothing crashes and nothing is weakened: the
 verified candidate is "retrying", the owner gets one note that says how to
-make the token, and it merges by itself once the token exists. Branch
+make the token, and it merges by itself once the token exists. A fine-grained token
+expires: the weekly check (`health.yml`, `tools/automation-health.py` `token_problem`)
+reads GitHub's header `GitHub-Authentication-Token-Expiration` and opens the issue "Automation
+health" 21 days before the date, or at once when GitHub refuses the token (2026-11-25). Branch
 protection is never changed, no check is faked, no run is approved by API.
 
 **The informed signature** (`tools/release-notice.py`, `release-ready.yml`).
@@ -794,6 +797,34 @@ of that day's four reasons, are `tests/test_automat_deadlock.py`):
   pull request), as a warning of the run, by `ai-quota.py show`, and in bold in the signing notice
   before the updates still being retried. Nobody is mailed for it. A run whose attempt started with a
   reserve (rotated) and asked nobody now counts as a day with no provider too.
+
+- **The stall of 2026-11-25 afternoon** (run 45625320020, PR #111 again): Z.AI was still "spent today"
+  from a mark written before the reading of its codes was fixed, and every OpenRouter model failed: five
+  answered 429 (the run waited 61 s on each, model after model, as if the whole account were blocked) and
+  the reasoning models gave no text ("no JSON object in the answer"). It was **not** the account's privacy
+  setting: that answers 404 "No endpoints found matching your data policy", which the reserve says
+  plainly (`DATA_POLICY`). What changed: a mark "spent today" carries the time it was written
+  (`spent_at`) and is **checked again with one request after `SPENT_RECHECK` (3 hours)**; a mark with
+  no time (written before this rule) holds for its day as before; only "it asked for money" never expires (`mark_expired`). A 429 of one
+  free model's pool upstream (`model_words` in `tools/ai-quota.json`: "rate-limited upstream") moves to
+  the next model at once and holds back none of OpenRouter's other models (`per_model`). Every error now
+  shows the provider's own words in the log (`error_words`, URLs and keys removed), so the next stall
+  says which limit it was. OpenRouter is asked for little reasoning, not sent back
+  (`"reasoning": {"effort": "low", "exclude": true}`), and an answer cut off before its text says so
+  (`cutoff`) instead of "no JSON object".
+- **The reasoning that left no answer** (2026-11-27, run 45983654916, PR #111): with the stall gone, nine of
+  eleven free models were asked and almost all were cut off, their whole answer spent on reasoning. Each
+  provider is now asked for little reasoning with its own parameter, and a model cut off is asked once more
+  with its reasoning off (`reasoning_params`: OpenRouter `reasoning.effort` "minimal", then "none"; Z.AI
+  `thinking: {"type": "disabled"}`; Groq `reasoning_effort` "low" for gpt-oss, "none" for Qwen 3.8 27B;
+  read on each provider's page that day). A model whose reasoning is mandatory refuses "none" (HTTP 400):
+  the next model is asked.
+- **Gemini's real quota, learned** (2026-11-25): Google publishes no numbers for the free tier ("can be
+  viewed in Google AI Studio"), so `requests_per_day` of Antigravity in `tools/ai-quota.json` is an
+  estimate. Gemini's 429 names the limit it hit and its value (`google.rpc.QuotaFailure`: `quotaId`
+  `GenerateRequestsPerDayPerProjectPerModel-FreeTier`, `quotaValue`): `learned_quotas` reads it,
+  `Budget.learn` keeps it for the rest of the provider's day as its day limit of requests (and a
+  `PerMinute` token limit as its minute), from the reviewers' calls and from Antigravity's errors alike.
 
 **From the providers' own pages** (read on 2026-11-25 on each provider's own page or code: every
 provider in `tools/ai-quota.json` has `source_urls`, `source_verified_on` and a `signals_source` or
@@ -1487,6 +1518,20 @@ Those runs report to the finding's entry by its branch
 `TESTING_DAYS` count again from it; the cap makes it "needs-person".
 
 ### Free AI providers, checked every week (WP9)
+
+**New models found by AUTOMAT itself** (block 2, 2026-11-27; the owner: AUTOMAT keeps up with the providers and
+updates the models' names by itself). The weekly check also reads each provider's own list of models (Gemini
+API `GET /models`; Groq and Z.AI `GET .../models`), leaves out what is not text (embeddings, images, speech,
+guards) and asks up to `TRY_NEW` new ones per provider a tiny question on the key, newest version first
+(`tools/provider-check.py` `discover`). The keys have no billing, so a model that answers is free there;
+Gemini's 429 with "limit: 0" says the free plan has none of it (recorded as not free, never used). The models
+that answered reach the automatic fix as `AUTOFIX_DISCOVERED` (`provider-check.py discovered`, read by the
+plan of `autofix.yml` from the weekly artifact) and are asked **after** the configured ones: the reserves
+(`chain`), Antigravity (`models`, in the CLI's form "Gemini 5 Flash (High)") and the Gemini reviewers.
+A configured model its provider no longer lists is said in the weekly issue, with the new free model that
+replaces it meanwhile; Claude then updates `tools/ai-providers.py`. OpenRouter rebuilds its free list at
+every run already. Not found by this: a model only Antigravity's CLI offers (it has no list), and a
+provider's change of its free plan that keeps the model listed (the answers' billing errors still mark it).
 
 **One place** for the providers: `tools/ai-providers.py` (protected, read by
 the agent, the reserves, the weekly check and the queue). It holds the order

@@ -5,7 +5,9 @@ future scenario of I.K.E.'s own components (routine to disastrous), from what
 actually broke in their past big updates, and prepare the responses before
 they are needed. The full catalogue, 30 scenarios with their detection signal,
 what AUTOMAT does today, the gap, the prepared response, the tier and the
-drill, is in [`scenarios.json`](scenarios.json). `stubdiff-prototype.py` is the
+drill, is in [`scenarios.json`](scenarios.json). The jams already met (the
+small stops of 2026-11-24 and 2026-11-25) and the response to each are in
+[`JAMS.md`](JAMS.md). `stubdiff-prototype.py` is the
 prototype of the PyQt stub diff (section 3, recipe 1); it is not used by any
 workflow yet.
 
