@@ -1,0 +1,96 @@
+# The weekly check of I.K.E.'s engine identity (1.1.29, the owner's request;
+# the Engine Privacy Layer study, docs/review/engine-privacy-study.md): sites
+# must still see an ordinary Chromium of the engine's own version after every
+# update of Qt WebEngine on Arch Linux. I.K.E. at Balanced and Strict and
+# Arch's own Chromium of the installed engine's version (taken from the Arch
+# Linux Archive by that version: nothing to update by hand) are probed on the
+# same machine; tools/engine-probe/identity_guard.py writes what it found, in
+# Italian, for the signing notice (release-ready.yml reads the latest run).
+# Informational: a finding never fails the run and nothing is changed; the run
+# fails only when the check itself could not run.
+name: Engine identity
+
+on:
+  schedule:
+    - cron: "37 5 * * 2"     # Tuesdays, 05:37 UTC (Arch's weekly checks are on Mondays and Wednesdays)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engine-identity
+  cancel-in-progress: true
+
+jobs:
+  identity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    container:
+      image: archlinux:latest
+      options: --shm-size=2g
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Arch's packages
+        run: |
+          sed -i 's/^#\?ParallelDownloads.*/ParallelDownloads = 5/' /etc/pacman.conf
+          for pause in 30 120 0; do
+            pacman -Syu --noconfirm --needed git python python-pyqt6 python-pyqt6-webengine qt6-webengine \
+              qt6-webchannel qt6-svg python-cryptography python-jeepney publicsuffix-list python-pytest \
+              chromium xorg-server-xvfb mesa noto-fonts ttf-dejavu openssl libarchive rust gcc && break
+            sleep "$pause"
+          done
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: I.K.E.'s filter engine
+        run: |
+          git config --global --add safe.directory '*'
+          cargo build --release --locked --manifest-path ike-adblock/Cargo.toml
+          install -m755 ike-adblock/target/release/libike_adblock.so vendor/adblock/ike_adblock.abi3.so
+      - name: Arch's Chromium of the engine's version
+        run: |
+          qtv=$(python3 -c "from PyQt6.QtWebEngineCore import qWebEngineChromiumVersion as c; print(c())")
+          major=${qtv%%.*}
+          list=$(curl -fsSL --http1.1 --retry 5 --retry-all-errors --retry-delay 10 https://archive.archlinux.org/packages/c/chromium/ \
+                 | grep -o "chromium-$major\.[0-9.]*-[0-9]*-x86_64\.pkg\.tar\.zst" | sort -uV)
+          pkg=$( (printf "%s\n" "$list" | grep -F "chromium-$qtv-" | tail -1) || true)
+          [ -n "$pkg" ] || pkg=$(printf '%s\n' "$list" | tail -1)
+          [ -n "$pkg" ] || { echo "::error::Arch never built a Chromium $major"; exit 1; }
+          curl -fsSL --http1.1 --retry 5 --retry-all-errors --retry-delay 10 -o /tmp/c.pkg.tar.zst \
+            "https://archive.archlinux.org/packages/c/chromium/$pkg"
+          mkdir -p /opt/c && bsdtar -xf /tmp/c.pkg.tar.zst -C /opt/c
+          ref=$(/opt/c/usr/lib/chromium/chromium --version | grep -o '[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*')
+          echo "QT_CHROMIUM=$qtv" >> "$GITHUB_ENV"
+          echo "REF_CHROMIUM=$ref" >> "$GITHUB_ENV"
+          echo "Qt WebEngine's Chromium $qtv, reference Arch Chromium $ref" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Probe
+        run: |
+          G="--use-gl=angle --use-angle=gl --ignore-gpu-blocklist"
+          C="chrome:x=/opt/c/usr/lib/chromium/chromium"
+          export PROBE_TIMEOUT=120
+          xvfb-run -a -s "-screen 0 1920x1080x24" python3 tools/engine-probe/run.py out \
+            "ike:balanced+$G@ike-balanced" "ike:strict+$G@ike-strict" "$C+$G@chromium"
+          PROBE_PAGE=extra.html xvfb-run -a -s "-screen 0 1920x1080x24" python3 tools/engine-probe/run.py out \
+            "ike:balanced+$G@ike-balanced-extra" "$C+$G@chromium-extra"
+          python3 - <<'PY'
+          import json, os
+          p = "out/chromium.json"
+          d = json.load(open(p))
+          d["engine"] = {"qt": os.environ["QT_CHROMIUM"], "ref": os.environ["REF_CHROMIUM"]}
+          json.dump(d, open(p, "w"))
+          PY
+      - name: What sites see
+        run: |
+          mkdir -p notice
+          python3 tools/engine-probe/identity_guard.py out tools/engine-probe/baseline.json notice/notice.md \
+            notice/result.json "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          cat notice/notice.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: engine-identity
+          path: notice
+          if-no-files-found: error
+          retention-days: 30

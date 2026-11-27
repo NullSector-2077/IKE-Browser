@@ -1,0 +1,109 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>extra</title></head><body>
+<form><input id="req" required><input id="em" type="email" value="x"><input id="num" type="number" min="5" value="1"><button id="btn">x</button>
+<select id="sel"><option>abc</option></select><input id="cb" type="checkbox"><input id="dt" type="date"><progress id="pg"></progress><meter id="mt"></meter><input id="fi" type="file"><input id="rg" type="range"><textarea id="ta"></textarea></form>
+<script>
+const T = (p, ms = 4000) => Promise.race([Promise.resolve().then(p).then(v => v, e => 'reject ' + e.name + ': ' + e.message), new Promise(r => setTimeout(() => r('TIMEOUT'), ms))]);
+const S = f => { try { return f(); } catch (e) { return 'ERR ' + e.name + ': ' + e.message; } };
+(async () => {
+  const r = {};
+  // 1. fetch cache modes -> request headers recorded by the server
+  for (const m of ['default', 'no-store', 'reload', 'no-cache', 'force-cache']) await T(() => fetch('/hdr/cache-' + m, { cache: m }).then(x => x.status));
+  // 2. attribution reporting, topics, shared storage, protected audience: do they work?
+  r.araFetch = await T(() => fetch('/ara/fetch', { attributionReporting: { eventSourceEligible: true, triggerEligible: false } }).then(x => x.status));
+  r.araImg = await T(() => new Promise(ok => { const i = new Image(); i.attributionSrc = '/ara/imgsrc'; i.onload = () => ok('load'); i.onerror = () => ok('error'); i.src = '/ara/img'; }));
+  r.araSupport = S(() => 'attributionSrc' in HTMLImageElement.prototype);
+  r.topics = await T(() => document.browsingTopics().then(t => 'ok ' + JSON.stringify(t)));
+  r.topicsFetch = await T(() => fetch('/hdr/topics', { browsingTopics: true }).then(x => x.status));
+  r.sharedStorage = await T(() => window.sharedStorage.set('a', 'b').then(() => 'ok'));
+  r.joinIG = await T(() => navigator.joinAdInterestGroup({ owner: 'https://example.com', name: 'x', biddingLogicURL: 'https://example.com/b.js' }, 3600).then(() => 'ok'));
+  r.runAuction = await T(() => navigator.runAdAuction({ seller: location.origin, decisionLogicURL: location.origin + '/d.js', interestGroupBuyers: [location.origin] }).then(x => 'ok ' + x));
+  r.privateAgg = typeof self.PrivateAggregation;
+  r.fenced = S(() => document.createElement('fencedframe').constructor.name + ' ' + typeof FencedFrameConfig + ' ' + typeof window.fence);
+  r.cookieDep = S(() => typeof navigator.cookieDeprecationLabel);
+  // 3. WebRTC: what the ICE candidates look like
+  r.ice = await T(() => new Promise(ok => {
+    const pc = new RTCPeerConnection({ iceServers: [] }); const c = [];
+    pc.createDataChannel('x');
+    pc.onicecandidate = e => { if (e.candidate) c.push(e.candidate.candidate.replace(/[0-9a-f-]{36}\.local/, 'UUID.local').replace(/\b\d+\.\d+\.\d+\.\d+\b/, 'IPV4').replace(/\b[0-9a-f:]{6,}\b/, 'IPV6').replace(/\d{4,}/g, 'N')); else ok(c); };
+    pc.createOffer().then(o => pc.setLocalDescription(o));
+    setTimeout(() => ok(c.concat('partial')), 3500);
+  }), 5000);
+  r.sdp = await T(() => { const pc = new RTCPeerConnection(); pc.createDataChannel('x'); return pc.createOffer().then(o => o.sdp.split('\r\n').filter(l => /^a=(group|msid-semantic|extmap-allow|setup|sctp|max-message|ice-options)|^m=/.test(l))); });
+  // 4. devices
+  r.devices = await T(() => navigator.mediaDevices.enumerateDevices().then(d => d.map(x => x.kind + '|' + (x.label ? 'label' : '') + '|' + (x.deviceId ? 'id' : '') + '|' + (x.groupId ? 'g' : ''))));
+  r.gum = await T(() => navigator.mediaDevices.getUserMedia({ audio: true }).then(() => 'ok'), 2500);
+  r.displayMedia = typeof (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+  // 5. notifications, permissions that prompt
+  r.notifPerm = Notification.permission; r.notifMax = Notification.maxActions;
+  r.notifReq = await T(() => Notification.requestPermission(), 2500);
+  r.geo = await T(() => new Promise(ok => navigator.geolocation.getCurrentPosition(() => ok('pos'), e => ok('err ' + e.code + ' ' + e.message), { timeout: 2000 })), 3000);
+  r.persist = await T(() => navigator.storage.persist());
+  r.midi = await T(() => navigator.requestMIDIAccess().then(() => 'ok'), 2500);
+  r.clipRead = await T(() => navigator.clipboard.readText().then(() => 'ok'), 2500);
+  r.clipWrite = await T(() => navigator.clipboard.writeText('x').then(() => 'ok'), 2500);
+  r.wake = await T(() => navigator.wakeLock.request('screen').then(() => 'ok'), 2500);
+  r.idle = await T(() => IdleDetector.requestPermission(), 2500);
+  r.storageAccess = await T(() => document.hasStorageAccess());
+  r.kbdLock = await T(() => navigator.keyboard.lock().then(() => 'ok'), 2500);
+  r.ptrLock = await T(() => document.body.requestPointerLock().then(() => 'ok'), 2500);
+  r.fullscreen = await T(() => document.body.requestFullscreen().then(() => 'ok'), 2500);
+  // 6. misc navigator behaviour
+  r.battery = await T(() => navigator.getBattery().then(b => [b.charging, b.level, b.chargingTime, b.dischargingTime]));
+  r.kbd = await T(() => navigator.keyboard.getLayoutMap().then(m => m.size + ' ' + m.get('KeyQ')));
+  r.bt = await T(() => navigator.bluetooth ? navigator.bluetooth.getAvailability() : 'absent');
+  r.hidSerial = [typeof navigator.hid, typeof navigator.serial, typeof navigator.usb, typeof navigator.share, typeof navigator.canShare, typeof navigator.setAppBadge, typeof navigator.windowControlsOverlay, typeof navigator.presentation, typeof navigator.xr, typeof navigator.managed, typeof navigator.contacts, typeof window.launchQueue, typeof window.showOpenFilePicker, typeof window.getScreenDetails, typeof window.queryLocalFonts];
+  r.webauthn = await T(async () => [typeof PublicKeyCredential, await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(), await PublicKeyCredential.isConditionalMediationAvailable(), PublicKeyCredential.getClientCapabilities ? JSON.stringify(await PublicKeyCredential.getClientCapabilities()) : 'nocap']);
+  r.credGet = await T(() => navigator.credentials.get({ password: true, mediation: 'silent' }).then(x => 'ok ' + x), 2500);
+  r.fedcm = typeof IdentityCredential;
+  r.xr = await T(() => navigator.xr ? navigator.xr.isSessionSupported('immersive-vr') : 'absent');
+  r.localFonts = await T(() => window.queryLocalFonts ? window.queryLocalFonts().then(f => 'ok ' + f.length) : 'absent', 2500);
+  r.screenDetails = await T(() => window.getScreenDetails ? window.getScreenDetails().then(() => 'ok') : 'absent', 2500);
+  r.mem = S(() => [performance.memory.jsHeapSizeLimit, typeof performance.measureUserAgentSpecificMemory]);
+  r.entryTypes = S(() => PerformanceObserver.supportedEntryTypes.join(','));
+  r.pip = [document.pictureInPictureEnabled, document.fullscreenEnabled];
+  r.share = await T(() => navigator.share ? navigator.share({ title: 'x' }).then(() => 'ok') : 'absent', 2000);
+  // 7. autoplay
+  r.audioCtx = S(() => new AudioContext().state);
+  r.autoplay = await T(() => { const a = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA='); return a.play().then(() => 'played'); }, 2500);
+  // 8. window.open without a gesture, popups
+  r.open = S(() => { const w = window.open('about:blank', '_blank', 'width=300,height=200'); const o = w ? ['win', w.closed, w.innerWidth, w.outerWidth, typeof w.opener, w.menubar.visible, w.toolbar.visible] : String(w); if (w) w.close(); return o; });
+  r.bars = [menubar.visible, toolbar.visible, locationbar.visible, personalbar.visible, scrollbars.visible, statusbar.visible];
+  // 9. schemes only Qt knows
+  r.urlQrc = S(() => { const u = new URL('qrc://host/a/../b?x#y'); return [u.href, u.origin, u.host, u.pathname]; });
+  r.urlQt = S(() => { const u = new URL('qt://host/a/../b'); return [u.href, u.origin, u.host, u.pathname]; });
+  r.urlFoo = S(() => { const u = new URL('foo://host/a/../b'); return [u.href, u.origin, u.host, u.pathname]; });
+  r.urlChromeExt = S(() => { const u = new URL('chrome-extension://host/a/../b'); return [u.href, u.origin, u.host, u.pathname]; });
+  r.urlDevtools = S(() => { const u = new URL('devtools://host/a/../b'); return [u.href, u.origin, u.host]; });
+  r.urlChrome = S(() => { const u = new URL('chrome://host/a/../b'); return [u.href, u.origin, u.host]; });
+  const loadTest = (tag, attr, url) => T(() => new Promise(ok => { const e = document.createElement(tag); const t0 = performance.now(); e.onload = () => ok('load ' + Math.round(performance.now() - t0)); e.onerror = () => ok('error'); e[attr] = url; if (tag === 'link') e.rel = 'stylesheet'; document.head.appendChild(e); }), 3000);
+  r.qrcScript = await loadTest('script', 'src', 'qrc:///qtwebchannel/qwebchannel.js');
+  r.qwebchannel = typeof self.QWebChannel + ' ' + typeof self.qt;
+  r.qrcFetch = await T(() => fetch('qrc:///qtwebchannel/qwebchannel.js').then(x => 'ok ' + x.status));
+  r.fooFetch = await T(() => fetch('foo:///x').then(x => 'ok ' + x.status));
+  r.chromeFetch = await T(() => fetch('chrome://version/').then(x => 'ok ' + x.status));
+  r.extImg = await loadTest('img', 'src', 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/index.css');
+  r.extFetch = await T(() => fetch('chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/index.html').then(x => 'ok ' + x.status));
+  r.regProto = S(() => { navigator.registerProtocolHandler('web+x', location.origin + '/?%s'); return 'ok'; });
+  // 10. forms: validation texts, control sizes, system fonts and colors
+  r.valid = ['req', 'em', 'num'].map(i => document.getElementById(i).validationMessage);
+  r.sizes = ['btn', 'sel', 'cb', 'dt', 'pg', 'mt', 'fi', 'rg', 'ta', 'req'].map(i => { const e = document.getElementById(i), s = getComputedStyle(e); return i + ':' + e.offsetWidth + 'x' + e.offsetHeight + ' ' + s.fontFamily + ' ' + s.fontSize; });
+  r.sysFonts = ['caption', 'icon', 'menu', 'message-box', 'small-caption', 'status-bar'].map(f => { const d = document.createElement('span'); d.style.font = f; document.body.appendChild(d); const s = getComputedStyle(d); const o = f + ':' + s.fontFamily + ' ' + s.fontSize + ' ' + s.fontWeight; d.remove(); return o; });
+  r.sysColors = ['AccentColor', 'AccentColorText', 'ActiveText', 'ButtonBorder', 'ButtonFace', 'ButtonText', 'Canvas', 'CanvasText', 'Field', 'FieldText', 'GrayText', 'Highlight', 'HighlightText', 'LinkText', 'Mark', 'MarkText', 'SelectedItem', 'SelectedItemText', 'VisitedText', 'ActiveBorder', 'ActiveCaption', 'InfoBackground', 'Menu', 'Scrollbar', 'ThreeDFace', 'Window', '-webkit-focus-ring-color'].map(c => { const d = document.createElement('span'); d.style.color = c; document.body.appendChild(d); const o = c + ':' + getComputedStyle(d).color; d.remove(); return o; });
+  r.generic = S(() => { const c = document.createElement('canvas').getContext('2d'); const w = f => { c.font = '40px ' + f; return c.measureText('mmmmmmmmlliWWW@').width; }; const named = ['Times New Roman', 'Arial', 'Courier New', 'DejaVu Serif', 'DejaVu Sans', 'DejaVu Sans Mono', 'Liberation Serif', 'Liberation Sans', 'Liberation Mono', 'Noto Serif', 'Noto Sans', 'Noto Sans Mono', 'Cantarell', 'Helvetica', 'Times', 'Courier']; const o = {}; for (const g of ['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-monospace']) { const x = w(g); o[g] = x + ' = ' + named.filter(n => w('"' + n + '", ' + (g === 'serif' ? 'monospace' : 'serif')) === x).join('/'); } return o; });
+  r.sel = S(() => { const d = document.createElement('div'); d.textContent = 'x'; document.body.appendChild(d); const s = getComputedStyle(d, '::selection'); const o = [s.backgroundColor, s.color]; d.remove(); return o; });
+  // 11. PDF in a frame, an address that fails
+  r.pdf = await T(() => new Promise(ok => { const f = document.createElement('iframe'); f.onload = () => { ok(S(() => { const d = f.contentDocument; return d ? ['doc', d.contentType, d.body ? d.body.innerHTML.slice(0, 160) : null, f.contentWindow.length] : ['nodoc', f.contentWindow.length]; })); }; f.src = '/x.pdf'; document.body.appendChild(f); }), 4000);
+  r.embedPdf = await T(() => new Promise(ok => { const e = document.createElement('embed'); e.type = 'application/pdf'; e.src = '/x.pdf'; e.width = 100; e.height = 100; e.onload = () => ok('load'); e.onerror = () => ok('error'); document.body.appendChild(e); setTimeout(() => ok('noevent ' + S(() => typeof e.getSVGDocument + ' ' + e.offsetWidth)), 2500); }), 3500);
+  r.errFrame = await T(() => new Promise(ok => { const f = document.createElement('iframe'); const t0 = performance.now(); f.onload = () => ok(['load', S(() => String(f.contentDocument)), S(() => f.contentWindow.length)]); f.src = 'http://127.0.0.1:1/'; document.body.appendChild(f); }), 4000);
+  r.dlFrame = await T(() => new Promise(ok => { const f = document.createElement('iframe'); f.onload = () => ok('load'); f.src = 'data:application/octet-stream,xx'; document.body.appendChild(f); setTimeout(() => ok('noload'), 2000); }), 3000);
+  // 12. language everywhere
+  r.lang = [navigator.language, navigator.languages.join(','), Intl.DateTimeFormat().resolvedOptions().locale, new Intl.NumberFormat().resolvedOptions().locale];
+  r.conn = S(() => { const c = navigator.connection; return c ? [c.effectiveType, c.rtt, c.downlink, c.saveData, c.type] : null; });
+  r.speech = [typeof speechSynthesis, typeof webkitSpeechRecognition, typeof SpeechRecognition];
+  r.ms = Math.round(performance.now());
+  await new Promise(ok => setTimeout(ok, 1500));
+  r.alive = 'yes';
+  await fetch('/result?name=' + new URLSearchParams(location.search).get('name'), { method: 'POST', body: JSON.stringify({ extra: r }) });
+  document.title = 'probe done';
+})();
+</script></body></html>

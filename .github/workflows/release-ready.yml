@@ -118,6 +118,16 @@ jobs:
           else
             echo "::warning::the detailed notice could not be written: the short one is used"
           fi
+          # the weekly check of the engine's identity (engine-identity.yml, 1.1.29): its lines,
+          # informational, before the notice's last line; nothing when there is no run yet
+          run=$(gh run list --workflow engine-identity.yml --branch main --status success --limit 1 \
+                --json databaseId --jq '.[0].databaseId // empty' 2>/dev/null || true)
+          if [ -n "$run" ] && gh run download "$run" -n engine-identity -D "$RUNNER_TEMP/identity" 2>/dev/null \
+             && [ -s "$RUNNER_TEMP/identity/notice.md" ]; then
+            awk -v f="$RUNNER_TEMP/identity/notice.md" \
+              'index($0, "<!-- release-ready:") == 1 { while ((getline l < f) > 0) print l; print "" } { print }' \
+              "$body" > "$body.id" && mv "$body.id" "$body"
+          fi
           if [ -z "$open" ]; then
             gh label create release-ready --color 0e8a16 --description "A version in main waits to be published" 2>/dev/null || true
             gh issue create --title "$title" --label release-ready --assignee "$OWNER" --body-file "$body" \

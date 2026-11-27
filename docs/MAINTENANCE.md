@@ -1234,6 +1234,28 @@ parallel jobs, with no test lost and no gate weakened:
   completeness whatever they say): download `test-results` of a green run and
   `python3 tools/shard-tests.py timings --junit junit.xml --junit junit-installed.xml`.
 
+## The engine's identity, every week (1.1.29)
+
+`engine-identity.yml` (Tuesdays, and by hand) checks that sites still see an
+ordinary Chromium of the engine's own version after every update of Qt
+WebEngine on Arch Linux (the Engine Privacy Layer study,
+`docs/review/engine-privacy-study.md`). It reads the installed engine's
+Chromium version, takes Arch's own Chromium of that version from the Arch
+Linux Archive (the closest build when Arch never built that exact one), and
+probes both with I.K.E. at Balanced and Strict on the same machine
+(`tools/engine-probe/run.py`: the page, a frame and the workers, the request
+headers, the TLS ClientHello). `tools/engine-probe/identity_guard.py` writes,
+in Italian, what it found: `window.chrome`, the permissions, the network and
+the advertising APIs as I.K.E. sets them; one identity in every realm; the
+same TLS fingerprint as that Chromium; the interfaces Chromium has and the
+engine lacks, compared with `tools/engine-probe/baseline.json` (a new one is
+a new way to recognise the engine; one that is gone is to be taken out of the
+list). The signing notice (`release-ready.yml`) shows these lines from the
+latest run. It is informational: a finding never fails the run, nothing is
+changed by it, and no AI changes what it checks (tier B); the run fails only
+when the check itself could not run, which "Automation health" would report.
+Nothing to update by hand when Qt WebEngine moves to a newer Chromium.
+
 ## Components followed
 
 `tools/check-components.py` checks (each line is one candidate, or a small

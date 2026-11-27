@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>engine probe</title>
+<script src="/probe-core.js"></script></head>
+<body><p id="s">probing...</p>
+<script type="module">
+const P = self.PROBE, Q = new URLSearchParams(location.search);
+const NAME = Q.get('name') || 'unnamed';
+
+const SUPPORTS = [
+  'selector(:has(a))', 'selector(:is(a))', 'selector(:state(x))', 'selector(:popover-open)', 'selector(:open)', 'selector(::details-content)',
+  'selector(::scroll-marker)', 'selector(::scroll-button(left))', 'selector(::column)', 'selector(:target-current)', 'selector(::picker(select))',
+  'selector(::picker-icon)', 'selector(::checkmark)', 'selector(:active-view-transition)', 'selector(:active-view-transition-type(x))',
+  'selector(::view-transition)', 'selector(:user-valid)', 'selector(:modal)', 'selector(::target-text)', 'selector(::spelling-error)',
+  'selector(::search-text)', 'selector(:has-slotted)', 'selector(::part(x))', 'selector(:host-context(a))', 'selector(&)', 'selector(::highlight(x))',
+  'selector(:interest-source)', 'selector(:interest-target)', 'selector(:heading)', 'selector(::scroll-marker-group)', 'selector(:-webkit-autofill)',
+  'color: color-mix(in srgb, red, blue)', 'color: light-dark(red, blue)', 'color: contrast-color(red)', 'color: rgb(from red r g b)',
+  'color: color(display-p3 1 0 0)', 'color: oklch(0.5 0.1 100)', 'width: calc-size(auto, size)', 'interpolate-size: allow-keywords',
+  'width: anchor-size(width)', 'top: anchor(bottom)', 'position-area: top', 'position-try-fallbacks: flip-block', 'position-anchor: --a',
+  'position-visibility: anchors-visible', 'anchor-scope: all', 'text-box: trim-both cap alphabetic', 'reading-flow: flex-visual',
+  'reading-order: 1', 'field-sizing: content', 'appearance: base-select', 'scroll-marker-group: after', 'scroll-target-group: auto',
+  'width: if(style(--x: 1): 1px; else: 2px)', 'width: attr(data-x type(<length>))', 'width: sibling-index()', 'width: calc(1px * sibling-count())',
+  'corner-shape: squircle', 'shape-outside: shape(from 0 0, line to 10px 10px)', 'clip-path: shape(from 0 0, line to 10px 10px)',
+  'dynamic-range-limit: standard', 'opacity: progress(1, 0, 2)', 'text-wrap: pretty', 'text-wrap-style: balance', 'text-autospace: normal',
+  'text-spacing-trim: trim-start', 'white-space-collapse: preserve', 'view-transition-class: a', 'view-transition-name: match-element',
+  'animation-timeline: view()', 'animation-range: entry', 'timeline-scope: --a', 'scroll-timeline: --a', 'animation-trigger: --t play-forwards',
+  'transition-behavior: allow-discrete', 'overlay: auto', 'content-visibility: auto', 'contain-intrinsic-size: auto 1px', 'container-type: scroll-state',
+  'font-size-adjust: from-font', 'font-variant-emoji: emoji', 'font-palette: --x', 'hyphenate-limit-chars: 5', 'ruby-align: center', 'ruby-overhang: none',
+  'math-depth: 1', 'math-shift: compact', 'zoom: 1', 'scrollbar-color: red blue', 'scrollbar-gutter: stable', 'overflow-clip-margin: 1px',
+  'overscroll-behavior: contain', 'text-decoration-skip-ink: all', 'text-emphasis: dot', 'caret-shape: block', 'caret-animation: manual',
+  'line-clamp: 2', 'box-decoration-break: clone', 'paint-order: stroke', 'image-rendering: crisp-edges', 'mask-type: alpha', 'scroll-snap-stop: always',
+  'interactivity: inert', 'dominant-baseline: middle', 'display: grid-lanes', 'display: masonry', 'grid-template-rows: masonry', 'item-flow: row',
+  'gap-rule-color: red', 'column-rule-break: none', 'rule-color: red', 'scroll-initial-target: nearest', 'text-indent: 1px hanging', 'font-width: 50%',
+  'width: stretch', 'width: -webkit-fill-available', 'height: 1dvh', 'width: 1cqi', 'width: round(1px, 1px)', 'width: calc(sign(1px) * 1px)',
+  'width: calc(pow(2, 2) * 1px)', 'width: calc(e * 1px)', 'width: calc(mod(5, 3) * 1px)', 'line-height: 1rlh', 'width: 1rcap', 'width: 1ric',
+  'color: AccentColor', 'background: image(red)', 'background-image: cross-fade(url(a) 50%, url(b))', 'background-image: -webkit-image-set(url(a) 1x)',
+  'background-image: image-set("a" 1x type("image/avif"))', 'background-image: element(#a)', 'transform: translate(1px) random(1px, 2px)',
+  'width: random(1px, 2px)', 'color: color(srgb-linear 1 0 0)', 'font-family: math', 'font-family: ui-monospace', 'font-family: system-ui',
+  'font-family: emoji', 'font-family: fangsong', 'hanging-punctuation: first', 'initial-letter: 2', 'text-justify: inter-character', 'speak-as: normal'
+];
+const ATRULES = ['@scope (a) { b { color: red } }', '@starting-style { a { color: red } }', '@position-try --a { top: 0 }', '@view-transition { navigation: auto }',
+  '@container style(--x: 1) { a { color: red } }', '@container scroll-state(stuck: top) { a { color: red } }', '@function --f() { result: 1 }',
+  '@property --p { syntax: "<length>"; inherits: false; initial-value: 0px }', '@layer a { a { color: red } }', '@font-palette-values --p { font-family: a }',
+  '@counter-style x { system: cyclic; symbols: a }', '@page { @top-left { content: "x" } }', '@supports font-format(woff2) { a { color: red } }',
+  '@supports font-tech(color-COLRv1) { a { color: red } }', '@supports at-rule(@scope) { a { color: red } }', '@media (scripting: enabled) { a { color: red } }',
+  '@custom-media --x (width > 1px);', '@route --x { pattern: "/a" }', '@navigation (at: route(--x)) { a { color: red } }', 'a { b { color: red } }',
+  '@media (width > 1px) { a { color: red } }', '@media (display-mode: picture-in-picture) { a { color: red } }', '@media (prefers-reduced-transparency) { a { color: red } }'];
+const MQ = ['(prefers-color-scheme: dark)', '(prefers-reduced-motion: reduce)', '(prefers-contrast: more)', '(prefers-contrast: no-preference)',
+  '(forced-colors: active)', '(inverted-colors: none)', '(dynamic-range: high)', '(video-dynamic-range: high)', '(color-gamut: p3)', '(hover: hover)',
+  '(pointer: fine)', '(any-pointer: coarse)', '(update: fast)', '(scripting: enabled)', '(display-mode: browser)', '(prefers-reduced-transparency: reduce)',
+  '(prefers-reduced-data: reduce)', '(monochrome)', '(overflow-block: scroll)', '(horizontal-viewport-segments: 1)', '(device-posture: continuous)',
+  '(prefers-color-scheme: light)', '(-webkit-transform-3d)', '(orientation: landscape)', '(color-index)', '(grid: 0)'];
+
+function css() {
+  const cs = getComputedStyle(document.documentElement);
+  const props = []; for (let i = 0; i < cs.length; i++) props.push(cs[i]);
+  const sup = {}; SUPPORTS.forEach(s => { sup[s] = P.safe(() => s.startsWith('selector(') ? CSS.supports(s) : CSS.supports(s.split(':')[0].trim(), s.slice(s.indexOf(':') + 1).trim())); });
+  const at = {};
+  const sheet = new CSSStyleSheet();
+  ATRULES.forEach(r => { at[r] = P.safe(() => { const s = new CSSStyleSheet(); s.replaceSync(r); return s.cssRules.length ? s.cssRules[0].constructor.name + ':' + s.cssRules[0].cssText.length : 'dropped'; }); });
+  const mq = {}; MQ.forEach(q => { const m = matchMedia(q); mq[q] = m.media === 'not all' ? 'unknown' : m.matches; });
+  const styleProto = Object.getOwnPropertyNames(CSSStyleDeclaration.prototype).length;
+  const el = document.createElement('div');
+  return { computed: props, computedCount: props.length, supports: sup, atrules: at, mq, styleProto, styleKeys: Object.keys(el.style).length,
+    defaults: { font: cs.fontFamily, size: cs.fontSize, color: cs.color, bodyMargin: getComputedStyle(document.body).margin,
+      scrollbar: P.safe(() => { const d = document.createElement('div'); d.style.cssText = 'width:100px;height:100px;overflow:scroll;position:absolute'; document.body.appendChild(d); const w = d.offsetWidth - d.clientWidth; d.remove(); return w; }) } };
+}
+
+function chromeObj() {
+  const c = window.chrome;
+  if (c === undefined) return 'absent';
+  const out = { keys: Object.keys(c).sort(), own: Object.getOwnPropertyNames(c).sort() };
+  for (const k of out.own) {
+    const v = P.safe(() => c[k]);
+    out[k] = typeof v === 'function' ? 'fn:' + P.safe(() => Function.prototype.toString.call(v).slice(0, 60)) :
+      (v && typeof v === 'object') ? Object.getOwnPropertyNames(v).sort() : String(v);
+  }
+  out.loadTimes = P.safe(() => Object.keys(c.loadTimes()).sort());
+  out.csi = P.safe(() => Object.keys(c.csi()).sort());
+  out.appInstalled = P.safe(() => c.app && c.app.isInstalled);
+  return out;
+}
+
+function documentBits() {
+  return {
+    featurePolicy: P.safe(() => document.featurePolicy.features().slice().sort()),
+    allowed: P.safe(() => document.featurePolicy.allowedFeatures().slice().sort()),
+    screen: { w: screen.width, h: screen.height, aw: screen.availWidth, ah: screen.availHeight, cd: screen.colorDepth, pd: screen.pixelDepth,
+      dpr: devicePixelRatio, o: P.safe(() => screen.orientation.type), ext: screen.isExtended, iw: innerWidth, ih: innerHeight, ow: outerWidth, oh: outerHeight,
+      sx: screenX, sy: screenY },
+    external: P.safe(() => String(window.external)),
+    histLen: history.length,
+    notif: P.safe(() => Notification.permission),
+    docProps: P.safe(() => Object.getOwnPropertyNames(Document.prototype).length),
+    hasFocus: document.hasFocus(),
+    visibility: document.visibilityState,
+    referrerPolicy: P.safe(() => document.createElement('a').referrerPolicy),
+    contentType: document.contentType,
+    compat: document.compatMode,
+    designMode: document.designMode,
+    caretRange: typeof document.caretPositionFromPoint,
+    domRectProto: Object.getOwnPropertyNames(DOMRect.prototype).length,
+    htmlElems: P.safe(() => ['search', 'selectedcontent', 'fencedframe', 'portal', 'permission', 'geolocation', 'usermedia', 'install', 'model', 'dialog', 'menu', 'marquee', 'keygen', 'listbox']
+      .map(t => t + ':' + document.createElement(t).constructor.name)),
+    inputTypes: ['color', 'date', 'datetime-local', 'month', 'week', 'time', 'range', 'search', 'email', 'tel', 'url', 'datetime', 'number']
+      .map(t => { const i = document.createElement('input'); i.type = t; return t + ':' + i.type; }),
+    canvasNoise: P.safe(() => { const c = document.createElement('canvas'); c.width = 60; c.height = 20; const x = c.getContext('2d'); x.font = '14px sans-serif'; x.fillText('Probe ✓ 🙂', 2, 15); return P.hash(c.toDataURL()); }),
+    emoji: P.safe(() => { const c = document.createElement('canvas').getContext('2d'); c.font = '20px sans-serif'; return c.measureText('🙂🏳️‍🌈').width; }),
+    mathml: P.safe(() => { const m = document.createElementNS('http://www.w3.org/1998/Math/MathML', 'mfrac'); return m.constructor.name; }),
+    htmlAttrs: P.safe(() => ['popover', 'inert', 'writingSuggestions', 'autocorrect', 'hidden', 'nonce', 'headingOffset'].map(a => a + ':' + (a in HTMLElement.prototype))),
+  };
+}
+
+async function wasm() {
+  const out = {};
+  // wasm-feature-detect where it is beside the probe (the study's copy); the
+  // engine's own WebAssembly object otherwise
+  let WFD = {};
+  try { WFD = await import('/vendor/wasm-feature-detect.js'); } catch (e) {}
+  for (const [k, f] of Object.entries(WFD)) out[k] = await P.asafe(() => P.withTimeout(f(), 3000));
+  out.jsapi = Object.getOwnPropertyNames(WebAssembly).sort();
+  return out;
+}
+
+function frameProbe() {
+  return new Promise(ok => {
+    const f = document.createElement('iframe');
+    f.srcdoc = '<script src="/probe-core.js"><\/script><script>PROBE.collect("iframe").then(r => parent.postMessage({frame: r}, "*"))<\/script>';
+    const t = setTimeout(() => ok('TIMEOUT'), 20000);
+    addEventListener('message', function h(e) { if (e.data && e.data.frame) { clearTimeout(t); removeEventListener('message', h); ok(e.data.frame); f.remove(); } });
+    document.body.appendChild(f);
+  });
+}
+function dedicated() {
+  return P.withTimeout(new Promise((ok) => { const w = new Worker('/probe-worker.js'); w.onmessage = e => { ok(e.data); w.terminate(); }; w.onerror = e => ok('ERR:' + (e.message || 'error')); w.postMessage(1); }), 20000);
+}
+function shared() {
+  return P.asafe(() => P.withTimeout(new Promise((ok) => { const w = new SharedWorker('/probe-worker.js'); w.port.onmessage = e => ok(e.data); w.onerror = e => ok('ERR:' + (e.message || 'error')); w.port.start(); w.port.postMessage(1); }), 20000));
+}
+async function service() {
+  return P.asafe(async () => {
+    if (!navigator.serviceWorker) return 'absent';
+    const reg = await navigator.serviceWorker.register('/probe-worker.js', { scope: '/' });
+    const sw = reg.installing || reg.waiting || reg.active;
+    if (sw.state !== 'activated') await P.withTimeout(new Promise(ok => sw.addEventListener('statechange', () => { if (sw.state === 'activated') ok(); })), 10000);
+    const ch = new MessageChannel();
+    const r = await P.withTimeout(new Promise(ok => { ch.port1.onmessage = e => ok(e.data); sw.postMessage(1, [ch.port2]); }), 20000);
+    await reg.unregister();
+    return r;
+  });
+}
+async function network() {
+  const out = {};
+  const tls = Q.get('tls');
+  if (tls) {
+    out.tls = await P.asafe(() => P.withTimeout(fetch('https://localhost:' + tls + '/h2probe', { mode: 'no-cors', cache: 'no-store' }).then(r => 'fetched ' + r.type, e => 'ERR ' + e.message), 8000));
+  }
+  out.nav = P.safe(() => { const e = performance.getEntriesByType('navigation')[0]; return { proto: e.nextHopProtocol, type: e.type, delivery: e.deliveryType, keys: Object.keys(e.toJSON()).sort() }; });
+  // the request headers of a fetch, an image, a script and a stylesheet, recorded by the server
+  await P.asafe(() => fetch('/hdr/fetch', { cache: 'no-store' }));
+  await new Promise(ok => { const i = new Image(); i.onload = i.onerror = ok; i.src = '/hdr/img'; });
+  await new Promise(ok => { const s = document.createElement('script'); s.onload = s.onerror = ok; s.src = '/hdr/script'; document.head.appendChild(s); });
+  await new Promise(ok => { const s = document.createElement('link'); s.rel = 'stylesheet'; s.onload = s.onerror = ok; s.href = '/hdr/style'; document.head.appendChild(s); });
+  return out;
+}
+
+async function main() {
+  const t0 = performance.now();
+  const status = document.getElementById('s');
+  const r = { name: NAME, ua: navigator.userAgent };
+  try {
+    r.page = await P.collect('page');
+    r.css = css();
+    r.chrome = chromeObj();
+    r.doc = documentBits();
+    r.wasm = await wasm();
+    r.network = await network();
+    if (!Q.has('nofr')) {
+      r.iframe = await frameProbe();
+      r.dedicated = await dedicated();
+      r.shared = await shared();
+      r.service = await service();
+    }
+  } catch (e) { r.fatal = String(e && e.stack || e); }
+  r.ms = Math.round(performance.now() - t0);
+  await fetch('/result?name=' + encodeURIComponent(NAME), { method: 'POST', body: JSON.stringify(r), headers: { 'Content-Type': 'application/json' } });
+  status.textContent = 'done';
+  document.title = 'probe done';
+}
+main();
+</script></body></html>
