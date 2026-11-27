@@ -533,12 +533,12 @@ def test_the_report_says_what_was_really_tested(tool, repo, tmp_path, monkeypatc
     out.write_text("")
     tool.main(["--root", str(repo), "--ubo-src", str(tool.ubo), "--arch", str(saved), "--markdown",
                str(tmp_path / "r.md")])
-    assert out.read_text().endswith("arch=unreachable\n")
+    assert out.read_text().endswith("arch=unreachable\narch_testing=none\n")
     md = (tmp_path / "r.md").read_text()
     assert "| qt6-webengine | source unreachable |" in md and "Source unreachable: OSError: down" in md
     out.write_text("")
     tool.main(["--root", str(repo), "--ubo-src", str(tool.ubo), "--arch", str(tmp_path / "missing.json")])
-    assert out.read_text().endswith("arch=untested\n")
+    assert out.read_text().endswith("arch=untested\narch_testing=none\n")
     # without --arch (the daily maintenance): not asked, not written
     monkeypatch.setattr(tool, "arch_current", lambda get=None: pytest.fail("Arch asked without --arch"))
     out.write_text("")
@@ -580,7 +580,8 @@ def test_the_arch_workflows():
     daily = (ROOT / ".github/workflows/daily-check.yml").read_text()
     parts = re.split(r"^  ([a-z-]+):\n", daily.split("\njobs:\n", 1)[1], flags=re.M)
     jobs = dict(zip(parts[1::2], parts[2::2]))
-    assert set(jobs) == {"check", "lists", "update-issue", "start-arch", "ledger", "ai-work", "judge-again"}
+    assert set(jobs) == {"check", "lists", "update-issue", "start-arch", "start-arch-testing", "ledger", "ai-work",
+                         "judge-again"}
     # AUTOMAT: the daily round over the open pull requests only reads them and starts workflows
     assert "contents: write" not in jobs["judge-again"] and "secrets." not in jobs["judge-again"]
     # WP8, WP9: the AI work the ledger made due; it only starts workflows
