@@ -100,7 +100,7 @@ def test_a_busy_model_hands_over_at_once_with_its_words(reserve):
     kind, detail, wait, code, scope = stop.value.args
     assert (kind, wait, code, scope) == ("quota", 0, 429, "model")
     assert "rate-limited upstream" in detail and "http" not in detail and "secret" not in detail
-    assert opener.sent["reasoning"] == {"effort": "low", "exclude": True}
+    assert opener.sent["reasoning"] == {"effort": "minimal", "exclude": True}
 
 
 def test_other_providers_get_no_reasoning_field_and_their_words(reserve):

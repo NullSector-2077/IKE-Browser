@@ -812,6 +812,13 @@ of that day's four reasons, are `tests/test_automat_deadlock.py`):
   says which limit it was. OpenRouter is asked for little reasoning, not sent back
   (`"reasoning": {"effort": "low", "exclude": true}`), and an answer cut off before its text says so
   (`cutoff`) instead of "no JSON object".
+- **The reasoning that left no answer** (2026-11-27, run 45983654916, PR #111): with the stall gone, nine of
+  eleven free models were asked and almost all were cut off, their whole answer spent on reasoning. Each
+  provider is now asked for little reasoning with its own parameter, and a model cut off is asked once more
+  with its reasoning off (`reasoning_params`: OpenRouter `reasoning.effort` "minimal", then "none"; Z.AI
+  `thinking: {"type": "disabled"}`; Groq `reasoning_effort` "low" for gpt-oss, "none" for Qwen 3.8 27B;
+  read on each provider's page that day). A model whose reasoning is mandatory refuses "none" (HTTP 400):
+  the next model is asked.
 - **Gemini's real quota, learned** (2026-11-25): Google publishes no numbers for the free tier ("can be
   viewed in Google AI Studio"), so `requests_per_day` of Antigravity in `tools/ai-quota.json` is an
   estimate. Gemini's 429 names the limit it hit and its value (`google.rpc.QuotaFailure`: `quotaId`
