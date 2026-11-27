@@ -100,6 +100,15 @@ SPECS = {
 }
 # the order in which candidates of one serial group go (the security fixes' branches always count as open)
 PRIORITY = ("adblock", "pyo3", "crates", "crate-major-", "test-qt", "test-tools", "test-libs")
+# AUTOMAT made simpler (2026-11-27, the owner's approval): the low-risk candidates are made once a week, on
+# WEEKLY_DAY (UTC), not every day. In the week of 2026-11-20 crates and ci-cargo-deny alone started 26 runs of
+# Tests and 25 of Arch Linux, each rebuilt as an upstream moved by a patch release. What ships to users and
+# changes their protection stays daily: the AdBlock engine, pyo3, a crate's new major version, uBlock Origin's
+# scriptlets, Dark Reader, Breeze, the PKGBUILD, and test-qt (the early warning of a Qt release). Security fixes
+# are their own branches (automation/update/security-*) and never wait. An open weekly candidate is left as it
+# is between Mondays: it still merges by itself when verified.
+WEEKLY = ("crates", "test-tools", "test-libs", "ci-")
+WEEKLY_DAY = 0                  # Monday
 UPDATE_COMMIT = re.compile(r"^update: ([a-z0-9_-]+) (.{1,300}) -> (.{1,300}) \(no AI\)$")
 CI_COMMIT = re.compile(r"^ci: ([a-z0-9-]+) (\S{1,80}) -> (\S{1,80}) \(tools/ci-pins\.py, no AI\)$")
 
@@ -238,13 +247,21 @@ def commit_problem(cid, first_line, files):
     return ""
 
 
-def plan(report, branches=None, builder_apply=()):
+def weekly(cid):
+    """True for a low-risk candidate made only on WEEKLY_DAY."""
+    return any(cid == w or (w.endswith("-") and cid.startswith(w)) for w in WEEKLY)
+
+
+def plan(report, branches=None, builder_apply=(), today=None):
     """What today's run does with each candidate (pure): [{"id", "action", "branch", "reason", ...}].
 
     report: tools/check-components.py --json (its "candidates"); branches: {branch: {"pr", "sha",
     "subject"}} of the open pull requests of automation/update/* and automation/builder/*.
     action: make (rebuilt from main, pushed when it differs), queued (another candidate of its serial
-    group is open), builder (the builder refused: the builder's path), unreachable, skip."""
+    group is open), builder (the builder refused: the builder's path), weekly (a low-risk candidate, made on
+    WEEKLY_DAY only), unreachable, skip. today: the day of the run (UTC), for WEEKLY."""
+    import datetime as dt
+    today = today or dt.datetime.now(dt.timezone.utc).date()
     branches = branches or {}
     out, taken = [], {}
     open_serial = {}
@@ -293,6 +310,12 @@ def plan(report, branches=None, builder_apply=()):
             continue
         if not c.get("to"):
             out.append(dict(row, action="skip", reason="nothing newer"))
+            continue
+        if weekly(cid) and today.weekday() != WEEKLY_DAY:
+            known = branches.get(row["branch"]) or {}
+            out.append(dict(row, action="weekly", reason="a low-risk update: made on Mondays only%s" % (
+                " (the open candidate, PR #%s, stays as it is and still merges by itself)" % known["pr"]
+                if known else "")))
             continue
         group = s["serial"]
         mine = row["branch"]

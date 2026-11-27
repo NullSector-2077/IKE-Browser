@@ -40,6 +40,56 @@ env:
   SHARDS: "4"
 
 jobs:
+  # main's own test results, for "Nothing gets worse" (the evidence that a change is needed,
+  # 2026-11-24): the last run of this workflow pushed to main on main's commit that ended in success
+  # or failure (never a cancelled or skipped one, never another branch's or event's). The only job
+  # with actions: read (a permission cannot be given to one step), and it runs none of this commit's
+  # code: no checkout, only gh. What it reads goes to the job "tests checks" as an artifact of this run.
+  main-results:
+    name: tests main results
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Main's test results
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+        run: |
+          into="$RUNNER_TEMP/main-results"
+          mkdir -p "$into/junit"
+          if [ "$REF" = refs/heads/main ]; then
+            base=$(gh api "repos/$REPO/commits/$SHA" --jq '.parents[0].sha' 2> /dev/null || true)
+          else
+            base=$(gh api "repos/$REPO/commits/main" --jq '.sha' 2> /dev/null || true)
+          fi
+          echo "$base" > "$into/base.txt"
+          run=""
+          if [ -n "$base" ]; then
+            run=$(gh run list --repo "$REPO" --workflow tests.yml --commit "$base" --branch main --event push \
+                --limit 20 --json databaseId,conclusion \
+                --jq '[.[] | select(.conclusion == "success" or .conclusion == "failure")][0].databaseId // empty' \
+                2> /dev/null || true)
+          fi
+          if [ -z "$run" ] || ! gh run download "$run" --repo "$REPO" -n test-results -D "$into/run" \
+              > /dev/null 2>&1; then
+            echo "::notice::no finished run of tests.yml pushed to main on ${base:-main}: no evidence from main's tests"
+            exit 0
+          fi
+          echo "$run" > "$into/run.txt"
+          cp "$into"/run/junit*.xml "$into/junit/" 2> /dev/null || echo "::notice::the run $run kept no junit file"
+          rm -rf "$into/run"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: main-test-results
+          path: ${{ runner.temp }}/main-results/
+          if-no-files-found: ignore
+          retention-days: 1
+
   # The shards' numbers, from SHARDS (a matrix cannot read the workflow's env)
   plan:
     name: tests plan
@@ -221,10 +271,14 @@ jobs:
   # Every step that is not the suite, once per commit
   checks:
     name: tests checks
+    # main's results never fail their job (anything unread is a notice: no evidence then, nothing lost);
+    # no if here, as on every job before the gate (a skipped job would skip merge-ready)
+    needs: main-results
     runs-on: ubuntu-24.04
-    # "Nothing gets worse" has 20 minutes of its own
-    timeout-minutes: 60
+    # "Nothing gets worse" has 45 minutes of its own (three runs for an AI's change of the fingerprinting)
+    timeout-minutes: 90
     outputs:
+      fp-unchanged: ${{ steps.fp-unchanged.outcome }}
       rust: ${{ steps.rust.outcome }}
       licences: ${{ steps.licences.outcome }}
       lint: ${{ steps.lint.outcome }}
@@ -407,14 +461,29 @@ jobs:
       # display: ad and tracker blocking (YouTube's requests included, read only),
       # the fingerprinting surface at every level, the hosts contacted by itself,
       # the security settings. Anything weaker fails, unless a person accepted that
-      # change in tests/data/no-regression/allowlist.json. Main's own copy of
+      # change in main's copy of tests/data/no-regression/allowlist.json. Main's own copy of
       # tools/no-regression.py and of its inputs measures both: a candidate never
       # judges itself (docs/MAINTENANCE.md, "Nothing gets worse").
+      # Since 2026-11-24 it also reads evidence, only to accept what the rules
+      # cannot judge and a person bound to a test: main's own test results
+      # (from the job "tests main results") and the bound tests run here on
+      # this commit, each run again three times on both sides; and the hosts
+      # declared in tests/data/no-regression/endpoints.json. The allowlist, the
+      # endpoints and the tests' bindings are main's copies: a candidate never
+      # brings its own. An AI's change of the fingerprinting code (a branch of
+      # the automation) is measured three times, each with its own random keys.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: main-test-results
+          path: ${{ runner.temp }}/nr-main-results
       - name: Nothing gets worse
         id: no-regression
-        timeout-minutes: 20
+        # up to 3 x 12 minutes of measuring, and a test that could be evidence run three times on each side
+        timeout-minutes: 45
         env:
           REF: ${{ github.ref }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           git fetch -q --no-tags --unshallow origin main 2>/dev/null || git fetch -q --no-tags origin main
           if [ "$REF" = refs/heads/main ]; then
@@ -443,15 +512,81 @@ jobs:
             tool=tools/no-regression.py
           fi
           out="$RUNNER_TEMP/test-results/no-regression"
+          # the evidence, only to a copy of the tool that reads it (main's copy decides); main's
+          # results only when they are of this very base; this commit's results of the tests main's
+          # bindings name, run here
+          evidence=()
+          if grep -q -- '"--main-junit"' "$tool"; then
+            read_base=$(cat "$RUNNER_TEMP/nr-main-results/base.txt" 2> /dev/null || true)
+            if [ "$read_base" = "$base" ]; then
+              for f in "$RUNNER_TEMP"/nr-main-results/junit/junit*.xml; do
+                if [ -f "$f" ]; then evidence+=(--main-junit "$f"); fi
+              done
+            else
+              echo "::notice::main's test results are not of $base: no evidence from them"
+            fi
+            bound=$(python3 -c 'import json, sys
+          try:
+              d = json.load(open(sys.argv[1]))
+          except (OSError, ValueError):
+              d = {}
+          print(" ".join(sorted({e.get("test", "") for e in d.get("entries") or () if isinstance(e, dict)
+                                 and str(e.get("test", "")).startswith("tests/")})))' \
+                "$where/tests/data/no-regression/necessity.json")
+            if [ -n "$bound" ]; then
+              # shellcheck disable=SC2086
+              python -m pytest -o addopts= -q -p no:cacheprovider $bound \
+                  --junitxml="$RUNNER_TEMP/nr-candidate-junit.xml" > /dev/null 2>&1 || true
+              if [ -f "$RUNNER_TEMP/nr-candidate-junit.xml" ]; then
+                evidence+=(--candidate-junit "$RUNNER_TEMP/nr-candidate-junit.xml")
+              fi
+            fi
+            evidence+=(--endpoints "$where/tests/data/no-regression/endpoints.json")
+            evidence+=(--necessity "$where/tests/data/no-regression/necessity.json")
+          fi
+          # an AI's change (a branch of the automation) of I.K.E.'s page scripts or of the module that
+          # sets them up: three measures with independent keys, any one weaker fails
+          runs=()
+          branch="${HEAD_REF:-${REF#refs/heads/}}"
+          if [ "${branch#automation/}" != "$branch" ] && grep -q -- '"--runs"' "$tool" && \
+              git diff --name-only "$base" HEAD | grep -qE '^ike/resources/[a-z]+\.js$|^ike/shields\.py$'; then
+            runs=(--runs 3)
+          fi
           set +e
           python3 "$tool" check --base-repo "$where" --candidate-repo . \
-              --allowlist tests/data/no-regression/allowlist.json --out-dir "$out"
+              --allowlist "$where/tests/data/no-regression/allowlist.json" --out-dir "$out" \
+              "${evidence[@]}" "${runs[@]}"
           code=$?
           set -e
           cat "$out/report.md" >> "$GITHUB_STEP_SUMMARY" 2> /dev/null || true
           cat "$out/report.md" 2> /dev/null || echo "::error::no report: the check did not run to its end"
           git worktree remove --force "$where"
           exit $code
+      # N5 of the fourth review (2026-11-24): a fingerprinting value that is not the same or stricter
+      # ("changed", passed by evidence or by the allowlist) is fine for a person's change and needs a
+      # person for an AI's: tools/automerge.py reads this step of the job "tests" and never merges an
+      # AI's change by itself when it failed. The rows are listed in the run's summary.
+      - name: Fingerprinting unchanged
+        id: fp-unchanged
+        if: ${{ !cancelled() && (steps.no-regression.outcome == 'success' || steps.no-regression.outcome == 'failure') }}
+        # its outcome is the job's output; it never fails the job (a person's change may change a value)
+        continue-on-error: true
+        run: |
+          report="$RUNNER_TEMP/test-results/no-regression/report.json"
+          python3 - "$report" <<'PY'
+          import json, sys
+          try:
+              r = json.load(open(sys.argv[1]))
+          except (OSError, ValueError):
+              sys.exit(0)                    # no report: the files were main's, nothing measured
+          rows = r.get("fingerprint_review")
+          if rows is None:
+              print("::notice::the report has no fingerprint_review (main's copy of the tool is older)")
+              sys.exit(0)
+          for row in rows:
+              print("- %s: %s" % (row.get("key"), str(row.get("detail"))[:300]))
+          sys.exit(1 if rows else 0)
+          PY
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -652,6 +787,12 @@ jobs:
         run: |
           echo "\"Nothing gets worse\", in the job \"tests checks\": $OUTCOME"
           test "$OUTCOME" = success
+      # read only by tools/automerge.py for an AI's change (a person's change may change a value): it
+      # runs, and passes, only when the step passed in "tests checks"; skipped otherwise (never a red)
+      - name: Fingerprinting unchanged
+        if: ${{ !cancelled() && needs.checks.outputs.fp-unchanged == 'success' }}
+        run: |
+          echo "\"Fingerprinting unchanged\", in the job \"tests checks\": success"
       # 2026-11-22 (WP4 of the maintenance plan): a skipped test is NOT VERIFIED,
       # never passed. The junit files of both test steps are read into the
       # run's summary (the skipped tests by area, with their reasons) and kept

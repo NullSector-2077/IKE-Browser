@@ -292,9 +292,12 @@ def drill_pr(ref=BRANCH, title="DRILL: AUTOMAT, simulated update", labels=("auto
     return dict(mm.pr(ref), title=title, labels=[{"name": x} for x in labels])
 
 
-def judged(p, review=mm.approved("a" * 40), files=DRILL_FILES, commits=DRILL_COMMITS):
+def judged(p, review=mm.approved("a" * 40), files=DRILL_FILES, commits=DRILL_COMMITS, fingerprint="success"):
+    # an AI's change merges by itself only with "Nothing gets worse" and its step "Fingerprinting unchanged"
+    # passed (the fourth review of "Nothing gets worse", N5): the drill is judged with both, like any candidate
     return merge.judge(REPO, p, commits, files, mm.FULL_CHECKS, lambda n: guard.allowed_path(n, False),
-                       review=review, evidence=mm.with_no_regression(mm.VERIFIED), main_version="1.1.24")
+                       review=review, evidence=mm.with_no_regression(mm.VERIFIED, fingerprint=fingerprint),
+                       main_version="1.1.24")
 
 
 def test_a_drill_is_judged_like_any_other_but_never_merged():
@@ -302,6 +305,8 @@ def test_a_drill_is_judged_like_any_other_but_never_merged():
     real = dict(mm.pr("automation/update/drill-qt"), title="Update: x")
     assert drill.is_drill_pr(real)                 # its branch alone says it is a drill
     assert judged(drill_pr()) == ("drill", merge.DRILL_WHY)
+    # without "Fingerprinting unchanged" a drill is a person's like any AI change: nothing is skipped for it
+    assert judged(drill_pr(), fingerprint=None)[0] == "person"
     # any one mark is enough: the branch, the title, the label, the marker file
     for p, files in ((drill_pr(title="x", labels=()), DRILL_FILES),
                      (dict(mm.pr("automation/update/test-qt"), title="DRILL: x"), DRILL_FILES),

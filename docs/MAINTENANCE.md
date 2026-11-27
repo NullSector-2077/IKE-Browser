@@ -122,6 +122,269 @@ covers. Where an older paragraph below still says "waits for a person" or
    in order; a new line may not leave old code, switch a value of the old file
    to a constant, or reach out; the table may only grow. On a candidate of
    the engine the wrapper follows the new engine (no additive rule there).
+   In I.K.E.'s own page scripts (since the fourth review of "Nothing gets
+   worse", 2026-11-24, whose copies made of added lines only weakened the
+   fingerprinting) a new line also may not leave code (`return`, `throw`,
+   `break`, `continue`) anywhere but inside a function the change itself
+   adds, may not read where or when the page is (the address, its host and
+   protocol, the origin, `top`, `parent`, `frameElement`, the referrer, the
+   date, `performance`, `Math.random`), and may not change an object the old
+   script has by a method (`splice`, `pop`, `shift`, `push`, `add`, `set`,
+   `delete`...) or `delete` from it: no early exit for some sites or frames,
+   no protection that depends on the site or the time, no name taken out of
+   the masked fonts or the hidden extensions, no site put into a list of
+   exceptions. Since round 5 (2026-11-25: one-line copies passed both this
+   guard and "Nothing gets worse") a new line also may not assign, anywhere
+   in it (inside a callback, a loop, after a `;`, `++`), to a name the change
+   does not declare itself (the level for some sites, the cores above 8, a
+   size under which the noise stops, the key changed later); may not run
+   something later (a timer, a frame or idle callback, a microtask, a
+   promise's continuation, a listener) outside a function the change adds;
+   and may not name sites in a pattern or a text (a regular expression of
+   brand names or top-level domains).
+   **Since round 6** (2026-11-25: rules on lines kept leaking. A destructuring
+   `[k] = [n]`, a loop's target, a second declarator wrote to old names;
+   `Object.defineProperty`, `Reflect.set` and `Object.assign` changed old
+   objects; `document.URL` or `window['loc' + 'ation']` read the address; and
+   two added lines re-wrapped the real processor count for every screen whose
+   `devicePixelRatio` is not 1, a condition no session of "Nothing gets worse"
+   made true. Placed before `install(window)`, as the review wrote them, they
+   leak nothing, because install's own wrap comes after and stays outer; placed
+   after it, they leak) a page script is read by its **syntax tree**. The guard has its
+   own JavaScript parser (`tools/js-parse.py`: no package, no network, checked
+   against acorn on every version of the page scripts in the history). It
+   refuses what would read differently in the browser: an escaped name, a line
+   separator outside a text, an HTML-like comment, an old octal, a name beyond
+   ASCII. A script that does not parse is refused. Every statement of the old
+   tree must still be in the new one, in order and in its place; statements
+   may only be added to a list of statements. In what is added, nothing may:
+   (a) write to what the old script has: a binding by any assignment, pattern,
+   `++`, a loop's target or a declaration, a parameter's too, or one that
+   changes what an old name refers to; an object's properties, `delete`, a
+   method that changes it, `Object.defineProperty`, `assign`,
+   `setPrototypeOf`, `freeze` and the like, `Reflect.set`, `__proto__`, a
+   page object or a global. New code changes only objects it makes itself;
+   (b) read the page's environment (where or when the page is, its screen,
+   window and device, chance, timers and events), unless "Nothing gets worse"
+   measures it in its matrix of the users' configurations (below), or the
+   new code is inside a function the change adds and reads exactly what the
+   old script reads too. An interface's prototype, such as `Date.prototype`,
+   is no read;
+   (c) reach a property by a computed name (only a literal, or a number:
+   arithmetic, a length, a counter), or use `eval`, `Function`, `with`,
+   `import()` or `.constructor`;
+   (d) leave code (`return` or `throw` outside a function the change adds,
+   `break` or `continue` out of a loop it did not add);
+   (e) branch on what no measurement covers: an `if`, `?:`, `&&`, `||`, `??`,
+   `switch`, loop test, `?.`, default value, `for-in/of`, or a `catch` that
+   does more than give a value back. Its test may read only literals, the
+   change's own names (set in their own function from such values; a
+   parameter when every call gives such values), the level (`lv`, `strict`,
+   `maximum`: every level is measured), and the configurations the matrix
+   measures: devicePixelRatio, the window and screen sizes, the orientation,
+   touch points, `matchMedia` with a literal query of the pointer, hover,
+   colour scheme, motion, contrast, resolution or size, the languages, the
+   time zone (`Intl`), the processors and the memory. These are listed once,
+   in `tools/env-axes.py`, for both the probe and the guard: an axis added
+   to the probe is allowed in the guard at once, and nothing else is. A
+   condition on a counter, the time, the referrer, cookies, the visibility,
+   a site, a text or an API the matrix does not cover stays refused;
+   (f) define or re-wrap a property through an I.K.E. helper (`wrap`,
+   `getter`, `setter`, any old function that defines properties) or
+   `Object.defineProperty` and the like. The exception is a property whose
+   name is a literal the old script never has, on a prototype: a new
+   disguise, never a second wrap of a protected one.
+   The rules on lines stay for what they add: the old lines in order, no
+   always-true condition, nothing that reaches out, no site named, no new
+   address.
+   **Round 7** (Fable's third review of the guard) added these rules:
+   - *Where new code goes.* New code comes **after the last old statement of
+     its block**, never before or between old statements and never ahead of
+     a directive (`0;` before `'use strict'` turned strict mode off).
+   - *What it may be.* There it is either a declaration that cannot throw
+     (a new function; a `var` given a literal, a function, a list or object
+     of such, or a covered read compared with a literal), or
+     `try { ... } catch (e) {}` with an empty `catch`. A throw without
+     `throw` — a property of `undefined`, a call of no function, a recursion,
+     `new Array(-1)`, `1n + 1`, a `let` read too early — otherwise stopped
+     the old code after it, so the protection never installed. A new
+     statement inside an old block, swallowed by an old `catch`, otherwise
+     skipped the rest of that block.
+   - *No wraps of the language's own objects.* No new wrap or definition on
+     `String`, `Function`, `Array`, `Math`, `Reflect`, `Date`, `Intl`, typed
+     arrays and the like, or their prototypes, which the old script relies
+     on (`String.prototype.charCodeAt` reached its hashing).
+   - *Old functions.* New code calls only the old script's pure helpers and
+     its property helpers (`PAGE_HELPERS` in `tools/fix-guard.py`: `hash`,
+     `sslice`, `rng`... and `wrap`, `getter`, `setter`, which rule (f)
+     judges). `install(window)` again, or any other old function, is a
+     person's to call.
+   - *A measured value, as the matrix measures it.* It is compared with a
+     literal the probe can set (round 8: `tools/env-axes.py read_measured`;
+     a text such as `'pt_BR.UTF-8'` or a read with no axis, such as the
+     orientation, is refused). A value kept in a name and compared later is
+     not measured, nor a truth test of a read (`!navigator.deviceMemory`,
+     `cores || 4`), nor a method of its result
+     (`resolvedOptions().locale`). The touch points are compared only with 0
+     to 5 (or tested for truth: 0 and 5 are both in the matrix). `matchMedia`
+     counts only as `matchMedia(q).matches`, with a query whose every feature
+     the matrix sets on both sides (`media_measured`: widths, heights and
+     resolutions in px or dppx, pointer, hover, colour scheme, motion, forced
+     colours; not aspect-ratio, orientation, `em` or `prefers-contrast`).
+   - *One re-wrap opening.* A property the old script protects may be wrapped
+     again only as a copy of one of its old calls with exactly the names the
+     engine renamed changed (`tools/engine-renames.json`, written by
+     AUTOMAT's recipes from the engine's interfaces, tier B; empty today):
+     never a changed body, and every other name must mean what it meant.
+
+   **Round 8** (Fable's fourth review, by fragments on a toy script) added:
+   - *Definers only called directly.* A function that defines a property
+     (`wrap`, `getter`, `setter`, any old helper that defines one, an alias
+     such as `DEFPROP`, `Object.defineProperty` and the like) appears in new
+     code only as the direct callee of a call, where rule (f) judges what it
+     is given. `wrap.call(...)`, `wrap.apply`, `wrap.bind`,
+     `Reflect.apply(wrap, ...)`, `(0, wrap)(...)`, an alias, `new wrap(...)`
+     and a tag re-wrapped a protected property. `Object` and `Reflect` are
+     used only by their functions' names (an alias of `Object` hid
+     `defineProperty`).
+   - *No name every object has.* No new getter or definition of `then`,
+     `toString`, `valueOf`, `toJSON`, `constructor` or the well-known
+     symbols: the old code's coercions and promises look them up.
+   - *More of the language's objects.* `Temporal`, `WebAssembly`,
+     `DOMException`, `Float16Array`, `AsyncIterator` and `console` join
+     `BUILTINS`.
+
+   **Round 9** (Fable's review of round 8, by fragments) added:
+   - *A definition's arguments by their shape.* Exactly one literal name;
+     the rest are functions, a plain descriptor (`get`, `set`, `value`,
+     `enumerable`, `configurable`, `writable` of functions and literals) or
+     a page interface's prototype named by its chain (`X.prototype` with `X`
+     a global, `w.X.prototype` with `w` a global or an old name, or a new
+     name given only such chains). The interface is one the old script
+     names, and neither one of the language's objects nor the window, its
+     events, nodes, elements and document (`GLOBAL_INTERFACES`: a getter on
+     `Window.prototype` is a new global, on `Event.prototype` a changed
+     `isTrusted`). A name or a target laundered through a new object
+     (`{prototype: 'x'}`), a key whose `toString` gives the name, or a
+     decoy literal beside it are refused. More names every object has join
+     `INHERITED_NAMES` (`next`, `catch`, `apply`, `value`, `get`...).
+   - *Containers.* Only the change's own object, named directly, may be
+     changed, one level deep: `h.k = v` on a new `h`, never `h.a.x`, and
+     `Object.defineProperty`, `.push` and the like only on the new name
+     itself (`{a: Navigator.prototype}` then `delete h.a.x` removed a
+     protection). `__defineGetter__` and its kin are never used; a method
+     that changes its object is only called directly.
+   - *A configuration read on its own object.* A covered name counts only
+     on `navigator`, `screen`, `window`, `self`, `globalThis`,
+     `visualViewport` or `Intl.DateTimeFormat().resolvedOptions()`
+     (`document.body.dataset.language` is page data).
+   - *Values the sessions really get.* `read_measured` checks that the
+     sessions derived for a comparison make it both true and false with the
+     values they really set (rounded to 3 decimals for the scale, floored at
+     1 GB and 1 processor, whole pixels), and that the literal is of the
+     axis's type: `devicePixelRatio === 1.3333333333333333`,
+     `deviceMemory < 1`, `hardwareConcurrency > -3` and the languages' list
+     against a text are refused. Between two values a change compares one
+     kind with, a session in between is added.
+   - *What the sessions cannot set together.* A change that compares both
+     the window's width (or height) and the screen's is refused (the
+     sessions put the window at the screen's size). The touch, scheme,
+     motion and colour reads join the joint sessions with both their values.
+     A change whose values make more sessions than a run measures
+     (`MAX_DERIVED`, `MAX_JOINT`) is refused by the guard too.
+
+   **Round 10** (Fable's review of round 9, by fragments) added:
+   - *Only a known new object is the change's own.* A parameter, a name taken
+     from a pattern, `new Proxy(old, {})` (its writes reach the old object)
+     and a name given an old object in a nested function counted as new;
+     `function h(o) { delete o.x; } h(Navigator.prototype)` removed a
+     protection. Now a name is the change's own only when every value it is
+     given anywhere is a literal object or list, a function, a class or a
+     plain container (`new Map()`, `Set`, `WeakMap`, `WeakSet`, `Array`).
+   - *No branch without a condition outside a new function.* There new code
+     runs once, in the protection's own flow: it reads no old state (the
+     site, I.K.E.'s settings, the old tables) and uses a configuration only
+     compared with a literal (`[0].slice(cores - 6)` or `'x'.repeat(-x)`
+     chose a way with no `if`). Inside a new function both are allowed.
+   - *Each configuration name on its own holder.* `navigator.language`, never
+     `window.language` or a bare `language` (globals a page can set).
+     `new Intl.DateTimeFormat()` counts like the call without `new`.
+   - *What the sessions set together.* The touch points are only told apart
+     from none (a touch laptop's 1, 2 or 10 points are in no session), and a
+     change reads one kind of pointer or touch at most (a fine pointer with
+     touch points is a touch laptop, in no session). The outer window counts
+     apart from the window and the screen. A media query's ratio has three
+     decimals at most and its widths are whole pixels, as the sessions set
+     them.
+
+   **Round 11** (Fable's review of round 10): a list instead of exceptions.
+   Each review had found another object of the page or another method
+   through which new code ran later, branched on data or changed the old
+   state: a function called at once, an old object's own methods
+   (`hiddenExt.disconnect()`), observers, promises, media listeners, page
+   globals (`window.name`), page changes (`document.documentElement.remove()`,
+   `window.stop()`, `new Audio(...)`). New code in a page script now uses
+   only:
+   - the language's plain objects and functions (`GLOBALS_OK`,
+     `PURE_GLOBAL_CALLS`: `Math`, `Number`, `String`, `JSON.stringify`...),
+     the window only as the holder of a measured configuration or of an
+     interface's prototype, and a page interface only as `X.prototype`;
+   - the old script's pure helpers and property helpers, its own functions
+     (also called at once), and the originals handed to it (a wrap's
+     parameter, called directly, by `.call`/`.apply` or by `Reflect.apply`
+     and its old alias `RAPPLY`);
+   - harmless methods of its own values (`SAFE_METHODS`: `slice`, `indexOf`,
+     `push`, `map`, `get`, `set`...), never of an old or a page object;
+   - `new` of a plain container (`Map`, `Set`, `Array`...) and of
+     `Intl.DateTimeFormat`;
+   - no old state at all, but the site's name (`host`) inside its own
+     functions: a getter returning `realCores` under a new name exposed the
+     real value the protection hides;
+   - the configurations as before, also inside its own functions only
+     compared with a literal; a ratio in dpi or dpcm at the sessions'
+     precision, and one value of one pointer or touch feature per change.
+
+   **Round 12** (Fable's review of round 11) narrowed that list:
+   - *Page functions are no values.* After the window only a measured
+     configuration or `window.X.prototype`; the window itself only as such a
+     holder; a member of an interface's prototype only as a direct callee.
+     Given as a callback to a method of the change's own (the window's code
+     evaluator, `window.close`, `Element.prototype.remove`), each ran
+     unjudged.
+   - *Originals on `this`.* An original is only a parameter of a function
+     literal given directly to an old definer, and it is called on `this`
+     (`orig.call(this, ...)`, `RAPPLY(orig, this, arguments)`); `this` and
+     `arguments` are used for nothing else (they are the page's objects).
+   - *Harmless methods of truly own values.* A receiver counts as the
+     change's own only when every name in it is a known new object, a
+     measured value, its own parameter, a plain global or an old pure
+     helper: a page object kept in a new name, `window.name` or
+     `window.document.childNodes` chose how often new code ran.
+
+   *What it accepts and refuses*, measured on 2026-11-25:
+   - **Weakened copies:** all 46 made in the reviews are refused. These
+     include Fable's twelve forms of round 7 and the gated re-wraps.
+   - **Fable's honest fixes:** of 15 additive forms of an AI's honest fix
+     (a new wrap, a helper, a counter, a listener, a timer...), written where
+     round 7 puts new code (at the end, what runs in `try`), 10 pass. Round
+     6 passed 11; the wrap of a `Date` method is refused now, `Date` being
+     one of the language's own objects. Written in the middle of the script,
+     as the review wrote them, none passes.
+   - **Uncovered environment reads:** of the six (`navigator.userAgent`,
+     `document.cookie`, `visibilityState`, `document.URL`, `baseURI`,
+     `window['loc' + 'ation']`), none passes (`main`'s guard and round 5's:
+     4).
+   - **History:** of the 33 commits of `main`'s history that added lines to
+     `fingerprint.js` (their added lines alone), it refuses all 33 (`main`'s
+     guard 28, round 5's 31). Those are a person's feature work: each changes
+     old objects, wraps protected properties again, branches on page data or
+     feature detection, or reads the environment. None of them was an
+     engine's rename, so the rename opening would have accepted none of them;
+     it is for the engine's next renames.
+
+   So the automatic fix can add a new disguise with conditions on the users'
+   configurations and the level, a helper, a new wrap, or follow a rename of
+   the engine's. Changing what the old script protects stays a person's.
 6. *Small*: 5 files and 150 lines per attempt, 8 files and 400 lines for all
    the AI commits of a pull request; no file added, removed or renamed.
 7. *The component manifest*: only a new entry, a plain download of a file
@@ -154,7 +417,16 @@ deterministic recipe) may be reviewed by any of them.
 verified merge: the static guard on the whole AI change; the category
 `no-regression` ("Nothing gets worse": ad blocking with YouTube's, the
 fingerprinting surface, the network hosts, the security settings, against
-`main`) passed on that commit; the workflow's own status `ai-review` and its
+`main`) passed on that commit; the step "Fingerprinting unchanged" passed too
+(every fingerprinting value the same or stricter: a value that is only
+"changed", or passed by evidence or by the allowlist, needs a person on an
+AI's change; the two reviewers are shown those rows); no "worse" of "Nothing
+gets worse" ever found on the same change of protected code (its patch id,
+the label `nothing-gets-worse:<id>` the merge adds when it fails: a later run
+that passes does not count; a person removes the label to have it judged
+again); for an AI's change of the page scripts or `ike/shields.py`, three
+measures with independent keys (`--runs 3`), any one weaker fails; the
+workflow's own status `ai-review` and its
 comment with two approving reviews of that very commit by two providers,
 none the author's; no test file changed beyond the recorded rules the
 workflow itself adds.
@@ -655,6 +927,16 @@ free quota the drill used per provider; the drill's help notice. At the end it a
 how much quota they use; whether the reviewers approve; the real duration of the runs; what the
 Arch Linux job says of fixes that forgot the fallback; whether GitHub starts the pull request's
 own checks (with the owner's `IKE_WORKFLOW_TOKEN`) or the dispatched ones.
+
+### PyQt's API compared from its wheels (2026-11-27)
+
+AUTOMAT block 2. PyQt6 and PyQt6-WebEngine have no repository on GitHub, so "What changed upstream" was empty
+for a Qt update. `tools/upstream-diff.py` now reads the type stubs (`.pyi`) inside the two versions' wheels on
+PyPI (`stub_compare`: one Linux wheel each from files.pythonhosted.org, read as a zip, never run) and gives the
+AI every `Module.Class.member` removed and added, the members whose arguments changed, and the renames a
+program is sure of (one removed and one added member of the same class with the same arguments:
+`stub_renames`), which the recipe "renamed" of `tools/automat-recipes.py` can apply with no AI. Tried on the real
+wheels: PyQt6 6.7.1 -> 6.8.0 adds 497 members and changes the arguments of 22.
 
 ### Arch's [testing], every day (2026-11-27)
 
@@ -1536,6 +1818,15 @@ Those runs report to the finding's entry by its branch
 
 ### Free AI providers, checked every week (WP9)
 
+**The Chromium features I.K.E. sets still exist** (AUTOMAT block 2, 2026-11-27). Chromium ignores a feature
+name it does not know, silently, so a renamed feature would turn a protection off with no error and no
+failing test. Each week `tools/engine-features.py` reads the names from `ike/app.py`'s own constants
+(`LNA_FEATURES`, `PRIVACY_FEATURES`, `VIDEO_ON`) and asks GitHub's code search (chromium/chromium) where each
+is declared on Chromium's development branch, then that file at the tag of the Chromium the users have (the
+version the last green "Arch Linux" run on `main` recorded) on chromium.googlesource.com. Gone in the users'
+version, or gone from the development branch (a warning months ahead), is a line of the weekly issue; what
+cannot be read is "not verified", never "present".
+
 **The weekly scoreboard** (2026-11-27, the owner: "simple, but it must work"). `health.yml` runs
 `tools/automat-scoreboard.py` (GET calls only) and edits one issue, "AUTOMAT: tabellone settimanale", in
 Italian: the automation's pull requests merged in the last 7 days and how many by themselves, those still
@@ -1733,6 +2024,14 @@ the ledger, not yet written back into the pull request. A security fix that
 changes the browser gets its version when the owner orders the merge.
 
 ## One candidate per component
+
+**Low-risk candidates once a week** (2026-11-27, AUTOMAT made simpler at the owner's request). `crates`,
+`test-tools`, `test-libs` and every `ci-*` pin are made on Mondays only (`WEEKLY`, `WEEKLY_DAY`): in the week of
+2026-11-20 crates and ci-cargo-deny alone started 26 runs of Tests and 25 of Arch Linux, rebuilt as an upstream
+moved by a patch release. On other days the plan says `weekly`, and an open weekly candidate stays as it is (it
+still merges by itself when verified). Daily as before: the AdBlock engine, pyo3, a crate's new major version,
+uBlock Origin's scriptlets, Dark Reader, Breeze, the PKGBUILD and test-qt (the early warning of a Qt release);
+security fixes are their own branches and never wait.
 
 Since 2026-11-22 (WP5) the daily maintenance makes **one isolated candidate per
 component**, or per small coherent group, instead of one combined candidate
@@ -2618,50 +2917,435 @@ computer) and without a display, with the real browser of each commit:
   scriptlets of the video sites; the element-hiding rules of seven addresses.
   Worse: a request blocked on `main` and allowed here, an element hidden on
   `main` and shown here, a rule or scriptlet lost. YouTube is only read:
-  nothing here changes its blocking.
+  nothing here changes its blocking. A request newly let through passes only
+  when the **filter list data** that decides it changed: an engine built from
+  the lists alone (not I.K.E.'s own rules) names the rule that blocked it on
+  `main` and the exception that lets it through here, with the list each comes
+  from and a digest of each list; the rule must be gone from its list's new
+  data, or the exception must come from a list whose data changed, and on
+  `main` the lists themselves must have stopped it. The same list data with
+  another result (an engine or code change) stays worse. The corpus's lists
+  are `main`'s on both sides in `tests.yml`, so there a request newly let
+  through is always worse; the rule applies to snapshots measured with
+  other list data (`compare`).
 - **Fingerprinting surface.** What a probe page's scripts read at every level
-  (navigator, screen, fonts, canvas, WebGL, audio, matchMedia, Client Hints,
-  workers, frames, permissions, storage, battery, the `ike:` pages), with a
-  fixed noise key so the values repeat. Worse: **any** value that differs
-  from `main`.
+  (navigator, screen, fonts, canvas, WebGL and WebGL2, audio by
+  `getChannelData`, `copyFromChannel` and an `AnalyserNode`, `toBlob`,
+  `convertToBlob`, `VideoFrame.copyTo`, matchMedia, Client Hints, workers
+  (dedicated from a blob, shared, and from a file of the site), frames (added,
+  made by `innerHTML` and from `srcdoc`, each with its card, extensions,
+  sound, languages and cores), permissions, storage, battery, the `ike:`
+  pages), in **eight sessions** at every level but Off (two there): each a
+  page load with its own noise key, as a new start of the browser has, and
+  once more with the first key (what is noised must read as it did then: a
+  noise drawn anew at each load fails, `again.<value>`). The probe is served
+  **on real-looking sites over https** (since the fourth review: an address
+  of this computer told the code measured where it was, and every page was
+  one site): random names under common top-level domains, through the local
+  proxy, with a certificate of the run's own authority trusted in that
+  profile only (`openssl`, `certutil`). A small page of the sites is read on
+  six hosts per level: other sites must differ (two of them under `.co.uk`,
+  a public suffix of two labels), two hosts of one site agree, every host is
+  noised (`sites.differ.`, `sites.agree.`, `sites.noised.`); the frame's
+  canvas must stay its page's (`frame.agrees.canvas`); a large space whose
+  sessions all differ on main must not repeat (a noise drawn from a few
+  keys). The probe's sizes, text and sound are random per check, the same on
+  both sides. `check` gives both sides the same keys, sites and shape, all
+  random. Each noised value is also read twice in
+  the same session and in a frame of another site; the probe's canvas and
+  sound are read on two starts with a fresh profile and the browser's own
+  random key; and the whole probe once more on **another machine** (another
+  time zone, language and screen size, 32 processors and 2 GB: a disguise
+  equal to this computer's value, 4 cores or 8 GB, is told from the real one
+  there, and one that gives way to more than 8 cores shows; its values are
+  observations of their own, `fingerprint2/<level>/<value>`, worse where a
+  part is that machine's real value and was not on `main`, or, for a part
+  `main` fixes in all its sessions, comes closer to it; a pick, whose pool
+  may follow the machine, the cores among 4 and 8 where there are 8 or
+  more, gets the real-value test only, and a width or a list drawn per
+  session is judged on the first machine's sessions). Since round 6 the
+  page scripts are also measured in **a matrix of the users' common
+  configurations** (`tools/env-axes.py`, one list for the probe and the
+  static guard; the owner's direction of 2026-11-25: cover them up front,
+  so the automatic fix needs no person for a condition on them). Its axes
+  are:
+  - scale 1, 1.25, 1.5, 2;
+  - page zoom 90 %, 100 %, 110 %, 125 %, 150 %;
+  - screens 1280 x 720, 1366 x 768, 1536 x 864, 1920 x 1080, 2560 x 1440,
+    3440 x 1440 and 3840 x 2160, the window filling the screen;
+  - no touch or a touch screen (5 points, a coarse pointer, no hover);
+  - light or dark colours, reduced motion or not, forced colours (high
+    contrast) or not;
+  - English, Italian, German, Japanese;
+  - the time zones UTC, Europe/Rome, America/New_York, Asia/Tokyo;
+  - 2 to 32 processors, 4 to 32 GB;
+  - the four protected levels.
+
+  The sources are the public statistics of desktop screens and browsers and
+  the Steam hardware survey (2025-2026): 1366 x 768 and 1920 x 1080 lead, and
+  1536 x 864 is 1920 x 1080 at 125 %. GNOME and KDE offer these scales;
+  dark colours, reduced motion and high contrast are accessibility settings
+  of every desktop. The languages and zones are those of I.K.E.'s users.
+  Every pair of two axes' values is in at least one session (a greedy
+  all-pairs cover, about 50 sessions). Added to them are the corners: each
+  level with every axis at its first value and at its last. The seed is the
+  run's own, the same on both sides of a check, so different runs meet
+  different triples. Since round 7 (no session of 20 seeds had a screen 1600
+  wide) each run also has 8 sessions at random real-world values off the
+  grid: widths 1024 to 5120, scale 1 to 3 in steps of 0.05, zoom 50 % to
+  200 %, 2 to 64 GB, 1 to 64 processors. A change whose new conditions
+  compare a configuration with values (`tools/fix-guard.py axis_literals`:
+  `screen.width === 1600`, `navigator.hardwareConcurrency > 6`, a time zone,
+  a language, a `matchMedia` width or resolution) gets sessions at each value
+  and beside it (1599, 1600, 1601: a threshold measured on both sides), at
+  every level, the zoom at 100 % so the page reads exactly that value. The
+  same values join the pairs, and both sides measure them alike. More than
+  24 such values make the run not verified. Since round 8 (a condition
+  joining a width, a number of cores and an amount of memory was true in no
+  session: the pairs meet two values, never three) every combination of a
+  change's own values, one of each kind, is measured at every level; more
+  than 128 such sessions (`MAX_JOINT`) make the run not verified.
+
+  Each session is a page of its own in one browser run, with a noise key of
+  its own (the run's keys in turn), so every one of the few values `main`
+  draws appears. The engine's own emulation (its DevTools, on this computer
+  only) gives:
+  - the screen, its scale, the window and the orientation;
+  - the colours, the motion and the contrast;
+  - the time zone and the locale;
+  - the processors.
+
+  The zoom is given the same way, as it reaches the page: the scale times
+  the zoom, the window divided by it. The browser's own zoom took effect
+  before the page's first reads in some runs and after them in others, so
+  the same code read two values (round 7). I.K.E.'s setting gives the
+  languages. A small
+  preloaded library gives the memory, read by each page's new process. A
+  touch screen is a second browser run whose engine has the touch settings,
+  because each navigation undoes the engine's touch emulation. The page
+  reads its values twice: in the page, protected, and in a world of its own,
+  where they are the real ones under that configuration. The languages are
+  the configuration's own, since the engine itself disguises them at Strict
+  and Maximum. A session's value is worse (`matrix/<session>/<value>`) where
+  the page shows that configuration's real value, `main` did not, and `main`
+  never shows that value at that level in any session, so neither a draw
+  that meets the real one by chance nor a value `main` leaves real counts.
+
+  The matrix adds about 30 s a side (two browser starts and about 20 s of
+  sessions). What it cannot give on GitHub's runners: the graphics card's
+  names (WebGL runs on the engine's software renderer, whose texts no switch
+  changes) and X11 against Wayland (no display server; the engine runs
+  offscreen). The static guard keeps refusing a condition on either. The
+  other machine (32 processors, 2 GB, another time zone, language and
+  screen) stays for the fixed disguises' `env.` marks. Since round 5 the page of the sites is also read on the hosts of
+  well-known brands (`www.google.com`, `www.youtube.com`, ...; one mark per
+  brand, `sites.brand.<read>.<host>`, for a protection switched off for
+  sites named in a pattern), once more in the same page 100 s after its load
+  at Balanced (`late.<read>`: a change deferred past the first seconds), and
+  the probe reads a picture of 1024 x 1024 and a WebGL texture of 512 x 512
+  (`canvas_large`, `webgl_large`: a noise that stops above some size). Every level is measured after the
+  check of the fonts a page could find (`fontcheck.py`, which a start runs
+  after 15 s and which changes every level's settings) has answered, as on a
+  user's computer after the first start; no answer is an error. Since 2026-11-24 the values the
+  protection disguises are judged by what protects the user, not by the
+  number: the canvas (its picture, `toBlob`, a picture of known bytes at an
+  offset, 896 stripes each of its own flat colour, the frame's and the worker's), the
+  audio, WebGL (the card's name, its limits, extensions, and `readPixels` of
+  a texture of known bytes), the navigator's identity (user agent, platform,
+  cores, memory, languages, plugins...), the screen, the fonts, Client Hints,
+  the time zone and locale, the media queries (`FP_JUDGED` in the tool). Each
+  part of such a value is compared, in every session, with the **Off** level
+  (the real value; `main`'s and the candidate's both count). A rule written
+  against a weakening never lets it pass; what chance can produce is told
+  from it by more readings, not by looser rules (the second independent review
+  of 2026-11-24):
+  - the real value in a session only as often as chance gives it: where
+    chance never gives it (a picture's hash, a card's name not among the
+    common ones), in no session where `main` never gave it; where it does,
+    by how often it does as measured on `main` (a single text width: its
+    noise has 61 steps, one of them none, measured on `main`'s 128 widths of
+    every session; the extensions: each name left out about half the time,
+    measured on `main`'s 24 draws, also for the worker's list, `LIST_PEERS`)
+    and never more often than that leaves under 1 in 10,000 (`CHANCE`);
+    where `main` gave it too (the cores, one of two), never far more often
+    (an exact permutation test of both sides' sessions); never a hidden
+    value readable, never the real text in a text or more of the real one's
+    words than any of `main`'s readings had;
+  - **drawn from a large space** (the hash of a picture or of a sound, random
+    plugin names: `NOISE_PARTS`): still different with the session;
+  - **drawn from a few common values** (`PICK_VALUES`, `PICK_PARTS`: the
+    card's name and maker, the extensions, the cores, a text width): the
+    page's own ones are read 24 times on each side (the 8 sessions and 16
+    more keys on a small page, `PICK_DRAWS`); never the same in all of them
+    where an exact permutation test of both sides' draws puts that under 1 in
+    10,000 (`CHANCE`; the card's name the same 24 times is far beyond chance,
+    its maker, one of two, is not);
+  - **a list drawn per session** (the extensions, also the worker's; the
+    plugins): as many names changed from the real list (the sessions' means,
+    beyond chance: Student's t over 8 + 8 sessions at 5, `COUNT_Z`) and at
+    least three different lists where `main` has them; a number drawn per
+    session (not a pick), as far from the real one, the same way; read in
+    fewer than three sessions, it cannot be judged;
+  - **a fixed disguise** on `main` (the same in every session, away from the
+    real value): no closer to the real value (a list shows no real name `main`
+    hid and comes no closer, a number is no nearer); a new fixed value only
+    when a person counts it among the common ones
+    (`tests/data/no-regression/common-values.json`, `main`'s copy); and on the
+    other machine it must not follow the real one (the `env.<value>` marks);
+  - **the size of the noise** (`NOISE`), measured by the tool against Off's
+    real values (the same on both sides, or it cannot be compared) on what the
+    page hands over: pictures of varied known bytes (the page's, its
+    `toDataURL`, the blob, the offset picture, the frame's and its
+    `toDataURL`, WebGL's `readPixels`, the worker's), the flat stripes (the
+    count of stripes changed), the text widths (the page's 128 and the
+    frame's 64), the audio samples. For each, the mean change, the share of
+    elements changed, and the share that differs **between sessions** (a
+    noise drawn the same each time, or at the same places, has less); for the
+    audio, the spread of the factors (a constant gain has none); for the text
+    widths also the session with the fewest changed (`widths_least`: a session
+    with no width noise, which a single width's real value cannot show beyond
+    chance, fails here). Each must
+    stay at least `main`'s less the tolerance of chance (four times the spread
+    of two draws of the same noise: a false "worse" 3 in 100,000 per measure;
+    at least 20 %, never more than 35 %, `TOLERANCE_CAP`: where it would be
+    more, more is measured, as the 896 stripes) **and at least the floor** a
+    person keeps (`tests/data/no-regression/noise-floor.json`), with no
+    tolerance on the floor, so merges cannot lower the noise step by step.
+    The floors are 0.9 of the lowest `main` measured (0.8 for the flat
+    stripes, whose count varies most); a floor written as anything but a
+    number above 0 is an error, and the report says when a floor is under 60 %
+    of `main`'s noise (a stronger noise merged: a person raises the floor);
+  - **marks** that must stay true where they are on `main`: `<value>.noised`
+    (it differs from Off), `stable.<value>` (read twice in the same session, the
+    same: a noise new at every read could be averaged away), `site.<value>`
+    (another site's frame differs; in I.K.E. a frame shares its page's noise,
+    so today false on `main`), `natural/<value>.differs` and `.noised` (two
+    starts with the browser's own keys differ from each other and from Off),
+    `env.<value>` (a fixed disguise the same on the other machine);
+  - **the masked font names** (`fingerprint-config/<level>/fonts`, the
+    names fingerprint.js masks: they follow the computer's fonts and when
+    its check answered, so two runs of the same code could differ, as on
+    pull request #155): judged by what protects, not by their digest. The
+    tool measures itself, in the same run, which fonts a page can find (a
+    page of its own in a profile with none of I.K.E.'s scripts, over
+    fingerprint.js's names, `main`'s as well as the candidate's, and the
+    families installed); every one must be
+    masked (but the six every system has). A font found and left unmasked
+    where `main` masked it is worse; another list that masks every font
+    found is "changed"; not measured on the candidate, it cannot be judged.
+    And at Strict and Maximum each of those fonts is tested **inside the
+    protected page and in a frame of it** (`fonts_found`,
+    `fonts_found_frame`): none may keep its own width there; one more than
+    on `main` is worse (a name taken out of the list, or out of the masks at
+    run time, shows here);
+  - **values that were null on main and are missing here** are never "the
+    same": not measured on the candidate, so worse.
+
+  When that holds, the change passes: "changed" (still protected), or
+  "stricter" when the noise grew beyond the tolerance (the case of pull
+  request #148: the audio noise ten times larger). Weaker, so worse: back to
+  the real value, the same in every session, a smaller noise, more of a real
+  list, nearer the real value, a hidden value now readable, a mark turned
+  false. What cannot be judged is worse: a level measured without Off, a value
+  that changes between sessions at Off too, a part that could not be read,
+  fewer sessions on the candidate, a value only one side has, real values the
+  noise is measured against that differ between the two sides. Values
+  with a **protective direction** (`PROTECTIVE`: the native look of the
+  replaced functions, `webdriver`, Global Privacy Control, the APIs offered,
+  media devices, battery, WebGPU, local fonts, the keyboard map, voices, the
+  third-party image, the `ike:` pages, permissions) are worse when the
+  protected value of `main` (hidden, refused, native-looking) is lost, stricter
+  when it is gained, and cannot be judged otherwise; so are the storage quota,
+  the pages' scriptlets (`page-scriptlets/*`) and the fingerprinting
+  configuration. None of these ever passes by evidence.
 - **Network.** The hosts the browser contacts by itself with a fresh profile,
-  at start and while loading the probe page (the engine and Qt through a
-  recording proxy, I.K.E.'s own Python through an audit hook that also
-  refuses the connection). Worse: a host `main` does not contact.
+  on two starts, at start and while loading the probe page (the engine and Qt
+  through a recording proxy, I.K.E.'s own Python through an audit hook that
+  also refuses the connection). Worse: a host `main` does not contact, unless
+  every new host is declared in `tests/data/no-regression/endpoints.json` for
+  that observation (I.K.E.'s known external endpoints: the host, what it is
+  for, the observation, where the code names it; a host `main` already
+  contacts is not listed, it is not new) **and** this change's own code names
+  it (added lines of `ike/**/*.py`, not comments).
 - **Security settings.** The engine switches I.K.E. adds and what it drops
   from a hostile environment (no sandbox, no site isolation, remote
   debugging...), its lists of unsafe switches, tracking parameters and
   hands-off sites, the WebEngine settings, permissions, scripts and request
-  headers of every level, the protective defaults. Worse: anything weaker or
-  missing (an added hands-off site, a switch that reads as weaker, a default
-  turned off).
+  headers of every level, the protective defaults. Stricter or equal passes;
+  worse: anything weaker or missing (an added hands-off site, a switch that
+  reads as weaker, a default turned off) and any change the rules cannot
+  judge (a header, a setting whose safer value is not known). **No
+  exceptions**: no evidence accepts a change of a security setting, only a
+  person.
+
+**Needed changes pass by themselves** (the owner's principle of 2026-11-24:
+a change needed for I.K.E. to work correctly and for its protections to keep
+working is approved by the chain itself), but only where the tool can tell a
+need from a weakening (an independent review of the same day: "when in doubt,
+worse"). Each difference is judged by its section's rules (stricter or still
+protected: it passes; weaker: worse), or it cannot be judged (worse). The one
+kind evidence of need can accept is **a fingerprinting value `main` left real
+that the change now disguises in every session**, and only when all of this
+holds:
+
+- a person bound a test to that value in
+  `tests/data/no-regression/necessity.json` (an exact test id, the values'
+  keys with at most the level as `*`, the files under `ike/` the change must
+  touch, why); `main`'s copy of the file counts;
+- the test **fails on `main` and passes here** in the junit results (main's:
+  the last run of `tests.yml` pushed to `main` on `main`'s commit that ended in
+  success or failure, read by the job **main-results**, the only one with
+  `actions: read`, which runs none of the candidate's code), and running it
+  again **three times on each side** (`main`'s worktree, the candidate) it
+  fails every time on `main` and passes every time here;
+- this change touches one of the binding's files but not the test's own file,
+  and the test claims at most four values (`NECESSITY_CAP`).
+
+Evidence never accepts a weakening, a value that could not be read or was not
+measured, an Off-level row, a value with a protective direction, the
+fingerprinting configuration, a request, a host or a security setting: an AI
+fix that turns a protection off and also makes a failing test pass is still
+worse. A request newly let through and a new host have only their own
+evidence (the list data, the registry).
 
 A candidate that blocks more, or is stricter, passes, and the report says
 so. A part that could not be measured fails: it is never passed. The step
 writes a JSON report and a summary in plain words to the run's summary and to
-the `test-results` download (`no-regression/report.md`, `report.json`).
+the `test-results` download (`no-regression/report.md`, `report.json`). The
+report says **why** each difference passed (`why` and `passed_by` in the
+JSON): the rule that judged it, the evidence (which test, confirmed how,
+which files, which list rule, which declared endpoint), or the person who
+accepted it; its first line says "Passed, N by evidence" when evidence let
+something through; each worse row says whether it is weaker or could not be
+judged; and it lists the evidence it read. What passed by evidence is also a
+notice of the run, which the signing notice (`tools/release-notice.py`) lists
+under "Differenze passate per prova, senza una persona".
 
-**Accepting a change.** When a difference is wanted (a better noise, a new
-spoofed value), a person adds an entry to
+**Accepting a change.** A change that keeps or strengthens the protection
+(a larger or another noise, another draw of the same common values) and a
+needed change with its evidence pass by themselves and need no entry. A new
+fixed disguise (a screen size, a user agent...) passes once a person adds it
+to `tests/data/no-regression/common-values.json` (the value, the part, the
+common values, why). The allowlist is only
+for what a person read and wants although the tool calls it worse: a real
+weakening, or a change it cannot judge. A person adds an entry to
 `tests/data/no-regression/allowlist.json`: the observation's key as the report
 prints it (a glob), optionally its value on `main` and on the candidate (so it
-accepts that one change only), why, and who accepted it when. The file is
+accepts that one change only), why, and who accepted it when. For a value whose
+readings change with the session's key (a disguised value: its value never
+repeats), an entry pins instead the part the row is about (`"part": "[3]"`),
+a text of the row's detail (`"detail": "the real value"`) and the version of
+I.K.E. it is for (`"version": "1.1.25"`: with another version the entry no
+longer counts). The file is
 under `tests/data/`: the automatic fix may not touch it, and a pull request
-that changes it is a test file changed, so it never merges by itself. An entry
-that no longer matches anything is listed in the report, to be removed.
+that changes it is a test file changed, so it never merges by itself. Since
+2026-11-24 `tests.yml` reads **`main`'s copy** of the allowlist, of the
+endpoints, of the tests' bindings, of the common values and of the floors,
+never the candidate's (a file of them that cannot be read is an error, never
+"none"): an entry counts
+once it is on `main` (first a pull request with the entry, then the change).
+An entry that no longer matches anything is listed in the report, to be
+removed. The noise floors (`noise-floor.json`) are raised when the noise is
+made stronger, never lowered without a person reading why.
 
 By hand: `python3 tools/no-regression.py check --base-repo <main checkout>
 --candidate-repo . --out-dir /tmp/nr` (each checkout needs its
 `vendor/adblock` engine built); `snapshot` and `compare` do the two halves.
+The evidence: `--main-junit` and `--candidate-junit` (pytest's junit files),
+`--necessity`, `--endpoints`, `--diff` (the change as git's diff; `check` asks
+git for it in the candidate's checkout, from its merge base with `main`'s
+commit, and runs the bound tests again itself; `compare` takes `--confirmed`).
 
 What it cannot see: a weakening outside the corpus (another site, request or
 API than those measured); YouTube's own pages, which need HTTPS (its requests,
 element-hiding rules and scriptlets are measured, not a page of it);
-timers that start after the first seconds; the sandbox really on (GitHub's
-runners refuse it: `security.yml` tests it); code that recognises the
-measurement and behaves differently there; a real graphics card and the
+timers that start more than 100 s after the page's load (the late read at
+Balanced waits 100 s; a later change, or one at another level, is the
+static guard's to refuse); brands other than the nine hosts measured; a
+configuration outside the matrix (a triple of values no session of the run
+meets, an axis it does not have: the graphics card, the display server): the
+static guard refuses a condition on what the matrix does not cover, and
+different runs meet different triples; the
+sandbox really on (GitHub's
+runners refuse it: `security.yml` tests it); a real graphics card and the
 user's own fonts (software rendering, the runner's fonts, the same on both
-sides).
+sides); whether a new disguised value is rarer than the old one when neither
+is nearer the real one (the tool knows the real value, not how common a value
+is: for a fixed disguise a person decides, in the common values), a drawn
+value that can be alike in every draw by chance (the card's maker, one of two;
+the copies of the card's name in the shared and the file worker and in the
+frames made by `innerHTML` and `srcdoc`, read in the 8 sessions only), a real
+value shown somewhat more often than chance shows it
+(the real list of extensions in a tenth of the draws instead of 1 in 128
+fails one time in four; in a quarter, nine times in ten), and a noise in
+another site's frame (I.K.E.'s frames share
+their page's noise: `site.` is false on `main` and only guards a future
+per-frame noise). What `main` itself leaves real cannot get worse and is
+only judged when it changes: on 2026-11-24 a dedicated worker started from
+a file of the site (not from a blob) read the real card, extensions and
+languages at Strict on `main` (an I.K.E. gap the probe now shows, reported
+for a fix of its own).
+
+**False alarms.** A red from chance would hold back every real update of the
+day; a pass from a looser rule would let a weakening through. So no rule is
+loosened for chance: what chance can produce is told from a weakening by more
+readings (eight sessions, 24 draws of the picks, 896 stripes, 128 widths).
+Main against main in the same run (as in `tests.yml`: the same random keys,
+sites and shape on both sides) gives the same values, so nothing is judged at
+all. A rewrite of the noise of the same strength draws every noised value
+anew; measured as main against main with independent random keys and sites
+(16 snapshots, every ordered pair: 240 comparisons), none had a "worse" on
+2026-11-24 (`main` f51ba83, with the fourth review's measures), nor on
+2026-11-25 (`main` 8176b12, with round 5's measures: brands, the late read,
+the large pictures, the other machine with 32 processors). The same
+experiment, in earlier rounds, found what more readings fixed: in round 5,
+texts of the same width (digits for digits) noised alike since 1.1.25 draws
+a width's noise from its own value, so the count changed varied with the
+key (now 128 texts of different widths), and the cores, a pick drawn only
+on the other machine, judged as a fixed disguise there (now its real value
+there only); 84 of 240 with
+the real value of a text width or of the extensions' list in one session
+(chance gives it: now judged against how often, measured on `main`), and 5 of
+240 with fewer flat stripes changed (448 stripes repeating every 256 were
+noised alike in pairs: now 896, each of its own colour). Computed for such a
+run: 141 noise measures, each at most 3 in 100,000 (together 0.03 %); the
+counts of 24 lists drawn per session at 1 in 10,000 each (0.24 %); 43
+real-value tests at 1 in 10,000 each (0.43 %); the picks, the hashes and the
+marks far below: under 0.8 % per run. And 20 real runs of `check`, main
+against main as in `tests.yml`, gave 20 passes (an earlier 20, a round
+before, had one red: the storage estimate at Off ran out of its 3 s on a busy
+computer; it now has 10 s), 6 more with round 5's measures (2026-11-25,
+`main` 8176b12) gave 6 passes, and 6 more with round 6's matrix gave 6
+passes; the 240 pairs of 16 snapshots with independent keys, each with its
+56 sessions of the matrix, gave none worse. With round 7's matrix (64
+sessions, off-grid values included) 6 more gave 6 passes, and of 240 more
+pairs one was worse; with round 8's guard and matrix (`main` 462d854, the
+same fingerprint.js as 1.1.27's) 6 more gave 6 passes, about 330 s each,
+two at once on 4 cores. That one worse pair came from the hidden extensions' list on the
+first machine, fewer names changed than on `main` in the sessions' mean
+(4.62 against 3.12), a chance the estimate above allows, not the matrix. A
+check takes about 365 s on a 4-core computer running two at once (the late
+read and the brands add about 55 s a side, the matrix about 30 s a side: two
+browser starts and 25 s of sessions); `--runs 3` about 18 minutes, within
+its step's 45.
+
+**Code that recognises the measurement** and behaves differently there
+is only partly guarded: the probe's address, title, global, the frame's host,
+the hook's files, its variable and the noise keys of `check` are random for
+each run, and the static guard (`tools/fix-guard.py`) and the AI reviewers
+(`tools/ai-review.py`) refuse an AI change that names what measures it
+(`IKE_TEST_*`, `IKE_NR*`, `IKE_NO_SINGLE`, `nrResult`, "no regression", the
+offscreen platform, SwiftShader, the sandbox and D-Bus variables of the run,
+`GITHUB_ACTIONS`/`CI`/`RUNNER_*`, the local address, `.example` hosts,
+`addaudithook`/`sys.modules`, the probe's drawn text and known-bytes generator,
+the noise keys' store...); the code measured still runs in the same job, with
+its test hook. The gate should move to a job of its own on a fresh runner,
+planned with the sharded CI of the branch `automation/fast-tests`. `main`'s
+side is measured by `main`'s copy of the tool, so these rules, the extra
+readings and the evidence apply to both sides once they are on `main`; a
+snapshot of an older copy compares safely: what it lacks on `main`'s side is
+judged on the candidate alone, or is worse, and a candidate without a second
+session where `main` has one is worse.
 
 ## The owner's part
 

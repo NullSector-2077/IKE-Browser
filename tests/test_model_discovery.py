@@ -63,12 +63,16 @@ def fake(asked):
         if "gemini-4-neon:generateContent" in url:
             raise urllib.error.HTTPError(url, 429, "x", {}, io.BytesIO(
                 b'{"error": {"message": "Quota exceeded ... limit: 0, model: gemini-4-neon"}}'))
+        if "gemini-3.6-flash:" in url or "gemini-3.5-flash-lite:" in url:      # configured, really gone
+            raise urllib.error.HTTPError(url, 404, "x", {}, io.BytesIO(b'{"error": {"status": "NOT_FOUND"}}'))
         if ":generateContent" in url:
             return Answer({"candidates": [{"content": {"parts": [{"text": "OK"}]}}]})
         if url == "https://api.groq.com/openai/v1/models":
             return Answer({"data": [{"id": "openai/gpt-oss-120b"}, {"id": "openai/gpt-oss-20b"},
                                     {"id": "meta/llama-9-70b"}, {"id": "whisper-large-v4"}]})
         if url.endswith("/chat/completions"):
+            if b"qwen" in (req.data or b""):                  # a configured model that is really gone
+                raise urllib.error.HTTPError(url, 404, "x", {}, io.BytesIO(b'{"error": "model not found"}'))
             return Answer({"choices": [{"message": {"content": "OK"}}]})
         raise urllib.error.HTTPError(url, 404, "x", {}, io.BytesIO(b"{}"))
     return opener
@@ -128,3 +132,16 @@ def test_the_workflow_passes_them_to_the_fix():
     assert "tools/provider-check.py discovered --repo" in text
     assert "discovered: ${{ steps.providers.outputs.discovered }}" in text
     assert text.count('AUTOFIX_DISCOVERED="$(cat "$RUNNER_TEMP/discovered"') == 2
+
+
+def test_a_configured_model_that_answers_is_never_gone(check):
+    """2026-11-27: Z.AI's list did not name its free GLM Flash models, which answer: no false alarm."""
+    def opener(req, timeout=0):
+        url = req.full_url
+        if url == "https://api.z.ai/api/paas/v4/models":
+            return Answer({"data": [{"id": "GLM-5.3"}]})
+        if url.endswith("/chat/completions"):
+            return Answer({"choices": [{"message": {"content": "OK"}}]})
+        raise urllib.error.HTTPError(url, 404, "x", {}, io.BytesIO(b"{}"))
+    info = check.discover({"ZAI_API_KEY": "zai_TEST"}, opener)
+    assert "Z.AI" not in info["gone"] and info["discovered"] == {"Z.AI": ["GLM-5.3"]}

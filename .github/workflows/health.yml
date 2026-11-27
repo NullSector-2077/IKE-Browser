@@ -104,8 +104,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 -I tools/automat-scoreboard.py --repo "$GITHUB_REPOSITORY" || echo "::warning::the scoreboard stopped"
+      # AUTOMAT block 2 (2026-11-27): the Chromium features ike/app.py sets still exist, in the users' engine (the
+      # version the last green "Arch Linux" run on main recorded) and on Chromium's development branch
+      - name: The Chromium features I.K.E. sets still exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 tools/check-components.py --save-arch-tested "$RUNNER_TEMP/arch-tested.json" \
+            --repo "$GITHUB_REPOSITORY" || true
+          chromium=$(python3 -c 'import json, sys
+          try:
+              print(((json.load(open(sys.argv[1])).get("tested") or {}).get("chromium") or ""))
+          except Exception:
+              print("")' "$RUNNER_TEMP/arch-tested.json")
+          python3 tools/engine-features.py --chromium "$chromium" --out "$RUNNER_TEMP/engine-features.json" \
+            || echo "::warning::the check of the engine's features stopped"
       - name: Check the automation
         env:
+          ENGINE_FEATURES: ${{ runner.temp }}/engine-features.json
           TOKEN_CHECK: ${{ runner.temp }}/workflow-token.json
           PROVIDER_CHECK: ${{ runner.temp }}/providers/ai-providers.json
           RESERVE_PING: ${{ runner.temp }}/reserve-ping.json

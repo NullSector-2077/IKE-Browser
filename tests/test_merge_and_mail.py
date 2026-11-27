@@ -87,6 +87,11 @@ def runs(**changes):
         j = run["jobs"].setdefault(job, {"status": "completed", "conclusion": "success", "steps": {}})
         if step:
             j["steps"][step] = "success"
+    # tests.yml restates "Fingerprinting unchanged" when no fingerprinting value changed (tools/automerge.py
+    # reads it for an AI's change; the fourth review of "Nothing gets worse", N5)
+    w2, j2, s2 = merge.FP_UNCHANGED_AT
+    if w2 in out and j2 in out[w2]["jobs"]:
+        out[w2]["jobs"][j2]["steps"][s2] = "success"
     for cat, result in changes.items():
         workflow, job, step = tc.CATEGORIES[cat.replace("_", "-")][1]
         if result is None:
@@ -120,12 +125,18 @@ COMMITS = [{"commit": {"message": "autofix: attempt 1 after a failure of \"Tests
                                   "Author: Groq / qwen/qwen3.8-27b\n"}}]
 
 
-def with_no_regression(evidence, result="success"):
-    """The evidence with the differential check's step ("Nothing gets worse", category no-regression)."""
+def with_no_regression(evidence, result="success", fingerprint="success"):
+    """The evidence with the differential check's step ("Nothing gets worse", category no-regression) and,
+    as tests.yml restates it when it passed, its step "Fingerprinting unchanged" (None: not there)."""
     import copy
     out = copy.deepcopy(evidence)
     workflow, job, step = merge.NO_REGRESSION_AT
     out["runs"][workflow]["jobs"][job]["steps"][step] = result
+    w2, j2, s2 = merge.FP_UNCHANGED_AT
+    if fingerprint is None:
+        out["runs"][w2]["jobs"][j2]["steps"].pop(s2, None)
+    else:
+        out["runs"][w2]["jobs"][j2]["steps"][s2] = fingerprint
     return out
 
 

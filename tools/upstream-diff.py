@@ -16,9 +16,14 @@ to a budget, and writes it into the failure description as quoted data:
 - **uBlock Origin's scriptlets**: the two commits of ``ike/resources/ubo-scriptlets.json``, compared
   on GitHub, the scriptlets' own files first;
 - **the test packages** (PyPI): the versions that differ in ``tools/test-requirements.txt``; each
-  project's repository from PyPI, then the same comparison and notes.
+  project's repository from PyPI, then the same comparison and notes;
+- **PyQt** (2026-11-27, AUTOMAT block 2): PyQt6 and PyQt6-WebEngine have no repository on GitHub, so their
+  API is compared from the type stubs (``.pyi``) inside the two versions' wheels on PyPI: every
+  ``Module.Class.member`` removed and added, and the renames a program is sure of (one removed and one added
+  member of the same class with the same arguments). Qt WebEngine moves to a new Chromium every quarter.
 
-Only these hosts, over HTTPS: api.github.com, crates.io, pypi.org (HOSTS). This repository's token is
+Only these hosts, over HTTPS: api.github.com, crates.io, pypi.org (HOSTS), and files.pythonhosted.org for
+PyQt's wheels only (WHEEL_HOST: read as zip files, never run). This repository's token is
 sent to api.github.com only (a read-only token of a public repository). Nothing is downloaded but
 JSON, nothing is run. What cannot be read is said in one line; the fix goes on without it.
 
@@ -49,6 +54,9 @@ import urllib.request
 from pathlib import Path
 
 HOSTS = ("api.github.com", "crates.io", "pypi.org")
+WHEEL_HOST = "files.pythonhosted.org"            # PyQt's wheels only, as bytes (fetch_bytes), never JSON
+STUB_PACKAGES = ("PyQt6", "PyQt6-WebEngine")     # their API compared from the .pyi stubs of their wheels
+WHEEL_MAX = 80 * 1024 * 1024
 UA = {"User-Agent": "ike-browser-upstream-diff", "Accept": "application/json"}
 BUDGET = 6000
 TOTAL_SECONDS = 150           # for every request together: the plan never waits long for other people's servers
@@ -96,6 +104,112 @@ def fetch(url, token="", opener=urllib.request.urlopen, limit=3_000_000):
             return json.loads(r.read(limit).decode("utf-8", "replace"))
     except (urllib.error.URLError, OSError, ValueError) as e:
         raise RuntimeError("%s: %s" % (parts.hostname, type(e).__name__))
+
+
+def fetch_bytes(url, opener=urllib.request.urlopen, limit=WHEEL_MAX):
+    """The bytes at a URL of files.pythonhosted.org (a wheel); RuntimeError when it cannot be read."""
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "https" or parts.hostname != WHEEL_HOST:
+        raise ValueError("not an allowed host: %s" % (parts.hostname or "?"))
+    try:
+        with opener(urllib.request.Request(url, headers={"User-Agent": UA["User-Agent"]}), timeout=90) as r:
+            data = r.read(limit + 1)
+    except (urllib.error.URLError, OSError) as e:
+        raise RuntimeError("%s: %s" % (parts.hostname, type(e).__name__))
+    if len(data) > limit:
+        raise RuntimeError("the wheel is too big")
+    return data
+
+
+# --- PyQt's API, from the type stubs of its wheels (2026-11-27) ------------------------------------
+
+def stub_names(text, module):
+    """{"Module.Class.member": its form} of one .pyi: "class", "attr", or "def(arg, ...)" (self left out)."""
+    import ast
+    out = {}
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return out
+
+    def walk(node, prefix):
+        for n in node.body:
+            if isinstance(n, ast.ClassDef):
+                out[prefix + n.name] = "class"
+                walk(n, prefix + n.name + ".")
+            elif isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                args = [a.arg for a in n.args.args + n.args.kwonlyargs if a.arg not in ("self", "cls")]
+                form = "def(%s)" % ", ".join(args)
+                key = prefix + n.name
+                out[key] = form if key not in out else out[key]      # overloads: the first form
+            elif isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name):
+                out[prefix + n.target.id] = "attr"
+            elif isinstance(n, ast.Assign):
+                for t in n.targets:
+                    if isinstance(t, ast.Name):
+                        out[prefix + t.id] = "attr"
+    walk(tree, module + ".")
+    return out
+
+
+def wheel_stubs(data):
+    """{"Module.Class.member": form} of every PyQt6/*.pyi in a wheel (a zip, read only)."""
+    import io
+    import zipfile
+    out = {}
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        for info in z.infolist():
+            name = info.filename
+            if re.fullmatch(r"PyQt6/[A-Za-z0-9_]+\.pyi", name) and info.file_size < 8_000_000:
+                out.update(stub_names(z.read(info).decode("utf-8", "replace"), name[6:-4]))
+    return out
+
+
+def wheel_url(name, version, get):
+    """The URL of one wheel of the release on PyPI (Linux x86_64 first), or ""."""
+    data = get("https://pypi.org/pypi/%s/%s/json" % (urllib.parse.quote(name, safe=""),
+                                                     urllib.parse.quote(version, safe="")))
+    files = [u for u in (data or {}).get("urls") or () if str(u.get("filename", "")).endswith(".whl")]
+    files.sort(key=lambda u: (("manylinux" not in u["filename"]) or ("x86_64" not in u["filename"]), u["filename"]))
+    return files[0].get("url", "") if files else ""
+
+
+def stub_renames(removed, added):
+    """[(old, new)] of members, by their last name: one removed and one added member of the same class with
+    the same form, and no other member of that class with that form removed or added."""
+    out = []
+    by_parent = {}
+    for key, form in removed.items():
+        by_parent.setdefault((key.rsplit(".", 1)[0], form), [[], []])[0].append(key)
+    for key, form in added.items():
+        by_parent.setdefault((key.rsplit(".", 1)[0], form), [[], []])[1].append(key)
+    for (_parent, form), (gone, new) in sorted(by_parent.items()):
+        if len(gone) == 1 and len(new) == 1 and form != "class":
+            pair = (gone[0].rsplit(".", 1)[1], new[0].rsplit(".", 1)[1])
+            if pair[0] != pair[1] and pair not in out:
+                out.append(pair)
+    return out
+
+
+def stub_compare(change, get, get_bytes):
+    """change["data"] for a PyQt package: what its stubs removed, added and renamed (a synthetic diff of the
+    changed members, so the rest of this tool reads it like any other)."""
+    old = wheel_stubs(get_bytes(wheel_url(change["name"], change["old"], get)))
+    new = wheel_stubs(get_bytes(wheel_url(change["name"], change["new"], get)))
+    removed = {k: v for k, v in old.items() if k not in new}
+    added = {k: v for k, v in new.items() if k not in old}
+    changed = {k: (old[k], new[k]) for k in old if k in new and old[k] != new[k]}
+    lines = ["@@ the type stubs (.pyi) of %s %s -> %s @@" % (change["name"], change["old"], change["new"])]
+    # (not "def" lines: the names are full, Module.Class.member, and the renames are given in the notes)
+    lines += ["-  %s%s" % (k, v[3:] if v.startswith("def") else "  (%s)" % v) for k, v in sorted(removed.items())]
+    lines += ["+  %s%s" % (k, v[3:] if v.startswith("def") else "  (%s)" % v) for k, v in sorted(added.items())]
+    lines += [" changed: %s %s -> %s" % (k, a, b) for k, (a, b) in sorted(changed.items())]
+    notes = "%d members removed, %d added, %d changed their arguments" % (len(removed), len(added), len(changed))
+    renames = stub_renames(removed, added)
+    notes += "".join("\nrenamed %s to %s" % r for r in renames)
+    return {"notes": notes, "commits": [], "files": [{"filename": "%s.pyi" % change["name"],
+                                                      "patch": "\n".join(lines)}],
+            "removed": sorted(removed), "added": sorted(added)}
 
 
 # --- which versions changed ----------------------------------------------------------------------
@@ -380,7 +494,7 @@ def resolve(change, get):
     return ""
 
 
-def build(branch, show, failure, get, budget=BUDGET, memory=None):
+def build(branch, show, failure, get, budget=BUDGET, memory=None, get_bytes=None):
     """(the section for the failure description, the data for the recipes); ("", {...}) when the
     branch is no component update or nothing changed."""
     changes = changes_of(branch, show, failure)
@@ -394,10 +508,17 @@ def build(branch, show, failure, get, budget=BUDGET, memory=None):
     for c in shown:
         if not VERSION.match(c["old"]) and not SHA.match(c["old"]):
             continue
-        if c.get("kind") != "drill":              # (a drill's notes are already there: nothing is asked of anyone)
+        stubs = c.get("kind") == "pypi" and c["name"] in STUB_PACKAGES and get_bytes is not None
+        if c.get("kind") != "drill" and not stubs:  # (a drill's notes are already there: nothing is asked of anyone)
             c["repo"] = resolve(c, get)
         if c.get("kind") == "drill":
             pass
+        elif stubs:
+            c["repo"] = "PyPI wheels"
+            try:
+                c["data"] = stub_compare(c, get, get_bytes)
+            except Exception as e:                 # the network, a wheel laid out otherwise: said in one line
+                c["why"] = "its wheels could not be compared (%s)" % type(e).__name__
         elif not c["repo"]:
             c["why"] = "its registry names no repository on GitHub"
         else:
@@ -412,6 +533,8 @@ def build(branch, show, failure, get, budget=BUDGET, memory=None):
                 r, a = definitions(p)
                 removed.update(r)
                 added.update(a)
+            if "removed" in c["data"]:                 # PyQt's stubs: the full names of the members
+                removed, added = dict.fromkeys(c["data"]["removed"]), dict.fromkeys(c["data"]["added"])
             data["changes"].append({"name": c["name"], "old": c["old"], "new": c["new"], "repo": c["repo"],
                                     "renames": [list(r) for r in c["renames"]][:20],
                                     "removed": sorted(set(removed) - set(added))[:60],
@@ -463,8 +586,12 @@ def main(argv=None, opener=urllib.request.urlopen, env=None):
         memory = _tool("automat-memory")
     except Exception:
         memory = None
+    def get_bytes(url):
+        if time.monotonic() > deadline:
+            raise RuntimeError("out of time")
+        return fetch_bytes(url, opener)
     text, data = build(a.branch, lambda rev, path: git_show(a.repo_dir, rev, path), failure, get,
-                       max(1000, min(a.budget, 20000)), memory)
+                       max(1000, min(a.budget, 20000)), memory, get_bytes)
     Path(a.out).write_text(text, "utf-8")
     if a.json:
         Path(a.json).write_text(json.dumps(data, ensure_ascii=True) + "\n", "utf-8")
