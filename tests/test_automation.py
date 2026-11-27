@@ -3062,6 +3062,17 @@ def test_a_test_that_failed_once_runs_again_before_any_ai(steps, attempt, event,
     assert '--event "$EVENT"' in jobs_of(text)["plan"]
 
 
+def test_a_commit_of_the_automatic_fix_that_fails_goes_to_the_next_attempt_at_once():
+    """2026-11-27 (the drill): after "autofix: attempt 1" the tests fail on what is left of the breaks, not by
+    chance; running them again first cost a round of 40 minutes each time. An own attempt goes to the next one."""
+    own = failed_run(run_attempt=1, _event="workflow_run", triggering_actor={"login": "owner"},
+                     head_commit={"message": "autofix: attempt 1 after a failure of \"Tests\"\n\nRun: x"})
+    assert plan_tool.decide(own, [_with_steps("tests", "Tests")], "")["action"] == "fix"
+    other = failed_run(run_attempt=1, _event="workflow_run", triggering_actor={"login": "owner"},
+                       head_commit={"message": "update: crates 1 -> 2 (no AI)"})
+    assert plan_tool.decide(other, [_with_steps("tests", "Tests")], "")["action"] == "rerun"
+
+
 def test_github_calls_are_asked_again(monkeypatch):
     """Audit of #65 (M4): one 502 of GitHub dropped a failure."""
     answers = [(1, "", "HTTP 502"), (1, "", "HTTP 502"), (0, "[1]", "")]

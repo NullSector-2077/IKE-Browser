@@ -207,6 +207,14 @@ next to the code it guards.
   complete (what the program and the engine said), then fix the cause. A
   longer wait is never the fix; re-running is only a stop-gap.
 
+### 15. The tests ran again after AUTOMAT's own attempt (the drill, 2026-11-27)
+
+- **Sign**: after "autofix: attempt 1" (a recipe fixed one of six breaks) the
+  tests failed on the five left, and the plan chose "rerun" (the rule for a
+  test that fails only sometimes): a round of 40 minutes lost per attempt.
+- **Done**: a failing commit that the automatic fix itself wrote goes to the
+  next attempt at once (`tools/autofix-plan.py`, `own_attempt`).
+
 ## Prepared responses (what Claude does, in order)
 
 | Situation | First step | Never |
