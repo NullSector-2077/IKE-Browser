@@ -347,9 +347,10 @@
    "runs": 2
   },
   "2026-11-27": {
-   "answered": 6,
+   "answered": 7,
    "answered_for": {
     "automation/autofix-main": 4,
+    "automation/update/drill-qt": 1,
     "automation/update/lists-2026-11-22": 2
    },
    "no_provider": 0,
@@ -445,7 +446,7 @@
      "tokens": 385393
     }
    },
-   "runs": 6
+   "runs": 7
   }
  },
  "schema": 1
