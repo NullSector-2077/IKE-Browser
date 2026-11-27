@@ -30,6 +30,7 @@ import re
 import threading
 
 import pytest
+from conftest import steam_card
 
 PDF_PLUGINS = ["PDF Viewer", "Chrome PDF Viewer", "Chromium PDF Viewer", "Microsoft Edge PDF Viewer",
                "WebKit built-in PDF"]
@@ -328,6 +329,7 @@ ALLOWED = {"angle_instanced_arrays", "ext_blend_minmax", "ext_color_buffer_float
            "khr_parallel_shader_compile", "oes_element_index_uint", "oes_fbo_render_mipmap", "oes_standard_derivatives",
            "oes_texture_float", "oes_texture_float_linear", "oes_texture_half_float", "oes_texture_half_float_linear",
            "oes_vertex_array_object", "webgl_color_buffer_float", "webgl_compressed_texture_s3tc",
+           "webgl_debug_renderer_info",       # 1.1.29: a common card's name (the owner's choice)
            "webgl_depth_texture", "webgl_draw_buffers", "webgl_lose_context", "webgl_multi_draw"}
 
 
@@ -383,11 +385,12 @@ def test_strict_webgl_is_one_identity(run_ike, gl_site):
                  "worker": real["worker"][0], "worker2": real["worker"][1]}
         for name, g in places.items():
             r = reals[name]
-            # no card name: the extension is not offered, the engine's own answer without it
-            # (Chrome's: INVALID_ENUM and null)
+            # before the extension is enabled: the engine's own answer (Chrome's: INVALID_ENUM
+            # and null); with it, one of the cards most common in Steam's survey (1.1.29)
             assert g["before"] == r["before"] == [None, 0x0500], (name, g["before"], r["before"])
-            assert g["card"] is None and r["card"] is not None, (name, g["card"])
-            assert "WEBGL_debug_renderer_info" not in g["exts"] and "WEBGL_debug_shaders" not in g["exts"], name
+            assert g["card"] and g["card"][0] == "Google Inc. (NVIDIA Corporation)" and steam_card(g["card"][1]), \
+                (name, g["card"])
+            assert "WEBGL_debug_shaders" not in g["exts"], name
             assert g["flat"] is True and r["flat"] is True, name
             # the fixed list of extensions, never one the real context lacks, in the engine's order
             assert g["exts"] == [e for e in r["exts"] if e.lower() in ALLOWED], (name, g["exts"], r["exts"])
@@ -401,6 +404,7 @@ def test_strict_webgl_is_one_identity(run_ike, gl_site):
             if "samples" in g:
                 assert g["samples"] == [s for s in r["samples"] if s <= 4] and g["samples"], (name, g, r)
         assert places["webgl"]["exts"] == places["frame"]["exts"] == places["worker"]["exts"]
+        assert places["webgl"]["card"] == places["frame"]["card"] == places["worker"]["card"]
         assert places["webgl2"]["exts"] == places["worker2"]["exts"]
         assert places["webgl"]["params"] == places["frame"]["params"] == places["worker"]["params"]
 
