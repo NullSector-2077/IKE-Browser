@@ -157,3 +157,21 @@ def test_gemini_real_quota_is_learned_from_its_429(quota):
 def test_nothing_is_learned_from_words_without_a_value(quota):
     assert quota.learned_quotas('{"error": {"message": "quota exceeded PerDay"}}') == {}
     assert quota.learned_quotas('quotaId: "GenerateRequestsPerDay-FreeTier", quotaValue: "0"') == {}
+
+
+def test_the_drill_may_use_the_quotas_at_any_hour_until_the_owners_date(quota):
+    """The owner's temporary rule of 2026-11-27 (priority "drill_any_hour_until"): the drill outside the leftover
+    window while nothing real is pending; never another background branch; back to the rule after the date."""
+    limits = quota.load_limits()
+    limits["priority"]["drill_any_hour_until"] = "2026-11-30"
+    morning = dt.datetime(2026, 11, 28, 9, 0, tzinfo=dt.timezone.utc)
+    drill = quota.Budget(limits, quota.empty_state(), "automation/update/drill-qt", now=morning, pending=[])
+    assert drill.priority_why("Groq") == ""
+    other = quota.Budget(limits, quota.empty_state(), "automation/update/ci-node", now=morning, pending=[])
+    assert other.priority_why("Groq") != ""                                 # the CI's updates keep the rule
+    after = quota.Budget(limits, quota.empty_state(), "automation/update/drill-qt",
+                         now=dt.datetime(2026, 12, 1, 9, 0, tzinfo=dt.timezone.utc), pending=[])
+    assert after.priority_why("Groq") != ""
+    busy = quota.Budget(limits, quota.empty_state(), "automation/update/drill-qt", now=morning,
+                        pending=["automation/update/crates"])
+    assert busy.priority_why("Groq") != ""                                  # a real update first, always
