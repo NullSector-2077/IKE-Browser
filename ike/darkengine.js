@@ -1506,12 +1506,14 @@
       adopt(document, baseSheet);
     }
     // The body can paint while a parser-blocking resource is pending.
-    // Cover its canvas background until the author declarations are mapped.
-    if (window === window.top) {
-      coverSheet = baseSheet || baseEl.sheet;
-      coverRule = coverSheet.cssRules[coverSheet.insertRule(
-        ':root:root > body{background-color:' + BGHEX + '!important;color:' + FGHEX + '}', 0)];
-    }
+    // Cover its canvas background until the author declarations are mapped. In a
+    // frame too (a page in a frame painted its own white until mapped: Speedometer's
+    // pages, a shop's embedded parts); the cover goes as soon as the mapping starts,
+    // and a frame meant to be transparent is transparent again from then on.
+    coverSheet = baseSheet || baseEl.sheet;
+    coverRule = coverSheet.cssRules[coverSheet.insertRule(window === window.top
+      ? ':root:root > body{background-color:' + BGHEX + '!important;color:' + FGHEX + '}'
+      : ':root:root, :root:root > body{background-color:' + BGHEX + '!important;color:' + FGHEX + '}', 0)];
     return true;
   }
   if (!start()) {

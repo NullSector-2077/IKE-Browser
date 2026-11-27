@@ -189,7 +189,7 @@ def test_the_newer_lists_are_used(tmp_path, monkeypatch):
 
 STEPS = r'''
 import json, time
-from ike import darkfixes, darklists, darkpages
+from ike import darkfixes, darklists
 
 def steps(ike, qapp, out):
     calls = []
@@ -202,7 +202,6 @@ def steps(ike, qapp, out):
             raise ValueError("no network here")
         return dict(lists, lists_date="2999-01-01", fetched=int(time.time()))
     darklists.fetch = fake
-    darkpages._state[id(ike.profile)] = {"key": "old", "sites": {}, "order": []}
     ike.config["auto_update"] = AUTO
     ike.config["last_darklists_update"] = 0
     ike.check_updates()
@@ -217,7 +216,6 @@ def steps(ike, qapp, out):
     out["stored"] = darklists.store_path().exists()
     out["fetched"] = bool(darkfixes.data().get("lists_fetched"))
     out["fix"] = darkfixes.fix_for("https://fetched.test/")["css"]
-    out["state_cleared"] = id(ike.profile) not in darkpages._state
     # a second check the same day fetches nothing
     ike.check_updates()
     yield 300
@@ -237,11 +235,11 @@ def test_the_browser_fetches_them_once_a_day(run_ike, mode):
     assert len(out["calls"]) == 1 and out["calls"][0] > 1000, out     # checked against the copy it came with
     assert out["calls2"] == 1, out                                      # once a day
     if mode == "ok":
-        assert out["stored"] and out["fetched"] and out["state_cleared"], out
+        assert out["stored"] and out["fetched"], out
         assert out["fix"].endswith(".fetched { color: red; }"), out
         assert abs(out["last"] - out["now"]) < 30, out
     else:
-        assert not out["stored"] and not out["fetched"] and not out["state_cleared"], out
+        assert not out["stored"] and not out["fetched"], out
         # tried again in a few hours, not at every check and not a day later
         due = out["last"] + darklists.UPDATE_INTERVAL - out["now"]
         assert darklists.RETRY_FAILED_AFTER - 60 < due <= darklists.RETRY_FAILED_AFTER, out

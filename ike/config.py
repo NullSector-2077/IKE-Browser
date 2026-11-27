@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from . import darktheme, osinfo
+from . import osinfo
 
 PROFILE = os.environ.get("IKE_PROFILE", "").strip() or "default"
 
@@ -283,15 +283,12 @@ DEFAULTS = {
     "comp_consent": True,
     "comp_dark": True,
     "dark_mode": "off",                 # off | on
-    # reader: Dark Reader API; engine: Chromium Auto Dark Mode; ike: the I.K.E. Dark Engine (1.1.28). All support
-    # per-site include/exclude rules and are applied at page navigation.
-    "dark_engine": "reader",
+    # ike: the I.K.E. Dark Engine (1.1.28); engine: Chromium Auto Dark Mode. Both support
+    # per-site include/exclude rules and are applied at page navigation. (1.1.29: Dark
+    # Reader, "reader", is no longer part of I.K.E.; a profile that chose it gets the engine.)
+    "dark_engine": "ike",
     "dark_sites": [],                   # hosts that are dark while dark mode is off
     "dark_exclude": [],                 # hosts that stay light while dark mode is on
-    # Dark Reader's colours (1.1.25: every key of its theme, its own defaults; darktheme.py),
-    # and the sites with colours of their own ({host: theme}), set in the toolbar's panel
-    "dark_theme": dict(darktheme.DEFAULTS),
-    "dark_site_themes": {},
     # the I.K.E. Dark Engine's look (1.1.28; darkengine.LOOK), set in its panel and in Settings
     "dark_engine_look": None,
     "restore_once": False,              # reopen the last tabs at the next start (restart)
@@ -598,16 +595,15 @@ class Config:
             d["shield_level"] = "balanced"
         d["site_levels"] = {h: _LEVEL_ALIASES.get(lv, lv) for h, lv in d["site_levels"].items()
                             if _LEVEL_ALIASES.get(lv, lv) in LEVELS}
-        # 1.1.25: the dark mode's theme complete and checked (earlier versions kept three of
-        # its values; anything out of range or of another kind becomes Dark Reader's default)
-        d["dark_theme"] = darktheme.clean(d.get("dark_theme"))
-        d["dark_site_themes"] = darktheme.clean_sites(d.get("dark_site_themes"))
+        # 1.1.29: Dark Reader's colours have no use any more: they go from the profile
+        d.pop("dark_theme", None)
+        d.pop("dark_site_themes", None)
         from . import darkengine
         d["dark_engine_look"] = darkengine.clean_look(d.get("dark_engine_look"))
         # the hidden switch of the experiment (1.1.26-27) becomes the choice in Settings (1.1.28)
-        if d.get("dark_engine_experiment") is True and d.get("dark_engine") == "reader":
-            d["dark_engine"] = "ike"
         d.pop("dark_engine_experiment", None)
+        if d.get("dark_engine") not in ("ike", "engine"):
+            d["dark_engine"] = "ike"          # Dark Reader (1.1.29: no longer in I.K.E.) or anything unknown
 
     def save(self):
         """Write the settings, unless the file already holds exactly them: the

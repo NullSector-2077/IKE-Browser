@@ -486,7 +486,7 @@ class IkeApp(QObject):
         """Turn dark mode for pages on or off and apply it without restarting."""
         cfg = self.config
         cfg["dark_mode"] = "on" if mode == "on" else "off"
-        if engine in ("reader", "engine", "ike"):
+        if engine in ("engine", "ike"):
             cfg["dark_engine"] = engine
         cfg.save()
         self._dark_changed()
@@ -520,42 +520,6 @@ class IkeApp(QObject):
                             or (want and engine != getattr(page, "_dark_engine", None))):
                         v.reload()
 
-    def push_dark_theme(self, view):
-        """Give the page of a tab the colours of dark mode now (1.1.25, the dark mode
-        panel): Dark Reader takes them in the page's isolated world, without loading
-        it again. Only a page made dark by Dark Reader; the colours are checked first."""
-        import json
-
-        from PyQt6.QtWebEngineCore import QWebEngineScript
-
-        from . import darktheme
-        if view is None or getattr(view, "sleeping", False) or getattr(view, "pending_url", None):
-            return False
-        page = view.page()
-        if not getattr(page, "_dark_on", False) or getattr(page, "_dark_engine", None) != "reader":
-            return False
-        url = view.url()
-        if url.scheme() not in ("http", "https", "file"):
-            return False
-        theme, _own = darktheme.of(self.config, url.host().lower())
-        js = "window.__ikeDarkTheme && window.__ikeDarkTheme(%s)" % json.dumps(darktheme.for_page(theme))
-        world = int(QWebEngineScript.ScriptWorldId.ApplicationWorld.value)
-        try:
-            frames = [page.mainFrame()]
-        except (AttributeError, RuntimeError):
-            page.runJavaScript(js, QWebEngineScript.ScriptWorldId.ApplicationWorld)
-            return True
-        seen = 0
-        while frames and seen < 200:          # the page's frames too (Qt 6.8+), a bounded number
-            f = frames.pop()
-            seen += 1
-            try:
-                f.runJavaScript(js, world)
-                frames.extend(f.children())
-            except RuntimeError:
-                pass
-        return True
-
     def push_engine_look(self, view, look):
         """One tab's page takes a look of the I.K.E. Dark Engine now (its panel, while a
         slider moves): only a page the engine made dark, nothing loaded again."""
@@ -579,34 +543,6 @@ class IkeApp(QObject):
             views = [v for vs in getattr(w, "workspaces", {}).values() for v in vs] or list(w.views)
             for v in views:
                 self.push_engine_look(v, cfg["dark_engine_look"])
-
-    def dark_theme_changed(self):
-        """The colours of dark mode were changed and kept (the dark mode panel, 1.1.25):
-        saved, given to every open page made dark by Dark Reader, and to the pages
-        loaded from now on (darkpages.retheme). Nothing is loaded again."""
-        from . import darkpages, darktheme
-        cfg = self.config
-        cfg["dark_theme"] = darktheme.clean(cfg["dark_theme"])
-        cfg["dark_site_themes"] = darktheme.clean_sites(cfg["dark_site_themes"])
-        cfg.save()
-        theme = darktheme.for_page(cfg["dark_theme"])
-
-        def own(host):
-            t, has = darktheme.of(cfg, host)
-            return darktheme.for_page(t) if has else None
-        profiles = {}
-        for w in self.windows:
-            w.sync_dark_icon()
-            views = [v for vs in getattr(w, "workspaces", {}).values() for v in vs] or list(w.views)
-            for v in views:
-                self.push_dark_theme(v)
-                try:
-                    p = v.page().profile()
-                    profiles[id(p)] = p
-                except RuntimeError:
-                    pass
-        for p in profiles.values():
-            darkpages.retheme(p, theme, own)
 
     def restart(self):
         """Close and start again, reopening the current tabs."""
@@ -752,10 +688,7 @@ class IkeApp(QObject):
                 now if ok else now - darklists.UPDATE_INTERVAL + darklists.RETRY_FAILED_AFTER)
             self.config.save()
             if ok:
-                darkfixes.reset()
-                from . import darkpages
-                for p in list(self.shields.profiles):
-                    darkpages.clear(p)          # the dark pages loaded next take the new lists
+                darkfixes.reset()               # the dark pages loaded next take the new lists
             elif why:
                 print("I.K.E.: Dark Reader's lists not updated: %s" % why, file=sys.stderr)
         self._dark_lists.done.connect(done)

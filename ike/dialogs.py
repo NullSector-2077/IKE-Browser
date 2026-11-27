@@ -1009,9 +1009,8 @@ class SettingsDialog(QDialog):
             self.dark.addItem(label, key)
         self.dark.setCurrentIndex(max(0, self.dark.findData(self.cfg["dark_mode"])))
         self.dark_engine = QComboBox()
-        self.dark_engine.addItem(T("Dark Reader (can be set per site, immediate)"), "reader")
-        self.dark_engine.addItem(T("Chromium Auto Dark Mode (can be set per site, immediate)"), "engine")
         self.dark_engine.addItem(T("I.K.E. Dark Engine"), "ike")
+        self.dark_engine.addItem(T("Chromium Auto Dark Mode (can be set per site, immediate)"), "engine")
         self.dark_engine.setCurrentIndex(max(0, self.dark_engine.findData(self.cfg["dark_engine"])))
         # the I.K.E. Dark Engine's look (1.1.28): the same as in its panel
         from PyQt6.QtWidgets import QSlider
@@ -1085,8 +1084,8 @@ class SettingsDialog(QDialog):
              T("Makes bright pages dark. Single sites: ☰ → Dark mode for pages. Part of the "
                "“Dark mode for pages” extension."))
         _row(g, T("Dark mode method"), self.dark_engine,
-             T("The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. "
-               "Dark Reader stays available; Chromium's own is built into the engine and the lightest."))
+             T("The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; "
+               "Chromium's own is built into the engine and the lightest."))
         _row(g, "", _wrapping(self.dark_pdf),
              T("In I.K.E.'s own PDF viewer the pages are shown with their colours turned around: "
                "light text on a dark page. Off by default."))

@@ -728,7 +728,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_tb_split = A(T("Split view"), self.toggle_split, None,
                               icon(("view-split-left-right", "view-dual-symbolic")),
                               T("Show two tabs side by side"))
-        # 1.1.25: its click opens the dark mode panel under it (darkpanel.py), made at the first click
+        # 1.1.25: its click opens the dark mode panel under it (darkenginepanel.py), made at the first click
         self.dark_menu = None
         self.act_dark = A(T("Dark mode for pages"), self.show_dark_panel, None, icon("weather-clear-night"),
                           T("Dark mode: everywhere or only on this site"))
@@ -1350,12 +1350,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if url is None:
             view = self.current_view()
             url = view.url() if view else QUrl()
-        cfg = self.app.config
         host = url.host().lower() if url.scheme() in ("http", "https") else ""
         dark = self.app.shields.dark_for(host)
-        if dark and cfg["dark_engine"] == "reader":
-            from . import darktheme
-            dark = darktheme.of(cfg, host)[0]["mode"] == 1
         glyph = (icon(("weather-clear-night", "weather-clear-night-symbolic")) if dark
                  else icon(("weather-clear", "weather-clear-symbolic")))
         if glyph.cacheKey() != self.act_dark.icon().cacheKey():
@@ -2606,27 +2602,15 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         popup = self.__dict__.get("_panels", {}).get(key)
         return (popup[0], popup[1]) if popup is not None else (None, None)
 
-    # the dark mode panel: Dark Reader's (darkpanel.py) or the I.K.E. Dark Engine's
-    # (darkenginepanel.py, 1.1.28), as the dark mode method chosen
+    # the dark mode panel: the I.K.E. Dark Engine's (darkenginepanel.py, 1.1.28;
+    # since 1.1.29 the only one: with Chromium's own dark mode its look is greyed)
     @staticmethod
     def _dark_factory(win):
-        if win.app.config["dark_engine"] == "ike":
-            from .darkenginepanel import EnginePanel
-            return EnginePanel(win)
-        from .darkpanel import DarkPanel
-        return DarkPanel(win)
+        from .darkenginepanel import EnginePanel
+        return EnginePanel(win)
 
     def dark_popup(self):
-        """The popup of the Dark mode button, made the first time it opens (made again
-        when the dark mode method changed since: each has its own panel)."""
-        want_engine = self.app.config["dark_engine"] == "ike"
-        if self.dark_menu is not None and (type(self.dark_panel).__name__ == "EnginePanel") != want_engine:
-            popups = self.__dict__.get("_panels", {})
-            menu = popups.pop("dark", (None,))[0]
-            if menu is not None:
-                menu.hide()
-                menu.deleteLater()
-            self.dark_menu = self.dark_panel = self.dark_scroll = self.dark_wa = None
+        """The popup of the Dark mode button, made the first time it opens."""
         if self.dark_menu is None:
             menu, panel, scroll, wa = self._panel_popup("dark", self._dark_factory)
             self.dark_menu, self.dark_panel, self.dark_scroll, self.dark_wa = menu, panel, scroll, wa

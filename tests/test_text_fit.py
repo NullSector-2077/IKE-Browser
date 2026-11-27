@@ -11,7 +11,7 @@ the colours editor, languages, import, resources, watched pages, site
 permissions, the command bar); since 1.1.24 also the menus of the toolbar
 buttons a user can add, the Settings' search with nothing found and the
 four steps of the welcome of the first start; since 1.1.25 the dark mode
-panel of the toolbar (closed, with "More" open, and with Chromium's own dark
+panel of the toolbar (1.1.29: the I.K.E. Dark Engine's, also with Chromium's own dark
 mode), the zoom panel and the downloads panel (empty, and with a download of
 each kind).
 tests/textfit.py says what is checked: a button's text at least 4 px from
@@ -144,34 +144,16 @@ def steps(ike, qapp, out):
         win.shield_panel.adv_btn.setChecked(False)
         win.shield_menu.hide()
         if hasattr(win, "show_dark_panel"):
-            # 1.1.25: the dark mode panel, closed and with "More" open, and with Chromium's
-            # own dark mode (its note about the sliders)
-            win.show_dark_panel()
-            settle()
-            problems.extend(textfit.check(win.dark_scroll, code + ": dark mode panel"))
-            problems.extend(textfit.check_menu(win.dark_menu, code + ": dark mode panel"))
-            win.dark_panel.more_btn.setChecked(True)
-            settle()
-            win.fit_dark_menu()
-            settle()
-            problems.extend(textfit.check(win.dark_scroll, code + ": dark mode panel, more"))
-            win.dark_menu.hide()
+            # the dark mode panel: the I.K.E. Dark Engine's (1.1.28; the only one since 1.1.29,
+            # Dark Reader's left I.K.E.), and with Chromium's own dark mode (its look greyed, a note)
             engine = ike.config["dark_engine"]
-            ike.config["dark_engine"] = "engine"
-            win.show_dark_panel()
-            settle()
-            problems.extend(textfit.check(win.dark_scroll, code + ": dark mode panel, Chromium's",
-                                          combos=False))
-            ike.config["dark_engine"] = engine
-            win.dark_panel.more_btn.setChecked(False)
-            win.dark_menu.hide()
-            # 1.1.28: the I.K.E. Dark Engine's own panel (its styles, sliders and switches)
-            ike.config["dark_engine"] = "ike"
-            win.show_dark_panel()
-            settle()
-            problems.extend(textfit.check(win.dark_scroll, code + ": I.K.E. Dark Engine panel"))
-            problems.extend(textfit.check_menu(win.dark_menu, code + ": I.K.E. Dark Engine panel"))
-            win.dark_menu.hide()
+            for method, what in (("ike", "I.K.E. Dark Engine panel"), ("engine", "dark mode panel, Chromium's")):
+                ike.config["dark_engine"] = method
+                win.show_dark_panel()
+                settle()
+                problems.extend(textfit.check(win.dark_scroll, code + ": " + what))
+                problems.extend(textfit.check_menu(win.dark_menu, code + ": " + what))
+                win.dark_menu.hide()
             ike.config["dark_engine"] = engine
         if hasattr(win, "show_zoom_panel"):
             # 1.1.25: the zoom panel; the downloads panel empty, then with a download of each kind
