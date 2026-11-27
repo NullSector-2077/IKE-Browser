@@ -129,7 +129,22 @@ for(var i=0;i<all.length&&out.length<25;i++){var e=all[i],r=e.getBoundingClientR
   bg:cs.backgroundColor,image:img.slice(0,80),inline:(e.getAttribute('style')||'').slice(0,120),
   shadowHost:!!e.shadowRoot,frame:e.tagName==='IFRAME'?(e.src||'(no src)').slice(0,80):null,rules:light?rulesFor(e):[]});
  var last=out[out.length-1];if(last.rules.length)last.vars=varsOf(last.rules).map(function(n){return definedAt(e,n);});}
-return JSON.stringify({light:out,unreadable:unreadable.slice(0,20),sheets:document.styleSheets.length,
+// light text drawn over a picture (an <img> or a background picture under it, no
+// opaque colour between): where a light photo kept its light under a text made light
+var onpic=[],seenTxt=new Set();
+var tw=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+for(var tn=tw.nextNode();tn&&onpic.length<15;tn=tw.nextNode()){
+ if(!tn.data.trim())continue;var te=tn.parentElement;if(!te||seenTxt.has(te))continue;seenTxt.add(te);
+ var tr=te.getBoundingClientRect();if(tr.width<20||tr.height<8||tr.bottom<0||tr.top>H||tr.right<0||tr.left>W)continue;
+ var tc=rgba(getComputedStyle(te).color);if(!tc||lum(tc)<0.45)continue;
+ var stack=document.elementsFromPoint(Math.min(W-1,Math.max(0,tr.left+tr.width/2)),Math.min(H-1,Math.max(0,tr.top+tr.height/2)));
+ var past=false;
+ for(var si=0;si<stack.length;si++){var se=stack[si];if(se===te||se.contains(te)){past=true;}if(!past&&!te.contains(se))continue;
+  var ss=getComputedStyle(se),sb=rgba(ss.backgroundColor),pic=ss.backgroundImage.indexOf('url(')>=0?ss.backgroundImage:(se.tagName==='IMG'?(se.currentSrc||se.src):'');
+  if(pic){onpic.push({text:tn.data.trim().slice(0,40),el:label(te),rect:[Math.round(tr.left),Math.round(tr.top),Math.round(tr.width),Math.round(tr.height)],
+   color:getComputedStyle(te).color,under:label(se),picture:String(pic).slice(0,140)});break;}
+  if(sb&&sb[3]>0.5)break;}}
+return JSON.stringify({light:out,onpicture:onpic,unreadable:unreadable.slice(0,20),sheets:document.styleSheets.length,
  adopted:document.adoptedStyleSheets.length,frames:document.querySelectorAll('iframe').length});})()"""
 
 

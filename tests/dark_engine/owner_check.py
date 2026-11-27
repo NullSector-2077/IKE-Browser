@@ -210,6 +210,9 @@ def main():
                 wanted.add(v["name"])
             if e.get("inline"):
                 diag.append("      inline style: %s" % e["inline"])
+        for e in d.get("onpicture", []):
+            diag.append("   light text on a picture: %r %s at %s colour %s, over %s: %s"
+                        % (e["text"], e["el"], e["rect"], e["color"], e["under"], e["picture"]))
         diag.extend(_in_unreadable(d.get("unreadable", []), wanted))
     (out / "diagnose.txt").write_text("\n".join(diag) + "\n")
     print((out / "metrics.txt").read_text())
