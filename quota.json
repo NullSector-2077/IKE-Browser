@@ -347,9 +347,9 @@
    "runs": 2
   },
   "2026-11-27": {
-   "answered": 5,
+   "answered": 6,
    "answered_for": {
-    "automation/autofix-main": 3,
+    "automation/autofix-main": 4,
     "automation/update/lists-2026-11-22": 2
    },
    "no_provider": 0,
@@ -357,8 +357,8 @@
     "Groq": {
      "by": {
       "automation/autofix-main": {
-       "requests": 16,
-       "tokens": 80883
+       "requests": 21,
+       "tokens": 106041
       },
       "automation/update/lists-2026-11-22": {
        "requests": 3,
@@ -367,38 +367,38 @@
      },
      "classes": {
       "2": {
-       "requests": 19,
-       "tokens": 98200
+       "requests": 24,
+       "tokens": 123358
       }
      },
      "observed": {
       "requests": {
-       "at": 1795810224,
+       "at": 1795811298,
        "limit": 1000,
-       "mark": 19,
-       "remaining": 998,
-       "reset": 173,
+       "mark": 24,
+       "remaining": 999,
+       "reset": 87,
        "window": "day"
       },
       "tokens": {
-       "at": 1795810224,
+       "at": 1795811298,
        "limit": 8000,
-       "mark": 98200,
-       "remaining": 2977,
-       "reset": 38,
+       "mark": 123358,
+       "remaining": 3197,
+       "reset": 37,
        "window": "minute"
       }
      },
-     "requests": 19,
+     "requests": 24,
      "spent": "",
-     "tokens": 98200
+     "tokens": 123358
     },
     "OpenRouter": {
      "account": "free",
      "by": {
       "automation/autofix-main": {
-       "requests": 2,
-       "tokens": 43444
+       "requests": 3,
+       "tokens": 65158
       },
       "automation/update/lists-2026-11-22": {
        "requests": 17,
@@ -407,20 +407,20 @@
      },
      "classes": {
       "2": {
-       "requests": 19,
-       "tokens": 450029
+       "requests": 20,
+       "tokens": 471743
       }
      },
      "observed": {
       "requests": {
        "limit": 50,
-       "mark": 19,
+       "mark": 20,
        "window": "day"
       }
      },
-     "requests": 19,
+     "requests": 20,
      "spent": "",
-     "tokens": 450029
+     "tokens": 471743
     },
     "Z.AI": {
      "by": {
@@ -445,7 +445,7 @@
      "tokens": 385393
     }
    },
-   "runs": 5
+   "runs": 6
   }
  },
  "schema": 1

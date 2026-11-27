@@ -28,6 +28,20 @@
     "task": "python"
    }
   ],
+  "automation/autofix-main@8e557b70d4b39805": [
+   {
+    "attempt": 1,
+    "date": "2026-11-27",
+    "detail": "rotated",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "8e557b70d4b39805",
+    "summary": "placeholder _(La riserva (OpenRouter / particle-ai/particle-1:free) dice che il problema non si corregge nel codice, e nessun'altra l'ha corretto.)_ **Riserve: La riserva (OpenRouter / particle-ai/particle-1:free) dice che il problema non si corregge nel codice, e nessun'altra l'",
+    "task": "python"
+   }
+  ],
   "automation/autofix-main@994c95bda21cb6d8": [
    {
     "attempt": 1,
@@ -336,10 +350,10 @@
  "solved": {},
  "streak": {
   "automation/autofix-main": {
-   "at": "2026-11-27T20:13:24Z",
+   "at": "2026-11-27T20:28:39Z",
    "date": "2026-11-27",
    "n": 1,
-   "sig": "2e8f645215c3a04c",
+   "sig": "8e557b70d4b39805",
    "since": "2026-11-27"
   },
   "automation/update/drill-qt": {
