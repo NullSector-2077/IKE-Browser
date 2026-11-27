@@ -718,9 +718,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                icon(("view-readermode", "document-preview", "view-reader-symbolic",
                                      "x-office-document-symbolic")),
                                T("Show only the text of the article"))
-        self.act_tb_shot = A(T("Screenshot"), self.screenshot, None,
-                             icon(("camera-photo", "spectacle")),
-                             T("Save a picture of the visible page"))
+        # 1.1.27 (the owner): a click opens its menu, the three ways to take the picture
+        self.act_tb_shot = A(T("Screenshot"), lambda: None, None,
+                             icon(("camera-photo", "spectacle")))
         self.act_tb_pip = A(T("Video in floating window"), self.float_video, None,
                             icon(("picture-in-picture", "window-duplicate", "focus-windows-symbolic",
                                   "media-playback-start")),
@@ -807,7 +807,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                            ("send", self.act_tb_send, right),
                            ("resources", self.act_tb_resources, right)]
         # buttons whose click opens their menu, with no arrow (1.1.23 for dark mode)
-        self._menu_buttons = (self.act_dark, self.act_tb_zoom, self.act_tb_print, self.act_tb_send)
+        self._menu_buttons = (self.act_dark, self.act_tb_zoom, self.act_tb_print, self.act_tb_send, self.act_tb_shot)
 
         self.bookbar = BookmarksBar(T("Bookmarks bar"), self)
         self.nav.iconSizeChanged.connect(self.bookbar.refresh_arrows)
@@ -897,12 +897,15 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         # 1.1.24: its submenu, what to take; Ctrl+Shift+S is the visible part's,
         # as before (on the submenu's entry: next to an arrow it had no room)
         self.m_shot = menu(T("Screenshot…"), "camera-photo", None)
-        for text, mode, ico, keys in ((T("Visible part"), "visible", ("camera-photo", "spectacle"), "Ctrl+Shift+S"),
-                                      (T("Whole page"), "page", ("zoom-fit-height", "view-fullscreen"), None),
-                                      (T("Selected area"), "area", ("select-rectangular", "transform-crop", "edit-select-all"), None)):
+        self.shot_actions = []
+        for text, mode, ico, keys in (
+                (T("Visible part"), "visible", ("window", "document-preview", "camera-photo"), "Ctrl+Shift+S"),
+                (T("Whole page"), "page", ("zoom-fit-height", "view-fullscreen"), None),
+                (T("Selected area"), "area", ("select-rectangular", "transform-crop", "edit-select-all"), None)):
             a = A(text, lambda _c=False, m=mode: self.screenshot(m), keys, ico)
             a.setData(mode)
             self.m_shot.addAction(a)
+            self.shot_actions.append(a)
         self.act_shot.setMenu(self.m_shot)
         self.act_quit = A(T("Quit"), self.app.quit, "Ctrl+Q", "application-exit",
                           T("Close every window and quit I.K.E."))
@@ -1197,6 +1200,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.m_print.addAction(self.act_print)
         self.m_print.addAction(self.act_pdf)
         self.act_tb_print.setMenu(self.m_print)
+        # the toolbar's Screenshot (1.1.27): the same three entries as Page → Screenshot…
+        self.m_tb_shot = menu(T("Screenshot"), self.act_tb_shot.icon(), None)
+        for a in self.shot_actions:
+            self.m_tb_shot.addAction(a)
+        self.act_tb_shot.setMenu(self.m_tb_shot)
         self.m_send = menu(T("Send to device"), self.act_tb_send.icon(), None)
         self.m_send.aboutToShow.connect(self._fill_send_menu)
         self.act_tb_send.setMenu(self.m_send)
@@ -2687,15 +2695,16 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         cfg = self.app.config
         level = cfg.level_for(host) if host else cfg["shield_level"]
         n = self.app.shields.total(host) if host else 0
-        new = shield_icon(level, grow=TOOLBAR_SHIELD_GROW)
         shown = getattr(self, "_shield_shown", None)
-        if shown is not None and shown != level:
-            # another level: the icon fades into the new one (1.1.9)
-            polish.fade_icon(self, "shield", self.shield_btn.icon(), new, cfg, self.shield_btn.setIcon,
-                             ms=260, name="shield_fade")
-        elif shown is None:
-            self.shield_btn.setIcon(new)
         if shown != level:
+            new = shield_icon(level, grow=TOOLBAR_SHIELD_GROW)
+            if shown is None:
+                self.shield_btn.setIcon(new)
+            else:
+                # Another level: the icon fades into the new one (1.1.9).
+                polish.fade_icon(self, "shield", self.shield_btn.icon(), new, cfg, self.shield_btn.setIcon,
+                                 ms=260, name="shield_fade")
+            self.m_level.setIcon(shield_icon(level, 16))
             tip = T("I.K.E. Shield: choose the protection level")
             self.shield_btn.setToolTip("%s — %s" % (tip, T(LEVEL_NAMES[level])))
         self._shield_shown = level
@@ -2704,7 +2713,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.shield_btn.setText(text)
             self.urlbar.place_end()          # wider or narrower: the text stops before it (1.1.10)
         self.shield_count.count(n if level != "off" else 0, (id(self.current_view()), host))
-        self.m_level.setIcon(shield_icon(cfg["shield_level"], 16))
         if self.shield_menu.isVisible():
             self.shield_panel.count.setText(str(n))
 

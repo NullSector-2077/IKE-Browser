@@ -14,8 +14,8 @@ Components and where the version in use is written:
   (fixes for single sites, sites that are dark already, hints of a site's own
   dark theme): ``ike/resources/darkreader*.{js,json}`` (rebuilt with
   tools/build-darkreader.py from the newest "darkreader" package on npm and
-  the newest lists in Dark Reader's repository; only a new engine or changed
-  lists count);
+  the newest lists in Dark Reader's repository; only a new engine counts since
+  1.1.27: the browser fetches the lists itself once a day, ike/darklists.py);
 - KDE's Breeze icons, the shipped icon set "breeze" (1.1.24):
   ``ike/resources/icons/sets/breeze/`` (rebuilt with tools/build-breeze-icons.py
   from the newest release tag of breeze-icons, only the icons I.K.E. uses;
@@ -687,7 +687,12 @@ def check_darkreader(root, work, dr_src=None):
     new = json.loads((out / "darkreader-data.json").read_text("utf-8"))
     engine = vkey(new["version"]) > vkey(cur["version"])
     lists = darkreader_lists_hash(cur) != darkreader_lists_hash(new)
-    note = ", ".join(x for x, on in (("new engine", engine), ("lists changed", lists)) if on)
+    # 1.1.27 (the owner: no new version every day for simple lists): the browser fetches Dark
+    # Reader's lists itself once a day (ike/darklists.py); only a new engine makes an update, which
+    # brings the newest lists with it
+    note = ", ".join(x for x, on in (("new engine", engine), ("lists changed", lists and engine),
+                                     ("lists changed (the browser fetches them itself)", lists and not engine))
+                     if on)
     # 2026-11-24: what the builder left out or removed is said with the update (the daily report, the
     # candidate's CHANGELOG line, so the signing notice)
     built = new.get("ike_build") or {}
@@ -700,7 +705,7 @@ def check_darkreader(root, work, dr_src=None):
             len(links), ", ".join(sorted({"%s %s" % (r.get("kind", "?"), r.get("host", "?")) for r in links}))[:300])
     return {"current": "%s, lists %s (%s)" % (cur["version"], cur.get("lists_commit", "")[:10], cur.get("lists_date", "")),
             "latest": "%s, lists %s (%s)" % (new["version"], new["lists_commit"][:10], new["lists_date"]),
-            "update": engine or lists, "note": note, "_dir": str(out)}
+            "update": engine, "note": note, "_dir": str(out)}
 
 
 def apply_darkreader(root, info):

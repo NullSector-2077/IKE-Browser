@@ -452,6 +452,7 @@ function text(doc) {
   R.part = hash(part);
   var f = document.createElement('iframe'); document.body.appendChild(f);
   R.frameText = shash(text(f.contentDocument).toDataURL());
+  R.frameData = hash(text(f.contentDocument).getContext('2d').getImageData(0, 0, 200, 40).data);
   // the same text drawn in 4 x 4 pieces: no small canvas is left without the noise (review
   // round 2, LOW-11: pieces that small could be put together into any picture)
   var tiles = [];
@@ -500,7 +501,10 @@ def test_strict_canvas_noise_only_on_edges(run_ike, canvas_site):
         assert r["pixelMods"] == 0, r                       # CreepJS: "pixel data modified" no more
         assert r["flatUrl"] == off["flatUrl"] and r["flatWrong"] == 0, (r, off)     # exactly as drawn
         assert r["aloneSame"] is True, r
-        assert r["textUrl"] == r["textAgain"] == r["frameText"], r
+        # 1.1.27: every export varies (Cover Your Tracks: "randomized"); the
+        # pixels read are the same at every read and in a frame of the site
+        assert len({r["textUrl"], r["textAgain"], r["frameText"]}) == 3, r
+        assert r["textData"] == r["frameData"], r
         assert r["cleared"] == 0, r
     a, b = runs
     # the noise is there: text differs from the real picture, and between sessions

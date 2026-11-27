@@ -260,6 +260,28 @@ extension it does not have is never offered).
   text widths and canvas noise differ from the page's by their noise (a
   few parts in a million for a width); the fonts it finds are the same.
 
+## Google's sites and Cover Your Tracks (1.1.27)
+
+The owner's decisions of 2026-11-27, each with its tests
+(`tests/test_google_firefox.py`, `tests/test_canvas_exports.py`).
+
+| Point | Was | Now |
+|---|---|---|
+| Google's sign-in, "this browser may not be secure" | Only accounts.google.com got a Firefox identity, a fixed Firefox 140 (June 2025); the engine's client hints in the same request said `"Chromium";v="140"`; the getters of the JavaScript identity showed their source; Google's sensitive services (AI Studio, the cloud console, the account, payments) got "Compatibility" and then no protection at all (1.1.14) | Every request and frame of Google's sites, a Google sign-in embedded anywhere and what it loads present the Firefox of the calendar (`osinfo.firefox_major`: never ahead of a real release, at most about a version behind), the engine's three client hints sent empty, Firefox's navigator in every frame with getters that read as the engine's, no `userAgentData`, no `window.chrome`; the user's level everywhere on Google's sites |
+| Google's own domains on Google's pages | Left alone on the sensitive services; filtered elsewhere | At Balanced, Google's own domains (google.com, gstatic.com, googleapis.com, googleusercontent.com, recaptcha.net) go the "same site" free way on Google's pages, and their third-party cookies are kept there, as Firefox's entity list counts them; its ad and analytics domains are filtered as before; Strict and Maximum filter everything |
+| Cover Your Tracks: "unique" fingerprint | The noise of a canvas was the same at every read of a site in a session, so two exports of the same drawing were equal | Each export (`toDataURL`, `toBlob`, `convertToBlob`, WebGL canvases included) gets a varying part on top of the site's noise: the lowest bit of one in 32 opaque pixels at an edge of the drawing, chosen from the site's secret key and the number of exports so far. The majority of many exports is the picture with the site's noise (tested), so averaging gives nothing more than one read did; `getImageData` is unchanged |
+
+**Limits.** The identity is Firefox's texts on Chromium's engine: a site
+that tests the engine's features can still tell it is not Firefox (the
+Firefox identity of accounts.google.com up to 1.1.26 was accepted most of the
+time; the real Google could not be tried from the tests). Workers keep the
+engine's own `navigator.userAgent` (not covered). The client hints go
+out empty rather than missing (Qt has no way to take a header away). With
+the shield off on a Google site, or "Make sign-in work" off, Google sees the
+engine as it is. The varying part of an export is in the page's world:
+like the rest of the noise it cannot resist a script written against it
+(see "Known limits of the noise").
+
 ## Known limits (not solved)
 
 - **The home network, since 1.1.19.** Two checks work together. I.K.E.'s
