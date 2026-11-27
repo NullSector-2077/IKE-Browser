@@ -1536,6 +1536,15 @@ Those runs report to the finding's entry by its branch
 
 ### Free AI providers, checked every week (WP9)
 
+**The Chromium features I.K.E. sets still exist** (AUTOMAT block 2, 2026-11-27). Chromium ignores a feature
+name it does not know, silently, so a renamed feature would turn a protection off with no error and no
+failing test. Each week `tools/engine-features.py` reads the names from `ike/app.py`'s own constants
+(`LNA_FEATURES`, `PRIVACY_FEATURES`, `VIDEO_ON`) and asks GitHub's code search (chromium/chromium) where each
+is declared on Chromium's development branch, then that file at the tag of the Chromium the users have (the
+version the last green "Arch Linux" run on `main` recorded) on chromium.googlesource.com. Gone in the users'
+version, or gone from the development branch (a warning months ahead), is a line of the weekly issue; what
+cannot be read is "not verified", never "present".
+
 **The weekly scoreboard** (2026-11-27, the owner: "simple, but it must work"). `health.yml` runs
 `tools/automat-scoreboard.py` (GET calls only) and edits one issue, "AUTOMAT: tabellone settimanale", in
 Italian: the automation's pull requests merged in the last 7 days and how many by themselves, those still

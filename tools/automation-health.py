@@ -239,6 +239,15 @@ def main(argv=None):
                 providers, models = info["providers"], info.get("models")
             except (OSError, ValueError, TypeError, KeyError):
                 unreadable.append("whether the AI providers are free (tools/provider-check.py)")
+    if os.environ.get("ENGINE_FEATURES") and Path(os.environ["ENGINE_FEATURES"]).is_file():
+        try:                                    # tools/engine-features.py, the step before (AUTOMAT block 2)
+            unreadable_lines = json.loads(Path(os.environ["ENGINE_FEATURES"]).read_text("utf-8")).get("problems")
+            engine_lines = [str(x)[:400] for x in unreadable_lines or ()][:10]
+        except (OSError, ValueError, TypeError, AttributeError):
+            engine_lines = []
+            unreadable.append("whether the engine's features still exist")
+    else:
+        engine_lines = []
     token = None
     if os.environ.get("TOKEN_CHECK"):           # the workflow's step before: the HTTP code and the expiry header
         try:
@@ -248,6 +257,7 @@ def main(argv=None):
     found = problems(now, daily, main_tests, os.environ.get("HAS_KEY", "true") == "true", autofix_runs,
                      keys, autofix_issues, maintenance_prs, protected, unreadable, pings, born, providers, token,
                      models)
+    found += engine_lines
     text = ("The weekly check found problems in the automation:\n\n" + "".join("- %s\n" % p for p in found)
             + "\nControllo settimanale: l'automazione ha bisogno di te.\n") if found else ""
     print(text or "Everything works.")
