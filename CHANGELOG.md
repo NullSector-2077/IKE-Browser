@@ -2,6 +2,14 @@
 
 ## 1.1.29
 
+- **Strict is now called Kontrol** (the owner's choice, the K of I.K.E.): the
+  shield's fourth level keeps its protections and its place, and every
+  setting already saved keeps its level (inside, the level is still
+  "strict"). The shield shows a K drawn like the logo's, in the light blue of
+  the logo's K (#65C2EF, 8.4:1 on the shield's centre), instead of the S;
+  every language calls the level Kontrol. The menus' inventory recorded for
+  1.1.29 reads the old name as the new one (tests/test_menus_reorg.py).
+
 - **Dark Reader leaves I.K.E.** (the owner's decision, after trying the I.K.E.
   Dark Engine in 1.1.28): the I.K.E. Dark Engine is the dark mode for pages,
   Chromium's own the other choice (Settings → Web pages → Dark mode method).

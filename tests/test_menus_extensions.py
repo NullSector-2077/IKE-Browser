@@ -102,7 +102,7 @@ def test_menu_bar_and_burger_menu(run_ike):
     assert out["no_icon"] == [] and out["no_tip"] == [], out
     assert out["settings_in_tools"] and out["settings_keys"] == "Ctrl+,"
     assert out["help"] == ["Keyboard shortcuts", "Check for I.K.E. updates", "", "About I.K.E.", "About Qt"]
-    assert out["protection"][1:6] == ["Off", "Compatibility", "Balanced", "Strict", "Maximum"]
+    assert out["protection"][1:6] == ["Off", "Compatibility", "Balanced", "Kontrol", "Maximum"]
     assert {"Repair this site", "Site permissions…", "Update filter lists now",
             "Clear browsing data…"} <= set(out["protection"])
     assert out["extensions"][0] == "Password manager" and out["extensions"][-1] == "Manage extensions…"

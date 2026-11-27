@@ -42,7 +42,7 @@ profiles: `ike-browser --profile NAME`.
 
 **Protection**
 - A shield inside the address bar with five levels — Off, Compatibility,
-  Balanced, Strict, Maximum — set globally or per site, with counters for ads,
+  Balanced, Kontrol (called Strict until 1.1.28), Maximum — set globally or per site, with counters for ads,
   trackers, scripts, third-party cookies, HTTPS upgrades and removed tracking
   parameters.
 - Content blocking with EasyList, EasyPrivacy, uBlock filters, the Malicious
@@ -52,14 +52,14 @@ profiles: `ike-browser --profile NAME`.
   hidden and skipped.
 - **Same site, free way**: at Compatibility and Balanced (the default), a
   site's own requests are not checked against the filter lists: fewer broken sites, while other companies' ads and trackers
-  stay blocked; ads served from the site's own domain are only hidden. Strict
+  stay blocked; ads served from the site's own domain are only hidden. Kontrol
   and Maximum check every request; YouTube is always checked.
 - Cookie banners refused and hidden automatically.
 - Fingerprinting protection (from Balanced, the default): canvas, WebGL, audio
   and the number of CPU cores change from site to site and from session to
   session; at Balanced also the plugins, the WebGL extensions and the graphics
   card (a common model of the same maker chosen per site instead of the exact
-  one). Strict and Maximum give everyone the same values instead: one WebGL
+  one). Kontrol and Maximum give everyone the same values instead: one WebGL
   identity (no card name, a fixed list of extensions, fixed limits never
   above the real ones), Chrome's own PDF plugins, a common network speed,
   screen, fonts, memory, languages and voices; their canvas noise is only
@@ -84,7 +84,7 @@ profiles: `ike-browser --profile NAME`.
   bookmarked, sign-in and payment services and sites you allowed in the
   shield are never touched.
 - Sites see Chrome on Linux with the version of I.K.E.'s own engine: header,
-  client hints and JavaScript agree (at Strict and Maximum only its major
+  client hints and JavaScript agree (at Kontrol and Maximum only its major
   number, today 140.0.0.0, in pages, workers and request headers), with the
   engine's own brand list (Chromium) and no kernel version, the same in every
   kind of worker. One

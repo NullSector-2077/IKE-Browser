@@ -18,7 +18,10 @@ from pathlib import Path
 from conftest import screen
 from ui_inventory import STEPS as INVENTORY
 
-BEFORE = json.loads((Path(__file__).parent / "data" / "ui-inventory-before.json").read_text("utf-8"))
+# 1.1.29: the level Strict is called Kontrol (the owner's choice; the level's key stays "strict"):
+# the inventory recorded before stays as it was, its name is read as the new one
+BEFORE = json.loads((Path(__file__).parent / "data" / "ui-inventory-before.json").read_text("utf-8")
+                    .replace("Strict", "Kontrol"))
 
 # the old ☰ menu's own submenus: their entries are now in its categories
 GONE_MENUS = {"More", "File", "Edit", "View", "Tools", "History", "Bookmarks", "Protection", "Zoom"}

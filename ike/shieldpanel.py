@@ -36,13 +36,13 @@ from .config import LEVEL_NAMES, LEVELS, rank
 from .i18n import T
 from .uistyle import Switch
 
-LEVEL_LETTER = {"compatibility": "C", "balanced": "B", "strict": "S", "maximum": "M"}
+LEVEL_LETTER = {"compatibility": "C", "balanced": "B", "strict": "K", "maximum": "M"}
 # The letter's colour for each level (1.1.27, the owner: a colour of its own
 # for each level, readable inside the octagon: each one has a contrast of 7:1
 # or more with its dark centre, tests/test_launcher_icons.py). Off: a white X.
 LEVEL_COLOUR = {"compatibility": "#FFD54F",     # yellow: the lightest protection
                 "balanced": "#69F0AE",          # green: the everyday level
-                "strict": "#7DD8FF",            # light blue
+                "strict": "#65C2EF",            # Kontrol: the light blue of the logo's K (1.1.29)
                 "maximum": "#FF9EE8"}           # pink: the strongest
 CENTRE_COLOUR = "#061E37"
 # the octagon in the address bar (1.1.29, the owner: a little smaller, so its
@@ -94,11 +94,13 @@ def paint_shield(p, rect, level, grow=1.0, letter=1.0):
 CYBER = {
     "C": [[(4, 0), (1, 0), (0, 1), (0, 6), (1, 7), (4, 7)]],
     "B": [[(0, 3.5), (3, 3.5), (4, 2.5), (4, 1), (3, 0), (0, 0), (0, 7), (3, 7), (4, 6), (4, 4.5), (3, 3.5)]],
-    "S": [[(4, 0), (1, 0), (0, 1), (0, 2.5), (1, 3.5), (3, 3.5), (4, 4.5), (4, 6), (3, 7), (0, 7)]],
+    # 1.1.29: Kontrol (the owner's name for Strict): the K of the logo, a stem and two arms
+    # at 45 degrees that meet on it
+    "K": [[(0, 0), (0, 7)], [(4, 0), (0.5, 3.5), (4, 7)], [(0, 3.5), (0.5, 3.5)]],
     "M": [[(0, 7), (0, 0), (2, 2.8), (4, 0), (4, 7)]],
 }
 # where each letter gets its "cyber" notch: a short cut across one stroke
-CYBER_NOTCH = {"C": ((0, 3.5), "h"), "B": ((0, 3.5), "h"), "S": ((4, 5.25), "h"), "M": ((2, 2.8), "v")}
+CYBER_NOTCH = {"C": ((0, 3.5), "h"), "B": ((0, 3.5), "h"), "K": ((0, 5.25), "h"), "M": ((2, 2.8), "v")}
 
 
 def paint_cyber_letter(p, centre, side, letter, colour, scale=1.0):
@@ -264,7 +266,7 @@ class ShieldPanel(QWidget):
                     "and audio fingerprints. Recommended.",
         "strict": "Balanced plus generic hardware, screen, font and Client Hints values, and "
                   "no WebGPU. Some sites may misbehave.",
-        "maximum": "Strict plus English as the only language shown to sites. "
+        "maximum": "Kontrol plus English as the only language shown to sites. "
                    "Some sites may misbehave.",
     }
 
