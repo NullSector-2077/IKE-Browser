@@ -27,5 +27,7 @@ if grep -q "\[ike-de\]" "$out/run.log"; then
     echo "== the slowest:"
     grep "drawn in" "$out/run.log" | sort -t' ' -k5 -n | tail -5
     echo "pictures asked: $(grep -c 'ike-de. asked' "$out/run.log")"
+    echo "== who asks again:"
+    grep "ike-de. stack" "$out/run.log" | head -6
 fi
 rm -rf "$tmp"

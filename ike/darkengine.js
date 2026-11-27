@@ -391,8 +391,15 @@
       // Give declarations waiting for the next frame their completed layers.
       // The frame will request a trim again after it consumes them.
       if (pendingPictures || frame) return;
+      // over the size in characters only the pictures that hold some are let go;
+      // a picture left as it is keeps its verdict (kept), so that the page's next
+      // pass does not load it again (a page with a few large darkened pictures and
+      // many small icons made room, asked for the icons again, made room again...)
       for (var entry of pics) {
-        if (pics.size <= pictureLimit && pictureChars <= pictureCharLimit) break;
+        var overCount = pics.size > pictureLimit, overChars = pictureChars > pictureCharLimit;
+        if (!overCount && !overChars) break;
+        if (!overCount && !entry[1].data) continue;
+        if (entry[1].state === 'keep') remember(entry[0]);
         pics.delete(entry[0]);
         if (entry[1].data) pictureChars -= entry[1].data.length;
       }
@@ -400,8 +407,14 @@
       stats.pictureCacheChars = pictureChars;
     }, 0);
   }
+  var kept = new Set(), KEPT = { state: 'keep', data: null, waiting: [] };
+  function remember(url) {
+    if (kept.size >= 20000) kept.clear();
+    kept.add(url);
+  }
   function picture(url, done) {
     var p = pics.get(url);
+    if (!p && kept.has(url)) return KEPT;
     if (p) {
       if (p.state === 'wait') {
         if (done) p.waiting.push(done);
@@ -639,7 +652,7 @@
     if (off) return;
     var mine = ruleWrote.get(r);
     if (!mine) { mine = {}; ruleWrote.set(r, mine); }
-    var again = function () { quiet(function () { inRule(r, base); }); };
+    var again = function () { if (calm(r)) quiet(function () { inRule(r, base); }); };
     var l = items(r.style, base, again, false, mine, function () { return r.selectorText || ''; });
     if (!l.length) return;
     var st = r.style;
@@ -781,9 +794,18 @@
     generatedStyles.add(style);
     return style;
   }
+  // a safety net: a sheet or a rule written again because a picture came back is
+  // written again at most 40 times in 10 s (a page that keeps asking for the same
+  // pictures cannot keep the engine busy; the next change of the page writes it)
+  var calmCounts = new WeakMap();
+  function calm(key) {
+    var now = performance.now(), c = calmCounts.get(key);
+    if (!c || now - c[0] > 10000) calmCounts.set(key, c = [now, 0]);
+    return ++c[1] <= 40;
+  }
   function write(rec, list, base) {
     var t0 = performance.now(), n = list.length, out = [];
-    var again = function () { rec.n = -1; schedule(); };
+    var again = function () { if (calm(rec)) { rec.n = -1; schedule(); } };
     // a sheet that only grew at its end (CSS-in-JS): only the new rules
     var target = rec.el ? rec.el.sheet : rec.sheet;
     if (target && rec.n > 0 && n > rec.n && list[rec.n - 1] === rec.last) {
@@ -1058,7 +1080,7 @@
       done[n] = writeProp(el, st, n, v, prio);
     };
     if (attr && PRE.test(attr)) {
-      var again = function () { applied.delete(el); quiet(function () { inline(el); }); };
+      var again = function () { if (calm(el)) { applied.delete(el); quiet(function () { inline(el); }); } };
       var names = [], shorts = false;
       for (var i = 0; i < st.length; i++) names.push(st[i]);
       for (var q = 0; q < names.length; q++) {

@@ -34,7 +34,11 @@ def main(out):
     files = {
         "nopic.js": [(PIC, PIC + "    " + KEEP + "\n")],
         "nolook.js": [(LOOK, LOOK + "    return false;\n")],
-        "log.js": [(PIC, PIC + "    console.log('[ike-de] asked ' + String(url).slice(0, 160));\n"),
+        "log.js": [(PIC, PIC + "    console.log('[ike-de] asked ' + String(url).slice(0, 160));\n"
+                         "    var lc = window.__ikeDELogCount || (window.__ikeDELogCount = {});\n"
+                         "    lc[url] = (lc[url] || 0) + 1;\n"
+                         "    if (lc[url] === 300 || lc[url] === 3000) console.log('[ike-de] stack ' + lc[url] + ' ' + "
+                         "String(url).slice(0, 100) + ' :: ' + String(new Error().stack).split('\\n').slice(1, 14).join(' <- '));\n"),
                    (DRAW, log + DRAW + done), (BIG, log + BIG + done)],
         "nosvg.js": [(PIC, PIC + "    if (/^data:image\\/svg|\\.svg(?:[?#]|$)/i.test(url)) " + KEEP + "\n")],
         "nofrag.js": [(PIC, PIC + "    if (String(url).indexOf('#') >= 0) " + KEEP + "\n")],

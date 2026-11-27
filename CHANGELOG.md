@@ -40,6 +40,14 @@
   element, so nothing told the engine; the sheets are now looked at again
   0.3, 1.5, 5 and 15 s after the page last changed. A style element whose
   text is rewritten in place is seen at once (tests/test_dark_engine_hard.py).
+- **A page with many pictures can no longer keep the engine busy**: on a page
+  with a few large darkened pictures and many small icons, the engine made
+  room in its picture memory by letting the icons go, the page's next pass
+  asked for them again, and so on without end (the page stopped answering).
+  A picture left as it is now keeps that verdict when it leaves the memory,
+  only pictures that hold data are let go for their size, and a sheet, rule
+  or element is written again for a returning picture at most 40 times in
+  10 s.
 - The owner's check can click a site's age or cookie question first
   (`--click "I'm Over 18"`) and takes a page that never stops loading (live
   video) as it is after 20 s instead of giving up.
