@@ -14,14 +14,15 @@ ROOT = Path(__file__).resolve().parent.parent
 APP = Path(os.environ.get("IKE_TEST_APP") or ROOT)
 SHOTS = os.environ.get("IKE_TEST_SHOTS", "")
 OLD_NAME = re.compile(r"I\.C\.E|\bICE\b|\bIce\b|\bice[-_.:]\w")
-# Hashes of the approved assets as supplied by the project owner.
+# Hashes of the approved assets as supplied by the project owner (16, 22 and 24 px
+# redrawn on 2026-11-27 at the owner's request: I K E inside the octagon, not a plain dot).
 ASSET_SHA256 = {'ike.svg': '02e809d5688cb12c5ff858b54dd29c03a9ddd6bf0bdc1f6a52c58198d84ab1aa',
  'newtab-background.webp': '1a19c03e487fe347e80aea413cf8fc71d85811523904a6e96c93c37aa1d50583',
  'newtab-preview.png': '8f4ff86982dc2dcaa94b360831e73aba5f4122369dd89023d5116aa8b322f6fd',
  'wordmark.svg': '243492fe1eef8d65fbc483de9fe06052bcde871b88e81e2245839f795ac72ab1'}
-PNG_SHA256 = {16: '82764c2581a6df3a50935a08350636350b44ad290769597d0fc820fdebbf416c',
- 22: 'bd889835a3283f6b11559b055a20a7cf72ea33f642c27ac39713b332e2ec5b65',
- 24: 'bce6cfd5d645a5d62b37ab22ee547b3235a91118db10324e668db3fa6d3cccbe',
+PNG_SHA256 = {16: '6fa050086ba2a67202579948aed322ef9613cdb56525f04c9cc799d5fc68a58f',
+ 22: '1da5bf88af14f8a5934b3594e4592a0643ef2edd85e7058bcfdefd840792aace',
+ 24: 'e3670974f4bfba6fdc2502afd6b7c96fd672e93b391953206662c748855ce07c',
  32: '4ecb2ed2bdf23853d6f0d9fd97785a5fba8d6fd55266927b9456534e8e00c0e0',
  48: 'd0fb16bc270c33faac09af465593afa03e4d67efed5d5deeb9f183104c672545',
  64: 'f6daf5a963bc6e234957fd71948197b5957ef289927d072b854263ec41d07502',
@@ -29,9 +30,9 @@ PNG_SHA256 = {16: '82764c2581a6df3a50935a08350636350b44ad290769597d0fc820fdebbf4
  256: '647da4186b5964ba09e62d81f942fbc168fe7889f094c784cf1d7583f822b4da',
  512: '1e3bf27c5a6bfa20dfd781c6f275462c4442b81130754b47b644094df49085f5',
  1024: '8235d4a181d211a7a11d821e3b173de1c81a8df33c869762aff48315e342f5d6'}
-SMALL_SVG_SHA256 = {16: 'b4e452c6c907be7fd59b49d70e95237a190a439056fa7df22bab9e324799cfe4',
- 22: '286c700de97fbcd516982b4335de1da80f55d73ab696b9f524ed46abab13e758',
- 24: '2ff919ca02bcfeb7774bc346f6aadee139056bd7311ff731449a3a3aa962dc09',
+SMALL_SVG_SHA256 = {16: '193c884e0cc94b6cb1f24f88276fd013e3161e9ae99604de296080a3c6ed92c6',
+ 22: '6692e4d12c0b3c5f706024edf49f2cbf3e6fcae5740403de3fa571a55914ab99',
+ 24: '82207cf62903e511ad2a6afd35716f08f79d48bda1c9d2e5f968e3e889ffb360',
  32: '91db670157d03bd0cd19e6b770627680d26a93dadbb610e17e739fe070ae52de',
  48: 'ffb097a2be1e95faea3890329d170ed26366e2e1a0a995e4efc0108cff078c96',
  64: '3d68835324cdfddd739438e3356185ff0206d67ff4ade0fb1d761e83664abae6'}

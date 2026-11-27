@@ -8,12 +8,25 @@
 - The protection control now shows the applied level inside an octagon, with a centred count.
   Reload precedes Home, bookmarks overflow uses two Forward arrows, the page-mode
   button shows a sun or a moon, and About I.K.E. sits above Quit.
-- **The level's letter in a colour of its own** (the owner): C yellow, B
-  green, S light blue, M pink, each with a contrast of 7:1 or more on the
-  octagon's dark centre (the shield of 1.1.26 had a white letter for every
-  level); off keeps its white X. The ring that opens when something is
+- **The level's letter in a colour of its own, cyber cut** (the owner): C
+  yellow, B green, S light blue, M pink, each with a contrast of 7:1 or more
+  on the octagon's dark centre; the letters are drawn as straight strokes
+  with corners cut at 45 degrees and a notch from 26 px up, every point on
+  the screen's pixel grid so they are sharp at 16 px too (the same octagon
+  in the menus and the panel; the menus' texts unchanged); off keeps its
+  white X. The ring that opens when something is
   blocked is centred on the octagon again, and the rising "+N" starts right
   after the number (tests/test_launcher_icons.py).
+- **The small icons say I K E** (the owner): at 16, 22 and 24 px the
+  application icon showed a plain light dot in the octagon; it now shows the
+  letters I K E drawn pixel by pixel (the K blue, as in the large logo), the
+  octagon unchanged.
+- **Plasma's task bar no longer flashes black** (the owner: its buttons
+  vanished on hover and the bar turned black for a while): 1.1.27 had given
+  the windows' icon its 512 and 1024 px pictures too, and the desktop gets a
+  window's icon whole (5.6 MB instead of 0.4); the windows carry the
+  pictures up to 256 px again, as in 1.1.26 (the larger ones stay for the
+  package and the menu).
 - **The new logo reaches the menu by itself** (the owner's rule: every
   release reaches every user with no command): the package installs the
   launcher's icons under /usr/share/icons, which a self-update never
