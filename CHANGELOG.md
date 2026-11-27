@@ -61,6 +61,37 @@
   rule of a sheet, an inline style, a sheet the page cannot read, a frame, a
   picture).
 
+- **Skip the tracker's stop** (the owner's decision of 2026-11-27, from
+  Brave): a link that only passes through a tracker, with the real address
+  written inside it (newsletters such as Mailchimp, ActiveCampaign, Amazon
+  SES or Postmark; shops' affiliate links; some ad networks), opens that
+  address at once: the tracker never sees the click and the page opens
+  sooner. Google's AMP copies of articles (`google.com/amp/s/...`,
+  `*.cdn.ampproject.org`) open on the publisher's own site. The links are
+  those of Brave's public debounce list (MPL-2.0), shipped unchanged as
+  `ike/resources/brave-debounce.json` and followed by the daily maintenance
+  (`components.json`, entry `brave-debounce`; the manifest now also follows
+  an upstream with no releases by the newest commit of a branch). From
+  Balanced up, with "Remove tracking parameters from links" on (the default);
+  "Repair this site" turns it off for a site. I.K.E.'s own limits on any
+  rule (`ike/debounce.py`): only an http or https address, never one of this
+  computer or the home network, never one with a user name in it, never the
+  same site, never a sign-in or payment service, never the stops that also
+  check the destination for the user's safety (Facebook's and Instagram's
+  link shim, Steam's link filter, Google's and YouTube's own redirect pages),
+  at most three stops in a row. The new address goes through every
+  protection again, as the engine itself reads it (a host written in
+  escapes or other digits that the engine would read as the home network is
+  refused). A rule of the list may only name trackers: a pattern for every
+  site or a whole public suffix, a template leading elsewhere than YouTube,
+  or a regular expression that could take long is left out, and a new list
+  with such a rule fails the tests, so it never reaches main by itself
+  (independent review by a second model, tests/test_debounce.py). The
+  maintenance compares commit versions as commits (the merge's gate, the
+  inventory, the ledger). Google's AMP pages on a
+  publisher's own site are left as they are: telling them apart needs a
+  script in every page and a second load, for pages a computer rarely gets.
+
 ## 1.1.28
 
 - **The I.K.E. Dark Engine** (the owner's decision): I.K.E.'s own dark mode

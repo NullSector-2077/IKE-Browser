@@ -530,6 +530,55 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         info.redirect(https)
         return True
 
+    def _skip_tracker(self, info, url, host):
+        """A link that only passes through a tracker on its way, with the real
+        address written inside it (newsletters, affiliate links, Google's AMP
+        copies), opens that address at once (1.1.29, debounce.py); True when
+        it did. Balanced and above, with "Remove tracking parameters from
+        links" on; the site's own "params" option (what "Repair this site"
+        turns off) leaves it off, for the tracker's site and for the site
+        whose link was followed. The new address comes through here again,
+        so every protection judges it."""
+        cfg = self.s.config
+        if cfg.site_opt(host, "params") is False:
+            return False
+        try:
+            init = info.initiator()
+        except AttributeError:
+            init = QUrl()
+        if init.scheme() in ("http", "https") and cfg.site_opt(init.host().lower(), "params") is False:
+            return False
+        from . import debounce
+        from .userscripts import is_local_name
+        target = debounce.skip(bytes(url.toEncoded()).decode("ascii", "replace"))
+        if not target:
+            return False
+        new = QUrl(target)
+        if not new.isValid() or new.scheme() not in ("http", "https") or not new.host():
+            return False
+        if not new.path():
+            new.setPath("/")
+        new = new.adjusted(QUrl.UrlFormattingOption.NormalizePathSegments)
+        # judged again as the engine reads it: the host debounce.py checked must be the very
+        # host opened (no other reading of an escaped or Unicode name), and never a local one,
+        # a user name, or the tracker's own site
+        to_host = new.host(QUrl.ComponentFormattingOption.FullyEncoded).lower().rstrip(".")
+        try:
+            from urllib.parse import urlsplit
+            checked = (urlsplit(target).hostname or "").rstrip(".")
+        except ValueError:
+            return False
+        if (to_host != checked or is_local_name(to_host) or new.userName() or new.password()
+                or site_of(to_host) == site_of(host) or new == url):
+            return False
+        self._count(to_host, "params")
+        redirected = self.s.redirected
+        if len(redirected) > 200:
+            redirected.clear()
+        redirected.add(new.toString())
+        info.redirect(new)
+        return True
+
     def _lan_refused(self, info, url, main):
         """Home network protection (1.1.17): a page of a public site that opens
         an address of this computer or of the home network (a form sent to the
@@ -691,6 +740,8 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             elif not self.quiet:
                 s.reset_count(host)
         if main and get:
+            if lv >= 2 and cfg["strip_tracking_params"] and self._skip_tracker(info, url, host):
+                return
             if self._https_upgrade(info, url, host, scheme):
                 return
             if cfg["strip_tracking_params"] and cfg.site_opt(host, "params") is not False:
