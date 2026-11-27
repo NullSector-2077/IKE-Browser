@@ -979,6 +979,8 @@ class ShieldPulse(QWidget):
         # the ring opens around the icon, which sits at the left of the button (its number beside it)
         icon = button.iconSize().width() if button is not None else side
         cx = min(self.width() / 2.0, 4 + icon / 2.0 + 2)
+        if button is not None and hasattr(button, "icon_rect"):
+            cx = button.icon_rect().center().x()      # the hexagon's own centre (1.1.27)
         radius = side * (0.30 + 0.22 * t)
         colour = QColor(accent(self))
         colour.setAlpha(round(200 * (1.0 - t)))
@@ -1376,6 +1378,8 @@ class ShieldCount(QWidget):
         """Where the "+N" starts: right of the shield icon and of the number."""
         from PyQt6.QtGui import QFontMetrics
         b = self.button
+        if hasattr(b, "count_end") and not b.isRightToLeft():
+            return round(b.count_end()) + 5                # after the number beside the hexagon (1.1.27)
         fm = QFontMetrics(b.font())
         return b.iconSize().width() + 8 + fm.horizontalAdvance(b.text() or "0") + 3
 

@@ -26,9 +26,21 @@ from .uistyle import Switch
 
 TOOLBAR_SHIELD_GROW = 1.15
 
+# The level's letter inside the hexagon (1.1.27, the owner: as the shield of
+# 1.1.26 had it, in a colour of its own for each level, readable on the
+# hexagon's dark centre: each colour has a contrast of 7:1 or more with it,
+# tests/test_launcher_icons.py). Off has no letter: its hexagon is grey.
+LEVEL_LETTER = {"compatibility": "C", "balanced": "B", "strict": "S", "maximum": "M"}
+LEVEL_COLOUR = {"compatibility": "#FFD54F",     # yellow: the lightest protection
+                "balanced": "#69F0AE",          # green: the everyday level
+                "strict": "#7DD8FF",            # light blue
+                "maximum": "#FF9EE8"}           # pink: the strongest
+CENTRE_COLOUR = "#0D2043"
+
 
 def paint_shield(p, rect, level, grow=1.0):
-    """Draw a regular, point-up hexagon with an even inset on all six sides."""
+    """Draw a regular, point-up hexagon with an even inset on all six sides,
+    and the level's letter in its colour in the middle (not when off)."""
     side = min(rect.width(), rect.height())
     radius = min(side * 0.42 * grow, side * 0.5 - 0.5)
     if radius <= 0:
@@ -47,9 +59,21 @@ def paint_shield(p, rect, level, grow=1.0):
     p.setPen(Qt.PenStyle.NoPen)
     p.setBrush(QColor("#BAC1CC" if off else "#1494F2"))
     p.drawPolygon(polygon(radius))
-    p.setBrush(QColor("#363B43" if off else "#0D2043"))
+    p.setBrush(QColor("#363B43" if off else CENTRE_COLOUR))
     # The approved reference has inner and outer heights of 18.15 and 23.
-    p.drawPolygon(polygon(radius * (18.15 / 23)))
+    inner = radius * (18.15 / 23)
+    p.drawPolygon(polygon(inner))
+    letter = LEVEL_LETTER.get(level)
+    if letter:
+        from PyQt6.QtGui import QFont, QGuiApplication
+        f = QFont(QGuiApplication.font())
+        f.setBold(True)
+        # as tall as the centre allows: its flat sides are inner * sqrt(3) apart
+        f.setPixelSize(max(6, round(inner * 1.05)))
+        p.setFont(f)
+        p.setPen(QColor(LEVEL_COLOUR[level]))
+        box = QRectF(centre.x() - inner, centre.y() - inner, 2 * inner, 2 * inner)
+        p.drawText(box, Qt.AlignmentFlag.AlignCenter, letter)
     p.restore()
 
 
@@ -78,7 +102,9 @@ class _ShieldEngine(QIconEngine):
         # The toolbar asks for the shield at each repaint of the address bar
         # (dozens of times while a page loads); the same picture is drawn
         # once and kept, for each size and state (1.1.18).
-        key = (self.level == "off", self.grow, size.width(), size.height(), mode, state)
+        from PyQt6.QtGui import QGuiApplication
+        key = (self.level, self.grow, size.width(), size.height(), mode, state,
+               QGuiApplication.font().key())          # the letter follows the application's font
         pm = _PIXMAPS.get(key)
         if pm is None:
             pm = QPixmap(size)
@@ -106,6 +132,20 @@ class ShieldButton(QToolButton):
 
     INSET = 2
     GAP = 4
+
+    def icon_rect(self):
+        """Where the hexagon is drawn (the pulse ring opens around it, 1.1.27)."""
+        side = min(self.width(), self.height(), self.iconSize().height())
+        x = self.width() - self.INSET - side if self.isRightToLeft() else self.INSET
+        return QRectF(x, (self.height() - side) / 2, side, side)
+
+    def count_end(self):
+        """Where the number beside the hexagon ends (the "+N" rises after it)."""
+        r = self.icon_rect()
+        text = self.text()
+        if not text:
+            return r.right()
+        return r.right() + self.GAP + self.fontMetrics().horizontalAdvance(text)
 
     def sizeHint(self):
         side = self.iconSize().height()

@@ -356,6 +356,7 @@ class IkeApp(QObject):
                 self.new_window(urls=[home or NEWTAB])
         QTimer.singleShot(1500, self.check_updates)
         QTimer.singleShot(4000, self.fetch_engine_icons)   # the engine's own icon, once (1.1.10)
+        QTimer.singleShot(5000, self._sync_launcher_icons)  # the menu's icon follows this version (1.1.27)
         QTimer.singleShot(20000, self._healthy)
         if cfg["video_hw"] == "on":
             QTimer.singleShot(VIDEO_TRIAL_OK_MS, lambda: _video_trial_done(CONFIG_DIR))
@@ -695,6 +696,15 @@ class IkeApp(QObject):
         if (cfg["app_updates"] != "off" and self.updater.configured()
                 and time.time() - cfg["last_app_check"] > 24 * 3600):
             self.updater.run(install=cfg["app_updates"] == "auto")
+
+    def _sync_launcher_icons(self):
+        """The launcher's icons of this version in the user's icon folder: a
+        self-update brings a new logo to the menu too (desktopicons.py)."""
+        from . import desktopicons
+        try:
+            desktopicons.sync()
+        except Exception:
+            pass
 
     def _update_dark_lists(self):
         """Dark Reader's lists, fetched once a day by the browser itself (1.1.27):
