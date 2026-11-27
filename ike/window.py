@@ -3455,7 +3455,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         from PyQt6.QtCore import QMimeDatabase
         mime = QMimeDatabase().mimeTypeForFile(name, QMimeDatabase.MatchMode.MatchExtension)
         icon = QIcon.fromTheme(mime.iconName(), QIcon.fromTheme(mime.genericIconName(),
-                                                                 QIcon.fromTheme("text-x-generic")))
+                                                                 icon(("text-x-generic", "document-new"))))
         if icon.isNull():
             icon = self._dl_icon
         start = self.mapFromGlobal(QCursor.pos())

@@ -126,7 +126,7 @@ def steps(ike, qapp, out):
 ''', settings={"ext_containers": True, "ext_split": True}, timeout=120)
     found = out["found"]
     where = {p.split(" > ")[0] for p, _t, _i in found}
-    assert {"File", "View", "History", "Protection", "Help", "☰", "tab", "toolbar", "link"} <= where, where
+    assert {"File", "View", "History", "Privacy", "Help", "☰", "tab", "toolbar", "link"} <= where, where
     missing = ["%s > %s" % (p, t) for p, t, has in found if not has]
     assert not missing, "entries without an icon:\n" + "\n".join(missing)
     texts = {t.replace("&", "") for _p, t, _i in found}
