@@ -527,7 +527,9 @@ def steps(ike, qapp, out):
     for a in menu.actions():
         if a.text().startswith("Open the page source in "):
             a.trigger()
-    for _ in range(60):
+    # up to 30 s (2026-11-27: after heavy tests of the same shard a CI runner needed
+    # more than 6 s for the three downloads); it goes on as soon as all three are open
+    for _ in range(300):
         yield 100
         if len(opened) >= 3:
             break
