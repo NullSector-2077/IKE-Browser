@@ -2,11 +2,28 @@
 
 ## 1.1.27
 
-- I.K.E. has a new hexagonal logo, dedicated application icons for small sizes,
-  a new wordmark and a local 4K WebP Earth background on Home and New Tab.
-- The protection control now shows a hexagon with a centred count. Reload
-  precedes Home, bookmarks overflow uses two Forward arrows, the page-mode
+- I.K.E. has a new Breeze octagonal logo, dedicated icons for small sizes and
+  the new wordmark on frosted glass over the local 4K WebP Earth background on
+  Home and New Tab. About I.K.E. shows the logo alongside the original text.
+- The protection control now shows the applied level inside an octagon, with a centred count.
+  Reload precedes Home, bookmarks overflow uses two Forward arrows, the page-mode
   button shows a sun or a moon, and About I.K.E. sits above Quit.
+- **The level's letter in a colour of its own** (the owner): C yellow, B
+  green, S light blue, M pink, each with a contrast of 7:1 or more on the
+  octagon's dark centre (the shield of 1.1.26 had a white letter for every
+  level); off keeps its white X. The ring that opens when something is
+  blocked is centred on the octagon again, and the rising "+N" starts right
+  after the number (tests/test_launcher_icons.py).
+- **The new logo reaches the menu by itself** (the owner's rule: every
+  release reaches every user with no command): the package installs the
+  launcher's icons under /usr/share/icons, which a self-update never
+  touches, so 1.1.27's logo would have reached the menu only after the
+  package was installed by hand. A few seconds after each start I.K.E. now
+  copies the icons of the version in use into the user's own icon folder
+  (~/.local/share/icons/hicolor, read before /usr/share/icons): the same
+  files the package installs, only those that differ, nothing when I.K.E. is
+  not installed as an application (`ike/desktopicons.py`). Plasma may show
+  the new icon from the next login.
 - **Google's sites see a current Firefox, with the protections on** (the
   owner's decision). Google's sign-in kept refusing I.K.E. now and then ("this
   browser may not be secure"), and AI Studio's API key page did not work: Google

@@ -2687,15 +2687,16 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         cfg = self.app.config
         level = cfg.level_for(host) if host else cfg["shield_level"]
         n = self.app.shields.total(host) if host else 0
-        new = shield_icon(level, grow=TOOLBAR_SHIELD_GROW)
         shown = getattr(self, "_shield_shown", None)
-        if shown is not None and shown != level:
-            # another level: the icon fades into the new one (1.1.9)
-            polish.fade_icon(self, "shield", self.shield_btn.icon(), new, cfg, self.shield_btn.setIcon,
-                             ms=260, name="shield_fade")
-        elif shown is None:
-            self.shield_btn.setIcon(new)
         if shown != level:
+            new = shield_icon(level, grow=TOOLBAR_SHIELD_GROW)
+            if shown is None:
+                self.shield_btn.setIcon(new)
+            else:
+                # Another level: the icon fades into the new one (1.1.9).
+                polish.fade_icon(self, "shield", self.shield_btn.icon(), new, cfg, self.shield_btn.setIcon,
+                                 ms=260, name="shield_fade")
+            self.m_level.setIcon(shield_icon(level, 16))
             tip = T("I.K.E. Shield: choose the protection level")
             self.shield_btn.setToolTip("%s — %s" % (tip, T(LEVEL_NAMES[level])))
         self._shield_shown = level
@@ -2704,7 +2705,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.shield_btn.setText(text)
             self.urlbar.place_end()          # wider or narrower: the text stops before it (1.1.10)
         self.shield_count.count(n if level != "off" else 0, (id(self.current_view()), host))
-        self.m_level.setIcon(shield_icon(cfg["shield_level"], 16))
         if self.shield_menu.isVisible():
             self.shield_panel.count.setText(str(n))
 

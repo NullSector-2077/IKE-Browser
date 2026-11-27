@@ -4,7 +4,20 @@
 from math import sqrt
 
 from PyQt6.QtCore import QPointF, QRect, QRectF, QSize, Qt, QTimer
-from PyQt6.QtGui import QColor, QIcon, QIconEngine, QPainter, QPalette, QPixmap, QPolygonF
+from PyQt6.QtGui import (
+    QColor,
+    QFont,
+    QFontMetricsF,
+    QGuiApplication,
+    QIcon,
+    QIconEngine,
+    QPainter,
+    QPainterPath,
+    QPalette,
+    QPen,
+    QPixmap,
+    QPolygonF,
+)
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWidgets import (
     QComboBox,
@@ -24,56 +37,55 @@ from .config import LEVEL_NAMES, LEVELS, rank
 from .i18n import T
 from .uistyle import Switch
 
-TOOLBAR_SHIELD_GROW = 1.15
-
-# The level's letter inside the hexagon (1.1.27, the owner: as the shield of
-# 1.1.26 had it, in a colour of its own for each level, readable on the
-# hexagon's dark centre: each colour has a contrast of 7:1 or more with it,
-# tests/test_launcher_icons.py). Off has no letter: its hexagon is grey.
 LEVEL_LETTER = {"compatibility": "C", "balanced": "B", "strict": "S", "maximum": "M"}
+# The letter's colour for each level (1.1.27, the owner: a colour of its own
+# for each level, readable inside the octagon: each one has a contrast of 7:1
+# or more with its dark centre, tests/test_launcher_icons.py). Off: a white X.
 LEVEL_COLOUR = {"compatibility": "#FFD54F",     # yellow: the lightest protection
                 "balanced": "#69F0AE",          # green: the everyday level
                 "strict": "#7DD8FF",            # light blue
                 "maximum": "#FF9EE8"}           # pink: the strongest
-CENTRE_COLOUR = "#0D2043"
+CENTRE_COLOUR = "#061E37"
+TOOLBAR_SHIELD_GROW = 1.15
 
 
 def paint_shield(p, rect, level, grow=1.0):
-    """Draw a regular, point-up hexagon with an even inset on all six sides,
-    and the level's letter in its colour in the middle (not when off)."""
-    side = min(rect.width(), rect.height())
-    radius = min(side * 0.42 * grow, side * 0.5 - 0.5)
-    if radius <= 0:
+    """Draw the Breeze octagon and the glyph of the applied protection level
+    (its letter in the level's colour; a white X when off)."""
+    side = min(rect.width(), rect.height()) * 0.84 * grow
+    if side <= 0:
         return
     centre = rect.center()
-
-    def polygon(r):
-        dx = r * sqrt(3) / 2
-        return QPolygonF([centre + QPointF(x, y) for x, y in
-                          ((0, -r), (dx, -r / 2), (dx, r / 2),
-                           (0, r), (-dx, r / 2), (-dx, -r / 2))])
+    # The SVG references use a 21-unit polygon and a 1.7-unit round stroke.
+    stroke = side * (1.7 / 22.7)
+    edge = (side - stroke) / 2
+    cut = edge * (sqrt(2) - 1)
+    polygon = QPolygonF([centre + QPointF(x, y) for x, y in
+                         ((-cut, -edge), (cut, -edge), (edge, -cut), (edge, cut),
+                          (cut, edge), (-cut, edge), (-edge, cut), (-edge, -cut))])
 
     off = level == "off"
     p.save()
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(Qt.PenStyle.NoPen)
-    p.setBrush(QColor("#BAC1CC" if off else "#1494F2"))
-    p.drawPolygon(polygon(radius))
-    p.setBrush(QColor("#363B43" if off else CENTRE_COLOUR))
-    # The approved reference has inner and outer heights of 18.15 and 23.
-    inner = radius * (18.15 / 23)
-    p.drawPolygon(polygon(inner))
-    letter = LEVEL_LETTER.get(level)
-    if letter:
-        from PyQt6.QtGui import QFont, QGuiApplication
-        f = QFont(QGuiApplication.font())
-        f.setBold(True)
-        # as tall as the centre allows: its flat sides are inner * sqrt(3) apart
-        f.setPixelSize(max(6, round(inner * 1.05)))
-        p.setFont(f)
-        p.setPen(QColor(LEVEL_COLOUR[level]))
-        box = QRectF(centre.x() - inner, centre.y() - inner, 2 * inner, 2 * inner)
-        p.drawText(box, Qt.AlignmentFlag.AlignCenter, letter)
+    p.setPen(QPen(QColor("#C4CBD3" if off else "#3DAEE9"), stroke,
+                  Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+    p.setBrush(QColor("#343C46" if off else CENTRE_COLOUR))
+    p.drawPolygon(polygon)
+
+    ink = QColor("#F1F3F6")
+    if off:
+        arm = side * 0.14
+        p.setPen(QPen(ink, side * 0.09, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.drawLine(centre + QPointF(-arm, -arm), centre + QPointF(arm, arm))
+        p.drawLine(centre + QPointF(-arm, arm), centre + QPointF(arm, -arm))
+    else:
+        font = QFont(QGuiApplication.font())
+        font.setBold(True)
+        font.setPixelSize(max(1, round(side * 0.64)))
+        glyph = QPainterPath()
+        glyph.addText(QPointF(), font, LEVEL_LETTER.get(level, "B"))
+        glyph.translate(centre - glyph.boundingRect().center())
+        p.fillPath(glyph, QColor(LEVEL_COLOUR.get(level, "#F1F3F6")))
     p.restore()
 
 
@@ -102,9 +114,8 @@ class _ShieldEngine(QIconEngine):
         # The toolbar asks for the shield at each repaint of the address bar
         # (dozens of times while a page loads); the same picture is drawn
         # once and kept, for each size and state (1.1.18).
-        from PyQt6.QtGui import QGuiApplication
         key = (self.level, self.grow, size.width(), size.height(), mode, state,
-               QGuiApplication.font().key())          # the letter follows the application's font
+               QGuiApplication.font().key())
         pm = _PIXMAPS.get(key)
         if pm is None:
             pm = QPixmap(size)
@@ -130,17 +141,16 @@ def shield_icon(level, size=22, grow=1.0):
 class ShieldButton(QToolButton):
     """Draw both the icon and the counter on the same vertical centre line."""
 
-    INSET = 2
     GAP = 4
 
     def icon_rect(self):
-        """Where the hexagon is drawn (the pulse ring opens around it, 1.1.27)."""
+        """Where the octagon is drawn (the pulse ring opens around it, 1.1.27)."""
         side = min(self.width(), self.height(), self.iconSize().height())
-        x = self.width() - self.INSET - side if self.isRightToLeft() else self.INSET
+        x = self.width() - side if self.isRightToLeft() else 0
         return QRectF(x, (self.height() - side) / 2, side, side)
 
     def count_end(self):
-        """Where the number beside the hexagon ends (the "+N" rises after it)."""
+        """Where the number beside the octagon ends (the "+N" rises after it)."""
         r = self.icon_rect()
         text = self.text()
         if not text:
@@ -151,7 +161,7 @@ class ShieldButton(QToolButton):
         side = self.iconSize().height()
         text = self.text()
         count_width = self.GAP + self.fontMetrics().horizontalAdvance(text) if text else 0
-        return QSize(side + 2 * self.INSET + count_width, side)
+        return QSize(side + count_width, side)
 
     def paintEvent(self, event):
         option = QStyleOptionToolButton()
@@ -162,7 +172,7 @@ class ShieldButton(QToolButton):
         self.style().drawComplexControl(QStyle.ComplexControl.CC_ToolButton, option, p, self)
         side = min(self.width(), self.height(), self.iconSize().height())
         rtl = self.isRightToLeft()
-        x = self.width() - self.INSET - side if rtl else self.INSET
+        x = self.width() - side if rtl else 0
         pm = self.icon().pixmap(QSize(side, side), self.devicePixelRatioF())
         p.drawPixmap(QPointF(x, (self.height() - pm.deviceIndependentSize().height()) / 2), pm)
         text = self.text()
@@ -170,8 +180,8 @@ class ShieldButton(QToolButton):
             fm = p.fontMetrics()
             left = x - self.GAP - fm.horizontalAdvance(text) if rtl else x + side + self.GAP
             p.setPen(self.palette().color(QPalette.ColorRole.ButtonText))
-            bounds = fm.tightBoundingRect(text)
-            baseline = (self.height() - bounds.height()) / 2 - bounds.top()
+            bounds = QFontMetricsF(p.font()).tightBoundingRect(text)
+            baseline = self.height() / 2 - bounds.center().y()
             p.drawText(QPointF(left, baseline), text)
         p.end()
 

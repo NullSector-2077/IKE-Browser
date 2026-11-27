@@ -22,7 +22,7 @@ from pathlib import Path
 from .config import RES_DIR
 
 # the hicolor theme's sizes the package installs (PKGBUILD)
-SIZES = (16, 22, 24, 32, 48, 64, 128, 256, 512)
+SIZES = (16, 22, 24, 32, 48, 64, 128, 256, 512, 1024)
 NAME = "ike-browser"
 
 

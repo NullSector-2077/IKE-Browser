@@ -1,5 +1,5 @@
 """1.1.27: the launcher's icons follow the version in use; the protection
-hexagon shows its level's letter again and its animations sit on it.
+octagon shows its level's letter again and its animations sit on it.
 
 - The package installs the menu's icons under /usr/share/icons, which a
   self-update never touches: 1.1.27's new logo would have reached the menu
@@ -7,12 +7,12 @@ hexagon shows its level's letter again and its animations sit on it.
   the version in use into the user's icon folder (read first by every
   desktop): the same files the package installs, only those that differ,
   nothing for a copy that is not installed, nothing when they are equal.
-- The ring that opens when something is blocked is centred on the hexagon,
+- The ring that opens when something is blocked is centred on the octagon,
   and the rising "+N" starts after the number beside it (the ring was a few
-  pixels to the right of the hexagon drawn by 1.1.27's ShieldButton).
-- The level's letter (C, B, S, M) is inside the hexagon again, as in the
+  pixels to the right of the octagon drawn by 1.1.27's ShieldButton).
+- The level's letter (C, B, S, M) is inside the octagon again, as in the
   shield of 1.1.26, each in a colour of its own with a contrast of 7:1 or
-  more on the hexagon's dark centre; off is a grey hexagon with no letter.
+  more on the octagon's dark centre; off is a grey octagon with a white X.
 """
 
 import re
@@ -103,7 +103,7 @@ def steps(ike, qapp, out):
 '''
 
 
-def test_the_ring_and_the_plus_n_sit_on_the_hexagon(run_ike):
+def test_the_ring_and_the_plus_n_sit_on_the_octagon(run_ike):
     out = run_ike(RING, settings={"shield_level": "balanced"}, timeout=60)
     assert "error" not in out, out.get("error")
     assert out["ring_centre"] is not None and abs(out["ring_centre"] - out["icon_centre"]) <= 1.0, out
@@ -117,7 +117,7 @@ def _luminance(hex_colour):
 
 
 def test_the_level_letter_is_back_and_readable():
-    """The owner (2026-11-27): the level's letter inside the hexagon, as in the
+    """The owner (2026-11-27): the level's letter inside the octagon, as in the
     shield of 1.1.26, in a colour of its own for each level, readable."""
     from ike.shieldpanel import CENTRE_COLOUR, LEVEL_COLOUR, LEVEL_LETTER
     assert LEVEL_LETTER == {"compatibility": "C", "balanced": "B", "strict": "S", "maximum": "M"}
@@ -152,7 +152,7 @@ def steps(ike, qapp, out):
 '''
 
 
-def test_each_level_shows_its_own_hexagon(run_ike):
+def test_each_level_shows_its_own_octagon(run_ike):
     out = run_ike(LETTERS, settings={"shield_level": "strict"}, timeout=60)
     assert "error" not in out, out.get("error")
     assert out["distinct"] == 5, out                 # the four levels and off: five pictures
