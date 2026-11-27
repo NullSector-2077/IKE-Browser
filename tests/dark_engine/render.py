@@ -114,7 +114,7 @@ for(var i=0;i<all.length&&out.length<25;i++){var e=all[i],r=e.getBoundingClientR
  var cs=getComputedStyle(e);if(cs.visibility==='hidden'||+cs.opacity<0.3)continue;
  var bg=rgba(cs.backgroundColor),img=cs.backgroundImage;
  var light=bg&&bg[3]>0.5&&lum(bg)>0.5;
- if(!light&&!(/^(IMG|IFRAME|CANVAS|VIDEO|EMBED|OBJECT)$/.test(e.tagName)))continue;
+ if(!light&&(r.top>H||!(/^(IMG|IFRAME|CANVAS|VIDEO|EMBED|OBJECT)$/.test(e.tagName))))continue;
  out.push({el:label(e),rect:[Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)],
   bg:cs.backgroundColor,image:img.slice(0,80),inline:(e.getAttribute('style')||'').slice(0,120),
   shadowHost:!!e.shadowRoot,frame:e.tagName==='IFRAME'?(e.src||'(no src)').slice(0,80):null,rules:light?rulesFor(e):[]});
