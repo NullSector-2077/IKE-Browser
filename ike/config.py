@@ -393,6 +393,11 @@ DEFAULTS = {
     # level instead of the user's languages (the Octagon; after a restart for
     # workers and the engine's own texts). I.K.E.'s interface keeps its language.
     "common_english": False,
+    # 1.1.29: the broom's panel (cleanpanel.py): sites whose data goes when
+    # their last tab is closed (cookies at once; what the site stored, before
+    # its next page can read it: autoclean_pending)
+    "autoclean_sites": [],
+    "autoclean_pending": [],
     "quiet_permissions": True,          # a sign in the address bar instead of a window
     "pw_breach_check": False,           # Have I Been Pwned, k-anonymity (opt-in)
     "engine_advisory": {},              # the last verified advisory of the web engine

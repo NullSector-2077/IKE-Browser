@@ -769,7 +769,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                 lambda: self.app.new_window(private=True), None,
                                 icon(("view-private", "security-high")),
                                 T("Open a window that keeps no history or cookies"))
-        self.act_tb_clean = A(T("Clear this site's data"), self.clear_site_data, None,
+        self.act_tb_clean = A(T("Clear this site's data"), self.show_clean_panel, None,
                               icon(("edit-clear-history", "edit-clear-all-symbolic", "edit-clear-all", "edit-clear")),
                               T("Delete the cookies and stored data of the site in this tab"))
         # 1.1.25: its click (and Ctrl+J) opens the downloads panel under it (downloadpanel.py);
@@ -1727,6 +1727,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             # with its title, for History → Recently closed tabs (1.1.24)
             self.closed_tabs.append((url, view.title() if view.title() not in ("", url) else ""))
             del self.closed_tabs[:-25]
+        self._autoclean_on_close(view)
         was_current = view is self.current_view()
         item = self.vtabs.item(i)
         if item is not None and self.vtabs.isVisible():
@@ -1754,6 +1755,24 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         else:
             self.set_current(self.current_view() or self.views[0])
         self._apply_groups()
+
+    def _autoclean_on_close(self, view):
+        """The broom's "clean when I close its last tab" (1.1.29, cleanpanel.py)."""
+        cfg = self.app.config
+        if self.private or not cfg["autoclean_sites"]:
+            return
+        host = view.url().host().lower() if view.url().scheme() in ("http", "https") else ""
+        if not host:
+            return
+        from .shields import site_of
+        site = site_of(host)
+        if site not in cfg["autoclean_sites"]:
+            return
+        for win in self.app.windows:
+            for v in win.all_views():
+                if v is not view and site_of(v.url().host().lower()) == site:
+                    return                      # another tab of the site is still open
+        self.app.shields.autoclean_closed(view.page().profile(), site)
 
     def _destroy_view(self, view):
         self.stack.removeWidget(view)
@@ -2485,6 +2504,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.app.push_weather(view)
         if ok and not self.private:
             self.app.storage.add_visit(view.url().toString(), view.title())
+            if self.app.config["autoclean_pending"] and view.url().scheme() in ("http", "https"):
+                from .shields import site_of
+                self.app.shields.autoclean_done(site_of(view.url().host().lower()))
         if ok:
             view.reader = False
             if self.app.config["dark_pdf"]:
@@ -2602,7 +2624,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             popups[key] = (menu, panel, scroll, wa)
         return popups[key]
 
-    PANEL_ACTIONS = {"dark": "act_dark", "zoom": "act_tb_zoom", "downloads": "act_downloads"}
+    PANEL_ACTIONS = {"dark": "act_dark", "zoom": "act_tb_zoom", "downloads": "act_downloads",
+                     "clean": "act_tb_clean"}
 
     def _panel_anchor(self, key):
         """The panel's button, or » when it did not fit in the toolbar, or the menu."""
@@ -3305,7 +3328,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.app.refresh_toolbars()
 
     def clear_site_data(self):
-        """Delete cookies and stored data of the site in the current tab."""
+        """Delete cookies and stored data of the site in the current tab (Site
+        information's button; the toolbar's broom opens its panel, 1.1.29)."""
         v = self.current_view()
         host = self.current_host()
         if not v or not host or v.url().scheme() not in ("http", "https"):
@@ -3317,46 +3341,123 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 T("Delete the cookies and the data stored by %s? You will be signed out of "
                   "this site.") % site) != QMessageBox.StandardButton.Yes:
             return
+        kept = self.site_permissions()
+        self.clean_site(v, site, ("cookies", "storage", "cache"), lambda r: self.site_cleaned(
+            site, r["cookies"], r["storage"], r["cache"], kept))
+
+    CLEAN_COUNT_JS = (
+        "(async function(){var n={storage:0,cache:0,worker:0};"
+        "try{n.storage+=localStorage.length+sessionStorage.length;}catch(e){}"
+        "try{n.storage+=(await indexedDB.databases()).length;}catch(e){}"
+        "try{n.cache+=(await caches.keys()).length;}catch(e){}"
+        "try{n.worker+=(await navigator.serviceWorker.getRegistrations()).length;}catch(e){}"
+        "window.__ikeCounted=n;})();0")
+
+    def tracker_sites(self, site):
+        """Other sites the pages of `site` loaded, that the user never opened
+        himself (not in the history, not bookmarked): the page's trackers and
+        services, whose cookies the broom may delete (1.1.29). A site the user
+        uses (Google's sign-in, a video site) is never among them."""
+        out = []
+        for other in sorted(self.app.shields.page_sites.get(site, ())):
+            if other == site or self.app.storage.visited_before(other) or \
+                    other in (self.app.config.get("bounce_used") or {}):
+                continue
+            out.append(other)
+        return out
+
+    def site_contents(self, view, site, done):
+        """What the site keeps (the broom's panel, 1.1.29): done({"cookies",
+        "trackers", "tracker_cookies", "storage", "cache", "permissions"}), the
+        stored data counted in I.K.E.'s own script world (the page sees nothing)."""
+        profile = view.page().profile()
+        sh = self.app.shields
+        trackers = self.tracker_sites(site)
+        # the engine lists its cookies again: one a site set again was missing from I.K.E.'s list
+        profile.cookieStore().loadAllCookies()
+        out = {"trackers": trackers, "permissions": self.site_permissions(), "storage": None, "cache": None}
+        from PyQt6.QtWebEngineCore import QWebEngineScript
+        world = int(QWebEngineScript.ScriptWorldId.ApplicationWorld.value)
+        view.page().runJavaScript(self.CLEAN_COUNT_JS, world)
+        tries = [0]
+
+        def poll():
+            if view in self.all_views():
+                view.page().runJavaScript("window.__ikeCounted||null", world, got)
+            else:
+                got({})
+
+        def got(n):
+            if not isinstance(n, dict) and tries[0] < 20:
+                tries[0] += 1
+                QTimer.singleShot(50, poll)
+                return
+            n = n if isinstance(n, dict) else {}
+            out["cookies"] = len(sh.site_cookies(profile, site, ever=True))
+            out["tracker_cookies"] = sum(len(sh.site_cookies(profile, t, ever=True)) for t in trackers)
+            out["storage"] = int(n.get("storage") or 0) + int(n.get("worker") or 0)
+            out["cache"] = int(n.get("cache") or 0)
+            done(out)
+        QTimer.singleShot(250, poll)          # the store has listed its cookies by then
+
+    def clean_site(self, v, site, what, done):
+        """Delete what the user chose of a site's data (what: "cookies",
+        "storage", "cache", "trackers", "permissions"), then load the page
+        again; done({"cookies", "storage", "cache", "trackers", "permissions"})
+        with what went."""
         profile = v.page().profile()
         store = profile.cookieStore()
         # 1.1.24: every cookie of the site the engine may still have (a cookie
         # set again by the site was missing from I.K.E.'s list, shields.py);
         # what the store reports removed is what the summary counts
-        removed = set()
+        removed, gone_trackers = set(), set()
+        trackers = self.tracker_sites(site) if "trackers" in what else []
 
         def gone(c):
             d = c.domain().lstrip(".").lower()
             if d == site or d.endswith("." + site):
                 removed.add((c.domain(), c.path(), bytes(c.name())))
+            elif any(d == t or d.endswith("." + t) for t in trackers):
+                gone_trackers.add((c.domain(), c.path(), bytes(c.name())))
         store.cookieRemoved.connect(gone)
-        for cookie in self.app.shields.site_cookies(profile, site, ever=True):
-            store.deleteCookie(cookie)
-        kept = self.site_permissions()
+        if "cookies" in what:
+            for cookie in self.app.shields.site_cookies(profile, site, ever=True):
+                store.deleteCookie(cookie)
+        for t in trackers:
+            for cookie in self.app.shields.site_cookies(profile, t, ever=True):
+                store.deleteCookie(cookie)
+        for gone_site in ([site] if "cookies" in what else []) + trackers:
+            self.app.shields.forget_cookies(profile, gone_site)
+        perms = 0
+        if "permissions" in what:
+            perms = len(self.site_permissions())
+            self.site_permissions(reset=True)
         # 1.1.24: what goes is counted as it goes, in I.K.E.'s own script
         # world (the page sees nothing of it), and shown in a short summary
         from PyQt6.QtWebEngineCore import QWebEngineScript
         world = int(QWebEngineScript.ScriptWorldId.ApplicationWorld.value)
+        storage, cache = ("storage" in what), ("cache" in what)
         v.page().runJavaScript(
             "(async function(){var n={storage:0,cache:0};"
-            "try{n.storage+=localStorage.length+sessionStorage.length;localStorage.clear();sessionStorage.clear();}"
-            "catch(e){}"
-            "try{var d=await indexedDB.databases();n.storage+=d.length;"
-            "d.forEach(function(x){indexedDB.deleteDatabase(x.name);});}catch(e){}"
-            "try{var k=await caches.keys();n.cache+=k.length;"
-            "await Promise.all(k.map(function(x){return caches.delete(x);}));}catch(e){}"
-            "try{var r=await navigator.serviceWorker.getRegistrations();n.storage+=r.length;"
-            "r.forEach(function(x){x.unregister();});}catch(e){}"
-            "window.__ikeCleaned=n;})();0", world)
+            + ("try{n.storage+=localStorage.length+sessionStorage.length;localStorage.clear();sessionStorage.clear();}"
+               "catch(e){}"
+               "try{var d=await indexedDB.databases();n.storage+=d.length;"
+               "d.forEach(function(x){indexedDB.deleteDatabase(x.name);});}catch(e){}" if storage else "")
+            + ("try{var k=await caches.keys();n.cache+=k.length;"
+               "await Promise.all(k.map(function(x){return caches.delete(x);}));}catch(e){}" if cache else "")
+            + ("try{var r=await navigator.serviceWorker.getRegistrations();n.storage+=r.length;"
+               "r.forEach(function(x){x.unregister();});}catch(e){}" if storage else "")
+            + "window.__ikeCleaned=n;})();0", world)
         tries = [0]
 
         def poll():
-            if v in self.views:
-                v.page().runJavaScript("window.__ikeCleaned||null", world, done)
+            if v in self.all_views():
+                v.page().runJavaScript("window.__ikeCleaned||null", world, finished)
             else:
                 tries[0] = 30
-                done(None)                   # the tab was closed: the cookies still go
+                finished(None)               # the tab was closed: the cookies still go
 
-        def done(found):
+        def finished(found):
             if not isinstance(found, dict) and tries[0] < 30:
                 tries[0] += 1
                 QTimer.singleShot(100, poll)
@@ -3366,11 +3467,23 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 store.cookieRemoved.disconnect(gone)
             except (TypeError, RuntimeError):
                 pass
-            self.site_cleaned(site, len(removed), int(found.get("storage") or 0), int(found.get("cache") or 0),
-                              kept)
-            if v in self.views:
+            done({"cookies": len(removed), "storage": int(found.get("storage") or 0),
+                  "cache": int(found.get("cache") or 0), "trackers": len(gone_trackers),
+                  "tracker_sites": len(trackers), "permissions": perms})
+            if v in self.all_views():
                 QTimer.singleShot(300, v.reload)
         QTimer.singleShot(300, poll)         # the store has reported the deleted cookies by then
+
+    # the broom's panel (cleanpanel.py, 1.1.29)
+    @staticmethod
+    def _clean_factory(win):
+        from .cleanpanel import CleanPanel
+        return CleanPanel(win)
+
+    def show_clean_panel(self, *_):
+        """The broom's panel under its button: what the site keeps, what to
+        delete, and its automatic cleaning (1.1.29)."""
+        return self._show_panel("clean", self._clean_factory)
 
     def site_cleaned(self, site, cookies, storage, cache, kept):
         """The summary of "Clear this site's data" (1.1.24): what went, and the

@@ -654,6 +654,13 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             return
         host = url.host().lower()
         host_site = site_of(host)
+        if host_site != first_site and host_site and not self.quiet:
+            # the other sites a page of first_site loaded (cleanpanel.py), a few hundred at most
+            seen = s.page_sites.get(first_site)
+            if seen is None and len(s.page_sites) < 500:
+                seen = s.page_sites[first_site] = set()
+            if seen is not None and len(seen) < 200:
+                seen.add(host_site)
         method = bytes(info.requestMethod())
         get = method == b"GET"
         if cfg.sensitive_hands_off(first_host, host):
@@ -916,6 +923,7 @@ class Shields(QObject):
         self.action_key = secrets.token_hex(16)   # the new tab page's own links (IkeSchemeHandler)
         self.stats = {}
         self.requests = {}               # site -> requests made for it (see resources)
+        self.page_sites = {}             # site -> other sites its pages loaded (the broom's panel, 1.1.29)
         self.redirected = set()
         self.upgraded = set()
         self.http_allowed = set()
@@ -1362,6 +1370,7 @@ class Shields(QObject):
                 QWebEngineSettings.WebAttribute.WebRTCPublicInterfacesOnly,
                 bool(cfg["webrtc_hide_ip"]))
             self._identity(p)
+            self._autoclean_script(p)
             # site settings may have changed: scriptlets follow them again
             self._drop_site_scripts(p)
             self._video_scripts(p)
@@ -1527,6 +1536,48 @@ class Shields(QObject):
                 "ike-video-relay", self._videorelay_src.replace("__IKE_VIDEO_HOSTS__", json.dumps(bases)),
                 False, False))
 
+    # --- the broom's automatic cleaning (1.1.29, cleanpanel.py) ----------
+    AUTOCLEAN = "ike-autoclean"
+    AUTOCLEAN_JS = (
+        "(function(){try{localStorage.clear();sessionStorage.clear();}catch(e){}"
+        "try{indexedDB.databases().then(function(d){d.forEach(function(x){indexedDB.deleteDatabase(x.name);});});}"
+        "catch(e){}"
+        "try{caches.keys().then(function(k){k.forEach(function(x){caches.delete(x);});});}catch(e){}"
+        "try{navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(x){x.unregister();});});}"
+        "catch(e){}})();")
+
+    def _autoclean_script(self, profile):
+        """What a site whose last tab was closed had stored goes from its next
+        page's first instant, in I.K.E.'s own world (the page sees nothing of
+        it), before the page's own scripts can read it."""
+        scripts = profile.scripts()
+        for old in scripts.find(self.AUTOCLEAN):
+            scripts.remove(old)
+        pending = [x for x in self.config["autoclean_pending"] if x] if not profile.isOffTheRecord() else []
+        if pending:
+            include = [g for site in pending[:50] for g in host_globs(site, subdomains=True)]
+            scripts.insert(self._script(self.AUTOCLEAN, self.AUTOCLEAN_JS, False, subframes=False, include=include))
+
+    def autoclean_closed(self, profile, site):
+        """The last tab of an automatically cleaned site was closed: its cookies
+        go now, what it stored before its next page."""
+        for cookie in self.site_cookies(profile, site, ever=True):
+            profile.cookieStore().deleteCookie(cookie)
+        self.forget_cookies(profile, site)
+        if site not in self.config["autoclean_pending"]:
+            self.config["autoclean_pending"] = list(self.config["autoclean_pending"]) + [site]
+            self.config.save()
+            for p in list(self.profiles):
+                self._autoclean_script(p)
+
+    def autoclean_done(self, site):
+        """A page of the site has loaded with the cleaning script: done."""
+        if site in self.config["autoclean_pending"]:
+            self.config["autoclean_pending"] = [x for x in self.config["autoclean_pending"] if x != site]
+            self.config.save()
+            for p in list(self.profiles):
+                self._autoclean_script(p)
+
     def _drop_site_scripts(self, profile):
         scripts = profile.scripts()
         for host in self._site_lru.pop(id(profile), []):
@@ -1624,6 +1675,17 @@ class Shields(QObject):
             seen[k] = jar[k]
         store.cookieAdded.connect(added)
         store.cookieRemoved.connect(lambda c: jar.pop(key(c), None))
+
+    def forget_cookies(self, profile, site):
+        """I.K.E. deleted a site's cookies (the broom, 1.1.29): its lists forget
+        them, so a count after that is right."""
+        for name in ("cookie_jars", "cookies_seen"):
+            source = getattr(self, name, {}).get(profile)
+            if not source:
+                continue
+            for k in [k for k, c in source.items()
+                      if c.domain().lstrip(".").lower() == site or c.domain().lstrip(".").lower().endswith("." + site)]:
+                source.pop(k, None)
 
     def site_cookies(self, profile, site, ever=False):
         """Cookies of a registrable domain (and its subdomains) in a profile;

@@ -43,6 +43,13 @@
 - **Touchpad: the swipe shows itself**: a round arrow comes in from the page's
   edge while the fingers swipe back or forward, and fills with the theme's
   blue when letting go will act; nothing where there is no page to go to.
+- **The broom has its own panel** (the owner): what the site keeps before
+  anything goes (its cookies, the data it stored, its cache, the cookies of
+  the other sites its page loaded that you never opened yourself, the
+  permissions you gave it), each with a switch and its count; "Clear" deletes
+  what is on (everything but the permissions at first), loads the page again
+  and says what went. A switch cleans the site by itself when its last tab is
+  closed: its cookies at once, what it stored before its next page can read it.
 - **The switches' knob keeps its colour** on and off (it turned white when
   on); only the track becomes the theme's blue.
 - **A lighter toolbar** (the owner): the octagon in the address bar a little
