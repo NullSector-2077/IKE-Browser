@@ -2,7 +2,8 @@
 owner's decision: no new version every day for simple lists).
 
 - The browser and the builder read and check the lists with the very same
-  functions (ike/darklists.py; tools/build-darkreader.py takes them from it).
+  functions (ike/darklists.py holds a copy of tools/build-darkreader.py's:
+  the two must stay identical).
 - What is fetched is refused, and nothing changes, when it is not data for
   Dark Reader (anything that looks like a script), lacks the common fix, is
   much shorter than the copy I.K.E. came with, is too large, or was
@@ -90,14 +91,22 @@ def opener(files, redirect=None, length=None):
     return open_
 
 
-def test_the_builder_uses_the_browsers_functions():
+def test_the_browser_reads_the_lists_as_the_builder():
     from ike import darklists
     spec = importlib.util.spec_from_file_location("bd", ROOT / "tools" / "build-darkreader.py")
     bd = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(bd)
-    for name in ("parse_blocks", "parse_array", "fix_value", "hint_value", "data_problems"):
+    for name in ("parse_blocks", "parse_array", "fix_value", "hint_value"):
         assert getattr(bd, name).__code__.co_code == getattr(darklists, name).__code__.co_code, name
     assert bd.DATA_SCRIPT_MARKS == darklists.DATA_SCRIPT_MARKS
+    assert (bd.FIX_COMMANDS, bd.HINT_COMMANDS, bd.COMMAND_LINE.pattern) == (
+        darklists.FIX_COMMANDS, darklists.HINT_COMMANDS, darklists.COMMAND_LINE.pattern)
+    # the browser's check finds at least everything the builder's finds
+    samples = [{"fixes": [{"url": ["*"], "css": c}], "dark_sites": [], "detector_hints": []}
+               for c in ("a{}", "<script>", "x{background:url(javascript:1)}", "</style>")]
+    samples.append({"fixes": [{"url": ["*"], "script": "a"}], "dark_sites": [], "detector_hints": []})
+    for d in samples:
+        assert bool(bd.data_problems(d)) == bool(darklists.data_problems(d)), d
     # the copy I.K.E. comes with passes the browser's own check
     bundled = json.loads((ROOT / "ike/resources/darkreader-data.json").read_text("utf-8"))
     assert darklists.check(bundled, bundled) == ""

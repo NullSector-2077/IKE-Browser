@@ -10,7 +10,8 @@ uses them in place of the copy it came with; a new version is made only for a
 new Dark Reader engine.
 
 What is fetched is read the way tools/build-darkreader.py reads it (the same
-functions: the builder imports them from here) and checked the same way
+functions, copied: tests/test_darklists.py keeps the two copies identical)
+and checked the same way
 before anything uses it: data for Dark Reader only (CSS for a style element,
 selectors, flags), nothing that could be a script, the common fix first, and
 lists not much shorter than the copy I.K.E. came with (a cut or broken
@@ -18,8 +19,7 @@ download is refused). Https only, from raw.githubusercontent.com only, no
 cookies, the browser's own User-Agent; nothing about the user is sent. A
 download that fails or is refused changes nothing: the lists in use stay.
 
-No Qt here except the background thread (made when a download starts), so
-the builder can import this module.
+No Qt here except the background thread (made when a download starts).
 """
 
 import json
@@ -40,7 +40,7 @@ MIN_SHARE = 0.5
 STORE_NAME = "darkreader-lists.json"
 
 
-# --- reading Dark Reader's lists (shared with tools/build-darkreader.py) ----------
+# --- reading Dark Reader's lists (as tools/build-darkreader.py reads them) --------
 
 FIX_COMMANDS = {"INVERT": "invert", "CSS": "css", "IGNORE INLINE STYLE": "ignoreInlineStyle",
                 "IGNORE IMAGE ANALYSIS": "ignoreImageAnalysis", "IGNORE CSS URL": "ignoreCSSUrl"}

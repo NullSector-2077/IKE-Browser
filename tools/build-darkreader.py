@@ -75,23 +75,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 RES = ROOT / "ike" / "resources"
 
-
-def _darklists():
-    """ike/darklists.py of this checkout, read by its path (no package, no Qt):
-    the browser reads and checks the lists it fetches itself with the very
-    same functions (1.1.27)."""
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("ike_darklists", ROOT / "ike" / "darklists.py")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-_DL = _darklists()
-DATA_SCRIPT_MARKS, data_problems = _DL.DATA_SCRIPT_MARKS, _DL.data_problems
-FIX_COMMANDS, HINT_COMMANDS, COMMAND_LINE = _DL.FIX_COMMANDS, _DL.HINT_COMMANDS, _DL.COMMAND_LINE
-parse_array, parse_blocks, fix_value, hint_value = _DL.parse_array, _DL.parse_blocks, _DL.fix_value, _DL.hint_value
-
 PROXY_BLOCK = re.compile(
     r"\{\s*const proxyScript = createOrUpdateScript\(\"darkreader--proxy\"\);.*?proxyScript\.remove\(\);\s*\}",
     re.S)
@@ -1363,8 +1346,35 @@ def api_problems(engine):
 # "ignoreImageAnalysis" and "ignoreCSSUrl" are selectors (or flags); a detector
 # hint's "target" and "match" are selectors. None of it runs as a script in
 # Chromium. Addresses of a site's own pictures or fonts in its CSS are fine.
-# DATA_SCRIPT_MARKS and data_problems: ike/darklists.py (1.1.27: the browser
-# checks the lists it fetches itself the very same way)
+DATA_SCRIPT_MARKS = ("<script", "</style", "javascript:", "vbscript:", "expression(", "-moz-binding",
+                     "behavior:", "data:text/html", "data:text/javascript", "data:application/javascript",
+                     "onload=", "onerror=")
+
+
+def data_problems(data):
+    allowed = {"fixes": {"url"} | set(FIX_COMMANDS.values()), "detector_hints": {"url"} | set(HINT_COMMANDS.values())}
+    out = []
+    for part, keys in allowed.items():
+        for n, entry in enumerate(data[part]):
+            if set(entry) - keys:
+                out.append("%s[%d]: unknown fields %s" % (part, n, sorted(set(entry) - keys)))
+            for key, value in entry.items():
+                values = value if isinstance(value, list) else [value]
+                for v in values:
+                    if v is True:
+                        continue
+                    if not isinstance(v, str):
+                        out.append("%s[%d].%s: not text" % (part, n, key))
+                        continue
+                    low = re.sub(r"\s+", "", v.lower())
+                    hit = next((m for m in DATA_SCRIPT_MARKS if m.replace(" ", "") in low), "")
+                    if hit:
+                        out.append("%s[%d].%s (%s): %r" % (part, n, key, ", ".join(entry.get("url", [])[:2])[:80],
+                                                            hit))
+    if not all(isinstance(s, str) for s in data["dark_sites"]):
+        out.append("dark_sites: not text")
+    return out
+
 
 # --- The parse check ------------------------------------------------------------
 
@@ -1380,9 +1390,47 @@ def node_parses(text):
     return done.returncode == 0
 
 
-# FIX_COMMANDS, HINT_COMMANDS, parse_array, parse_blocks, fix_value,
-# hint_value: ike/darklists.py (1.1.27: the browser reads the lists it fetches
-# itself with the very same functions)
+FIX_COMMANDS = {"INVERT": "invert", "CSS": "css", "IGNORE INLINE STYLE": "ignoreInlineStyle",
+                "IGNORE IMAGE ANALYSIS": "ignoreImageAnalysis", "IGNORE CSS URL": "ignoreCSSUrl"}
+HINT_COMMANDS = {"TARGET": "target", "MATCH": "match", "NO DARK THEME": "noDarkTheme",
+                 "SYSTEM THEME": "systemTheme", "IFRAME": "iframe"}
+COMMAND_LINE = re.compile(r"^[A-Z]+(\s[A-Z]+){0,2}$")
+
+
+def parse_array(text):
+    return [s.strip() for s in text.replace("\r", "").split("\n") if s.strip()]
+
+
+def parse_blocks(text, commands, value):
+    """Dark Reader's parseSitesFixesConfig, in Python."""
+    out = []
+    for block in re.split(r"^\s*={2,}\s*$", text.replace("\r", ""), flags=re.M):
+        lines = block.split("\n")
+        marks = [i for i, ln in enumerate(lines) if COMMAND_LINE.match(ln)]
+        if not marks:
+            continue
+        entry = {"url": parse_array("\n".join(lines[:marks[0]]))}
+        for n, i in enumerate(marks):
+            command = lines[i].strip()
+            end = marks[n + 1] if n + 1 < len(marks) else len(lines)
+            prop = commands.get(command)
+            if prop:
+                entry[prop] = value(command, "\n".join(lines[i + 1:end]))
+        out.append(entry)
+    return out
+
+
+def fix_value(command, text):
+    return text.strip() if command == "CSS" else parse_array(text)
+
+
+def hint_value(command, text):
+    if command == "TARGET":
+        return text.strip()
+    if command in ("NO DARK THEME", "SYSTEM THEME"):
+        return True
+    return parse_array(text)
+
 
 def extract_proxy(lib):
     """The text of Dark Reader's injectProxy function (prettier output: the

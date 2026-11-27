@@ -59,9 +59,9 @@
   dark theme change almost every day, and each change made a new version of
   I.K.E. Now the browser fetches the three lists from Dark Reader's repository
   (raw.githubusercontent.com) once a day in the background, like the filter
-  lists (only with automatic updates on), reads and checks them with the very
-  same functions as the builder (tools/build-darkreader.py takes them from
-  `ike/darklists.py`): only data for Dark Reader, nothing that could be a
+  lists (only with automatic updates on), reads and checks them as the
+  builder does (`ike/darklists.py` holds the same functions as
+  tools/build-darkreader.py, kept identical by a test): only data for Dark Reader, nothing that could be a
   script, the common fix first, not much shorter than the copy I.K.E. came
   with, at most 8 MB, https and that host only. A refused or failed download
   changes nothing and is tried again a few hours later; the dark pages loaded
