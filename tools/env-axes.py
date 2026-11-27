@@ -140,6 +140,39 @@ def derive(literals):
     return {k: sorted(v, key=str) for k, v in out.items()}
 
 
+# round 8 (Fable's fourth review): what a media query the probe can make true and false. A number of
+# MEDIA_NUMBER is derived (its value and beside it); the features below have every value in the grid (the
+# touch axis gives pointer and hover, the scheme, motion and contrast axes the rest). Anything else
+# (aspect-ratio, orientation, em units, prefers-contrast...) no session sets: the guard refuses it
+MEDIA_BOOLEAN = {"pointer": ("fine", "coarse"), "any-pointer": ("fine", "coarse"), "hover": ("hover", "none"),
+                 "any-hover": ("hover", "none"), "prefers-color-scheme": ("light", "dark"),
+                 "prefers-reduced-motion": ("no-preference", "reduce"), "forced-colors": ("none", "active")}
+MEDIA_GROUP = re.compile(r"\(([^()]*)\)")
+
+
+def media_measured(query):
+    """True when every feature of a literal media query is one the matrix sets on both sides (round 8)."""
+    q = str(query or "")
+    groups = MEDIA_GROUP.findall(q)
+    if not groups or MEDIA_GROUP.sub("", q).strip(" ,").lower().replace("and", "").replace("not", "").replace(
+            "only", "").replace("screen", "").replace("all", "").strip(" ,"):
+        return False
+    for g in groups:
+        if MEDIA_NUMBER.fullmatch("(" + g + ")"):
+            continue
+        feat, _, val = g.partition(":")
+        feat, val = feat.strip().lower(), val.strip().lower()
+        if feat not in MEDIA_BOOLEAN or (val and val not in MEDIA_BOOLEAN[feat]):
+            return False
+    return True
+
+
+def read_measured(read, op, value):
+    """True when a comparison of a covered read with a literal is one the probe makes true and false (round 8,
+    Fable's fourth review: a text derive cannot set, such as 'pt_BR.UTF-8', was accepted and never measured)."""
+    return bool(derive([{"read": read, "op": op, "value": value}]))
+
+
 def _beside(v, step):
     if step == 1:
         return {int(round(x)) for x in (v - 1, v, v + 1) if x >= 1}
@@ -175,6 +208,72 @@ def _derived_rows(derived, axes, levels):
                     s["screen"] = (max(640, int(round((v + CHROME_HEIGHT) * 16 / 9))), int(v) + CHROME_HEIGHT)
                 s["derived"] = "%s %s" % (kind, v)
                 rows.append(s)
+    return rows
+
+
+JOINT_SLOTS = ("width", "height", "cores", "memory", "dpr", "timezone", "language")
+MAX_JOINT = 128               # the joint sessions a run measures: beyond them the run is not verified
+
+
+def _joint_values(derived):
+    """A change's own values by what a session sets (round 8): the screen's width and height (a window's size
+    at zoom 1 is the screen's, less the browser's own window in height), cores, memory, scale, zone, language."""
+    slots = {}
+    for kind, values in derived.items():
+        for v in values:
+            if kind in ("screen-width", "viewport-width"):
+                slots.setdefault("width", set()).add(int(v))
+            elif kind == "screen-height":
+                slots.setdefault("height", set()).add(int(v))
+            elif kind == "viewport-height":
+                slots.setdefault("height", set()).add(int(v) + CHROME_HEIGHT)
+            else:
+                slots.setdefault(kind, set()).add(v)
+    return {k: sorted(slots[k], key=str) for k in JOINT_SLOTS if k in slots}
+
+
+def _joint_count(derived, levels=4):
+    slots = _joint_values(derived)
+    if len(slots) < 2:
+        return 0
+    n = 1
+    for v in slots.values():
+        n *= len(v)
+    return n * levels
+
+
+def _joint_rows(derived, axes, levels):
+    """Round 8 (Fable's fourth review): a condition joining three of a change's own values (a width, a number
+    of cores and an amount of memory) was true in no session: the pairs meet two values, never three. So
+    every combination of the change's own values, one of each kind, at every level (MAX_JOINT at most)."""
+    slots = _joint_values(derived)
+    if len(slots) < 2:
+        return []
+    last = {n: v[-1] for n, v in axes}
+    names = list(slots)
+    rows = []
+    for combo in itertools.product(*(slots[n] for n in names)):
+        got = dict(zip(names, combo))
+        for level in levels:
+            s = dict(last, level=level, zoom=1, scale=1)
+            w, h = got.get("width"), got.get("height")
+            if w is not None or h is not None:
+                if w is None:
+                    w = max(640, int(round(h * 16 / 9)))
+                if h is None:
+                    h = max(480, int(round(w * 9 / 16)))
+                s["screen"] = (int(w), int(h))
+            if "cores" in got:
+                s["cores"] = int(got["cores"])
+            if "memory" in got:
+                s["memory"] = max(1, int(got["memory"]))
+            if "dpr" in got:
+                s["scale"] = float(got["dpr"])
+            for k in ("timezone", "language"):
+                if k in got:
+                    s[k] = got[k]
+            s["derived"] = "joint " + ", ".join("%s %s" % (n, got[n]) for n in names)
+            rows.append(s)
     return rows
 
 
@@ -238,6 +337,7 @@ def sessions(seed, axes=AXES, tries=40, literals=None):
                 out.append(dict({n: v[end] for n, v in axes if n != "level"}, level=level))
         out += _fuzz_rows(random.Random(seed ^ 0x5eed), AXES, FUZZ_SESSIONS)
         out += _derived_rows(derived, AXES, dict(axes)["level"])
+        out += _joint_rows(derived, AXES, dict(axes)["level"])
     return out
 
 
@@ -261,8 +361,10 @@ def _with_derived(axes, derived):
 
 
 def too_many(literals):
-    """True when a change compares with more values than a run measures (MAX_DERIVED)."""
-    return sum(len(v) for v in derive(literals).values()) > MAX_DERIVED * 3
+    """True when a change compares with more values than a run measures (MAX_DERIVED), or its values make
+    more combinations than a run measures (MAX_JOINT)."""
+    d = derive(literals)
+    return sum(len(v) for v in d.values()) > MAX_DERIVED * 3 or _joint_count(d) > MAX_JOINT
 
 
 def viewport(s):

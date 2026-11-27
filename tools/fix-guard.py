@@ -914,7 +914,20 @@ WeakMap WeakSet WeakRef FinalizationRegistry Promise RegExp Date Intl Error Type
 ReferenceError EvalError URIError AggregateError ArrayBuffer SharedArrayBuffer DataView Atomics Int8Array
 Uint8Array Uint8ClampedArray Int16Array Uint16Array Int32Array Uint32Array Float32Array Float64Array
 BigInt64Array BigUint64Array Iterator globalThis eval isNaN isFinite parseInt parseFloat encodeURI
-encodeURIComponent decodeURI decodeURIComponent escape unescape""".split())
+encodeURIComponent decodeURI decodeURIComponent escape unescape Float16Array AsyncIterator Temporal WebAssembly
+DOMException console""".split())
+# round 8 (Fable's fourth review): names every object has (Object.prototype's, and those the language or the
+# old code looks up on any object: then makes it a promise's, toJSON its text, Symbol's well-known ones). A
+# new getter of `then` or `toString` on a page interface is no new disguise: it changes what the old code's
+# own coercions and promises do
+INHERITED_NAMES = frozenset("""constructor __proto__ __defineGetter__ __defineSetter__ __lookupGetter__
+__lookupSetter__ hasOwnProperty isPrototypeOf propertyIsEnumerable toLocaleString toString valueOf then toJSON
+length name prototype caller arguments handleEvent Symbol.toPrimitive Symbol.iterator Symbol.asyncIterator
+Symbol.hasInstance Symbol.toStringTag Symbol.species Symbol.isConcatSpreadable Symbol.unscopables Symbol.match
+Symbol.matchAll Symbol.replace Symbol.search Symbol.split""".split())
+# Object's and Reflect's functions that define or change (round 8: reached only as the direct callee of a call,
+# never through .call, .apply, .bind, an alias, a comma, `new` or a tag, where rule (f) does not see them)
+OBJECT_HOLDERS = frozenset(("Object", "Reflect"))
 # the old functions of a page script new code may call (round 7: a call of an old function runs old code
 # again, install(window) twice, or code that stores the new code in old state): pure helpers that read
 # their arguments and give a value, and the helpers that define a property (wrap, getter, setter: rule (f)
@@ -1010,7 +1023,8 @@ def _covered(node, scopes, axes):
                 not isinstance(call["arguments"][0].get("value"), str):
             return False
         feats = MEDIA_FEATURE.findall(call["arguments"][0]["value"])
-        return bool(feats) and all(f in axes.COVERED_MEDIA for f in feats)
+        return bool(feats) and all(f in axes.COVERED_MEDIA for f in feats) and \
+            axes.media_measured(call["arguments"][0]["value"])
     return True
 
 
@@ -1116,10 +1130,17 @@ def _clean(e, scopes, clean, axes):
         if ch and scopes.refs.get(id(_root(callee)), 0) is None and (tuple(ch[:1]) in PURE_CALLS or
                                                                     tuple(ch[:2]) in PURE_CALLS):
             return True
-        if callee["type"] == "MemberExpression" and (_covered(callee, scopes, axes) or
-                                                     _clean(callee["object"], scopes, clean, axes)):
+        # round 8 (Fable's fourth review): a method of a covered read's result (`resolvedOptions().locale`,
+        # `matchMedia(q).media.length`) is no measured value; matchMedia only as `matchMedia(q).matches`, with
+        # a query the probe sets on both sides (tools/env-axes.py media_measured)
+        if callee["type"] == "MemberExpression" and not _covered(callee, scopes, axes) and \
+                _clean(callee["object"], scopes, clean, axes):
             return True
-        return callee["type"] == "Identifier" and _covered(callee, scopes, axes)
+        if callee["type"] == "Identifier" and _covered(callee, scopes, axes) and callee["name"] == "matchMedia":
+            par = scopes.parent.get(id(e))
+            return par is not None and par["type"] == "MemberExpression" and par["object"] is e and \
+                _prop_name(par) == "matches"
+        return False
     if t == "ChainExpression":
         return _clean(e["expression"], scopes, clean, axes)
     return False
@@ -1159,13 +1180,16 @@ def _measured_use(node, scopes):
         if key in TOUCH_READS:
             return isinstance(v, (int, float)) and (v in (0, 5) if par["operator"] in ("==", "===", "!=", "!==")
                                                      else 0 <= v <= 4)
+        # round 8 (Fable's fourth review): only a value the probe can set (a text such as 'pt_BR.UTF-8',
+        # a read with no axis such as the orientation was accepted and never measured)
+        axes = _env_axes()
+        return axes is not None and axes.read_measured(key, par["operator"], v)
+    # round 8: a truth test of a read (`!deviceMemory`, `cores || 4`) is measured only for the touch points,
+    # whose values 0 and 5 the matrix has; every other read is compared with a literal the probe sets
+    if key in TOUCH_READS and (par["type"] == "UnaryExpression" and par["operator"] == "!" or
+                               par["type"] in ("IfStatement", "ConditionalExpression") and par.get("test") is node):
         return True
-    if par["type"] == "UnaryExpression" and par["operator"] == "!":
-        return True
-    if par["type"] in ("IfStatement", "ConditionalExpression", "WhileStatement", "DoWhileStatement", "ForStatement") \
-            and par.get("test") is node:
-        return True
-    return par["type"] == "LogicalExpression"
+    return False
 
 
 def _use_node(node, scopes):
@@ -1917,6 +1941,9 @@ def page_tree_problems(name, old, new):
         if not texts:
             say(call, "a new call that defines a property names none by a literal")
         for s in texts:
+            if s in INHERITED_NAMES:
+                say(call, "a new call defines %s, a name every object has (the old code's coercions and promises "
+                          "look it up): only a new name is a new disguise" % s)
             if s in old_names:
                 say(call, "a new call defines or wraps %s again, which the old script already protects or "
                           "names: only a person changes a protection" % s)
@@ -1933,10 +1960,36 @@ def page_tree_problems(name, old, new):
             return True
         return any(isinstance(v, dict) and v.get("type") in FUNCTIONS for v in sn.values.get(key, []))
 
+    def direct_callee(node):
+        par = sn.parent.get(id(node))
+        return par is not None and par["type"] == "CallExpression" and par["callee"] is node
+
     def visit(node, in_new_fn, loops, switches, labels):
         t = node["type"]
         if t == "CallExpression" and renamed_copy(node):
             return                       # an old wrap again, only the engine's renamed names changed
+        # round 8 (Fable's fourth review): a function that defines a property is used only as the direct
+        # callee of a call, where rule (f) judges what it is given (wrap.call(...), wrap.apply, wrap.bind,
+        # Reflect.apply(wrap, ...), (0, wrap)(...), an alias, `new`, a tag re-wrapped a protected property)
+        if t == "Identifier" and id(node) in sn.refs:
+            key = sn.refs[id(node)]
+            if key is not None and (key in definers or aliases.get(key) in OBJECT_MUTATORS) and \
+                    not direct_callee(node):
+                say(node, "a new indirect use of %s, a function that defines properties (only called directly, "
+                          "where what it is given is judged)" % node["name"])
+        if t in ("Identifier", "MemberExpression"):
+            nm = node.get("name") if t == "Identifier" else _prop_name(node)
+            global_name = t == "MemberExpression" or sn.refs.get(id(node), 0) is None
+            par = sn.parent.get(id(node))
+            if nm in OBJECT_HOLDERS and global_name and not (
+                    par is not None and par["type"] == "MemberExpression" and par["object"] is node):
+                say(node, "a new use of %s itself (only its functions, by name: an alias of it hides a "
+                          "definition from the guard)" % nm)
+            if t == "MemberExpression":
+                ch = _chain(node)
+                if ch and tuple(ch[-2:]) in OBJECT_MUTATORS and not direct_callee(node):
+                    say(node, "a new indirect use of %s.%s (only called directly, where what it is given is "
+                              "judged)" % tuple(ch[-2:]))
         if t == "Identifier" and id(node) in sn.refs:
             key = sn.refs[id(node)]
             if key is not None and old_function(key) and node["name"] not in helpers:
