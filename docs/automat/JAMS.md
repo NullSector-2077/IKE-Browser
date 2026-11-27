@@ -160,6 +160,39 @@ next to the code it guards.
 - **Rule**: bring the branch up to date (jam 4), never add allowlist entries
   for it.
 
+### 11. The Arch archive was too slow for every part at once (main 65bb121, #186)
+
+- **Sign**: every Arch part failed on `main` after #177: a mirror had dropped a
+  file (404), the fallback asked the archive alone, and the archive "sent
+  nothing for 10 s" ("Operation too slow"), then pacman skipped it.
+- **Cause**: ten parts asked the archive at once, five files each.
+- **Done**: the archive first and the mirrors after it, one file at a time, with
+  no limit of slowness, three tries after 30, 120 and 300 s; never another
+  database, so every part still tests the same packages (#186).
+- **Guard**: `tests/test_shards.py`.
+
+### 12. The free models spent their whole answer on reasoning (run 45983654916, #187)
+
+- **Sign**: after #179 the models were asked, but the log said `cutoff` for
+  almost every one.
+- **Cause**: reasoning models count their reasoning in the answer's room.
+- **Done**: each provider is asked for little reasoning with its own parameter,
+  and a model cut off is asked again with its reasoning off (#187).
+- **Guard**: `tests/test_automat_reasoning_cutoff.py`.
+
+### 13. An impossible task given to the AIs for five days (PR #111, #190)
+
+- **Sign**: a pull request "retrying" for days; the free models' fix was a
+  helper nothing called and a function put inside a class; the guard refused it.
+- **Cause**: the finding (an AdBlock engine limit: `csp=` with `$doc`) could not
+  be fixed in I.K.E.'s adapter, and I.K.E. applies no `$csp` rule at all; the
+  AIs had only the engine's error.
+- **Done**: engine limits are no longer given to an AI (`ENGINE_LIMITS`); the AIs
+  get AUTOMAT's playbook (`tools/automat-playbook.py`); a test guards the class
+  the fix broke; #111 closed at the owner's order (#190).
+- **Rule**: before giving a task to the AIs, ask "can this be fixed in the files
+  they may change?" If not, it is Claude's work, recorded as a gap.
+
 ## Prepared responses (what Claude does, in order)
 
 | Situation | First step | Never |
@@ -168,4 +201,5 @@ next to the code it guards.
 | One candidate red after `main` moved | update its branch | re-run its failed jobs |
 | A test red at one hour or in one shard | fix the test (fixed clock, nothing left behind) | mark it flaky and move on |
 | "Nothing gets worse" red on a change that cannot cause it | compare the protection files with `main`, then the measure | allowlist the values |
+| The same kind of failure comes back to the AIs every day with no fix | check that it can be fixed in the files they may change; if not, take it from them (`ENGINE_LIMITS`, the playbook) | let it retry for days |
 | AI work asked nobody | read the "fix" job's "Reserve:" lines; the provider's own words are there | turn on a paid plan or change a privacy setting (the owner's decision) |

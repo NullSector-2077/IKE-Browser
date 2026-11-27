@@ -30,6 +30,7 @@ QUIET_SETTINGS = {
     "lists_version": 4,
     "last_lists_update": 4102444800,
     "last_fast_update": 4102444800,
+    "last_darklists_update": 4102444800,
     "chrome_checked": 4102444800,
     "app_updates": "off",
     "auto_update": False,

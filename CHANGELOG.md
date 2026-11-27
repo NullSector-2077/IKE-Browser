@@ -2,12 +2,107 @@
 
 ## 1.1.27
 
-- I.K.E. has a new hexagonal logo, dedicated application icons for small sizes,
-  a new wordmark and a local 4K WebP Earth background on Home and New Tab.
-- The protection control now shows a hexagon with a centred count. Reload
-  precedes Home, bookmarks overflow uses two Forward arrows, the page-mode
+- I.K.E. has a new Breeze octagonal logo, dedicated icons for small sizes and
+  the new wordmark on frosted glass over the local 4K WebP Earth background on
+  Home and New Tab. About I.K.E. shows the logo alongside the original text.
+- The protection control now shows the applied level inside an octagon, with a centred count.
+  Reload precedes Home, bookmarks overflow uses two Forward arrows, the page-mode
   button shows a sun or a moon, and About I.K.E. sits above Quit.
+- **The level's letter in a colour of its own, cyber cut** (the owner): C
+  yellow, B green, S light blue, M pink, each with a contrast of 7:1 or more
+  on the octagon's dark centre; the letters are drawn as straight strokes
+  with corners cut at 45 degrees and a notch from 26 px up, every point on
+  the screen's pixel grid so they are sharp at 16 px too (the same octagon
+  in the menus and the panel; the menus' texts unchanged); off keeps its
+  white X. The ring that opens when something is
+  blocked is centred on the octagon again, and the rising "+N" starts right
+  after the number (tests/test_launcher_icons.py).
+- **The toolbar's Screenshot button has a menu** (the owner): Visible part
+  (Ctrl+Shift+S), Whole page and Selected area, the same entries as Page →
+  Screenshot…, in I.K.E.'s Plasma-style menu; a click opens it (it took the
+  visible part at once), with no arrow beside the icon, as Print and Zoom
+  (tests/test_screenshot_menu.py).
+- **The small icons say I K E** (the owner): at 16, 22 and 24 px the
+  application icon showed a plain light dot in the octagon; it now shows the
+  letters I K E drawn pixel by pixel (the K blue, as in the large logo), the
+  octagon unchanged.
+- **Plasma's task bar no longer flashes black** (the owner: its buttons
+  vanished on hover and the bar turned black for a while): 1.1.27 had given
+  the windows' icon its 512 and 1024 px pictures too, and the desktop gets a
+  window's icon whole (5.6 MB instead of 0.4); the windows carry the
+  pictures up to 256 px again, as in 1.1.26 (the larger ones stay for the
+  package and the menu).
+- **The new logo reaches the menu by itself** (the owner's rule: every
+  release reaches every user with no command): the package installs the
+  launcher's icons under /usr/share/icons, which a self-update never
+  touches, so 1.1.27's logo would have reached the menu only after the
+  package was installed by hand. A few seconds after each start I.K.E. now
+  copies the icons of the version in use into the user's own icon folder
+  (~/.local/share/icons/hicolor, read before /usr/share/icons): the same
+  files the package installs, only those that differ, nothing when I.K.E. is
+  not installed as an application (`ike/desktopicons.py`). Plasma may show
+  the new icon from the next login.
+- **Google's sites see a current Firefox, with the protections on** (the
+  owner's decision). Google's sign-in kept refusing I.K.E. now and then ("this
+  browser may not be secure"), and AI Studio's API key page did not work: Google
+  takes Qt WebEngine's Chromium, some versions behind, for an embedded program
+  or a bot. Until 1.1.26 only accounts.google.com was given a Firefox, a fixed
+  Firefox 140 more than a year old, while the engine's client hints in the very
+  same request still said `"Chromium";v="140"`; and Google's sensitive
+  services (AI Studio, the cloud console, the account, payments) were left with
+  no protection at all instead. Now every request and every frame of a page of
+  Google's sites (google.com and its services, Google's search in every
+  country, gstatic.com, googleapis.com...; YouTube is not one of them), a
+  Google sign-in embedded in another site ("Sign in with Google") and what it
+  loads present the Firefox of the calendar (161 today, estimated from the
+  date, nothing fetched; never ahead of a real release): in the header, with
+  the engine's client hints sent empty (Qt can only set a header, not take it
+  away), and in JavaScript in every frame (Firefox's navigator texts, `oscpu`
+  and `buildID`, no `navigator.userAgentData`, no `window.chrome`), with
+  getters that read as the engine's own. Google's sites keep the user's
+  protection level (fingerprinting noise, filter lists, address clean-up,
+  cookies, GPC): no more "Compatibility" or "off" forced there. At Balanced
+  Google's own domains count as one site on Google's pages (as Firefox's
+  tracking protection counts them), its ad and analytics domains
+  (doubleclick.net, google-analytics.com, googletagmanager.com...) do not.
+  With the shield off on a site, or with "Make sign-in work" off, nothing
+  changes. Microsoft's and Apple's sign-in and PayPal and Stripe keep their
+  light protection as before (`ike/config.py` `google_site`,
+  `ike/shields.py` `firefox_request`, `ike/resources/fingerprint.js`
+  `firefoxIdentity`, `ike/osinfo.py` `firefox_major`;
+  tests/test_google_firefox.py, tests/test_page_traces.py).
+- **Cover Your Tracks shows a randomized fingerprint again** (the owner
+  reported it as a regression). Cover Your Tracks draws its canvas twice and
+  calls the fingerprint "randomized" when the two pictures differ, "unique"
+  when they are the same; I.K.E.'s noise was the same for every read of a site
+  (so that averaging reads cannot remove it), so it showed "unique", though
+  the fingerprint was new in every session and on every site. Now a canvas
+  exported as a picture (`toDataURL`, `toBlob`, `convertToBlob`; WebGL
+  canvases too) gets, on top of the site's noise, a little noise that changes
+  at every export: only the lowest bit of a few pixels at the edges of the
+  drawing, never in flat areas (1.1.25's exact canvases of solid rectangles
+  stay exact). Many exports put together give back the picture with the
+  site's noise, never the real one, so averaging gains nothing; `getImageData`
+  still gives the same pixels at every read (pages that edit pictures).
+  Cover Your Tracks' own script, run on the real engine, now answers
+  "randomized" for the canvas and for WebGL at Balanced and Strict
+  (tests/test_canvas_exports.py).
 
+- **Dark Reader's lists update by themselves inside I.K.E.** (the owner: no
+  new version every day for simple lists). Dark Reader's fixes for single
+  sites, its list of sites that are dark already and the hints of a site's own
+  dark theme change almost every day, and each change made a new version of
+  I.K.E. Now the browser fetches the three lists from Dark Reader's repository
+  (raw.githubusercontent.com) once a day in the background, like the filter
+  lists (only with automatic updates on), reads and checks them as the
+  builder does (`ike/darklists.py` holds the same functions as
+  tools/build-darkreader.py, kept identical by a test): only data for Dark Reader, nothing that could be a
+  script, the common fix first, not much shorter than the copy I.K.E. came
+  with, at most 8 MB, https and that host only. A refused or failed download
+  changes nothing and is tried again a few hours later; the dark pages loaded
+  next take the new lists. The copy I.K.E. comes with is used until then, and
+  again when it is newer. The daily maintenance makes a new version for a new
+  Dark Reader engine only (tests/test_darklists.py).
 - Dark Reader (engine and lists): 4.9.135, lists 26d0621d65 (2026-11-25) -> 4.9.135, lists 2bd262585f (2026-11-25) (lists changed)
 
 ## 1.1.26

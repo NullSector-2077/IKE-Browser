@@ -80,8 +80,9 @@ profiles: `ike-browser --profile NAME`.
   number, today 140.0.0.0, in pages, workers and request headers), with the
   engine's own brand list (Chromium) and no kernel version, the same in every
   kind of worker. One
-  exception, on by default: Google's sign-in page sees Firefox, because Google
-  refuses sign-in from embedded Chromium (Settings → Protection).
+  exception, on by default: Google's sites (and a Google sign-in inside another
+  site) see a current Firefox, because Google refuses sign-in from Qt
+  WebEngine's Chromium; the protections stay on there (Settings → Protection).
 - Automatic HTTPS, optional encrypted DNS (DNS over HTTPS, off by default),
   third-party cookies blocked from Balanced up, reduced referrer, Global
   Privacy Control.
@@ -258,6 +259,7 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 | Service | When | What is sent |
 |---|---|---|
 | Filter list sites (easylist.to, ublockorigin.github.io, malware-filter.gitlab.io, …) | once a day; urgent-fix lists every few hours | a plain download of the list |
+| Dark Reader's lists on GitHub (raw.githubusercontent.com/darkreader/darkreader) | once a day, if automatic updates are on (since 1.1.27) | a plain download of its three list files (site fixes, sites dark already, dark theme hints), checked before use; nothing about you |
 | Google's Chrome version list (versionhistory.googleapis.com) | about once a day, also when I.K.E. updates are off | a plain request (User-Agent "I.K.E. version check"), no personal data; used only to show in Help → About how far behind the system's engine is and to warn when its security fixes are three Chrome versions behind; never for what sites are told |
 | The search engine you chose | when you search; suggestions while typing, if on | what you type in the address bar |
 | The sites of the installed search engines | once per engine, until its icon is known | a plain request for the site's icon (favicon.ico), nothing else |
@@ -296,6 +298,10 @@ and never with anything about its users ([docs/MAINTENANCE.md](docs/MAINTENANCE.
   the project's key and checked before use, the AdBlock engine included
   (Settings → Updates: automatic by default, or ask, or off at your own risk);
   see [docs/UPDATES.md](docs/UPDATES.md).
+- Dark Reader's lists (its fixes for single sites, the sites that are dark
+  already, the hints of a site's own dark theme) are fetched by the browser
+  itself once a day, like the filter lists, and checked before use (1.1.27):
+  a change of the lists no longer makes a new version of I.K.E.
 - The components inside I.K.E. — the AdBlock engine, the uBlock Origin
   scriptlets and Dark Reader — are checked for new versions every day by
   GitHub Actions (and the engine's Rust crates against known

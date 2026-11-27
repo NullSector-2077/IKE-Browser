@@ -14,28 +14,28 @@ ROOT = Path(__file__).resolve().parent.parent
 APP = Path(os.environ.get("IKE_TEST_APP") or ROOT)
 SHOTS = os.environ.get("IKE_TEST_SHOTS", "")
 OLD_NAME = re.compile(r"I\.C\.E|\bICE\b|\bIce\b|\bice[-_.:]\w")
-SMALL = (16, 22, 24, 32, 48, 64)
-# Hashes of the approved assets as supplied by the project owner.
-ASSET_SHA256 = {'ike.svg': 'a268eb2d75fb19e53eb6b63381f2fcdec55ab4a86c54d3fc1c14517b30d0c6b9',
+# Hashes of the approved assets as supplied by the project owner (16, 22 and 24 px
+# redrawn on 2026-11-27 at the owner's request: I K E inside the octagon, not a plain dot).
+ASSET_SHA256 = {'ike.svg': '02e809d5688cb12c5ff858b54dd29c03a9ddd6bf0bdc1f6a52c58198d84ab1aa',
  'newtab-background.webp': '1a19c03e487fe347e80aea413cf8fc71d85811523904a6e96c93c37aa1d50583',
  'newtab-preview.png': '8f4ff86982dc2dcaa94b360831e73aba5f4122369dd89023d5116aa8b322f6fd',
- 'wordmark.svg': 'f99217d41284572167342b11490ee23cf1b48af2e6512e13e316ab48e1d36b50'}
-PNG_SHA256 = {16: 'f2fde5e746d450cf8794d28c68cf9af975be29eb589ff5c55a1a487d6bcce0fb',
- 22: 'd7a6c8c16f717d3539823e17e1e4afed17b5c3369265acde5cd9af8db7aa73e7',
- 24: '1a847b49354ce19288f90ee8473207612ea483df5a68d79c4ff1ad4bc102c256',
- 32: 'e9b7da9029c9a8a90442cbd76eb7a22e4abdb3a2eb9f751266199c8aecac946b',
- 48: '43a02226294bb7fc3904853316c02534d8ace48de4f05f74a54f25e7d8402ce7',
- 64: '2d52b07ed868a0612bf862fce273ab37cac96a7f4f45e232e66c85ca0c6484ad',
- 128: 'dd1d424d5a524c05ad0dd1bf9455927eadbdf7d246433195536d309cda26cd13',
- 256: '359807342ae6e19d106c21143ee9ce89a6496a4e41434c300064b072a90574e5',
- 512: 'ca54e00be6156e8aaa02e771a9c6e71d6f51fe6c08c07ef8cf1ecacb048e9a3d',
- 1024: 'eaaf64202dedf8b54ffb9d4159b0b85b4180faf6a44af1cbb16c2eb95f26ab48'}
-SMALL_SVG_SHA256 = {16: 'dad111dad1910c879cd863ff7920a128c46bdfddd6bedc042c5865ebf1f5fd27',
- 22: 'f195cfa9a7349271f7fd1f01fe36e8dd14b4acbf3ff92d389ac5bf5a7a8a43f9',
- 24: '66efd4d07200fc1cfc9c66ad45cbdc71fd232992d436e69a10d64b2ee42e89a2',
- 32: 'bdaef919979fa48ff7f92a21c28feb765eb04dc9b310cb4640eb74eaefffa6d7',
- 48: '1b5843c40864570f14f29bc385c4f719ed59391f0facfc2bc80251112152e198',
- 64: '1ec02fe49fdcf2e154f370dde5167b84818b39aa6e526c6974c1886b2ef7335f'}
+ 'wordmark.svg': '243492fe1eef8d65fbc483de9fe06052bcde871b88e81e2245839f795ac72ab1'}
+PNG_SHA256 = {16: '6fa050086ba2a67202579948aed322ef9613cdb56525f04c9cc799d5fc68a58f',
+ 22: '1da5bf88af14f8a5934b3594e4592a0643ef2edd85e7058bcfdefd840792aace',
+ 24: 'e3670974f4bfba6fdc2502afd6b7c96fd672e93b391953206662c748855ce07c',
+ 32: '4ecb2ed2bdf23853d6f0d9fd97785a5fba8d6fd55266927b9456534e8e00c0e0',
+ 48: 'd0fb16bc270c33faac09af465593afa03e4d67efed5d5deeb9f183104c672545',
+ 64: 'f6daf5a963bc6e234957fd71948197b5957ef289927d072b854263ec41d07502',
+ 128: 'bc2a77b9b3e93ed6dd00c7ce09b9fbb2a2b765602496b4c4d3f1678796e8ca5f',
+ 256: '647da4186b5964ba09e62d81f942fbc168fe7889f094c784cf1d7583f822b4da',
+ 512: '1e3bf27c5a6bfa20dfd781c6f275462c4442b81130754b47b644094df49085f5',
+ 1024: '8235d4a181d211a7a11d821e3b173de1c81a8df33c869762aff48315e342f5d6'}
+SMALL_SVG_SHA256 = {16: '193c884e0cc94b6cb1f24f88276fd013e3161e9ae99604de296080a3c6ed92c6',
+ 22: '6692e4d12c0b3c5f706024edf49f2cbf3e6fcae5740403de3fa571a55914ab99',
+ 24: '82207cf62903e511ad2a6afd35716f08f79d48bda1c9d2e5f968e3e889ffb360',
+ 32: '91db670157d03bd0cd19e6b770627680d26a93dadbb610e17e739fe070ae52de',
+ 48: 'ffb097a2be1e95faea3890329d170ed26366e2e1a0a995e4efc0108cff078c96',
+ 64: '3d68835324cdfddd739438e3356185ff0206d67ff4ade0fb1d761e83664abae6'}
 # files of other projects, where the three letters mean something else
 THIRD_PARTY = ("ike/resources/darkreader.js", "ike/resources/darkreader-proxy.js", "ike/resources/darkreader-data.json", "ike/resources/ubo-scriptlets.json", "ike-adblock/Cargo.lock",
                "ike/resources/icons/sets/")
@@ -83,8 +83,20 @@ def test_window_icons_use_the_approved_size_variants(run_ike):
             from ike.app import ICON_SIZES
             from ike.config import RES_DIR
             out["sizes"] = list(ICON_SIZES)
+            win = ike.windows[0]
+            index = win.views.index(win.current_view())
+            # the new tab page loaded and its icon's fade over (1.1.27: on GitHub's slower
+            # runners the tab still showed the loading mark, a single 32 px picture, at 0.3 s)
+            for _ in range(200):
+                view = win.current_view()
+                if (not getattr(view, "loading_marked", False)
+                        and len(win.tabbar.tabIcon(index).availableSizes()) > 1):
+                    break
+                yield 50
+            yield 400
             for name, icon in (("app", ike.icon), ("qapp", qapp.windowIcon()),
-                               ("window", ike.windows[0].windowIcon())):
+                               ("window", win.windowIcon()), ("horizontal", win.tabbar.tabIcon(index)),
+                               ("vertical", win.vtabs.item(index).icon()), ("about", win.act_about.icon())):
                 out[name] = sorted(s.width() for s in icon.availableSizes())
                 same = {}
                 for n in ICON_SIZES:
@@ -93,10 +105,16 @@ def test_window_icons_use_the_approved_size_variants(run_ike):
                         PREMUL)
                     same[n] = shown == own
                 out[name + "_same"] = same
+                for n in (16, 22, 24, 32):
+                    shown = icon.pixmap(QSize(16, 16), n / 16).toImage().convertToFormat(PREMUL)
+                    own = QImage(str(RES_DIR / "icons" / ("ike-browser-%d.png" % n))).convertToFormat(PREMUL)
+                    same["16@%d" % n] = shown == own
     """)
-    every = sorted(PNG_SHA256)
+    # the windows' icon: every picture up to 256 (1.1.27: 512 and 1024 made the
+    # window's icon 5.6 MB, and Plasma's task bar flickered black on each hover)
+    every = sorted(n for n in PNG_SHA256 if n <= 256)
     assert out["sizes"] == every
-    for name in ("app", "qapp", "window"):
+    for name in ("app", "qapp", "window", "horizontal", "vertical", "about"):
         assert out[name] == every, (name, out[name])
         # at each size the picture drawn for it, not a scaled one
         assert all(out[name + "_same"].values()), (name, out[name + "_same"])
@@ -120,7 +138,7 @@ def test_package_installs_every_icon_size(tmp_path):
     subprocess.run(["bash", "-c", script], cwd=ROOT, check=True, capture_output=True,
                    env={**os.environ, "LOG": str(log)})
     lines = log.read_text("utf-8").splitlines()
-    every = sorted(SMALL + (128, 256, 512))
+    every = sorted(PNG_SHA256)
     for n in every:
         assert ("-Dm644 data/icons/ike-browser-%d.png "
                 "/nonexistent-pkg/usr/share/icons/hicolor/%dx%d/apps/ike-browser.png" % (n, n, n)) in lines, n
@@ -129,10 +147,12 @@ def test_package_installs_every_icon_size(tmp_path):
             "/nonexistent-pkg/usr/share/icons/hicolor/scalable/apps/ike-browser.svg") in lines
     # an installed copy (the package's own tests): the same pictures are there
     share = APP.parent.parent / "share/icons/hicolor"
-    if APP != ROOT and share.is_dir():
+    if APP != ROOT:
         for n in every:
             installed = share / ("%dx%d" % (n, n)) / "apps/ike-browser.png"
-            assert sha256(installed) == sha256(ROOT / "data/icons" / ("ike-browser-%d.png" % n)), n
+            assert sha256(installed) == PNG_SHA256[n], n
+        assert sha256(share / "scalable/apps/ike-browser.svg") == ASSET_SHA256["ike.svg"]
+        assert sha256(share.parent.parent / "pixmaps/ike-browser.png") == PNG_SHA256[256]
 
 
 def test_new_tab_shows_the_brand(run_ike):
@@ -168,8 +188,13 @@ def test_new_tab_shows_the_brand(run_ike):
             out["bg"] = [newtabbg.probe(newtabbg.DEFAULT_FILE)[0], newtabbg.content(ike.config)[1].decode()]
             from PyQt6.QtWidgets import QLabel
             dialog = win.about_dialog()
-            out["about_mark"] = any(label.accessibleName() == APP_LONG_NAME and not label.pixmap().isNull()
-                                    for label in dialog.findChildren(QLabel))
+            out["about_text"] = dialog.text().count(APP_LONG_NAME)
+            icons = [label.pixmap() for label in dialog.findChildren(QLabel) if not label.pixmap().isNull()]
+            out["about_logos"] = [pix.deviceIndependentSize().width() for pix in icons]
+            if shots:
+                dialog.show()
+                yield 200
+                dialog.grab().save(os.path.join(shots, "about-brand.png"))
     """, settings={"newtab_bg": "default"}, env={"IKE_TEST_SHOTS": SHOTS})
     page = out["page"]
     assert out["url"].startswith("ike:")
@@ -180,7 +205,8 @@ def test_new_tab_shows_the_brand(run_ike):
     assert abs((page["left"] + page["right"]) / 2 - page["page"] / 2) <= 1.5
     assert abs(page["logoCentre"] - page["page"] / 2) <= 1.5
     assert page["logo"] == "ike:logo" and page["alt"] == "I.K.E." and page["title"] == "I.K.E."
-    assert page["wordmark"] == "ike:wordmark" and out["about_mark"]
+    assert page["wordmark"] == "ike:wordmark"
+    assert out["about_text"] == 1 and out["about_logos"] == [64]
     assert out["bg"] == [[3840, 2160], "image/webp"]
     assert not page["template"] and page["fonts"] == 0
     assert out["names"] == ["I.K.E.", "I.K.E. - Internet Kontrol Experience", "I.K.E."]

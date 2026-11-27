@@ -974,7 +974,7 @@ group of them, `--only <id>`):
 | pyo3, the bridge to Python | `pyo3` | `ike-adblock/Cargo.toml`, `ike-adblock/Cargo.lock` | A new release line: the requirement is raised (the automatic fix may adapt I.K.E.'s wrapper) |
 | A new major version of another direct crate of the engine (serde_json 2, ...) | `crate-major-<crate>` | `ike-adblock/Cargo.toml`, `ike-adblock/Cargo.lock` | Its requirement in `Cargo.toml` is raised, then `cargo update`; the automatic fix may adapt the wrapper. A major version of a crate only adblock brings (thiserror 2, rand, selectors...) cannot be taken by I.K.E.'s requirements: it comes with a new adblock, which is its own candidate; the ledger keeps it as retry-later, looked at weekly |
 | uBlock Origin scriptlets | `ubo-scriptlets` | `ike/resources/ubo-scriptlets.json` | The rebuilt scriptlets differ, not merely a new upstream commit |
-| Dark Reader: engine (npm "darkreader") and the lists of its extension (GitHub) | `darkreader` | `ike/resources/darkreader.js`, `darkreader-proxy.js`, `darkreader-data.json` (`tools/build-darkreader.py`) | A newer engine, or lists that changed (site fixes, dark sites, detector hints) |
+| Dark Reader: engine (npm "darkreader") and the lists of its extension (GitHub) | `darkreader` | `ike/resources/darkreader.js`, `darkreader-proxy.js`, `darkreader-data.json` (`tools/build-darkreader.py`) | A newer engine (which brings the newest lists with it). Since 1.1.27 lists that changed alone make no update: the browser fetches them itself once a day (`ike/darklists.py`, checked with the same functions as the builder), and the report only notes "lists changed (the browser fetches them itself)" |
 | The packages of the automatic tests: Qt's wheels; pytest, ruff and theirs; the other libraries | `test-qt`, `test-tools`, `test-libs` | `tools/test-requirements.txt` | A newer package set on PyPI (no new version of I.K.E.: nothing ships) |
 | The workflows' pins: every GitHub Action, cargo-deny, setup-python's and setup-node's versions, the Rust toolchain | `ci-<name>` | `.github/workflows/*.yml`, `.github/actions/*` (`tools/ci-pins.py`) | A newer release (see "The workflows' pins") |
 | The PKGBUILD's depends, optdepends and minima | `pkgbuild` | `PKGBUILD` (`tools/pkgbuild-sync.py`) | A module, Qt module or program the code uses and no package declares, a package needed at run time that is only optional, or a `# needs: <package> >= <version>` the code declares (see "Arch Linux's own packages") |
@@ -1535,6 +1535,13 @@ Those runs report to the finding's entry by its branch
 `TESTING_DAYS` count again from it; the cap makes it "needs-person".
 
 ### Free AI providers, checked every week (WP9)
+
+**The weekly scoreboard** (2026-11-27, the owner: "simple, but it must work"). `health.yml` runs
+`tools/automat-scoreboard.py` (GET calls only) and edits one issue, "AUTOMAT: tabellone settimanale", in
+Italian: the automation's pull requests merged in the last 7 days and how many by themselves, those still
+waiting and for how long, the AI work of the week from AUTOMAT's memory (runs, answered, no provider, requests
+per provider), the runs of Tests and Arch Linux that passed only when started again (flaky tests or the
+infrastructure, with their jobs), and whether `main`'s latest runs passed.
 
 **New models found by AUTOMAT itself** (block 2, 2026-11-27; the owner: AUTOMAT keeps up with the providers and
 updates the models' names by itself). The weekly check also reads each provider's own list of models (Gemini
