@@ -193,21 +193,25 @@ jobs:
       - name: Git (for the checkout)
         # the databases are the snapshot's (above): an upgrade, not a new download of them
         run: |
-          # pacman, then again with the snapshot's archive first and the mirrors after it, after a pause
-          # (2026-11-25: a mirror had dropped a signature of the snapshot, 404; 2026-11-27: the archive alone,
-          # asked by every part at once, sent nothing for 10 s and pacman gave up): each file is taken from
-          # the first server that has it in time, and the files already downloaded stay in pacman's cache
+          # pacman, then again with the snapshot's archive first and the mirrors after it, one file at a time
+          # and with no limit of slowness, after growing pauses (2026-11-25: a mirror had dropped a signature of
+          # the snapshot, 404; 2026-11-27: the archive, asked by every part at once five files at a time, sent
+          # nothing for 10 s and pacman skipped it). Never another database: every part tests the same packages.
+          # Downloaded files stay in pacman's cache
           pac() {
             pacman "$@" && return 0
             archive=$(grep -m1 '^Server = https://archive.archlinux.org/' /etc/pacman.d/mirrorlist || true)
-            [ -n "$archive" ] || return 1
-            { echo "$archive"; grep '^Server' /etc/pacman.d/mirrorlist | grep -vF "$archive" || true; } > /tmp/mirrorlist.again
-            cp /tmp/mirrorlist.again /etc/pacman.d/mirrorlist
-            for pause in 20 90 240; do
-              echo "::warning::a file of the snapshot's packages could not be taken: the archive first, then the mirrors, again in ${pause} s"
-              sleep "$pause"
-              pacman "$@" && return 0
-            done
+            if [ -n "$archive" ]; then
+              mirrors=$(grep '^Server' /etc/pacman.d/mirrorlist | grep -vF "$archive" || true)
+              printf '%s\n%s\n' "$archive" "$mirrors" > /tmp/mirrorlist.again
+              cp /tmp/mirrorlist.again /etc/pacman.d/mirrorlist
+              sed -i 's/^#\?ParallelDownloads.*/ParallelDownloads = 1/' /etc/pacman.conf
+              for pause in 30 120 300; do
+                echo "::warning::a file of the snapshot's packages could not be taken: the archive first, then the mirrors, again in ${pause} s"
+                sleep "$pause"
+                pacman --disable-download-timeout "$@" && return 0
+              done
+            fi
             return 1
           }
           pac -Su --noconfirm --needed git
@@ -242,21 +246,25 @@ jobs:
           # a mirror may already have dropped a file of the snapshot's version (2026-11-25:
           # zxing-cpp-3.1.1-1's signature answered 404 and pacman gave up): then the
           # snapshot's own archive alone, which keeps every version
-          # pacman, then again with the snapshot's archive first and the mirrors after it, after a pause
-          # (2026-11-25: a mirror had dropped a signature of the snapshot, 404; 2026-11-27: the archive alone,
-          # asked by every part at once, sent nothing for 10 s and pacman gave up): each file is taken from
-          # the first server that has it in time, and the files already downloaded stay in pacman's cache
+          # pacman, then again with the snapshot's archive first and the mirrors after it, one file at a time
+          # and with no limit of slowness, after growing pauses (2026-11-25: a mirror had dropped a signature of
+          # the snapshot, 404; 2026-11-27: the archive, asked by every part at once five files at a time, sent
+          # nothing for 10 s and pacman skipped it). Never another database: every part tests the same packages.
+          # Downloaded files stay in pacman's cache
           pac() {
             pacman "$@" && return 0
             archive=$(grep -m1 '^Server = https://archive.archlinux.org/' /etc/pacman.d/mirrorlist || true)
-            [ -n "$archive" ] || return 1
-            { echo "$archive"; grep '^Server' /etc/pacman.d/mirrorlist | grep -vF "$archive" || true; } > /tmp/mirrorlist.again
-            cp /tmp/mirrorlist.again /etc/pacman.d/mirrorlist
-            for pause in 20 90 240; do
-              echo "::warning::a file of the snapshot's packages could not be taken: the archive first, then the mirrors, again in ${pause} s"
-              sleep "$pause"
-              pacman "$@" && return 0
-            done
+            if [ -n "$archive" ]; then
+              mirrors=$(grep '^Server' /etc/pacman.d/mirrorlist | grep -vF "$archive" || true)
+              printf '%s\n%s\n' "$archive" "$mirrors" > /tmp/mirrorlist.again
+              cp /tmp/mirrorlist.again /etc/pacman.d/mirrorlist
+              sed -i 's/^#\?ParallelDownloads.*/ParallelDownloads = 1/' /etc/pacman.conf
+              for pause in 30 120 300; do
+                echo "::warning::a file of the snapshot's packages could not be taken: the archive first, then the mirrors, again in ${pause} s"
+                sleep "$pause"
+                pacman --disable-download-timeout "$@" && return 0
+              done
+            fi
             return 1
           }
           pac -S --noconfirm --needed "${pkgs[@]}"
