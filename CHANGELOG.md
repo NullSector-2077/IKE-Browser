@@ -36,7 +36,7 @@
   I.K.E. really thinks"): 80 thoughts of I.K.E.'s own, 20 tips with real
   shortcuts, 60 more fun facts, 45 more kind words, in every language.
 - **I.K.E.'s thoughts are written letter by letter** on the new tab page, as
-  if it were thinking them now (under a second; whole letters in every
+  if it were thinking them now (about two and a half seconds; whole letters in every
   script; the other lines appear as before; not with reduced motion).
 - **A download flies to the Downloads button**: the file's icon goes in an arc
   from the pointer to the button, smaller and fading as it lands (0.45 s).

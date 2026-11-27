@@ -201,7 +201,8 @@ function ikeIconLater(img) {
   }
   function put(el, text) { if (el && el.textContent !== text) el.textContent = text; }
   // 1.1.29 (the owner): I.K.E.'s own thoughts are written letter by letter, as
-  // if it were thinking them now; under a second, only with the interface's
+  // if it were thinking them now; in about two and a half seconds (from 35 to
+  // 90 ms a letter), only with the interface's
   // effects on and no reduced motion asked; the whole line is there at once
   // for a screen reader. Other lines appear as before.
   function think(el, text, key) {
@@ -211,7 +212,7 @@ function ikeIconLater(img) {
     if (key.indexOf("thought") !== 0 || still || !window.requestAnimationFrame) { put(el, text); return; }
     // whole letters, as each script draws them (Hindi, Thai...: a letter with its marks)
     var chars = window.Intl && Intl.Segmenter ? Array.from(new Intl.Segmenter(undefined, {granularity: "grapheme"})
-      .segment(text), function (x) { return x.segment; }) : Array.from(text), step = Math.max(12, Math.min(28, 900 / chars.length)), start = null;
+      .segment(text), function (x) { return x.segment; }) : Array.from(text), step = Math.max(35, Math.min(90, 2500 / chars.length)), start = null;
     el.setAttribute("aria-label", text);
     el.textContent = "";
     function frame(t) {
