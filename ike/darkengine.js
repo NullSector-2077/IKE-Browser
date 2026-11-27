@@ -98,6 +98,51 @@
 
   // --- colours ---------------------------------------------------------------
   var BG = [200, 0.06, 0.1], FG = [36, 0.098, 0.9];       // hsl poles: #181a1b, #e8e6e3
+  // --- the look chosen in the Dark Engine's panel (darkengine.py LOOK) ----------
+  // style: the hues of the dark background and of the light text; depth: how dark
+  // the backgrounds are; text: how bright the text is; pictures: how much photos
+  // and videos are dimmed (0: as they are); detect: sites dark already left alone
+  var STYLES = {
+    // dark: how dark the style's background is against the others (depth scales it)
+    graphite: { bg: [200, 0.06], fg: [36, 0.098], link: [212, 1, 0.6], sel: [214, 1, 0.34], dark: 1 },
+    midnight: { bg: [225, 0.12], fg: [220, 0.12], link: [210, 1, 0.66], sel: [222, 0.9, 0.36], dark: 0.6 },
+    warm: { bg: [30, 0.14], fg: [38, 0.32], link: [32, 0.85, 0.62], sel: [28, 0.7, 0.32], dark: 1.05 },
+    nordic: { bg: [220, 0.17], fg: [218, 0.27], link: [193, 0.43, 0.67], sel: [213, 0.32, 0.4], dark: 1.5 }
+  };
+  var LOOK = { style: 'graphite', depth: 50, text: 50, pictures: 0, detect: true };
+  var K_BG = 1, K_FG = 1, LINK = '#3391ff', SELECTION = '#004daf', BGHEX = '#181a1b', FGHEX = '#e8e6e3', LB = 0.1, LF = 0.9;
+  function hex(h, s, l) {
+    var q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+    function ch(t) {
+      t = ((t % 360) + 360) % 360 / 360;
+      var v = t < 1 / 6 ? p + (q - p) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p;
+      return ('0' + Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16)).slice(-2);
+    }
+    return '#' + ch(h + 120) + ch(h) + ch(h - 120);
+  }
+  function setLook(look) {
+    look = look || {};
+    var st = STYLES[look.style] ? look.style : 'graphite', num = function (v, d, lo, hi) {
+      v = +v;
+      return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d;
+    };
+    LOOK = { style: st, depth: num(look.depth, 50, 0, 100), text: num(look.text, 50, 0, 100),
+      pictures: num(look.pictures, 0, 0, 60), detect: look.detect !== false };
+    var S = STYLES[st];
+    BG = [S.bg[0], S.bg[1], 0.1]; FG = [S.fg[0], S.fg[1], 0.9];
+    // depth 0..100: the background pole from 17 % to 4 % lightness (50: 10 %, as Dark Reader)
+    var lb = (LOOK.depth <= 50 ? 0.17 - LOOK.depth / 50 * 0.07 : 0.1 - (LOOK.depth - 50) / 50 * 0.06) * S.dark;
+    // text 0..100: the text pole from 78 % to 98 % (50: 90 %)
+    var lf = LOOK.text <= 50 ? 0.78 + LOOK.text / 50 * 0.12 : 0.9 + (LOOK.text - 50) / 50 * 0.08;
+    K_BG = lb / 0.1; K_FG = lf / 0.9; LB = lb; LF = lf;
+    BGHEX = hex(BG[0], BG[1], lb); FGHEX = hex(FG[0], FG[1], lf);
+    LINK = hex(S.link[0], S.link[1], S.link[2]); SELECTION = hex(S.sel[0], S.sel[1], S.sel[2]);
+    // the colours mapped with the previous look (not there yet at the start)
+    if (cache) cache.clear();
+    if (mapped) { mapped.bg.clear(); mapped.fg.clear(); mapped.border.clear(); }
+    if (listMapped) { listMapped.bg.clear(); listMapped.fg.clear(); listMapped.border.clear(); }
+  }
+  setLook(siteFix && siteFix.look);
   var ctx = null;
   var cache = new Map();
   var RGB = /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*([\d.]+)\s*)?\)$/i, HEX = /^#([0-9a-f]{6}|[0-9a-f]{3})$/i;
@@ -175,6 +220,7 @@
       // a bright colour (orange, green, cyan) stays too light at that lightness for
       // the light text drawn on it (Hacker News' bar: 2.1:1 with Dark Reader):
       // darker until light text reads on it
+      l = Math.min(1, l * K_BG);
       if (a >= 0.5 && s > 0.3) while (l > 0.05 && hslLum(h, s, l) > 0.1) l -= 0.02;
       return css(h, s, l, a);
     }
@@ -183,14 +229,14 @@
       l = lo ? 0.9 - (blue && s > 0.12 ? 0.6 : 0.7) * l : 0.9 - 0.7 * (1 - l);
       if (blue && s > 0.12) h = h <= 210 ? h - 3 : Math.min(222, 207 + (h - 210) * 0.37);
       if (s <= 0.12 || (hsl[2] < 0.25 && s < 0.6)) { h = FG[0]; s = FG[1]; }
-      return css(h, s, l, a);
+      return css(h, s, Math.min(1, l * K_FG), a);
     }
     var light = l >= 0.5;
     l = 0.2 + (1 - l) * 0.3;
     // a faint dark line (rgba(0,0,0,.2)) would vanish on a dark page: it keeps standing out
     if (!light && a < 0.5) a = +(0.45 + a * 0.6).toFixed(2);
     if (s <= 0.12) { h = light ? BG[0] : FG[0]; s = light ? BG[1] : FG[1]; }
-    return css(h, s, l, a);
+    return css(h, s, Math.min(1, l * (0.5 + K_BG / 2)), a);
   }
   var PROPS = [['background-color', 'bg'], ['color', 'fg'], ['border-top-color', 'border'],
     ['border-right-color', 'border'], ['border-bottom-color', 'border'], ['border-left-color', 'border'],
@@ -1129,20 +1175,21 @@
   }
   function base() {
     var t = ':root{color-scheme:dark!important}' +
-      (window === window.top ? 'html{background-color:#181a1b!important}' : '') +
-      ':where(html,body){color:#e8e6e3;border-color:#736b5e}' +
-      ':where(input,textarea,select,button){color:#e8e6e3}:where(a:any-link){color:#3391ff}' +
-      '::selection{background-color:#004daf!important;color:#e8e6e3!important}';
+      (window === window.top ? 'html{background-color:' + BGHEX + '!important}' : '') +
+      ':where(html,body){color:' + FGHEX + ';border-color:' + hex(FG[0], FG[1], 0.41) + '}' +
+      ':where(input,textarea,select,button){color:' + FGHEX + '}:where(a:any-link){color:' + LINK + '}' +
+      '::selection{background-color:' + SELECTION + '!important;color:' + FGHEX + '!important}' +
+      (LOOK.pictures ? ':where(img,video):not(.ike-de-lift){filter:brightness(' + (100 - LOOK.pictures) + '%)}' : '');
     // one selector the engine cannot read would void the whole list: each is checked
     var inv = (fix.invert || []).filter(function (sel) {
       try { dq(sel); return true; } catch (e) { return false; }
     }).join(',');
     if (inv) t += inv + '{filter:invert(100%) hue-rotate(180deg)!important}';
     if (fix.css) {
-      t += fix.css.replace(/var\(--darkreader-neutral-background\)/g, '#181a1b')
-        .replace(/var\(--darkreader-neutral-text\)/g, '#e8e6e3')
-        .replace(/var\(--darkreader-selection-background\)/g, '#004daf')
-        .replace(/var\(--darkreader-selection-text\)/g, '#e8e6e3')
+      t += fix.css.replace(/var\(--darkreader-neutral-background\)/g, BGHEX)
+        .replace(/var\(--darkreader-neutral-text\)/g, FGHEX)
+        .replace(/var\(--darkreader-selection-background\)/g, SELECTION)
+        .replace(/var\(--darkreader-selection-text\)/g, FGHEX)
         .replace(/([\w-]+)\s*:\s*\$\{([^}]+)\}/g, function (m, prop, col) {
           var c = parse(col.trim());
           var kind = /background|shadow/.test(prop) ? 'bg' : /border|outline/.test(prop) ? 'border' : 'fg';
@@ -1150,11 +1197,12 @@
         });
     }
     // placeholders: Dark Reader's common fix halves their opacity, below 3:1 on dark fields
-    t += '::placeholder{opacity:1!important;color:#a8a39b}';
+    t += '::placeholder{opacity:1!important;color:' + hex(FG[0], FG[1], LF * 0.72) + '}';
     // the engine's own dark controls draw a disabled button's text at about 2:1
-    t += ':where(button,input,select,textarea):disabled{color:#b5b0a8}';
+    t += ':where(button,input,select,textarea):disabled{color:' + hex(FG[0], FG[1], LF * 0.78) + '}';
     // the engine's own dark button face is mid-grey: a page's grey button text on it is unreadable
-    t += ':where(button,select,input[type=button],input[type=submit],input[type=reset]){background-color:#2b2e30}';
+    t += ':where(button,select,input[type=button],input[type=submit],input[type=reset]){background-color:' +
+      hex(BG[0], BG[1], LB + 0.07) + '}';
     t += '.ike-de-lift{filter:invert(100%) hue-rotate(180deg)!important}';
     var s = makeStyle();
     s.textContent = t;
@@ -1256,6 +1304,7 @@
   }
   function isDarkAlready() {
     if (dq('meta[name="darkreader-lock"]')) return true;
+    if (!LOOK.detect) return false;
     if (siteFix.chosen) return false;
     var m = dq('meta[name="color-scheme"]');
     if (m && /^\s*(?:only\s+dark|dark(?:\s+only)?)\s*$/i.test(m.content)) return true;
@@ -1343,6 +1392,13 @@
     readyWait = 99;
     ready();
   }
+  window.__ikeDELook = function (look) {
+    if (!look || typeof look !== 'object' || printing) return false;
+    setLook(look);
+    if (!off) stop();
+    restart();
+    return true;
+  };
   var printing = false;
   addEventListener('beforeprint', function () {
     if (off || !ready.done) return;
@@ -1454,7 +1510,7 @@
     if (window === window.top) {
       coverSheet = baseSheet || baseEl.sheet;
       coverRule = coverSheet.cssRules[coverSheet.insertRule(
-        ':root:root > body{background-color:#181a1b!important;color:#e8e6e3}', 0)];
+        ':root:root > body{background-color:' + BGHEX + '!important;color:' + FGHEX + '}', 0)];
     }
     return true;
   }

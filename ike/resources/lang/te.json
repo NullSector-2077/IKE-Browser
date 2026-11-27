@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM వీడియో (Widevine): ఇన్‌స్టాల్ చేయబడలేదు — Netflix, ఇలాంటి సేవలు ప్లే కావు",
 "Dark": "ముదురు",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (సైట్ వారీగా సెట్ చేయవచ్చు, తక్షణం)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader మెరుగైన రంగులు ఇస్తుంది; Chromium సొంతది ఇంజిన్‌లోనే ఉంటుంది, తేలికైనది.",
 "Dark mode for pages": "పేజీలకు డార్క్ మోడ్",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "పేజీలకు డార్క్ మోడ్ ఆఫ్ చేయబడుతుంది. దీన్ని వర్తింపజేయడానికి I.K.E. పునఃప్రారంభం కావాలి; మీ ట్యాబ్‌లు మళ్ళీ తెరవబడతాయి. ఇప్పుడే పునఃప్రారంభించాలా?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "పేజీలకు డార్క్ మోడ్ ఆన్ చేయబడుతుంది. దీన్ని వర్తింపజేయడానికి I.K.E. పునఃప్రారంభం కావాలి; మీ ట్యాబ్‌లు మళ్ళీ తెరవబడతాయి. ఇప్పుడే పునఃప్రారంభించాలా?",
@@ -1321,6 +1320,24 @@
 "W": "పడమర",
 "NW": "వాయవ్యం",
 "Pressure": "పీడనం",
-"Automatic goes with the temperature unit.": "ఆటోమేటిక్ ఉష్ణోగ్రత యూనిట్‌ను అనుసరిస్తుంది."
+"Automatic goes with the temperature unit.": "ఆటోమేటిక్ ఉష్ణోగ్రత యూనిట్‌ను అనుసరిస్తుంది.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "I.K.E. సొంత డార్క్ మోడ్: తేలికైనది, వేగవంతమైనది",
+"Style": "శైలి",
+"Graphite": "గ్రాఫైట్",
+"Midnight": "అర్ధరాత్రి",
+"Warm": "వెచ్చని",
+"Nordic": "నార్డిక్",
+"Background depth": "నేపథ్య లోతు",
+"Text brightness": "వచన ప్రకాశం",
+"Dim pictures": "చిత్రాలను మసకబార్చు",
+"Leave sites that are dark already as they are": "ఇప్పటికే డార్క్‌గా ఉన్న సైట్‌లను అలాగే ఉంచు",
+"Style, depth, text and pictures back to their defaults": "శైలి, లోతు, వచనం, చిత్రాలు డిఫాల్ట్‌లకు తిరిగి",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine I.K.E. సొంతం: Dark Reader రంగులు సగం ఖర్చుతో. Dark Reader అందుబాటులోనే ఉంటుంది; Chromium సొంతది ఇంజిన్‌లోనే ఉంది, అన్నిటికంటే తేలికైనది.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "డార్క్ పేజీల రంగులు. టూల్‌బార్‌లోని డార్క్ మోడ్ బటన్ ప్యానెల్‌లో కూడా.",
+"How dark the backgrounds are.": "నేపథ్యాలు ఎంత చీకటిగా ఉంటాయి.",
+"How bright the text is.": "వచనం ఎంత ప్రకాశవంతంగా ఉంటుంది.",
+"Photos and videos a little darker. 0%: as they are.": "ఫోటోలు, వీడియోలు కొంచెం ముదురుగా. 0%: ఉన్నట్లే.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "సొంత డార్క్ థీమ్ ఉన్న సైట్‌లు ప్రకటించకపోయినా దాన్ని అలాగే ఉంచుతాయి."
 }
 }

@@ -932,7 +932,6 @@
 "Which buttons the toolbar shows. To move them, right-click the toolbar.": "Які кнопки показує панель інструментів. Щоб їх перемістити, клацніть панель правою кнопкою.",
 "The size of the pages you have not zoomed yourself. 1.0 is the normal size.": "Розмір сторінок, які ви не масштабували самі. 1.0 — звичайний розмір.",
 "Makes bright pages dark. Single sites: ☰ → Dark mode for pages. Part of the “Dark mode for pages” extension.": "Робить світлі сторінки темними. Для окремих сайтів: ☰ → Темний режим для сторінок. Частина розширення «Темний режим для сторінок».",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader дає кращі кольори; власний режим Chromium вбудований у рушій і легший.",
 "The time and the date at the bottom of the page.": "Час і дата внизу сторінки.",
 "The same switch as the “Weather on the new tab page” extension.": "Той самий перемикач, що й у розширення «Погода на сторінці нової вкладки».",
 "Degrees Celsius or Fahrenheit.": "Градуси Цельсія або Фаренгейта.",
@@ -1321,6 +1320,24 @@
 "W": "Зх",
 "NW": "ПнЗх",
 "Pressure": "Тиск",
-"Automatic goes with the temperature unit.": "Автоматично: за одиницею температури."
+"Automatic goes with the temperature unit.": "Автоматично: за одиницею температури.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "Власний темний режим I.K.E.: легкий і швидкий",
+"Style": "Стиль",
+"Graphite": "Графіт",
+"Midnight": "Північ",
+"Warm": "Теплий",
+"Nordic": "Нордичний",
+"Background depth": "Глибина фону",
+"Text brightness": "Яскравість тексту",
+"Dim pictures": "Затемнювати зображення",
+"Leave sites that are dark already as they are": "Не чіпати сайти, які вже темні",
+"Style, depth, text and pictures back to their defaults": "Стиль, глибина, текст і зображення повертаються до типових значень",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine — власна розробка I.K.E.: кольори Dark Reader за півціни. Dark Reader залишається доступним; режим Chromium вбудований у рушій і найлегший.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Кольори темних сторінок. Також у панелі кнопки «Темний режим» на панелі інструментів.",
+"How dark the backgrounds are.": "Наскільки темні фони.",
+"How bright the text is.": "Наскільки яскравий текст.",
+"Photos and videos a little darker. 0%: as they are.": "Фото й відео трохи темніші. 0%: як є.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Сайти зі своєю темною темою зберігають її, навіть якщо не заявляють про неї."
 }
 }

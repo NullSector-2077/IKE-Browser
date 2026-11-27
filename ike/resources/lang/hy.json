@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM տեսանյութ (Widevine)՝ տեղադրված չէ․ Netflix-ը և նման ծառայությունները չեն նվագարկվի",
 "Dark": "Մութ",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (կարելի է սահմանել ըստ կայքի, անմիջապես)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader-ն ավելի լավ գույներ է տալիս: Chromium-ինը ներկառուցված է շարժիչում և ավելի թեթև է։",
 "Dark mode for pages": "Մութ ռեժիմ էջերի համար",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Էջերի մութ ռեժիմը կանջատվի։ Այն կիրառելու համար I.K.E.-ը պետք է վերագործարկվի․ ձեր ներդիրները կրկին կբացվեն։ Վերագործարկե՞լ հիմա։",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Էջերի մութ ռեժիմը կմիանա։ Այն կիրառելու համար I.K.E.-ը պետք է վերագործարկվի․ ձեր ներդիրները կրկին կբացվեն։ Վերագործարկե՞լ հիմա։",
@@ -1321,6 +1320,24 @@
 "W": "արևմուտք",
 "NW": "հյուսիս-արևմուտք",
 "Pressure": "Ճնշում",
-"Automatic goes with the temperature unit.": "Ավտոմատը հետևում է ջերմաստիճանի չափման միավորին։"
+"Automatic goes with the temperature unit.": "Ավտոմատը հետևում է ջերմաստիճանի չափման միավորին։",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "I.K.E.-ի սեփական մութ ռեժիմը՝ թեթև և արագ",
+"Style": "Ոճ",
+"Graphite": "Գրաֆիտ",
+"Midnight": "Կեսգիշեր",
+"Warm": "Տաք",
+"Nordic": "Նորդիկ",
+"Background depth": "Ֆոնի խորությունը",
+"Text brightness": "Տեքստի պայծառությունը",
+"Dim pictures": "Մգացնել պատկերները",
+"Leave sites that are dark already as they are": "Արդեն մութ կայքերը թողնել ինչպես կան",
+"Style, depth, text and pictures back to their defaults": "Ոճը, խորությունը, տեքստն ու պատկերները՝ նախնականին",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine-ը I.K.E.-ի սեփականն է՝ Dark Reader-ի գույները կես ծախսով: Dark Reader-ը մնում է հասանելի; Chromium-ինը ներկառուցված է շարժիչում և ամենաթեթևն է։",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Մութ էջերի գույները։ Նաև գործիքագոտու «Մութ ռեժիմ» կոճակի վահանակում։",
+"How dark the backgrounds are.": "Որքան մութ են ֆոները։",
+"How bright the text is.": "Որքան պայծառ է տեքստը։",
+"Photos and videos a little darker. 0%: as they are.": "Լուսանկարներն ու տեսանյութերը մի փոքր մգացված։ 0%՝ ինչպես կան։",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Սեփական մութ թեմա ունեցող կայքերը պահում են այն, նույնիսկ երբ չեն հայտարարում։"
 }
 }

@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM video (Widevine): yüklü değil — Netflix ve benzeri hizmetler oynatılmaz",
 "Dark": "Koyu",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (siteye göre ayarlanabilir, anında)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader daha iyi renkler verir; Chromium'un kendi modu motorun içindedir ve daha hafiftir.",
 "Dark mode for pages": "Sayfalar için koyu mod",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Sayfalar için koyu mod kapatılacak. Uygulanması için I.K.E.'nin yeniden başlaması gerekir; sekmeleriniz yeniden açılacak. Şimdi yeniden başlatılsın mı?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Sayfalar için koyu mod açılacak. Uygulanması için I.K.E.'nin yeniden başlaması gerekir; sekmeleriniz yeniden açılacak. Şimdi yeniden başlatılsın mı?",
@@ -1321,6 +1320,24 @@
 "W": "B",
 "NW": "KB",
 "Pressure": "Basınç",
-"Automatic goes with the temperature unit.": "Otomatik, sıcaklık birimini izler."
+"Automatic goes with the temperature unit.": "Otomatik, sıcaklık birimini izler.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "I.K.E.'nin kendi koyu modu: hafif ve hızlı",
+"Style": "Stil",
+"Graphite": "Grafit",
+"Midnight": "Gece yarısı",
+"Warm": "Sıcak",
+"Nordic": "Kuzey",
+"Background depth": "Arka plan derinliği",
+"Text brightness": "Metin parlaklığı",
+"Dim pictures": "Resimleri karart",
+"Leave sites that are dark already as they are": "Zaten koyu olan siteleri olduğu gibi bırak",
+"Style, depth, text and pictures back to their defaults": "Stil, derinlik, metin ve resimler varsayılana döner",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine I.K.E.'nin kendisine aittir: Dark Reader'ın renkleri yarı maliyetle. Dark Reader kullanılabilir kalır; Chromium'unki motorun içine gömülüdür ve en hafifidir.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Koyu sayfaların renkleri. Araç çubuğundaki Koyu mod düğmesinin panelinde de var.",
+"How dark the backgrounds are.": "Arka planların ne kadar koyu olduğu.",
+"How bright the text is.": "Metnin ne kadar parlak olduğu.",
+"Photos and videos a little darker. 0%: as they are.": "Fotoğraflar ve videolar biraz daha koyu. 0%: olduğu gibi.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Kendi koyu temasına sahip siteler, bildirmeseler de onu korur."
 }
 }

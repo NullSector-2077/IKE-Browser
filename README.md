@@ -125,7 +125,10 @@ profiles: `ike-browser --profile NAME`.
 - Email links written with the web mail you choose (Gmail, Outlook.com, Proton
   Mail, Yahoo Mail) or with the computer's mail program; I.K.E. can also take
   the email links of other programs.
-- Page dark mode with Dark Reader as its extension works (its fixes for single
+- Page dark mode with the I.K.E. Dark Engine (1.1.28, I.K.E.'s own: Dark
+  Reader's colours at about half its cost, its own panel with four styles,
+  background depth, text brightness and dimmed pictures; it uses Dark
+  Reader's lists only), or with Dark Reader as its extension works (its fixes for single
   sites, sites that are dark already left alone, its detector of a site's own
   dark theme; its lists come with each I.K.E. release), or with the engine's
   own dark mode, which is much lighter

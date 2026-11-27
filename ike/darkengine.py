@@ -29,6 +29,59 @@ import json
 from pathlib import Path
 
 SETTING = "dark_engine_experiment"
+
+# The look of the Dark Engine (its panel and Settings, 1.1.28): style, how dark
+# the backgrounds are, how bright the text is, how much photos and videos are
+# dimmed, and whether sites dark already are left as they are. darkengine.js
+# reads the same keys (setLook) and checks them again.
+STYLES = ("graphite", "midnight", "warm", "nordic")
+LOOK = {"style": "graphite", "depth": 50, "text": 50, "pictures": 0, "detect": True}
+RANGES = {"depth": (0, 100), "text": (0, 100), "pictures": (0, 60)}
+
+
+def background(look):
+    """The dark background of a look as #rrggbb (darkengine.js setLook: the
+    page's background, also shown before the page paints)."""
+    return colours(look)[0]
+
+
+STYLE_COLOURS = {   # (background hue, saturation, depth factor), (text hue, saturation), link: as darkengine.js
+    "graphite": ((200, 0.06, 1), (36, 0.098), "#3392ff"),
+    "midnight": ((225, 0.12, 0.6), (220, 0.12), "#52a8ff"),
+    "warm": ((30, 0.14, 1.05), (38, 0.32), "#f0a44c"),
+    "nordic": ((220, 0.17, 1.5), (218, 0.27), "#87bfcf"),
+}
+
+
+def colours(look):
+    """(background, text, link) of a look as #rrggbb: the panel's previews."""
+    import colorsys
+    look = clean_look(look)
+    (bh, bs, dark), (th, ts), link = STYLE_COLOURS[look["style"]]
+    d, t = look["depth"], look["text"]
+    lb = (0.17 - d / 50 * 0.07 if d <= 50 else 0.1 - (d - 50) / 50 * 0.06) * dark
+    lf = 0.78 + t / 50 * 0.12 if t <= 50 else 0.9 + (t - 50) / 50 * 0.08
+
+    def hexa(h, s, li):
+        r, g, b = colorsys.hls_to_rgb(h / 360, li, s)
+        return "#%02x%02x%02x" % (round(r * 255), round(g * 255), round(b * 255))
+    return hexa(bh, bs, lb), hexa(th, ts, lf), link
+
+
+def clean_look(look):
+    """A look with every key, each value of its kind and in its range (else the default)."""
+    out = dict(LOOK)
+    if not isinstance(look, dict):
+        return out
+    if look.get("style") in STYLES:
+        out["style"] = look["style"]
+    for key, (lo, hi) in RANGES.items():
+        v = look.get(key)
+        if isinstance(v, (int, float)) and not isinstance(v, bool) and v == v:
+            out[key] = int(min(hi, max(lo, round(v))))
+    if isinstance(look.get("detect"), bool):
+        out["detect"] = look["detect"]
+    return out
 SITES_MAX = 40
 _NAME = "ike-dark-engine-x"
 _state = {}                  # id(profile): {"sites": {host: cfg}, "order": [host, ...]}
@@ -84,8 +137,8 @@ def install(profile):
     _state[id(profile)] = {"sites": {}, "order": []}
 
 
-def site(profile, url, host, chosen):
-    """Register the Dark Reader fix of a site (call before its page loads)."""
+def site(profile, url, host, chosen, look=None):
+    """Register the Dark Reader fix of a site and the engine's look (call before its page loads)."""
     from . import darkfixes
     st = _state.get(id(profile))
     if st is None:
@@ -93,7 +146,8 @@ def site(profile, url, host, chosen):
         st = _state[id(profile)]
     fix = _fix(darkfixes.fix_for(url))
     hints = [] if chosen else darkfixes.hints_for(url)
-    cfg = json.dumps({**fix, "chosen": chosen, "hint": hints[0] if hints else None})
+    cfg = json.dumps({**fix, "chosen": chosen, "hint": hints[0] if hints else None,
+                      "look": clean_look(look)})
     if st["sites"].get(host) != cfg:
         _remove(profile, _NAME + ":" + host)
         profile.scripts().insert(_script(_NAME + ":" + host, _site_source(host, cfg)))
@@ -107,7 +161,7 @@ def site(profile, url, host, chosen):
         st["sites"].pop(gone, None)
 
 
-def prepare(profile, url, host, dark, chosen):
+def prepare(profile, url, host, dark, chosen, look=None):
     """A page of host is about to load (main frame), the experiment on. dark:
     should it be dark? chosen: did the user turn this site dark himself (then
     Dark Reader's list of dark sites does not apply). Returns whether the
@@ -124,8 +178,16 @@ def prepare(profile, url, host, dark, chosen):
             del st["sites"][host]
             st["order"].remove(host)
         return False
-    site(profile, url, host, chosen)
+    site(profile, url, host, chosen, look)
     return True
+
+
+def set_look(view, look):
+    """An open page takes a new look at once, without being loaded again (its main
+    frame; its frames at their next load). The page cannot reach the function."""
+    from PyQt6.QtWebEngineCore import QWebEngineScript
+    code = "window.__ikeDELook && window.__ikeDELook(%s)" % json.dumps(clean_look(look))
+    view.page().runJavaScript(code, QWebEngineScript.ScriptWorldId.ApplicationWorld)
 
 
 def remove(profile):

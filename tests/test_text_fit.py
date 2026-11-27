@@ -165,6 +165,14 @@ def steps(ike, qapp, out):
             ike.config["dark_engine"] = engine
             win.dark_panel.more_btn.setChecked(False)
             win.dark_menu.hide()
+            # 1.1.28: the I.K.E. Dark Engine's own panel (its styles, sliders and switches)
+            ike.config["dark_engine"] = "ike"
+            win.show_dark_panel()
+            settle()
+            problems.extend(textfit.check(win.dark_scroll, code + ": I.K.E. Dark Engine panel"))
+            problems.extend(textfit.check_menu(win.dark_menu, code + ": I.K.E. Dark Engine panel"))
+            win.dark_menu.hide()
+            ike.config["dark_engine"] = engine
         if hasattr(win, "show_zoom_panel"):
             # 1.1.25: the zoom panel; the downloads panel empty, then with a download of each kind
             win.show_zoom_panel()

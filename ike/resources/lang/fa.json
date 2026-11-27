@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "ویدیوی DRM (Widevine): نصب نشده — Netflix و سرویس‌های مشابه پخش نمی‌شوند",
 "Dark": "تاریک",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (برای هر سایت قابل تنظیم، فوری)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader رنگ‌های بهتری می‌دهد؛ حالت خود Chromium در موتور تعبیه شده و سبک‌تر است.",
 "Dark mode for pages": "حالت تاریک برای صفحه‌ها",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "حالت تاریک برای صفحه‌ها خاموش می‌شود. I.K.E. برای اعمال آن باید راه‌اندازی مجدد شود؛ زبانه‌های شما دوباره باز می‌شوند. اکنون راه‌اندازی مجدد شود؟",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "حالت تاریک برای صفحه‌ها روشن می‌شود. I.K.E. برای اعمال آن باید راه‌اندازی مجدد شود؛ زبانه‌های شما دوباره باز می‌شوند. اکنون راه‌اندازی مجدد شود؟",
@@ -1321,6 +1320,24 @@
 "W": "غرب",
 "NW": "شمال‌غربی",
 "Pressure": "فشار هوا",
-"Automatic goes with the temperature unit.": "حالت خودکار از واحد دما پیروی می‌کند."
+"Automatic goes with the temperature unit.": "حالت خودکار از واحد دما پیروی می‌کند.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "حالت تاریک اختصاصی I.K.E.: سبک و سریع",
+"Style": "سبک",
+"Graphite": "گرافیتی",
+"Midnight": "نیمه‌شب",
+"Warm": "گرم",
+"Nordic": "شمال اروپایی",
+"Background depth": "عمق پس‌زمینه",
+"Text brightness": "روشنایی متن",
+"Dim pictures": "تیره‌کردن تصویرها",
+"Leave sites that are dark already as they are": "سایت‌هایی را که از قبل تاریک‌اند به همان شکل بگذار",
+"Style, depth, text and pictures back to their defaults": "سبک، عمق، متن و تصویرها به پیش‌فرض برمی‌گردند",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine ساخت خود I.K.E. است: رنگ‌های Dark Reader با نصف هزینه. Dark Reader همچنان در دسترس است؛ نمونهٔ Chromium در موتور تعبیه شده و سبک‌ترین است.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "رنگ‌های صفحه‌های تاریک. در پنل دکمهٔ حالت تاریک نوار ابزار هم هست.",
+"How dark the backgrounds are.": "پس‌زمینه‌ها چقدر تاریک باشند.",
+"How bright the text is.": "متن چقدر روشن باشد.",
+"Photos and videos a little darker. 0%: as they are.": "عکس‌ها و ویدیوها کمی تیره‌تر. 0%: همان‌طور که هستند.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "سایت‌هایی که پوستهٔ تاریک خودشان را دارند آن را نگه می‌دارند، حتی اگر اعلامش نکنند."
 }
 }

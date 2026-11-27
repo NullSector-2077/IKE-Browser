@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM-video (Widevine): inte installerat — Netflix och liknande tjänster spelas inte upp",
 "Dark": "Mörkt",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (kan ställas in per webbplats, direkt)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader ger bättre färger; Chromiums eget är inbyggt i motorn och lättare.",
 "Dark mode for pages": "Mörkt läge för sidor",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Mörkt läge för sidor stängs av. I.K.E. måste startas om för att tillämpa det; dina flikar öppnas igen. Starta om nu?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Mörkt läge för sidor slås på. I.K.E. måste startas om för att tillämpa det; dina flikar öppnas igen. Starta om nu?",
@@ -1321,6 +1320,24 @@
 "W": "V",
 "NW": "NV",
 "Pressure": "Lufttryck",
-"Automatic goes with the temperature unit.": "Automatiskt följer temperaturenheten."
+"Automatic goes with the temperature unit.": "Automatiskt följer temperaturenheten.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "I.K.E:s eget mörka läge: lätt och snabbt",
+"Style": "Stil",
+"Graphite": "Grafit",
+"Midnight": "Midnatt",
+"Warm": "Varm",
+"Nordic": "Nordisk",
+"Background depth": "Bakgrundsdjup",
+"Text brightness": "Textens ljusstyrka",
+"Dim pictures": "Dämpa bilder",
+"Leave sites that are dark already as they are": "Låt webbplatser som redan är mörka vara som de är",
+"Style, depth, text and pictures back to their defaults": "Stil, djup, text och bilder tillbaka till standard",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine är I.K.E:s eget: Dark Readers färger till halva kostnaden. Dark Reader finns kvar; Chromiums eget är inbyggt i motorn och det lättaste.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "De mörka sidornas färger. Även i panelen för knappen Mörkt läge i verktygsfältet.",
+"How dark the backgrounds are.": "Hur mörka bakgrunderna är.",
+"How bright the text is.": "Hur ljus texten är.",
+"Photos and videos a little darker. 0%: as they are.": "Foton och videor lite mörkare. 0%: som de är.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Webbplatser med ett eget mörkt tema behåller det, även när de inte deklarerar det."
 }
 }

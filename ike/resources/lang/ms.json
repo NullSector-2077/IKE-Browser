@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "Video DRM (Widevine): tidak dipasang — Netflix dan perkhidmatan seumpamanya tidak akan dimainkan",
 "Dark": "Gelap",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (boleh ditetapkan mengikut laman, serta-merta)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader memberi warna yang lebih baik; milik Chromium terbina dalam enjin dan lebih ringan.",
 "Dark mode for pages": "Mod gelap untuk halaman",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Mod gelap untuk halaman akan dimatikan. I.K.E. perlu dimulakan semula untuk menggunakannya; tab anda akan dibuka semula. Mulakan semula sekarang?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Mod gelap untuk halaman akan dihidupkan. I.K.E. perlu dimulakan semula untuk menggunakannya; tab anda akan dibuka semula. Mulakan semula sekarang?",
@@ -1321,6 +1320,24 @@
 "W": "B",
 "NW": "BL",
 "Pressure": "Tekanan",
-"Automatic goes with the temperature unit.": "Automatik mengikut unit suhu."
+"Automatic goes with the temperature unit.": "Automatik mengikut unit suhu.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "Mod gelap tersendiri I.K.E.: ringan dan pantas",
+"Style": "Gaya",
+"Graphite": "Grafit",
+"Midnight": "Tengah malam",
+"Warm": "Hangat",
+"Nordic": "Nordik",
+"Background depth": "Kedalaman latar belakang",
+"Text brightness": "Kecerahan teks",
+"Dim pictures": "Malapkan gambar",
+"Leave sites that are dark already as they are": "Biarkan laman yang sudah gelap seperti sedia ada",
+"Style, depth, text and pictures back to their defaults": "Gaya, kedalaman, teks dan gambar kembali kepada lalai",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine milik I.K.E. sendiri: warna Dark Reader pada separuh kosnya. Dark Reader kekal tersedia; milik Chromium terbina dalam enjin dan paling ringan.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Warna halaman gelap. Juga dalam panel butang Mod gelap pada bar alat.",
+"How dark the backgrounds are.": "Seberapa gelap latar belakang.",
+"How bright the text is.": "Seberapa cerah teks.",
+"Photos and videos a little darker. 0%: as they are.": "Foto dan video sedikit lebih gelap. 0%: seperti sedia ada.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Laman dengan tema gelap sendiri mengekalkannya, walaupun tidak mengisytiharkannya."
 }
 }

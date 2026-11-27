@@ -283,7 +283,7 @@ DEFAULTS = {
     "comp_consent": True,
     "comp_dark": True,
     "dark_mode": "off",                 # off | on
-    # reader: Dark Reader API; engine: Chromium Auto Dark Mode; ike: experimental I.K.E. Dark Engine. All support
+    # reader: Dark Reader API; engine: Chromium Auto Dark Mode; ike: the I.K.E. Dark Engine (1.1.28). All support
     # per-site include/exclude rules and are applied at page navigation.
     "dark_engine": "reader",
     "dark_sites": [],                   # hosts that are dark while dark mode is off
@@ -292,6 +292,8 @@ DEFAULTS = {
     # and the sites with colours of their own ({host: theme}), set in the toolbar's panel
     "dark_theme": dict(darktheme.DEFAULTS),
     "dark_site_themes": {},
+    # the I.K.E. Dark Engine's look (1.1.28; darkengine.LOOK), set in its panel and in Settings
+    "dark_engine_look": None,
     "restore_once": False,              # reopen the last tabs at the next start (restart)
     "filter_lists": DEFAULT_LISTS,
     "custom_filters": "",
@@ -600,6 +602,12 @@ class Config:
         # its values; anything out of range or of another kind becomes Dark Reader's default)
         d["dark_theme"] = darktheme.clean(d.get("dark_theme"))
         d["dark_site_themes"] = darktheme.clean_sites(d.get("dark_site_themes"))
+        from . import darkengine
+        d["dark_engine_look"] = darkengine.clean_look(d.get("dark_engine_look"))
+        # the hidden switch of the experiment (1.1.26-27) becomes the choice in Settings (1.1.28)
+        if d.get("dark_engine_experiment") is True and d.get("dark_engine") == "reader":
+            d["dark_engine"] = "ike"
+        d["dark_engine_experiment"] = False
 
     def save(self):
         """Write the settings, unless the file already holds exactly them: the

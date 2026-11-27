@@ -932,7 +932,6 @@
 "Which buttons the toolbar shows. To move them, right-click the toolbar.": "Koja dugmad prikazuje traka s alatima. Za premještanje klikni desnim tasterom na traku s alatima.",
 "The size of the pages you have not zoomed yourself. 1.0 is the normal size.": "Veličina stranica koje nisi sam povećao ili smanjio. 1.0 je uobičajena veličina.",
 "Makes bright pages dark. Single sites: ☰ → Dark mode for pages. Part of the “Dark mode for pages” extension.": "Zatamnjuje svijetle stranice. Pojedine web stranice: ☰ → Tamni način za stranice. Dio proširenja „Tamni način za stranice”.",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader daje ljepše boje; Chromiumov vlastiti ugrađen je u pogon i lakši.",
 "The time and the date at the bottom of the page.": "Vrijeme i datum na dnu stranice.",
 "The same switch as the “Weather on the new tab page” extension.": "Isti prekidač kao proširenje „Vrijeme na stranici nove kartice”.",
 "Degrees Celsius or Fahrenheit.": "Stepeni Celzijusa ili Fahrenheita.",
@@ -1321,6 +1320,24 @@
 "W": "Z",
 "NW": "SZ",
 "Pressure": "Pritisak",
-"Automatic goes with the temperature unit.": "Automatski slijedi jedinicu temperature."
+"Automatic goes with the temperature unit.": "Automatski slijedi jedinicu temperature.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "Vlastiti tamni način I.K.E.-a: lagan i brz",
+"Style": "Stil",
+"Graphite": "Grafit",
+"Midnight": "Ponoć",
+"Warm": "Topao",
+"Nordic": "Nordijski",
+"Background depth": "Dubina pozadine",
+"Text brightness": "Svjetlina teksta",
+"Dim pictures": "Zatamni slike",
+"Leave sites that are dark already as they are": "Ostavi stranice koje su već tamne kakve jesu",
+"Style, depth, text and pictures back to their defaults": "Stil, dubina, tekst i slike vraćeni na zadano",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine je vlastiti I.K.E.-ov: boje Dark Readera uz upola manji trošak. Dark Reader ostaje dostupan; Chromiumov je ugrađen u motor i najlakši.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Boje tamnih stranica. Također u panelu dugmeta Tamni način na traci s alatima.",
+"How dark the backgrounds are.": "Koliko su pozadine tamne.",
+"How bright the text is.": "Koliko je tekst svijetao.",
+"Photos and videos a little darker. 0%: as they are.": "Fotografije i videi malo tamniji. 0%: kakvi jesu.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Stranice s vlastitom tamnom temom je zadržavaju, čak i kad je ne prijave."
 }
 }

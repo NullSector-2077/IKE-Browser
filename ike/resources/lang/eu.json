@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM bideoa (Widevine): instalatu gabe — Netflix eta antzeko zerbitzuak ez dira erreproduzituko",
 "Dark": "Iluna",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (webgune bakoitzeko ezar daiteke, berehalakoa)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader-ek kolore hobeak ematen ditu; Chromium-ena motorrean integratuta dago eta arinagoa da.",
 "Dark mode for pages": "Orrientzako modu iluna",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Orrientzako modu iluna desaktibatuko da. I.K.E.k berrabiarazi behar du aplikatzeko; zure fitxak berriro irekiko dira. Berrabiarazi orain?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Orrientzako modu iluna aktibatuko da. I.K.E.k berrabiarazi behar du aplikatzeko; zure fitxak berriro irekiko dira. Berrabiarazi orain?",
@@ -1321,6 +1320,24 @@
 "W": "M",
 "NW": "IM",
 "Pressure": "Presioa",
-"Automatic goes with the temperature unit.": "Automatikoak tenperaturaren unitatea jarraitzen du."
+"Automatic goes with the temperature unit.": "Automatikoak tenperaturaren unitatea jarraitzen du.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "I.K.E.-ren modu iluna: arina eta bizkorra",
+"Style": "Estiloa",
+"Graphite": "Grafitoa",
+"Midnight": "Gauerdia",
+"Warm": "Epela",
+"Nordic": "Nordikoa",
+"Background depth": "Atzeko planoaren sakonera",
+"Text brightness": "Testuaren distira",
+"Dim pictures": "Ilundu irudiak",
+"Leave sites that are dark already as they are": "Utzi dagoeneko ilunak diren webguneak dauden bezala",
+"Style, depth, text and pictures back to their defaults": "Estiloa, sakonera, testua eta irudiak lehenetsietara itzuli",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine I.K.E.-rena da: Dark Readerren koloreak kostuaren erdian. Dark Reader eskuragarri jarraitzen du; Chromiumena motorrean integratuta dago eta arinena da.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Orri ilunen koloreak. Tresna-barrako Modu iluna botoiaren panelean ere bai.",
+"How dark the backgrounds are.": "Atzeko planoak zein ilunak diren.",
+"How bright the text is.": "Testua zein distiratsua den.",
+"Photos and videos a little darker. 0%: as they are.": "Argazkiak eta bideoak pixka bat ilunago. 0%: dauden bezala.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Gai ilun propioa duten webguneek mantendu egiten dute, aitortzen ez badute ere."
 }
 }

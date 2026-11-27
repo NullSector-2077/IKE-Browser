@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "וידאו DRM (Widevine): לא מותקן — Netflix ושירותים דומים לא יתנגנו",
 "Dark": "כהה",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (אפשר להגדיר לכל אתר, מיידי)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader נותן צבעים טובים יותר; המצב של Chromium מובנה במנוע וקל יותר.",
 "Dark mode for pages": "מצב כהה לדפים",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "המצב הכהה לדפים יכובה. I.K.E. צריך לעלות מחדש כדי להחיל זאת; הלשוניות שלכם ייפתחו שוב. להפעיל מחדש עכשיו?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "המצב הכהה לדפים יופעל. I.K.E. צריך לעלות מחדש כדי להחיל זאת; הלשוניות שלכם ייפתחו שוב. להפעיל מחדש עכשיו?",
@@ -1321,6 +1320,24 @@
 "W": "מערב",
 "NW": "צפון-מערב",
 "Pressure": "לחץ אוויר",
-"Automatic goes with the temperature unit.": "אוטומטי עוקב אחר יחידת הטמפרטורה."
+"Automatic goes with the temperature unit.": "אוטומטי עוקב אחר יחידת הטמפרטורה.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "מצב כהה משלו של I.K.E.: קל ומהיר",
+"Style": "סגנון",
+"Graphite": "גרפיט",
+"Midnight": "חצות",
+"Warm": "חם",
+"Nordic": "נורדי",
+"Background depth": "עומק הרקע",
+"Text brightness": "בהירות הטקסט",
+"Dim pictures": "עמעום תמונות",
+"Leave sites that are dark already as they are": "השאר אתרים שכבר כהים כפי שהם",
+"Style, depth, text and pictures back to their defaults": "סגנון, עומק, טקסט ותמונות חוזרים לברירות המחדל",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine הוא של I.K.E. עצמו: הצבעים של Dark Reader בחצי מהעלות. Dark Reader נשאר זמין; זה של Chromium מובנה במנוע והוא הקל ביותר.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "הצבעים של הדפים הכהים. גם בחלונית של כפתור המצב הכהה בסרגל הכלים.",
+"How dark the backgrounds are.": "עד כמה הרקעים כהים.",
+"How bright the text is.": "עד כמה הטקסט בהיר.",
+"Photos and videos a little darker. 0%: as they are.": "תמונות וסרטונים כהים מעט יותר. 0%: כמות שהם.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "אתרים עם ערכת נושא כהה משלהם שומרים עליה, גם כשהם לא מצהירים עליה."
 }
 }

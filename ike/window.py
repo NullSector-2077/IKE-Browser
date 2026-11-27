@@ -2606,14 +2606,27 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         popup = self.__dict__.get("_panels", {}).get(key)
         return (popup[0], popup[1]) if popup is not None else (None, None)
 
-    # the dark mode panel (darkpanel.py)
+    # the dark mode panel: Dark Reader's (darkpanel.py) or the I.K.E. Dark Engine's
+    # (darkenginepanel.py, 1.1.28), as the dark mode method chosen
     @staticmethod
     def _dark_factory(win):
+        if win.app.config["dark_engine"] == "ike":
+            from .darkenginepanel import EnginePanel
+            return EnginePanel(win)
         from .darkpanel import DarkPanel
         return DarkPanel(win)
 
     def dark_popup(self):
-        """The popup of the Dark mode button, made the first time it opens."""
+        """The popup of the Dark mode button, made the first time it opens (made again
+        when the dark mode method changed since: each has its own panel)."""
+        want_engine = self.app.config["dark_engine"] == "ike"
+        if self.dark_menu is not None and (type(self.dark_panel).__name__ == "EnginePanel") != want_engine:
+            popups = self.__dict__.get("_panels", {})
+            menu = popups.pop("dark", (None,))[0]
+            if menu is not None:
+                menu.hide()
+                menu.deleteLater()
+            self.dark_menu = self.dark_panel = self.dark_scroll = self.dark_wa = None
         if self.dark_menu is None:
             menu, panel, scroll, wa = self._panel_popup("dark", self._dark_factory)
             self.dark_menu, self.dark_panel, self.dark_scroll, self.dark_wa = menu, panel, scroll, wa

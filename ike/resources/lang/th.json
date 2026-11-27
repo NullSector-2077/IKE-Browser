@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "วิดีโอ DRM (Widevine): ไม่ได้ติดตั้ง — Netflix และบริการที่คล้ายกันจะเล่นไม่ได้",
 "Dark": "มืด",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (ตั้งค่ารายไซต์ได้ มีผลทันที)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader ให้สีที่สวยกว่า ส่วนของ Chromium เองฝังอยู่ในเอนจินและเบากว่า",
 "Dark mode for pages": "โหมดมืดสำหรับหน้าเว็บ",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "โหมดมืดสำหรับหน้าเว็บจะถูกปิด I.K.E. ต้องรีสตาร์ตเพื่อให้มีผล และจะเปิดแท็บของคุณอีกครั้ง รีสตาร์ตตอนนี้หรือไม่",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "โหมดมืดสำหรับหน้าเว็บจะถูกเปิด I.K.E. ต้องรีสตาร์ตเพื่อให้มีผล และจะเปิดแท็บของคุณอีกครั้ง รีสตาร์ตตอนนี้หรือไม่",
@@ -1321,6 +1320,24 @@
 "W": "ตะวันตก",
 "NW": "ตะวันตกเฉียงเหนือ",
 "Pressure": "ความกดอากาศ",
-"Automatic goes with the temperature unit.": "อัตโนมัติจะใช้ตามหน่วยของอุณหภูมิ"
+"Automatic goes with the temperature unit.": "อัตโนมัติจะใช้ตามหน่วยของอุณหภูมิ",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "โหมดมืดของ I.K.E. เอง: เบาและเร็ว",
+"Style": "สไตล์",
+"Graphite": "กราไฟต์",
+"Midnight": "เที่ยงคืน",
+"Warm": "อบอุ่น",
+"Nordic": "นอร์ดิก",
+"Background depth": "ความเข้มของพื้นหลัง",
+"Text brightness": "ความสว่างของข้อความ",
+"Dim pictures": "ลดความสว่างรูปภาพ",
+"Leave sites that are dark already as they are": "ปล่อยไซต์ที่มืดอยู่แล้วไว้ตามเดิม",
+"Style, depth, text and pictures back to their defaults": "คืนสไตล์ ความเข้ม ข้อความ และรูปภาพเป็นค่าเริ่มต้น",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine เป็นของ I.K.E. เอง: สีของ Dark Reader ด้วยต้นทุนครึ่งเดียว Dark Reader ยังใช้ได้เช่นเดิม ส่วนของ Chromium ฝังอยู่ในเอนจินและเบาที่สุด",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "สีของหน้าที่เป็นโหมดมืด มีในแผงของปุ่มโหมดมืดบนแถบเครื่องมือด้วย",
+"How dark the backgrounds are.": "พื้นหลังมืดแค่ไหน",
+"How bright the text is.": "ข้อความสว่างแค่ไหน",
+"Photos and videos a little darker. 0%: as they are.": "ภาพถ่ายและวิดีโอมืดลงเล็กน้อย 0%: ตามเดิม",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "ไซต์ที่มีธีมมืดของตัวเองจะคงไว้ แม้ไม่ได้ประกาศไว้"
 }
 }

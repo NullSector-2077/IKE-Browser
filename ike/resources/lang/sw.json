@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "Video ya DRM (Widevine): haijasakinishwa — Netflix na huduma zinazofanana hazitacheza",
 "Dark": "Nyeusi",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (inaweza kuwekwa kwa kila tovuti, mara moja)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader hutoa rangi bora; ya Chromium imejengwa ndani ya injini na ni nyepesi zaidi.",
 "Dark mode for pages": "Hali nyeusi kwa kurasa",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Hali nyeusi kwa kurasa itazimwa. I.K.E. inapaswa kuwashwa upya ili kuitumia; vichupo vyako vitafunguliwa tena. Uwashe upya sasa?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Hali nyeusi kwa kurasa itawashwa. I.K.E. inapaswa kuwashwa upya ili kuitumia; vichupo vyako vitafunguliwa tena. Uwashe upya sasa?",
@@ -1321,6 +1320,24 @@
 "W": "Magharibi",
 "NW": "Kaskazini-magharibi",
 "Pressure": "Mgandamizo wa hewa",
-"Automatic goes with the temperature unit.": "Kiotomatiki hufuata kipimo cha halijoto."
+"Automatic goes with the temperature unit.": "Kiotomatiki hufuata kipimo cha halijoto.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "Hali nyeusi ya I.K.E. yenyewe: nyepesi na ya haraka",
+"Style": "Mtindo",
+"Graphite": "Grafiti",
+"Midnight": "Usiku wa manane",
+"Warm": "Joto",
+"Nordic": "Nordiki",
+"Background depth": "Kina cha mandharinyuma",
+"Text brightness": "Mwangaza wa maandishi",
+"Dim pictures": "Punguza mwangaza wa picha",
+"Leave sites that are dark already as they are": "Acha tovuti ambazo tayari ni nyeusi kama zilivyo",
+"Style, depth, text and pictures back to their defaults": "Mtindo, kina, maandishi na picha virudi kwenye chaguomsingi",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine ni ya I.K.E. yenyewe: rangi za Dark Reader kwa nusu ya gharama. Dark Reader inabaki inapatikana; ile ya Chromium imejengwa ndani ya injini na ndiyo nyepesi zaidi.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Rangi za kurasa nyeusi. Pia katika paneli ya kitufe cha Hali nyeusi kwenye upau wa zana.",
+"How dark the backgrounds are.": "Mandharinyuma yana weusi kiasi gani.",
+"How bright the text is.": "Maandishi yana mwangaza kiasi gani.",
+"Photos and videos a little darker. 0%: as they are.": "Picha na video nyeusi kidogo zaidi. 0%: kama zilivyo.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Tovuti zenye mandhari nyeusi yake zinaihifadhi, hata kama hazijaitangaza."
 }
 }

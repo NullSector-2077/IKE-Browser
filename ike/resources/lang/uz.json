@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM video (Widevine): oʻrnatilmagan — Netflix va shunga oʻxshash xizmatlar ijro etilmaydi",
 "Dark": "Qorongʻi",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (saytlar boʻyicha sozlash mumkin, darhol)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader yaxshiroq ranglar beradi; Chromiumning oʻzinikisi dvigatelga oʻrnatilgan va yengilroq.",
 "Dark mode for pages": "Sahifalar uchun qorongʻi rejim",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Sahifalar uchun qorongʻi rejim oʻchiriladi. Uni qoʻllash uchun I.K.E. qayta ishga tushishi kerak; varaqlaringiz qayta ochiladi. Hozir qayta ishga tushirilsinmi?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Sahifalar uchun qorongʻi rejim yoqiladi. Uni qoʻllash uchun I.K.E. qayta ishga tushishi kerak; varaqlaringiz qayta ochiladi. Hozir qayta ishga tushirilsinmi?",
@@ -1321,6 +1320,24 @@
 "W": "g‘arb",
 "NW": "shimoli-g‘arb",
 "Pressure": "Bosim",
-"Automatic goes with the temperature unit.": "Avtomatik harorat birligiga mos keladi."
+"Automatic goes with the temperature unit.": "Avtomatik harorat birligiga mos keladi.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "I.K.E.ning o‘z qorong‘i rejimi: yengil va tez",
+"Style": "Uslub",
+"Graphite": "Grafit",
+"Midnight": "Yarim tun",
+"Warm": "Iliq",
+"Nordic": "Shimoliy",
+"Background depth": "Fon chuqurligi",
+"Text brightness": "Matn yorqinligi",
+"Dim pictures": "Rasmlarni xiralashtirish",
+"Leave sites that are dark already as they are": "Allaqachon qorong‘i saytlarni o‘zgartirmaslik",
+"Style, depth, text and pictures back to their defaults": "Uslub, chuqurlik, matn va rasmlar standart holatga qaytadi",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine I.K.E.ning o‘zinikidir: Dark Reader ranglari yarim narxda. Dark Reader mavjud bo‘lib qoladi; Chromiumning o‘zinikisi dvigatelga o‘rnatilgan va eng yengili.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Qorong‘i sahifalar ranglari. Asboblar panelidagi Qorong‘i rejim tugmasi panelida ham bor.",
+"How dark the backgrounds are.": "Fonlar qanchalik qorong‘i.",
+"How bright the text is.": "Matn qanchalik yorqin.",
+"Photos and videos a little darker. 0%: as they are.": "Rasm va videolar biroz qorong‘iroq. 0%: o‘zgarishsiz.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "O‘z qorong‘i mavzusi bor saytlar uni e’lon qilmasa ham saqlab qoladi."
 }
 }

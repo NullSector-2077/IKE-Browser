@@ -932,7 +932,6 @@
 "Which buttons the toolbar shows. To move them, right-click the toolbar.": "工具栏显示哪些按钮。要移动它们，请右键点击工具栏。",
 "The size of the pages you have not zoomed yourself. 1.0 is the normal size.": "你没有自己缩放过的页面的大小。1.0 为正常大小。",
 "Makes bright pages dark. Single sites: ☰ → Dark mode for pages. Part of the “Dark mode for pages” extension.": "把明亮的页面变暗。单个网站：☰ → 页面深色模式。属于“页面深色模式”扩展的一部分。",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader 的颜色更好；Chromium 自带的内置于引擎，更轻量。",
 "The time and the date at the bottom of the page.": "在页面底部显示时间和日期。",
 "The same switch as the “Weather on the new tab page” extension.": "与“新标签页天气”扩展使用同一个开关。",
 "Degrees Celsius or Fahrenheit.": "摄氏度或华氏度。",
@@ -1321,6 +1320,24 @@
 "W": "西",
 "NW": "西北",
 "Pressure": "气压",
-"Automatic goes with the temperature unit.": "“自动”跟随温度单位。"
+"Automatic goes with the temperature unit.": "“自动”跟随温度单位。",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "I.K.E. 自带的深色模式：轻巧快速",
+"Style": "样式",
+"Graphite": "石墨",
+"Midnight": "午夜",
+"Warm": "暖色",
+"Nordic": "北欧",
+"Background depth": "背景深度",
+"Text brightness": "文字亮度",
+"Dim pictures": "调暗图片",
+"Leave sites that are dark already as they are": "已是深色的网站保持原样",
+"Style, depth, text and pictures back to their defaults": "样式、深度、文字和图片恢复默认值",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine 是 I.K.E. 自己的引擎：Dark Reader 的配色，开销只有一半。Dark Reader 仍然可用；Chromium 自带的已内置于引擎中，最轻量。",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "深色页面的颜色。工具栏深色模式按钮的面板中也有。",
+"How dark the backgrounds are.": "背景有多深。",
+"How bright the text is.": "文字有多亮。",
+"Photos and videos a little darker. 0%: as they are.": "照片和视频稍微调暗。0%：保持原样。",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "自带深色主题的网站会保留它，即使它们没有声明。"
 }
 }

@@ -557,6 +557,30 @@ class IkeApp(QObject):
                 pass
         return True
 
+    def push_engine_look(self, view, look):
+        """One tab's page takes a look of the I.K.E. Dark Engine now (its panel, while a
+        slider moves): only a page the engine made dark, nothing loaded again."""
+        from . import darkengine
+        if view is None or getattr(view, "sleeping", False) or getattr(view, "pending_url", None):
+            return False
+        page = view.page()
+        if not getattr(page, "_dark_on", False) or getattr(page, "_dark_engine", None) != "ike":
+            return False
+        darkengine.set_look(view, look)
+        return True
+
+    def engine_look_changed(self):
+        """The I.K.E. Dark Engine's look was changed and kept (its panel or Settings):
+        saved, given to every open page it made dark and to the pages loaded next."""
+        from . import darkengine
+        cfg = self.config
+        cfg["dark_engine_look"] = darkengine.clean_look(cfg["dark_engine_look"])
+        cfg.save()
+        for w in self.windows:
+            views = [v for vs in getattr(w, "workspaces", {}).values() for v in vs] or list(w.views)
+            for v in views:
+                self.push_engine_look(v, cfg["dark_engine_look"])
+
     def dark_theme_changed(self):
         """The colours of dark mode were changed and kept (the dark mode panel, 1.1.25):
         saved, given to every open page made dark by Dark Reader, and to the pages

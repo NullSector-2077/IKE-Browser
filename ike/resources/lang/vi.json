@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "Video DRM (Widevine): chưa cài đặt — Netflix và các dịch vụ tương tự sẽ không phát được",
 "Dark": "Tối",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (đặt được theo từng trang, có hiệu lực ngay)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader cho màu đẹp hơn; chế độ của Chromium được tích hợp trong công cụ và nhẹ hơn.",
 "Dark mode for pages": "Chế độ tối cho trang",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Chế độ tối cho trang sẽ được tắt. I.K.E. phải khởi động lại để áp dụng; các thẻ của bạn sẽ được mở lại. Khởi động lại ngay?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Chế độ tối cho trang sẽ được bật. I.K.E. phải khởi động lại để áp dụng; các thẻ của bạn sẽ được mở lại. Khởi động lại ngay?",
@@ -1321,6 +1320,24 @@
 "W": "T",
 "NW": "TB",
 "Pressure": "Áp suất",
-"Automatic goes with the temperature unit.": "Tự động theo đơn vị nhiệt độ."
+"Automatic goes with the temperature unit.": "Tự động theo đơn vị nhiệt độ.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "Chế độ tối riêng của I.K.E.: nhẹ và nhanh",
+"Style": "Kiểu",
+"Graphite": "Than chì",
+"Midnight": "Nửa đêm",
+"Warm": "Ấm",
+"Nordic": "Bắc Âu",
+"Background depth": "Độ sâu của nền",
+"Text brightness": "Độ sáng văn bản",
+"Dim pictures": "Làm tối hình ảnh",
+"Leave sites that are dark already as they are": "Giữ nguyên các trang web vốn đã tối",
+"Style, depth, text and pictures back to their defaults": "Kiểu, độ sâu, văn bản và hình ảnh trở về mặc định",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine là của riêng I.K.E.: màu sắc của Dark Reader với một nửa chi phí. Dark Reader vẫn dùng được; bản của Chromium được tích hợp trong công cụ và nhẹ nhất.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Màu của các trang tối. Cũng có trong bảng của nút Chế độ tối trên thanh công cụ.",
+"How dark the backgrounds are.": "Nền tối đến mức nào.",
+"How bright the text is.": "Văn bản sáng đến mức nào.",
+"Photos and videos a little darker. 0%: as they are.": "Ảnh và video tối hơn một chút. 0%: giữ nguyên.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Các trang web có giao diện tối riêng sẽ giữ nó, kể cả khi không khai báo."
 }
 }

@@ -314,7 +314,9 @@ class WebPage(QWebEnginePage):
         # white flash. The new tab page's own colour for the new tab page,
         # whatever the dark mode (1.1.23: white for about 0.1 s at every start
         # and every new tab, the owner's "white flash")
-        if reader_on or own_on or blank:
+        if own_on:
+            self.set_backdrop(QColor(darkengine.background(cfg["dark_engine_look"])))
+        elif reader_on or blank:
             self.set_backdrop(DARK_BLANK)
         elif is_newtab(url):
             self.set_backdrop(self.app.shields.newtab_background())
@@ -336,7 +338,7 @@ class WebPage(QWebEnginePage):
             # the page sees its address in ASCII (xn--...): the site is registered so
             ace = bytes(QUrl.toAce(host)).decode("ascii", "replace") if host else ""
             darkengine.prepare(profile, url.toString(), ace or url.scheme() + ":", own_on,
-                               self.app.shields.dark_chosen(host))
+                               self.app.shields.dark_chosen(host), cfg["dark_engine_look"])
             return
         # the colours, checked again here (darktheme.py): every site's, and the site's own (1.1.25)
         from . import darktheme

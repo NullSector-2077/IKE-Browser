@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "DRM video (Widevine): hindi naka-install — hindi magpe-play ang Netflix at mga katulad na serbisyo",
 "Dark": "Madilim",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (maitatakda kada site, agaran)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Mas maganda ang kulay ng Dark Reader; ang sa Chromium ay built-in sa engine at mas magaan.",
 "Dark mode for pages": "Dark mode para sa mga page",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Io-off ang dark mode para sa mga page. Kailangang mag-restart ang I.K.E. para ilapat ito; bubuksan muli ang mga tab mo. Mag-restart ngayon?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Io-on ang dark mode para sa mga page. Kailangang mag-restart ang I.K.E. para ilapat ito; bubuksan muli ang mga tab mo. Mag-restart ngayon?",
@@ -1321,6 +1320,24 @@
 "W": "K",
 "NW": "HK",
 "Pressure": "Presyon",
-"Automatic goes with the temperature unit.": "Sinusunod ng Awtomatiko ang yunit ng temperatura."
+"Automatic goes with the temperature unit.": "Sinusunod ng Awtomatiko ang yunit ng temperatura.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "Sariling dark mode ng I.K.E.: magaan at mabilis",
+"Style": "Istilo",
+"Graphite": "Graphite",
+"Midnight": "Hatinggabi",
+"Warm": "Mainit",
+"Nordic": "Nordic",
+"Background depth": "Lalim ng background",
+"Text brightness": "Liwanag ng teksto",
+"Dim pictures": "Padilimin ang mga larawan",
+"Leave sites that are dark already as they are": "Iwanan ang mga site na madilim na kung ano sila",
+"Style, depth, text and pictures back to their defaults": "Ibalik sa default ang istilo, lalim, teksto at mga larawan",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "Ang I.K.E. Dark Engine ay sariling gawa ng I.K.E.: ang kulay ng Dark Reader sa kalahati ng gastos. Mananatiling available ang Dark Reader; ang sa Chromium ay nakapaloob sa engine at pinakamagaan.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Ang mga kulay ng madilim na mga page. Nasa panel din ito ng Dark mode button sa toolbar.",
+"How dark the backgrounds are.": "Gaano kadilim ang mga background.",
+"How bright the text is.": "Gaano kaliwanag ang teksto.",
+"Photos and videos a little darker. 0%: as they are.": "Mga larawan at video na bahagyang mas madilim. 0%: gaya ng dati.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Pinapanatili ng mga site na may sariling dark theme ito, kahit hindi nila ito ideklara."
 }
 }

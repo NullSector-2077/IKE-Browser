@@ -232,7 +232,6 @@
 "DRM video (Widevine): not installed — Netflix and similar services will not play": "Video DRM (Widevine): s’është instaluar — Netflix dhe shërbime të ngjashme s’do të luajnë",
 "Dark": "E errët",
 "Dark Reader (can be set per site, immediate)": "Dark Reader (mund të caktohet për çdo sajt, menjëherë)",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader jep ngjyra më të mira; ajo e Chromium-it është e brendshme në motor dhe më e lehtë.",
 "Dark mode for pages": "Mënyrë e errët për faqet",
 "Dark mode for pages will be turned off. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Mënyra e errët për faqet do të çaktivizohet. I.K.E. duhet të riniset që të zbatohet; skedat tuaja do të rihapen. Të riniset tani?",
 "Dark mode for pages will be turned on. I.K.E. has to restart to apply it; your tabs will be reopened. Restart now?": "Mënyra e errët për faqet do të aktivizohet. I.K.E. duhet të riniset që të zbatohet; skedat tuaja do të rihapen. Të riniset tani?",
@@ -1321,6 +1320,24 @@
 "W": "P",
 "NW": "VP",
 "Pressure": "Presioni",
-"Automatic goes with the temperature unit.": "Automatike ndjek njësinë e temperaturës."
+"Automatic goes with the temperature unit.": "Automatike ndjek njësinë e temperaturës.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "Mënyra e errët e vetë I.K.E.: e lehtë dhe e shpejtë",
+"Style": "Stili",
+"Graphite": "Grafit",
+"Midnight": "Mesnatë",
+"Warm": "I ngrohtë",
+"Nordic": "Nordik",
+"Background depth": "Thellësia e sfondit",
+"Text brightness": "Ndriçimi i tekstit",
+"Dim pictures": "Err figurat",
+"Leave sites that are dark already as they are": "Lëri faqet që janë tashmë të errëta siç janë",
+"Style, depth, text and pictures back to their defaults": "Stili, thellësia, teksti dhe figurat kthehen te parazgjedhjet",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine është i vetë I.K.E.: ngjyrat e Dark Reader me gjysmën e kostos. Dark Reader mbetet i disponueshëm; ai i Chromium është i integruar në motor dhe më i lehti.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Ngjyrat e faqeve të errëta. Edhe në panelin e butonit Mënyra e errët të shiritit të veglave.",
+"How dark the backgrounds are.": "Sa të errët janë sfondet.",
+"How bright the text is.": "Sa i ndritshëm është teksti.",
+"Photos and videos a little darker. 0%: as they are.": "Foto dhe video pak më të errëta. 0%: siç janë.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Faqet me temë të errët të vetën e ruajnë, edhe kur nuk e deklarojnë."
 }
 }

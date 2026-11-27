@@ -932,7 +932,6 @@
 "Which buttons the toolbar shows. To move them, right-click the toolbar.": "ツールバーに表示するボタンです。移動するには、ツールバーを右クリックします。",
 "The size of the pages you have not zoomed yourself. 1.0 is the normal size.": "自分でズームしていないページの大きさです。1.0 が標準の大きさです。",
 "Makes bright pages dark. Single sites: ☰ → Dark mode for pages. Part of the “Dark mode for pages” extension.": "明るいページを暗くします。個別のサイト: ☰ → ページのダークモード。「ページのダークモード」拡張機能の一部です。",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader は色がきれいです。Chromium 標準のものはエンジンに組み込まれていて軽量です。",
 "The time and the date at the bottom of the page.": "ページの下部に時刻と日付を表示します。",
 "The same switch as the “Weather on the new tab page” extension.": "「新しいタブページの天気」拡張機能と同じスイッチです。",
 "Degrees Celsius or Fahrenheit.": "摂氏または華氏。",
@@ -1321,6 +1320,24 @@
 "W": "西",
 "NW": "北西",
 "Pressure": "気圧",
-"Automatic goes with the temperature unit.": "「自動」は気温の単位に合わせます。"
+"Automatic goes with the temperature unit.": "「自動」は気温の単位に合わせます。",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "I.K.E. 独自のダークモード：軽くて高速",
+"Style": "スタイル",
+"Graphite": "グラファイト",
+"Midnight": "ミッドナイト",
+"Warm": "ウォーム",
+"Nordic": "ノルディック",
+"Background depth": "背景の濃さ",
+"Text brightness": "文字の明るさ",
+"Dim pictures": "画像を暗くする",
+"Leave sites that are dark already as they are": "すでに暗いサイトはそのままにする",
+"Style, depth, text and pictures back to their defaults": "スタイル、濃さ、文字、画像を初期値に戻します",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine は I.K.E. 独自のエンジンです。Dark Reader の色を半分の負荷で実現します。Dark Reader も引き続き使えます。Chromium 標準のものはエンジンに内蔵されていて最も軽量です。",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "ダークページの色です。ツールバーのダークモードボタンのパネルにもあります。",
+"How dark the backgrounds are.": "背景の暗さです。",
+"How bright the text is.": "文字の明るさです。",
+"Photos and videos a little darker. 0%: as they are.": "写真と動画を少し暗くします。0%：そのまま。",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "独自のダークテーマを持つサイトは、宣言していなくてもそれを維持します。"
 }
 }

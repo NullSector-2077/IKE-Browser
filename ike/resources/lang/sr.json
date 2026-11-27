@@ -932,7 +932,6 @@
 "Which buttons the toolbar shows. To move them, right-click the toolbar.": "Која дугмад приказује трака са алаткама. Да их померите, кликните десним тастером на траку.",
 "The size of the pages you have not zoomed yourself. 1.0 is the normal size.": "Величина страница које нисте сами зумирали. 1.0 је уобичајена величина.",
 "Makes bright pages dark. Single sites: ☰ → Dark mode for pages. Part of the “Dark mode for pages” extension.": "Чини светле странице тамним. За појединачне сајтове: ☰ → Тамни режим за странице. Део додатка „Тамни режим за странице“.",
-"Dark Reader gives better colours; Chromium's own is built into the engine and lighter.": "Dark Reader даје боље боје; Chromium-ов сопствени је уграђен у механизам и лакши је.",
 "The time and the date at the bottom of the page.": "Време и датум при дну странице.",
 "The same switch as the “Weather on the new tab page” extension.": "Исти прекидач као код додатка „Време на страници нове картице“.",
 "Degrees Celsius or Fahrenheit.": "Степени Целзијуса или Фаренхајта.",
@@ -1321,6 +1320,24 @@
 "W": "З",
 "NW": "СЗ",
 "Pressure": "Притисак",
-"Automatic goes with the temperature unit.": "Аутоматски прати јединицу температуре."
+"Automatic goes with the temperature unit.": "Аутоматски прати јединицу температуре.",
+"I.K.E. Dark Engine": "I.K.E. Dark Engine",
+"I.K.E.'s own dark mode: light and fast": "Сопствени тамни режим I.K.E.-а: лаган и брз",
+"Style": "Стил",
+"Graphite": "Графит",
+"Midnight": "Поноћ",
+"Warm": "Топло",
+"Nordic": "Нордијски",
+"Background depth": "Дубина позадине",
+"Text brightness": "Осветљеност текста",
+"Dim pictures": "Затамни слике",
+"Leave sites that are dark already as they are": "Остави сајтове који су већ тамни какви јесу",
+"Style, depth, text and pictures back to their defaults": "Стил, дубина, текст и слике враћени на подразумевано",
+"The I.K.E. Dark Engine is I.K.E.'s own: Dark Reader's colours at half its cost. Dark Reader stays available; Chromium's own is built into the engine and the lightest.": "I.K.E. Dark Engine је сопствени I.K.E.-ов: боје Dark Reader-а уз упола мањи трошак. Dark Reader остаје доступан; Chromium-ов је уграђен у мотор и најлакши.",
+"The colours of the dark pages. Also in the panel of the toolbar's Dark mode button.": "Боје тамних страница. Такође у панелу дугмета Тамни режим на траци са алаткама.",
+"How dark the backgrounds are.": "Колико су позадине тамне.",
+"How bright the text is.": "Колико је текст светао.",
+"Photos and videos a little darker. 0%: as they are.": "Фотографије и видео-снимци мало тамнији. 0%: какви јесу.",
+"Sites with a dark theme of their own keep it, also when they do not declare it.": "Сајтови са сопственом тамном темом је задржавају, чак и када је не наведу."
 }
 }
