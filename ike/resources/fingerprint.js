@@ -54,6 +54,14 @@
     });
   }
   var THEN = Promise.prototype.then, DEFPROP = Object.defineProperty, SPECIES = Symbol.species;
+  var natives = hardMap();         // replacement -> source text of the original
+  // the engine's own random numbers, taken before any page script (1.1.27:
+  // the variation of every exported picture, jitter)
+  var CRYPTO_ = window.crypto, CRV = window.Crypto && Crypto.prototype.getRandomValues, SALT = new Uint32Array(1);
+  function freshSalt() {
+    try { RAPPLY(CRV, CRYPTO_, [SALT]); } catch (e) { SALT[0] = SALT[0] * 2654435761 + 40503; }
+    return SALT[0] | 1;
+  }
   // A promise of the engine's, given a reaction of the protection: then()
   // asks the promise for its constructor (the "species"), and a getter on
   // Promise.prototype.constructor was handed the engine's own promise, with
@@ -186,21 +194,26 @@
       return me === s || me.slice(-(s.length + 1)) === '.' + s;
     })) return;
   }
-  // Google's sign-in refuses embedded Chromium engines: present the same
-  // Firefox identity that is sent in the request header.
-  // Not when the page around it is left alone (shield off there, or a
-  // sensitive Google service: 1.1.14), as the request header is not changed either.
-  if (CFG.ffua && location.hostname === 'accounts.google.com' && levelFor(host) !== 'off') {
-    try {
-      var np = Navigator.prototype;
-      var ffv = { userAgent: CFG.ffua, appVersion: CFG.ffAppVersion || '5.0 (X11)', vendor: '',
-        productSub: '20100101', userAgentData: undefined, oscpu: CFG.ffOscpu || 'Linux x86_64',
-        buildID: '20181001000000' };
-      Object.keys(ffv).forEach(function (k) {
-        Object.defineProperty(np, k, { get: function () { return ffv[k]; }, configurable: true });
-      });
-      try { delete window.chrome; } catch (e) {}
-    } catch (e) {}
+  // Google's sites see a current Firefox (1.1.27, the owner's decision), the
+  // same one the request headers carry (shields.firefox_request): every frame
+  // of a page of Google's, and a Google sign-in page embedded anywhere. Google
+  // refuses Qt WebEngine's Chromium as an embedded program or a bot; until
+  // 1.1.26 only accounts.google.com got it, as an old Firefox 140, with getters
+  // whose source a page could read, and Google's services were left without
+  // protections instead. Not where the shield is off, as the headers.
+  var FIREFOX = false;
+  if (CFG.ffua && levelFor(host) !== 'off') {
+    var googleSite = function (h) {
+      h = lower(`${h || ''}`);
+      if (RAPPLY(RE_TEST, /(^|\.)google\.(com?\.)?[a-z]{2,3}$/, [h])) return true;
+      var list = CFG.ffsites || [];
+      for (var i = 0; i < list.length; i++) {
+        var d = list[i];
+        if (h === d || (h.length > d.length && sslice(h, h.length - d.length - 1) === '.' + d)) return true;
+      }
+      return (CFG.ffsignin || []).indexOf(h) >= 0;
+    };
+    FIREFOX = googleSite(host) || (CFG.ffsignin || []).indexOf(lower(location.hostname)) >= 0;
   }
   var RANK = { off: 0, compatibility: 1, balanced: 2, strict: 3, maximum: 4 };
   var lv = RANK[levelFor(host)];
@@ -223,7 +236,22 @@
       });
     } catch (e) {}
   }
-  if (lv < 2) return;
+  if (lv < 2) {
+    // Compatibility, or the fingerprint protection off for this site: no
+    // protection, but Google's sites still see Firefox, as in the headers
+    if (FIREFOX) {
+      try {
+        wrap(Function.prototype, 'toString', function (orig) {
+          return function () {
+            var s = natives.get(this);
+            return s !== undefined ? s : RAPPLY(orig, this, []);
+          };
+        });
+        firefoxIdentity(window);
+      } catch (e) {}
+    }
+    return;
+  }
   var strict = lv >= 3;
   var maximum = lv >= 4;
 
@@ -551,6 +579,44 @@
         if ((hh & 7) === 0) {
           var c = q + ((hh >>> 3) & 0xffff) % 3;
           data[c] = (data[c] & 254) | ((hh >>> 20) & 1);
+        }
+      }
+    }
+  }
+
+  // A canvas exported as a picture (toDataURL, toBlob, convertToBlob) gets, on
+  // top of the site's noise, a little noise of its own that changes at every
+  // export (1.1.27, the owner's decision): two exports of the same drawing
+  // differ, as Cover Your Tracks checks ("randomized fingerprint"; since the
+  // noise became the same for every read of a site, 1.1.20 to 1.1.26, it showed
+  // a "unique" one that was in fact new in every session and on every site).
+  // Averaging many exports gives back the picture with the site's noise, never
+  // the real one: the varying part only touches pixels the site's noise may
+  // touch too, and sets their lowest bit (opaque pixels at an edge of the
+  // drawing; a pixel with the colour of its four neighbours never, so flat
+  // areas and known test patterns stay exact), one in 32 of them. getImageData
+  // is left as it was (a second read gives the same pixels: pages that edit
+  // pictures read and write them back). Large pictures: a part of the pixels.
+  function jitter(data, w, h, salt) {
+    var row = w * 4, n = w * h, step = n > 100000 ? ((n + 99999) / 100000) | 0 : 1;
+    var at = function (q) {
+      return (data[q] & 254) | ((data[q + 1] & 254) << 8) | ((data[q + 2] & 254) << 16) | (data[q + 3] << 24);
+    };
+    for (var y = 0; y < h; y++) {
+      for (var x = step > 1 ? (step - (y * 7) % step) % step : 0; x < w; x += step) {
+        var q = y * row + x * 4;
+        if (data[q + 3] !== 255) continue;
+        var me = at(q);
+        if (me === (x > 0 ? at(q - 4) : 0) && me === (x < w - 1 ? at(q + 4) : 0) &&
+            me === (y > 0 ? at(q - row) : 0) && me === (y < h - 1 ? at(q + row) : 0)) continue;
+        var hh = (salt ^ q) | 0;
+        hh = (hh + (hh << 1) + (hh << 4) + (hh << 7) + (hh << 8) + (hh << 24)) | 0;
+        hh ^= hh >>> 15;
+        hh = (hh + (hh << 1) + (hh << 4) + (hh << 7) + (hh << 8) + (hh << 24)) | 0;
+        hh ^= hh >>> 13;
+        if ((hh & 31) === 0) {
+          var c = q + ((hh >>> 5) & 0xffff) % 3;
+          data[c] = (data[c] & 254) | ((hh >>> 21) & 1);
         }
       }
     }
@@ -1158,7 +1224,8 @@
       e.stack = out;
     } catch (x) {}
   }
-  var natives = hardMap();         // replacement -> source text of the original
+  // natives: made at the top (1.1.27), the Firefox identity of Google's sites
+  // uses it before the rest of the protection is set up
   // The text the engine gives for its own function: the original's as read
   // here, or the engine's form if that is no engine text (the original was
   // a replacement of another instance's, read with a toString a page had
@@ -1210,6 +1277,26 @@
     natives.set(s, nativeText(orig, 'set ', name));
     d.set = s;
     try { Object.defineProperty(obj, name, d); } catch (e) {}
+  }
+  // A current Firefox on Linux, in one realm (1.1.27): its navigator's texts,
+  // its own oscpu and buildID, and none of Chromium's userAgentData or
+  // window.chrome. The getters read as the engine's own (natives).
+  function firefoxIdentity(w) {
+    var NP = w.Navigator && w.Navigator.prototype;
+    if (!NP) return;
+    var ffv = { userAgent: CFG.ffua, appVersion: CFG.ffAppVersion || '5.0 (X11)', vendor: '',
+      productSub: '20100101', oscpu: CFG.ffOscpu || 'Linux x86_64', buildID: '20181001000000' };
+    ['userAgent', 'appVersion', 'vendor', 'productSub'].forEach(function (k) {
+      getter(NP, k, function () { return ffv[k]; });
+    });
+    ['oscpu', 'buildID'].forEach(function (k) {
+      try {
+        DEFPROP(NP, k, { get: accessor(k, function () { return ffv[k]; }, null), configurable: true, enumerable: true });
+      } catch (e) {}
+    });
+    try { delete NP.userAgentData; } catch (e) {}
+    try { delete w.NavigatorUAData; } catch (e) {}
+    try { delete w.chrome; } catch (e) {}
   }
   // WebGPU names the same card as WebGL on this site (1.1.18): its vendor and
   // architecture, no device id or description (as Chrome on Linux gives).
@@ -2117,6 +2204,7 @@
       if (strict) maskFonts(w);
       return;
     }
+    if (FIREFOX) firefoxIdentity(w);
     if (CFG.gpc) {
       try {
         Object.defineProperty(w.Navigator.prototype, 'globalPrivacyControl', {
@@ -2151,6 +2239,12 @@
       else noiseImage(img);
       return img;
     }
+    // a picture about to be exported: the variation of this export (jitter)
+    function exported(img, cw, ch) {
+      var px = pixels(img);
+      if (TAG(px) === 'Uint8ClampedArray') jitter(px, cw, ch, freshSalt());
+      return img;
+    }
     function noisyCopy(canvas) {
       if (track && track.plain(canvas)) return canvas;
       try {
@@ -2160,7 +2254,7 @@
         RAPPLY(CV.sw, c, [cw]); RAPPLY(CV.sh, c, [ch]);
         var ctx = RAPPLY(CV.ctx, c, ['2d']);
         RAPPLY(CV.draw, ctx, [canvas, 0, 0]);
-        RAPPLY(CV.put, ctx, [noiseAll(ctx, rawGetImageData, cw, ch), 0, 0]);
+        RAPPLY(CV.put, ctx, [exported(noiseAll(ctx, rawGetImageData, cw, ch), cw, ch), 0, 0]);
         return c;
       } catch (e) { return canvas; }
     }
@@ -2198,7 +2292,7 @@
               var copy = new OC(ow, oh);
               var ctx = RAPPLY(CV.octx, copy, ['2d']);
               RAPPLY(CV.odraw, ctx, [src, 0, 0]);
-              RAPPLY(CV.oput, ctx, [noiseAll(ctx, rawOffGet, ow, oh), 0, 0]);
+              RAPPLY(CV.oput, ctx, [exported(noiseAll(ctx, rawOffGet, ow, oh), ow, oh), 0, 0]);
               src = copy;
             }
           } catch (e) { src = this; }

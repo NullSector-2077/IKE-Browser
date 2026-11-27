@@ -8,10 +8,12 @@ changed function or a script named in a stack makes them refuse operations
 - the media commands of the desktop (mediahook.js) change nothing outside the
   media sites, even with the shield off; on a listed media site they are there;
 - with the shield off, a page finds nothing changed at all;
-- the sensitive Google services get "Compatibility", unless the user chose a
-  level for them, and (1.1.14) Google's own requests there go through untouched:
-  no filter list, no changed header, no list scripts, nothing in the page,
-  while the trackers of other companies stay blocked;
+- the sensitive Google services got "Compatibility" (1.1.12) and then (1.1.14)
+  no protection at all; since 1.1.27 they keep the user's level and are given
+  a current Firefox instead (tests/test_google_firefox.py): the filter lists,
+  the address clean-up and the list scripts work there, Google's own domains
+  going the "same site" free way at Balanced; PayPal and Stripe are still left
+  alone, while the trackers of other companies stay blocked;
 - the lighter frame guard of the fingerprinting protection still protects every
   frame a page adds: appended, inside a container, through innerHTML,
   insertAdjacentHTML or a fragment (same canvas noise as the page, not the real
@@ -147,7 +149,7 @@ def steps(ike, qapp, out):
     out["levels"] = [c.level_for(h) for h in ("aistudio.google.com", "console.cloud.google.com",
                                                "www.google.com", "youtube.com", "chose.example")]
     fp = [s.sourceCode() for s in ike.profile.scripts().find("content")]
-    # 1.1.14: the page of a sensitive Google service is left alone
+    # 1.1.14 to 1.1.26: the page of a sensitive Google service was left alone
     out["fp_handsoff"] = bool(fp) and '"aistudio.google.com": "off"' in fp[0]
 '''
 
@@ -173,7 +175,7 @@ def test_media_commands_only_on_media_sites(run_ike, site):
     assert t["setActionHandler"] != NATIVE_AH and "userscript:content-2" in t["stack"]
 
 
-def test_balanced_frames_protected_and_google_services_in_compatibility(run_ike, site):
+def test_balanced_frames_protected_and_google_services_protected(run_ike, site):
     real = run_ike(STEPS % site, settings={"shield_level": "off"})["frames"]["top"]
     out = run_ike(STEPS % site, settings={"shield_level": "balanced"})
     t, f = out["traces"], out["frames"]
@@ -182,8 +184,9 @@ def test_balanced_frames_protected_and_google_services_in_compatibility(run_ike,
     for how in ("appended", "container", "adjacent", "innerhtml", "fragment", "parsed",
                 "range", "surround", "shadow", "execcommand"):
         assert f[how] == f["top"], (how, f)             # the same noise as the page
-    assert out["levels"] == ["compatibility", "compatibility", "balanced", "balanced", "balanced"]
-    assert out["fp_handsoff"]
+    # 1.1.27: Google's services keep the level (they see a current Firefox instead)
+    assert out["levels"] == ["balanced", "balanced", "balanced", "balanced", "balanced"]
+    assert not out["fp_handsoff"]
     # a level the user chose for the site is kept
     chosen = run_ike(STEPS % site, settings={"shield_level": "balanced",
                                              "site_levels": {"aistudio.google.com": "strict"}})
@@ -245,7 +248,8 @@ def test_installed_engine_when_the_bundled_one_is_broken(tmp_path):
     assert Path(path).resolve().is_relative_to(ENGINE.resolve()), path
 
 
-# --- 1.1.14: sensitive services (Google, payments) work as with the shield off ----
+# --- 1.1.14: sensitive services (payments) work as with the shield off; Google's ----
+# --- were among them until 1.1.26 and keep their protections since 1.1.27 ----------
 
 HANDS_OFF = r"""
 from PyQt6.QtCore import QUrl
@@ -267,15 +271,15 @@ class Info:
     def setHttpHeader(self, k, v): self.headers[bytes(k).decode()] = bytes(v).decode()
 
 CASES = {
-    # Google's own request on AI Studio: untouched
+    # Google's own request on AI Studio: the free way of a site's own (1.1.27)
     "google_on_aistudio": ("https://www.googleapis.com/tracker/x.js", "https://aistudio.google.com/"),
     # the same request on another site: blocked as always
     "google_elsewhere": ("https://www.googleapis.com/tracker/x.js", "https://www.example.com/"),
     # another company's tracker on AI Studio: still blocked
     "other_on_aistudio": ("https://tracker.example.test/a.js", "https://aistudio.google.com/"),
-    # an embedded sign-in frame: no Firefox identity in the header
+    # an embedded sign-in frame: the Firefox identity in the header (1.1.27)
     "signin_frame": ("https://accounts.google.com/RotateCookiesPage", "https://aistudio.google.com/"),
-    # the page itself: tracking parameters are not removed
+    # the page itself: tracking parameters are removed (1.1.27)
     "main_page": ("https://aistudio.google.com/apikey?utm_source=x", "https://aistudio.google.com/"),
     # PayPal's own request on PayPal's sign-in page: untouched
     "paypal_on_paypal": ("https://www.paypalobjects.com/tracker/x.js", "https://www.paypal.com/signin"),
@@ -317,18 +321,22 @@ HANDS_OFF_FILTERS = ("||googleapis.com/tracker^\n||tracker.example.test^\n"
 
 
 @needs_engine
-def test_sensitive_google_services_left_alone(run_ike):
+def test_payments_left_alone_google_protected(run_ike):
     out = run_ike(HANDS_OFF, settings={"shield_level": "balanced", "custom_filters": HANDS_OFF_FILTERS,
                                        "login_compat": True, "strip_tracking_params": True,
                                        "send_gpc": True})
     assert out["google_elsewhere"]["blocked"], out
+    # 1.1.27: Google's own domains are the site on Google's pages (Balanced's free
+    # way), with the Firefox identity, the empty client hints and the GPC signal
     assert not out["google_on_aistudio"]["blocked"], out
-    assert out["google_on_aistudio"]["headers"] == {}, out          # not even Sec-GPC
+    h = out["google_on_aistudio"]["headers"]
+    assert "Firefox/" in h["User-Agent"] and h["Sec-CH-UA"] == "" and h["Sec-GPC"] == "1", out
     assert out["other_on_aistudio"]["blocked"], out
-    assert "User-Agent" not in out["signin_frame"]["headers"], out
-    assert out["main_page"]["to"] is None, out
+    assert "Firefox/" in out["signin_frame"]["headers"]["User-Agent"], out
+    assert out["main_page"]["to"] == "https://aistudio.google.com/apikey", out
     assert out["youtube"]["blocked"], out                             # I.K.E.'s own rule, unchanged
-    assert out["cosmetic_scripts"] == [], out
+    assert "Firefox/" not in out["youtube"]["headers"].get("User-Agent", ""), out
+    assert out["cosmetic_scripts"], out                               # the list scripts work there
     # payments (1.1.14): PayPal and Stripe left alone, other trackers still blocked
     assert not out["paypal_on_paypal"]["blocked"], out
     assert out["other_on_paypal"]["blocked"], out

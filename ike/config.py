@@ -62,10 +62,12 @@ DEFAULT_CONTAINERS = [
 # fingerprint changes and need their own cookies when embedded in other sites.
 LOGIN_HOSTS = ("accounts.google.com", "accounts.youtube.com", "login.live.com",
                "login.microsoftonline.com", "appleid.apple.com", "idmsa.apple.com")
-# Google services whose anti-abuse checks protect sensitive operations (API keys,
-# cloud projects, payments, account security): any trace of a changed page can
-# make them refuse ("permission denied"). They get "Compatibility" unless the
-# user chose a level for them (1.1.12).
+# Services whose anti-abuse checks protect sensitive operations (payments,
+# account security): any trace of a changed page can make them refuse
+# ("permission denied"). They get "Compatibility" unless the user chose a level
+# for them (1.1.12). Google's ones stay listed (other parts of I.K.E. leave
+# their storage alone) but since 1.1.27 keep the user's level: Google refused
+# the engine, not the protections, and is given a current Firefox instead.
 SENSITIVE_HOSTS = ("aistudio.google.com", "console.cloud.google.com", "myaccount.google.com",
                    "pay.google.com", "payments.google.com", "admin.google.com",
                    # payments (1.1.14): PayPal's sign-in and Stripe's checkout page
@@ -107,6 +109,25 @@ _PAYMENT_ENDINGS = _endings(PAYMENT_SITES)
 
 def google_owned(host):
     return _owned(host, _GOOGLE_ENDINGS)
+
+
+# Google's sites, where I.K.E. presents itself as a current Firefox (1.1.27, the
+# owner's decision): Google's sign-in and its anti-abuse checks refuse Qt
+# WebEngine's Chromium, an engine some versions behind that they take for an
+# embedded program or a bot ("this browser may not be secure"), and accept the
+# same request from Firefox. Google's own domains and its search in every
+# country (google.it, google.co.uk, google.com.br...); YouTube is not one of them.
+_GOOGLE_COUNTRY = re.compile(r"(^|\.)google\.(com?\.)?[a-z]{2,3}$")
+# Google's sign-in pages, embedded in any site ("Sign in with Google") or met
+# on the way of a sign-in (accounts.youtube.com sets the session's cookies):
+# they and what they load present the same Firefox wherever they are.
+GOOGLE_SIGNIN_HOSTS = ("accounts.google.com", "accounts.youtube.com")
+
+
+def google_site(host):
+    """host is one of Google's own sites (Firefox identity, protections on)."""
+    host = (host or "").lower().rstrip(".")
+    return google_owned(host) or bool(_GOOGLE_COUNTRY.search(host)) or host in GOOGLE_SIGNIN_HOSTS
 
 
 def payment_owned(host):
@@ -621,6 +642,10 @@ class Config:
                 break
             host = host[i + 1:]
         level = self.data["shield_level"]
+        if google_site(full):
+            # Google's sites keep the user's level (1.1.27): they are given a
+            # current Firefox instead of protections turned down
+            return level
         if self.data["login_compat"] and full in LOGIN_HOSTS and LEVELS.index(level) > 1:
             return "compatibility"
         if full in SENSITIVE_HOSTS and LEVELS.index(level) > 1:
@@ -628,13 +653,14 @@ class Config:
         return level
 
     def sensitive_hands_off(self, site, host=None):
-        """True when the page `site` is a sensitive service (Google's, PayPal,
-        Stripe's checkout) whose level the user did not choose, and `host` (if
-        given) belongs to Google or to a payment service: the shield then
-        changes nothing, as if it were off (1.1.14)."""
+        """True when the page `site` is a sensitive service (PayPal, Stripe's
+        checkout) whose level the user did not choose, and `host` (if given)
+        belongs to a payment service: the shield then changes nothing, as if
+        it were off (1.1.14). Google's services were among them until 1.1.26;
+        since 1.1.27 they keep their protections and see a current Firefox."""
         full = (site or "").lower()
-        if full not in SENSITIVE_HOSTS or self.data["shield_level"] == "off":
-            return False
+        if full not in SENSITIVE_HOSTS or self.data["shield_level"] == "off" or google_site(full):
+            return False                          # Google's: protections on, as Firefox (1.1.27)
         h, levels = full, self.data["site_levels"]
         while h:
             if h in levels:
