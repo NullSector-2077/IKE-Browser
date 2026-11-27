@@ -938,6 +938,16 @@ program is sure of (one removed and one added member of the same class with the 
 `stub_renames`), which the recipe "renamed" of `tools/automat-recipes.py` can apply with no AI. Tried on the real
 wheels: PyQt6 6.7.1 -> 6.8.0 adds 497 members and changes the arguments of 22.
 
+### Arch's [testing], every day (2026-11-27)
+
+AUTOMAT block 2. The daily check also reads Arch's `[core-testing]` and `[extra-testing]` databases
+(`tools/check-components.py` `arch_testing_news`): when a package of the closure I.K.E. was last tested with
+(or one it names) was built into them in the last `ARCH_TESTING_HOURS` (30; the database's own
+`%BUILDDATE%`, so no state is kept), the job `start-arch-testing` of `daily-check.yml` starts
+`arch-testing.yml` on `main`, unless it already runs. A break of a coming Qt, Python, Mesa or ffmpeg is then
+found days before Arch moves it to the users; the weekly run on Wednesdays stays as the floor. An unreachable
+mirror is never news.
+
 ### Real updates first, and every day's free quota used (2026-11-24)
 
 The owner's decisions of 2026-11-24, in the owner's words: "use the free AIs every day, always when
