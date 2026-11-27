@@ -43,6 +43,9 @@
   tooltip look, its corners slightly rounded.
 - Icons and texts aligned: the extensions' cards (icon and bold name in the
   middle of the card) and the containers' dots in the menus (the owner).
+- **Short messages in Plasma's style** (zoom, notes; the owner): the window's
+  colour with a thin line and a soft shadow, the corners slightly rounded
+  (4 px), rising a few pixels as they fade in. They were a flat grey box.
 
 ## 1.1.29
 

@@ -3454,16 +3454,16 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 return
         from PyQt6.QtCore import QMimeDatabase
         mime = QMimeDatabase().mimeTypeForFile(name, QMimeDatabase.MatchMode.MatchExtension)
-        icon = QIcon.fromTheme(mime.iconName(), QIcon.fromTheme(mime.genericIconName(),
+        kind = QIcon.fromTheme(mime.iconName(), QIcon.fromTheme(mime.genericIconName(),
                                                                  icon(("text-x-generic", "document-new"))))
-        if icon.isNull():
-            icon = self._dl_icon
+        if kind.isNull():
+            kind = self._dl_icon
         start = self.mapFromGlobal(QCursor.pos())
         if not self.rect().contains(start):
             v = self.current_view()
             start = v.mapTo(self, v.rect().center()) if v is not None else self.rect().center()
         end = btn.mapTo(self, btn.rect().center())
-        polish.FlyingIcon(self, icon, start, end)
+        polish.FlyingIcon(self, kind, start, end)
 
     def _download_arrow(self, active):
         """While files arrive the arrow of the Downloads button moves gently (polish.py)."""

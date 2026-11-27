@@ -1296,10 +1296,18 @@ class VTabsEdge(QWidget):
 
 # --- short messages in a pill (1.1.7) ---------------------------------------------
 class Toast(QWidget):
-    """A short message in a rounded pill at the bottom of the page area, which
-    fades in and out (in place of the status bar line)."""
+    """A short message in a box at the bottom of the page area, which fades in
+    and out (in place of the status bar line).
+
+    1.1.30 (the owner: "KDE and I.K.E. style, coherent with Plasma, only the
+    corners slightly rounded"): drawn as Plasma draws its own small windows,
+    the window's colour with a thin line around it and a soft shadow under it,
+    its corners slightly rounded; it rises a few pixels as it comes in, as
+    Plasma's notifications do. (It was a flat grey box.)"""
 
     MARGIN = 26
+    SHADOW = 8               # px around the box for its shadow (1.1.30)
+    RISE = 6                 # px it rises while it fades in
 
     def __init__(self, anchor, config):
         super().__init__(anchor.parentWidget())
@@ -1325,6 +1333,8 @@ class Toast(QWidget):
 
     def _set_opacity(self, v):
         self._opacity = float(v)
+        if not getattr(self, "_fading_out", False):
+            self._place()                   # it rises as it comes in
         self.update()
 
     ICON = 22                # the OSD's icon (1.1.24)
@@ -1342,7 +1352,8 @@ class Toast(QWidget):
         fm = QFontMetrics(self.font())
         room = self.ICON + 10 if self.icon is not None else 0
         w = min(fm.horizontalAdvance(text) + 36 + room, max(120, self.anchor.width() - 40))
-        self.resize(w, max(fm.height(), self.ICON if self.icon is not None else 0) + 18)
+        S = self.SHADOW
+        self.resize(w + 2 * S, max(fm.height(), self.ICON if self.icon is not None else 0) + 18 + 2 * S)
         self._place()
         self._anim.stop()
         if moving(self.config, "toasts") and not self.isVisible():
@@ -1377,7 +1388,9 @@ class Toast(QWidget):
 
     def _place(self):
         g = self.anchor.geometry()
-        self.move(g.x() + (g.width() - self.width()) // 2, g.y() + g.height() - self.height() - self.MARGIN)
+        rise = 0 if getattr(self, "_fading_out", False) else round((1.0 - self._opacity) * self.RISE)
+        self.move(g.x() + (g.width() - self.width()) // 2,
+                  g.y() + g.height() - self.height() - self.MARGIN + self.SHADOW + rise)
 
     def eventFilter(self, obj, event):
         if obj is self.anchor and event.type() in self._events and self.isVisible():
@@ -1386,18 +1399,26 @@ class Toast(QWidget):
 
     def paintEvent(self, _event):
         pal = self.palette()
-        bg = effects.blend(pal.color(QPalette.ColorRole.Window), pal.color(QPalette.ColorRole.WindowText), 0.08)
-        bg.setAlphaF(0.96)
+        S = self.SHADOW
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setOpacity(self._opacity)
-        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        r = QRectF(self.rect()).adjusted(S + 0.5, S + 0.5, -S - 0.5, -S - 0.5)
+        # the shadow: layers that grow and fade, a little lower than the box (Breeze's)
+        p.setPen(Qt.PenStyle.NoPen)
+        dark = 0.10 if pal.color(QPalette.ColorRole.Window).lightnessF() > 0.5 else 0.22
+        for i in range(S, 0, -1):
+            shade = QColor(0, 0, 0)
+            shade.setAlphaF(dark * (1.0 - i / (S + 1)) ** 2)
+            p.setBrush(shade)
+            p.drawRoundedRect(r.adjusted(-i, -i + 2, i, i + 2), TOAST_RADIUS + i, TOAST_RADIUS + i)
+        # the box: the window's colour, a thin line around it
         p.setPen(QPen(separator(pal), 1.0))
-        p.setBrush(bg)
+        p.setBrush(pal.color(QPalette.ColorRole.Window))
         p.drawRoundedRect(r, TOAST_RADIUS, TOAST_RADIUS)
         p.setPen(pal.color(QPalette.ColorRole.WindowText))
         from PyQt6.QtGui import QFontMetrics
-        area = self.rect().adjusted(16, 0, -16, 0)
+        area = self.rect().adjusted(16 + S, S, -16 - S, -S)
         if self.icon is not None:
             box = QRect(area.left(), (self.height() - self.ICON) // 2, self.ICON, self.ICON)
             self.icon.paint(p, box, Qt.AlignmentFlag.AlignCenter)
@@ -1775,7 +1796,7 @@ def ghost_out(view, rect, config, ms=170, name="vtab_close"):
 
 
 HOVER_RADIUS = RADIUS    # 1.1.16: flat on top and bottom, soft corners (1.1.23: Breeze's radius, was 6)
-TOAST_RADIUS = RADIUS    # 1.1.23: was 8
+TOAST_RADIUS = 4.0       # 1.1.23: was 8; 1.1.30: slightly rounded, as the owner asked
 LINK_RADIUS = 3.0        # 1.1.30: the link's address, slightly rounded as Breeze's tooltips
 
 
