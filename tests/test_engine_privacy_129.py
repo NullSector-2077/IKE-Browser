@@ -87,6 +87,16 @@ def test_every_level_gets_its_language_and_no_advertising_measurement(monkeypatc
     assert len(blink) == 1 and {"AttributionReporting", "TopicsAPI"} <= set(blink[0].split("=", 1)[1].split(",")), flags
 
 
+def test_http3_and_partitioned_connections(monkeypatch, tmp_path):
+    flags = _flags(monkeypatch, tmp_path, shield_level="balanced")
+    assert "--enable-quic" in flags, flags
+    on = [f for f in flags if f.startswith("--enable-features=")]
+    assert len(on) == 1 and "PartitionConnectionsByNetworkIsolationKey" in on[0].split("=", 1)[1].split(","), flags
+    # the user's own --disable-quic is kept, and nothing turns it back on
+    flags = _flags(monkeypatch, tmp_path, inherited="--disable-quic", shield_level="balanced")
+    assert "--disable-quic" in flags and "--enable-quic" not in flags, flags
+
+
 def test_inherited_switches_are_merged_and_an_explicit_choice_wins(monkeypatch, tmp_path):
     flags = _flags(monkeypatch, tmp_path, inherited="--disable-blink-features=Foo --lang=fr --enable-features=BrowsingTopics",
                    shield_level="balanced")

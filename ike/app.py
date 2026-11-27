@@ -1610,7 +1610,11 @@ LNA_FEATURES = ("LocalNetworkAccessChecks:LocalNetworkAccessChecksWarn/false",
 # do not change. The Linux kernel's version left out of the client hints
 # (1.1.25): service and shared workers get the engine's own value, never the
 # profile's, and gave the real kernel. Not graphics switches.
-PRIVACY_FEATURES = ("StaticStorageQuota", "ReduceUserAgentDataLinuxPlatformVersion")
+PRIVACY_FEATURES = ("StaticStorageQuota", "ReduceUserAgentDataLinuxPlatformVersion",
+                    # 1.1.29: connections, HTTP/3 sessions and what the engine
+                    # remembers of servers (Alt-Svc) kept apart for each site the
+                    # user visits, so one site's traffic cannot mark another's
+                    "PartitionConnectionsByNetworkIsolationKey")
 # advertising measurement off (1.1.29, Engine Privacy Layer study): Qt
 # WebEngine leaves Attribution Reporting working (an advertiser's response
 # was stored in the profile's Conversions database, where Chromium 140 stores
@@ -1759,6 +1763,14 @@ def _chromium_flags(config):
     # tenth more memory. Turning it off takes IKE_ALLOW_UNSAFE_ENGINE=1.
     if "--site-per-process" not in names and "--disable-site-isolation-trials" not in names:
         flags.append("--site-per-process")
+    # HTTP/3 (QUIC) as Chrome, Chromium and Brave use it (1.1.29, the owner;
+    # Engine Privacy Layer study): Qt WebEngine leaves it off, so a server saw
+    # a Chromium that never used it. Faster on weak or changing networks. The
+    # engine uses it only on direct connections: a proxy is never bypassed.
+    # --disable-quic from the environment keeps it off.
+    if "--enable-quic" not in names and "--disable-quic" not in names:
+        flags.append("--enable-quic")
+        names.add("--enable-quic")
     off = {x.split(":")[0].split("<")[0].lower() for f in flags if f.startswith("--disable-features=")
            for x in f.split("=", 1)[1].split(",")}
     want = [x for x in LNA_FEATURES + PRIVACY_FEATURES
