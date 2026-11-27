@@ -530,7 +530,10 @@ def steps(ike, qapp, out):
     # what the entries do
     menu = contextmenu.build(view, Req(media=SITE + "/pic.png", mtype="MediaTypeImage"))
     for a in menu.actions():
-        if a.text().startswith("Open image in "):
+        # the app's entry only: "Open image in new tab" starts with the same words, and
+        # its tab asked the engine for the same picture at the same moment (on a busy
+        # test machine the hand-off then waited for ever: main, 2026-11-27)
+        if a.text().startswith("Open image in ") and a.text() != "Open image in new tab":
             a.trigger()
     ike.hand_off(QUrl(SITE + "/fake.png"), "image", view.page())       # says image, holds a .desktop file
     ike.hand_off(QUrl(SITE + "/doc.pdf"), "pdf", view.page())
