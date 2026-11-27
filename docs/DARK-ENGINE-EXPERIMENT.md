@@ -301,3 +301,34 @@ main merged on top (the strict Content-Security-Policy fix of Dark Reader).
   3821 rules kept); an invalid invert selector no longer voids the list. The
   lists the engine uses: the fixes (invert, CSS, ignored inline styles,
   ignored images, ignored style sheets), the dark sites and the detector hints.
+- An independent review (`fable-review`, read-only) of the merged engine found
+  bugs that matter on common sites; fixed and covered by
+  `tests/test_dark_engine_hard.py` (it fails on the engine before the fixes):
+  Tailwind's `rgb(R G B / var(--x))`, colour channels in variables (`59 130
+  246` with its own separator, shadcn/ui's `H S% L%`), editors (the user's text
+  keeps its colours in its markup), gradient text, chart backgrounds, shadow
+  roots on any element, keyframes and nested declarations, logical borders and
+  more colour properties, modern colour functions in gradients, the selection,
+  a dark hero over a light page, IDN hosts, printing (the page's own colours on
+  paper), robustness (named elements cannot stop the engine; one element that
+  throws does not stop the others), an undo log that does not grow, pictures
+  (cut-out photos and avatars no longer inverted, GIFs not frozen).
+- Left for later (known): a sheet of another site without CORS in a frame or
+  with the passwords helper off is not mapped (the page bridge is the
+  passwords component's); SVG backgrounds are rasterised at their intrinsic
+  size; a client-rendered app that turns dark after the first check is mapped
+  (dark stays dark, light text stays light: a colour shift, never unreadable).
+
+### Numbers at the end of round 3 (`a230298`)
+
+Speedometer 3.1 (local copy, this container, software rendering, 3 alternating
+runs): without dark mode 13.40, Dark Reader 9.12 (-31.9 %), Dark Engine 11.40
+(-14.9 %, under half of Dark Reader's cost). Dark Reader's scenarios: 122 of
+125 alike (the 3 left are deliberate: a system colour keyword, an SVG stroke
+from a variable keeps its colour, a bright red background made darker for
+light text). Page copies: 21 of 22 PASS (GitHub's copy has no style sheets
+here). Live, from this container: Wikipedia, MDN, Hacker News and Python docs
+rendered in the three modes (the failing text areas reported there are layout
+shifts of live adverts and 1-px separators, checked by eye); YouTube and
+GitHub's styles are not reachable from here. The owner's check
+(`tests/dark_engine/owner-check.sh`) opens 32 sites on the owner's computer.
