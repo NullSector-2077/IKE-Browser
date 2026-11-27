@@ -60,7 +60,7 @@ EXTENSIONS = (
          "Runs the small scripts you install to change how some sites look or work.",
          "userscripts_enabled", options="dialog:show_userscripts", hook="userscripts"),
     _ext("dark", "Dark mode for pages", ("weather-clear-night",),
-         "Makes bright pages dark with Dark Reader, everywhere or only on the sites you choose.",
+         "Makes bright pages dark with the I.K.E. Dark Engine, everywhere or only on the sites you choose.",
          "comp_dark", options="page:sites", actions=("m_dark",), toolbar=("dark",), hook="dark"),
     _ext("videoads", "Skip ads in videos", ("media-skip-forward", "media-playback-start"),
          "Mutes, fast-forwards and skips the ads inside YouTube videos.",
