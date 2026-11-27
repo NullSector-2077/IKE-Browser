@@ -444,6 +444,17 @@ def one_language(cfg):
     return _one_language(engine_language(cfg))
 
 
+def _profile_language(cfg):
+    """The Accept-Language the profile itself sends (engine_language)."""
+    from .config import engine_language
+    return _ascii(engine_language(cfg))
+
+
+@functools.lru_cache(maxsize=16)
+def _ascii(text):
+    return text.encode("ascii", "replace")
+
+
 @functools.lru_cache(maxsize=16)
 def _one_language(header):
     from .config import one_language_header
@@ -755,16 +766,19 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
 
         if cfg["send_gpc"]:
             info.setHttpHeader(b"Sec-GPC", b"1")
+        if lv >= 2 and cfg.site_opt(first_host, "fp") is not False:
+            # the common network of the page (Balanced too since 1.1.29)
+            _common_network(info)
         if lv >= 3 and cfg.site_opt(first_host, "fp") is not False:
             _reduce_full_version(info)
-            _common_network(info)
-            if lv >= 4:
-                info.setHttpHeader(b"Accept-Language", b"en-US,en;q=0.9")
-            else:
-                # Strict: the one language navigator.languages shows, as
-                # Chrome writes it; the full list in the header contradicted
-                # it (review of 1.1.19, M5)
-                info.setHttpHeader(b"Accept-Language", one_language(cfg))
+            # Maximum: en-US; Strict: the one language navigator.languages
+            # shows, as Chrome writes it; the full list in the header
+            # contradicted it (review of 1.1.19, M5). Written only when the
+            # profile's own differs (1.1.29): a header written here moves to
+            # the end of the request's headers, an order no Chromium has.
+            want = b"en-US,en;q=0.9" if lv >= 4 else one_language(cfg)
+            if want != _profile_language(cfg):
+                info.setHttpHeader(b"Accept-Language", want)
         if (lv >= 2 and cfg["trim_referrer"] and not main
                 and host_site != first_site
                 and cfg.site_opt(first_host, "params") is not False):

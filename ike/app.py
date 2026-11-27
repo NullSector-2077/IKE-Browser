@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -1610,6 +1611,14 @@ LNA_FEATURES = ("LocalNetworkAccessChecks:LocalNetworkAccessChecksWarn/false",
 # (1.1.25): service and shared workers get the engine's own value, never the
 # profile's, and gave the real kernel. Not graphics switches.
 PRIVACY_FEATURES = ("StaticStorageQuota", "ReduceUserAgentDataLinuxPlatformVersion")
+# advertising measurement off (1.1.29, Engine Privacy Layer study): Qt
+# WebEngine leaves Attribution Reporting working (an advertiser's response
+# was stored in the profile's Conversions database, where Chromium 140 stores
+# nothing) and sends the Topics header; Chrome 158 has neither at work. The
+# blink features take their APIs away from pages (attributionSrc,
+# document.browsingTopics), the engine features the machinery behind them.
+PRIVACY_OFF_FEATURES = ("ConversionMeasurement", "BrowsingTopics")
+PRIVACY_OFF_BLINK = ("AttributionReporting", "TopicsAPI")
 
 
 def split_flags(text):
@@ -1730,8 +1739,13 @@ def _chromium_flags(config):
     # service workers followed the system's language (owner's decision for
     # 1.1.20, fingerprinting audit M-7). I.K.E.'s own interface keeps the
     # user's language. Read at start: a change of level applies after a restart.
-    if config["shield_level"] == "maximum" and "--lang" not in names:
-        flags.append("--lang=en-US")
+    # 1.1.29: at every level the engine is given the first language sites
+    # are told (engine_language), so workers, Intl and the engine's own texts
+    # agree with the page (the Engine Privacy Layer study found shared and
+    # service workers saying "en" where the page said "en-US").
+    if "--lang" not in names:
+        from .config import engine_language
+        flags.append("--lang=" + engine_lang_switch(engine_language(config)))
         names.add("--lang")
     if hasattr(os, "geteuid") and os.geteuid() == 0 and "--no-sandbox" not in names:
         # only reached with IKE_ALLOW_UNSAFE_ENGINE=1 (refuse_root): the
@@ -1755,8 +1769,38 @@ def _chromium_flags(config):
                  x for x in f.split("=", 1)[1].split(",") if x.split(":")[0].split("<")[0] not in names_on)
                  for f in flags]                     # an inherited "warn only" does not win
         flags = _feature_flags([f for f in flags if f != "--enable-features="], enable=want)
+    on = {x.split(":")[0].split("<")[0].lower() for f in flags if f.startswith("--enable-features=")
+          for x in f.split("=", 1)[1].split(",")}
+    flags = _feature_flags(flags, disable=[x for x in PRIVACY_OFF_FEATURES if x.lower() not in on])
+    flags = _blink_off(flags, PRIVACY_OFF_BLINK)
     flags = _video_flags(flags, config, CONFIG_DIR)
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = join_flags(flags)
+
+
+def engine_lang_switch(header):
+    """The --lang the engine is given: the first language of an
+    Accept-Language list ("it-IT,it;q=0.9" -> "it-IT"); en-US otherwise."""
+    first = (header or "").split(",")[0].split(";")[0].strip()
+    return first if re.fullmatch(r"[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*", first) else "en-US"
+
+
+def _blink_off(flags, names):
+    """flags with names added to the one --disable-blink-features switch (the
+    engine reads only one), unless the same feature is asked on."""
+    out, off, on = [], [], set()
+    for f in flags:
+        if f.startswith("--disable-blink-features="):
+            off += [x for x in f.split("=", 1)[1].split(",") if x]
+        else:
+            if f.startswith("--enable-blink-features="):
+                on |= {x.lower() for x in f.split("=", 1)[1].split(",")}
+            out.append(f)
+    for x in names:
+        if x not in off and x.lower() not in on:
+            off.append(x)
+    if off:
+        out.append("--disable-blink-features=" + ",".join(off))
+    return out
 
 
 def memory_low(path="/proc/meminfo"):

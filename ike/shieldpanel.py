@@ -340,6 +340,12 @@ class ShieldPanel(QWidget):
                                   "wrong times. After a restart."), self)
         self.zone_hint.setWordWrap(True)
         self.zone.clicked.connect(self._zone_changed)
+        # common English (1.1.29): sites are told en-US at every level
+        self.english = Switch(T("Common English language"), self)
+        self.english_hint = QLabel(T("Sites see American English, the most common language, not "
+                                     "yours. I.K.E. keeps your language. Fully after a restart."), self)
+        self.english_hint.setWordWrap(True)
+        self.english.clicked.connect(self._english_changed)
         settings = QPushButton(T("Protection settings…"), self)
         sep = QFrame(self)
         sep.setFrameShape(QFrame.Shape.HLine)
@@ -369,6 +375,8 @@ class ShieldPanel(QWidget):
         lay.addWidget(self.global_level)
         lay.addWidget(self.zone)
         lay.addWidget(self.zone_hint)
+        lay.addWidget(self.english)
+        lay.addWidget(self.english_hint)
         lay.addWidget(settings)
         self.master.clicked.connect(self._master_clicked)
         self.adv_btn.toggled.connect(self._adv_toggled)
@@ -421,6 +429,7 @@ class ShieldPanel(QWidget):
         self.site_level.setCurrentIndex(LEVELS.index(level))
         self.global_level.setCurrentIndex(LEVELS.index(cfg["shield_level"]))
         self.zone.setChecked(bool(cfg.get("protect_timezone")))
+        self.english.setChecked(bool(cfg.get("common_english")))
         self.hint.setText(T(self.HINTS[level]))
         self.ads.setCurrentIndex(1 if cfg.site_opt(host, "ads") is False else 0)
         self.cookies.setCurrentIndex(max(0, self.cookies.findData(cfg.site_opt(host, "cookies"))))
@@ -527,6 +536,17 @@ class ShieldPanel(QWidget):
         from . import timezone
         if timezone.active() != bool(on):
             self.win.toast(T("Restart I.K.E. to use it."), 5000)
+
+    def _english_changed(self, on):
+        if self._busy:
+            return
+        cfg = self.win.app.config
+        cfg["common_english"] = bool(on)
+        cfg.save()
+        # the request header and the pages at once; workers, Intl and the
+        # engine's own texts follow --lang, read at start
+        self.win.app.shields.apply_settings()
+        self.win.toast(T("Restart I.K.E. to use it."), 5000)
 
     def _toggle_list(self, key, host, present):
         lst = self.win.app.config[key]
