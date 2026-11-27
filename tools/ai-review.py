@@ -265,7 +265,8 @@ def models_of(provider, env, reserve):
         configured = [m.strip() for m in (env.get(REGISTRY.GEMINI_MODELS_VAR) or "").split(",") if m.strip()]
         return [(m, GEMINI_BUDGET, (lambda s, u, o, meter=None, m=m: ask_gemini(key, m, s, u, o, reserve,
                                                                                 meter=meter)))
-                for m in (configured + list(REGISTRY.GEMINI_MODELS))[:3]] if key else []
+                for m in (configured + list(REGISTRY.GEMINI_MODELS))[:3] +
+                [REGISTRY.gemini_cli_name(x) for x in REGISTRY.discovered(env, "Antigravity")][:2]] if key else []
     out = []
     for name, url, key, model, budget, _tokens in reserve.chain(env):
         if name == provider:

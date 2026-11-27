@@ -1512,6 +1512,20 @@ Those runs report to the finding's entry by its branch
 
 ### Free AI providers, checked every week (WP9)
 
+**New models found by AUTOMAT itself** (block 2, 2026-11-27; the owner: AUTOMAT keeps up with the providers and
+updates the models' names by itself). The weekly check also reads each provider's own list of models (Gemini
+API `GET /models`; Groq and Z.AI `GET .../models`), leaves out what is not text (embeddings, images, speech,
+guards) and asks up to `TRY_NEW` new ones per provider a tiny question on the key, newest version first
+(`tools/provider-check.py` `discover`). The keys have no billing, so a model that answers is free there;
+Gemini's 429 with "limit: 0" says the free plan has none of it (recorded as not free, never used). The models
+that answered reach the automatic fix as `AUTOFIX_DISCOVERED` (`provider-check.py discovered`, read by the
+plan of `autofix.yml` from the weekly artifact) and are asked **after** the configured ones: the reserves
+(`chain`), Antigravity (`models`, in the CLI's form "Gemini 5 Flash (High)") and the Gemini reviewers.
+A configured model its provider no longer lists is said in the weekly issue, with the new free model that
+replaces it meanwhile; Claude then updates `tools/ai-providers.py`. OpenRouter rebuilds its free list at
+every run already. Not found by this: a model only Antigravity's CLI offers (it has no list), and a
+provider's change of its free plan that keeps the model listed (the answers' billing errors still mark it).
+
 **One place** for the providers: `tools/ai-providers.py` (protected, read by
 the agent, the reserves, the weekly check and the queue). It holds the order
 (Antigravity first, then `RESERVES` in order: Groq, Z.AI, OpenRouter), the

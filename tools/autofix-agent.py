@@ -125,7 +125,9 @@ def models(wanted):
     """AUTOFIX_MODEL (one name or several, separated by commas), then the free
     Flash models; no duplicates, no empty names."""
     out = []
-    for m in [x.strip() for x in (wanted or "").split(",")] + list(FREE_MODELS):
+    # then the new free Gemini models the weekly check found (AUTOFIX_DISCOVERED), in the CLI's form of name
+    found = [REGISTRY.gemini_cli_name(m) for m in REGISTRY.discovered(None, "Antigravity")]
+    for m in [x.strip() for x in (wanted or "").split(",")] + list(FREE_MODELS) + found:
         if m and m not in out:
             out.append(m)
     return out
