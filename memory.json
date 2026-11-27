@@ -237,18 +237,6 @@
     "outcome": "no-fix",
     "provider": "",
     "sig": "bf8bb9289850a76b",
-    "summary": "Il problema non \u00e8 nel codice di I.K.E. ma nel file PKGBUILD (versione 1.1.22\u21921.1.23), che non posso modificare: le modifiche automatiche precedenti lo hanno toccato e sono state rifiutate. Le liste di filtro non sono state aggiornate in questo commit, quindi non c'\u00e8 nulla da corr",
-    "task": "lists"
-   },
-   {
-    "attempt": 2,
-    "date": "2026-11-25",
-    "detail": "rotated",
-    "files": [],
-    "model": "",
-    "outcome": "no-fix",
-    "provider": "",
-    "sig": "bf8bb9289850a76b",
     "summary": "L'agente non ha scritto un riassunto. **Riserve: La quota gratuita di oggi non basta per scrivere una correzione e farla anche rivedere da altre AI, oppure \u00e8 lavoro di fondo che aspetta (prima gli aggiornamenti veri): la correzione aspetta, nessuna quota \u00e8 stata sprecata. Riprova",
     "task": "lists"
    },
@@ -287,6 +275,18 @@
     "sig": "bf8bb9289850a76b",
     "summary": "L'agente non ha scritto un riassunto. **Riserve: Le riserve hanno esaurito la quota o non rispondono: riprova pi\u00f9 tardi.**",
     "task": "lists"
+   },
+   {
+    "attempt": 2,
+    "date": "2026-11-27",
+    "detail": "rotated",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "bf8bb9289850a76b",
+    "summary": "Il fallimento non \u00e8 un errore di codice: la modifica automatica precedente ha toccato PKGBUILD e README.md (versione 1.1.22\u21921.1.23), file che un'AI non pu\u00f2 mai cambiare, e per questo \u00e8 stata rifiutata dal guard statico. Inoltre la modifica non ha toccato i file dell'ad-blocker (i",
+    "task": "lists"
    }
   ]
  },
@@ -308,9 +308,9 @@
    "since": "2026-11-25"
   },
   "automation/update/lists-2026-11-22": {
-   "at": "2026-11-27T06:31:09Z",
+   "at": "2026-11-27T10:44:28Z",
    "date": "2026-11-27",
-   "n": 16,
+   "n": 17,
    "sig": "bf8bb9289850a76b",
    "since": "2026-11-23"
   }

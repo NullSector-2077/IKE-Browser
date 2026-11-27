@@ -347,92 +347,92 @@
    "runs": 2
   },
   "2026-11-27": {
-   "answered": 1,
+   "answered": 2,
    "answered_for": {
-    "automation/update/lists-2026-11-22": 1
+    "automation/update/lists-2026-11-22": 2
    },
    "no_provider": 0,
    "providers": {
     "Groq": {
      "by": {
       "automation/update/lists-2026-11-22": {
-       "requests": 1,
-       "tokens": 6106
+       "requests": 3,
+       "tokens": 17317
       }
      },
      "classes": {
       "2": {
-       "requests": 1,
-       "tokens": 6106
+       "requests": 3,
+       "tokens": 17317
       }
      },
      "observed": {
       "requests": {
-       "at": 1795761051,
+       "at": 1795776249,
        "limit": 1000,
-       "mark": 1,
+       "mark": 3,
        "remaining": 999,
        "reset": 87,
        "window": "day"
       },
       "tokens": {
-       "at": 1795761051,
+       "at": 1795776249,
        "limit": 8000,
-       "mark": 6106,
-       "remaining": 3407,
+       "mark": 17317,
+       "remaining": 3337,
        "reset": 35,
        "window": "minute"
       }
      },
-     "requests": 1,
+     "requests": 3,
      "spent": "",
-     "tokens": 6106
+     "tokens": 17317
     },
     "OpenRouter": {
      "account": "free",
      "by": {
       "automation/update/lists-2026-11-22": {
-       "requests": 9,
-       "tokens": 217593
+       "requests": 17,
+       "tokens": 406585
       }
      },
      "classes": {
       "2": {
-       "requests": 9,
-       "tokens": 217593
+       "requests": 17,
+       "tokens": 406585
       }
      },
      "observed": {
       "requests": {
        "limit": 50,
-       "mark": 9,
+       "mark": 17,
        "window": "day"
       }
      },
-     "requests": 9,
+     "requests": 17,
      "spent": "",
-     "tokens": 217593
+     "tokens": 406585
     },
     "Z.AI": {
      "by": {
       "automation/update/lists-2026-11-22": {
-       "requests": 8,
-       "tokens": 168938
+       "requests": 9,
+       "tokens": 189075
       }
      },
      "classes": {
       "2": {
-       "requests": 8,
-       "tokens": 168938
+       "requests": 9,
+       "tokens": 189075
       }
      },
      "observed": {},
-     "requests": 8,
+     "requests": 9,
      "spent": "",
-     "tokens": 168938
+     "tokens": 189075
     }
    },
-   "runs": 1
+   "runs": 2
   }
  },
  "schema": 1
