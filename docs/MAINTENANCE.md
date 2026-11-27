@@ -656,6 +656,16 @@ how much quota they use; whether the reviewers approve; the real duration of the
 Arch Linux job says of fixes that forgot the fallback; whether GitHub starts the pull request's
 own checks (with the owner's `IKE_WORKFLOW_TOKEN`) or the dispatched ones.
 
+### Arch's [testing], every day (2026-11-27)
+
+AUTOMAT block 2. The daily check also reads Arch's `[core-testing]` and `[extra-testing]` databases
+(`tools/check-components.py` `arch_testing_news`): when a package of the closure I.K.E. was last tested with
+(or one it names) was built into them in the last `ARCH_TESTING_HOURS` (30; the database's own
+`%BUILDDATE%`, so no state is kept), the job `start-arch-testing` of `daily-check.yml` starts
+`arch-testing.yml` on `main`, unless it already runs. A break of a coming Qt, Python, Mesa or ffmpeg is then
+found days before Arch moves it to the users; the weekly run on Wednesdays stays as the floor. An unreachable
+mirror is never news.
+
 ### Real updates first, and every day's free quota used (2026-11-24)
 
 The owner's decisions of 2026-11-24, in the owner's words: "use the free AIs every day, always when

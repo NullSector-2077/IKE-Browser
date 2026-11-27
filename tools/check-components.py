@@ -1012,8 +1012,9 @@ ARCH_TESTING_REPOS = ("core-testing", "extra-testing")
 ARCH_DB_MAX = 64 * 1024 * 1024
 
 
-def parse_repo_db(data):
-    """{package: epoch:pkgver-pkgrel} of a pacman repository database (a tar, gzip, xz or zstd)."""
+def parse_repo_db(data, dates=False):
+    """{package: epoch:pkgver-pkgrel} of a pacman repository database (a tar, gzip, xz or zstd); with dates,
+    {package: (version, build time in seconds since 1970 or 0)}."""
     import io
     import tarfile
     raw = data
@@ -1030,8 +1031,38 @@ def parse_repo_db(data):
             text = tar.extractfile(member).read().decode("utf-8", "replace")
             fields = dict(re.findall(r"%([A-Z0-9]+)%\n([^\n]*)", text))
             if fields.get("NAME") and fields.get("VERSION"):
-                out[fields["NAME"]] = fields["VERSION"]
+                if dates:
+                    built = fields.get("BUILDDATE", "")
+                    out[fields["NAME"]] = (fields["VERSION"], int(built) if built.isdigit() else 0)
+                else:
+                    out[fields["NAME"]] = fields["VERSION"]
     return out
+
+
+# AUTOMAT block 2 (2026-11-27): Arch's [testing] every day, not only on Wednesdays. A package of the closure
+# I.K.E. was tested with that entered [core-testing] or [extra-testing] in the last ARCH_TESTING_HOURS starts
+# arch-testing.yml (daily-check.yml, job start-arch-testing): the break is found before Arch moves it to the
+# users. The build time of the package is the database's own (%BUILDDATE%): no state is kept.
+ARCH_TESTING_HOURS = 30
+
+
+def arch_testing_news(tested, get=None, now=None, hours=ARCH_TESTING_HOURS):
+    """([(package, version in testing)], {repo: error}): the packages of the tested closure (and the packages
+    I.K.E. names) built into Arch's testing repositories in the last `hours`."""
+    names = set(((tested or {}).get("closure") or {})) | set(((tested or {}).get("packages") or {}))
+    now = now or time.time()
+    news, errors = [], {}
+    for repo in ARCH_TESTING_REPOS:
+        try:
+            data = (get or fetch)(ARCH_DB % (repo, repo), timeout=120)
+            if len(data) > ARCH_DB_MAX:
+                raise ValueError("too big")
+            for name, (version, built) in parse_repo_db(data, dates=True).items():
+                if name in names and built and now - built <= hours * 3600:
+                    news.append((name, version))
+        except Exception as e:        # the mirror, the network: never a change
+            errors[repo] = "%s: %s" % (type(e).__name__, str(e).strip()[:200])
+    return sorted(set(news)), errors
 
 
 def arch_repo_versions(repos=ARCH_REPOS, get=None):
@@ -1160,6 +1191,7 @@ def check_arch(saved, get=None, db=None):
 def arch_public(info):
     tested = info["tested"] or {}
     return {"state": info["state"], "current": info["current"], "unreachable": info["unreachable"],
+            "testing_news": [{"package": n, "testing": v} for n, v in info.get("testing_news", [])],
             "changed": [{"package": n, "tested": o, "now": v} for n, o, v in info["changed"]],
             "closure_changed": [{"package": n, "tested": o, "now": v} for n, o, v in info.get("closure_changed", [])],
             "closure_size": info.get("closure_size", 0), "closure_errors": info.get("closure_errors", {}),
@@ -1188,6 +1220,10 @@ def arch_markdown(info):
         "same": "Arch's packages are the versions the last green \"Arch Linux\" run on `main` tested.",
     }[info["state"]]
     out = ["", "### Arch Linux's own packages", "", head, ""]
+    if info.get("testing_news"):
+        out += ["**Arch [testing] has new versions of packages I.K.E. was tested with** (built in the last %d hours): "
+                "%s. \"Arch Linux (testing)\" starts on `main` to try them before they reach the users."
+                % (ARCH_TESTING_HOURS, ", ".join("%s %s" % (n, _v(v)) for n, v in info["testing_news"][:20])), ""]
     if run:
         out.append("Really tested: run [%s](%s) on commit `%s` (%s): Python %s, Qt %s, PyQt %s, Chromium %s "
                    "(as I.K.E. reports it)." % (run.get("id", "?"), run.get("url", ""), str(run.get("sha", ""))[:10],
@@ -1862,6 +1898,7 @@ def main(argv=None):
         except (OSError, ValueError) as e:
             saved = {"tested": None, "error": "%s: %s" % (type(e).__name__, e)}
         arch = check_arch(saved, db=arch_repo_versions())
+        arch["testing_news"], arch["testing_errors"] = arch_testing_news(arch.get("tested"))
     if args.only and not family_of(args.only, root):
         print("::error::not a candidate: %s" % args.only[:80])
         return 2
@@ -1899,6 +1936,7 @@ def main(argv=None):
             f.write("updates=%d\nerrors=%d\nrefused=%d\n" % (updates, errors, refused))
             if arch:
                 f.write("arch=%s\n" % arch["state"])
+                f.write("arch_testing=%s\n" % ("new" if arch.get("testing_news") else "none"))
     if args.apply and args.only:
         # WP5: one candidate alone; its own source unreachable stops it (the next run tries again)
         if errors:

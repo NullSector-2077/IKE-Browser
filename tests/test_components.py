@@ -510,11 +510,13 @@ def test_the_report_says_what_was_really_tested(tool, repo, tmp_path, monkeypatc
     saved.write_text(json.dumps(arch_tested(ARCH_NOW)))
     monkeypatch.setattr(tool, "arch_current",
                         lambda get=None: (dict(ARCH_NOW, **{"qt6-webengine": "6.141.0-1"}), {}))
+    # Arch's [testing], read every day since 2026-11-27 (tests/test_arch_testing_daily.py): nothing new here
+    monkeypatch.setattr(tool, "arch_testing_news", lambda tested, get=None, now=None: ([], {}))
     out = tmp_path / "gh-output"
     monkeypatch.setenv("GITHUB_OUTPUT", str(out))
     tool.main(["--root", str(repo), "--ubo-src", str(tool.ubo), "--arch", str(saved),
                "--json", str(tmp_path / "r.json"), "--markdown", str(tmp_path / "r.md")])
-    assert out.read_text() == "updates=0\nerrors=0\nrefused=0\narch=changed\n"
+    assert out.read_text() == "updates=0\nerrors=0\nrefused=0\narch=changed\narch_testing=none\n"
     data = json.loads((tmp_path / "r.json").read_text())
     assert data["updates"] == 0 and len(data["components"]) == 5
     assert data["arch"]["state"] == "changed"
