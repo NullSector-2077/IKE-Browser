@@ -109,7 +109,7 @@ def token_problem(state, now):
 
 def problems(now, daily, main_tests, has_key, autofix_runs=(), reserve_keys=None, autofix_issues=(),
              maintenance_prs=(), main_protected=None, unreadable=(), pings=(), born=None, providers=(),
-             token=None):
+             token=None, models=None):
     """The problems found (a list of lines), from data already fetched."""
     found = []
     for name, items in daily.items():
@@ -165,6 +165,16 @@ def problems(now, daily, main_tests, has_key, autofix_runs=(), reserve_keys=None
         elif row.get("state") == "failing":
             found.append("The AI provider %s (%s) does not answer: %s." % (row.get("provider"), row.get("model"),
                                                                            row.get("reason")))
+    # AUTOMAT block 2 (tools/provider-check.py discover): a configured model its provider no longer lists
+    found_new = (models or {}).get("discovered") or {}
+    for name, ids in sorted(((models or {}).get("gone") or {}).items()):
+        if isinstance(ids, list) and ids:
+            new = found_new.get(name) or []
+            found.append("%s no longer offers the configured model(s) %s; %s Claude updates tools/ai-providers.py."
+                         % (name, ", ".join("`%s`" % str(m)[:80] for m in ids[:6]),
+                            ("meanwhile AUTOMAT uses its new free model(s) %s." % ", ".join(
+                                "`%s`" % str(m)[:80] for m in new[:4])) if new else
+                            "its other configured models go on meanwhile."))
     line = token_problem(token, now)
     if line:
         found.append(line)
@@ -219,13 +229,14 @@ def main(argv=None):
             pings = [tuple(x) for x in json.loads(Path(os.environ["RESERVE_PING"]).read_text("utf-8"))]
         except (OSError, ValueError, TypeError):
             unreadable.append("the answers of the reserves")
-    providers = []
+    providers, models = [], None
     if os.environ.get("PROVIDER_CHECK"):        # tools/provider-check.py, the step before (WP9)
         if os.environ.get("HAS_KEY", "true") == "true" and not Path(os.environ["PROVIDER_CHECK"]).is_file():
             unreadable.append("whether the AI providers are free (tools/provider-check.py stopped)")
         elif Path(os.environ["PROVIDER_CHECK"]).is_file():
             try:
-                providers = json.loads(Path(os.environ["PROVIDER_CHECK"]).read_text("utf-8"))["providers"]
+                info = json.loads(Path(os.environ["PROVIDER_CHECK"]).read_text("utf-8"))
+                providers, models = info["providers"], info.get("models")
             except (OSError, ValueError, TypeError, KeyError):
                 unreadable.append("whether the AI providers are free (tools/provider-check.py)")
     token = None
@@ -235,7 +246,8 @@ def main(argv=None):
         except (OSError, ValueError, TypeError):
             unreadable.append("when `IKE_WORKFLOW_TOKEN` expires")
     found = problems(now, daily, main_tests, os.environ.get("HAS_KEY", "true") == "true", autofix_runs,
-                     keys, autofix_issues, maintenance_prs, protected, unreadable, pings, born, providers, token)
+                     keys, autofix_issues, maintenance_prs, protected, unreadable, pings, born, providers, token,
+                     models)
     text = ("The weekly check found problems in the automation:\n\n" + "".join("- %s\n" % p for p in found)
             + "\nControllo settimanale: l'automazione ha bisogno di te.\n") if found else ""
     print(text or "Everything works.")

@@ -812,6 +812,13 @@ of that day's four reasons, are `tests/test_automat_deadlock.py`):
   says which limit it was. OpenRouter is asked for little reasoning, not sent back
   (`"reasoning": {"effort": "low", "exclude": true}`), and an answer cut off before its text says so
   (`cutoff`) instead of "no JSON object".
+- **The reasoning that left no answer** (2026-11-27, run 45983654916, PR #111): with the stall gone, nine of
+  eleven free models were asked and almost all were cut off, their whole answer spent on reasoning. Each
+  provider is now asked for little reasoning with its own parameter, and a model cut off is asked once more
+  with its reasoning off (`reasoning_params`: OpenRouter `reasoning.effort` "minimal", then "none"; Z.AI
+  `thinking: {"type": "disabled"}`; Groq `reasoning_effort` "low" for gpt-oss, "none" for Qwen 3.8 27B;
+  read on each provider's page that day). A model whose reasoning is mandatory refuses "none" (HTTP 400):
+  the next model is asked.
 - **Gemini's real quota, learned** (2026-11-25): Google publishes no numbers for the free tier ("can be
   viewed in Google AI Studio"), so `requests_per_day` of Antigravity in `tools/ai-quota.json` is an
   estimate. Gemini's 429 names the limit it hit and its value (`google.rpc.QuotaFailure`: `quotaId`
@@ -1518,6 +1525,20 @@ Those runs report to the finding's entry by its branch
 `TESTING_DAYS` count again from it; the cap makes it "needs-person".
 
 ### Free AI providers, checked every week (WP9)
+
+**New models found by AUTOMAT itself** (block 2, 2026-11-27; the owner: AUTOMAT keeps up with the providers and
+updates the models' names by itself). The weekly check also reads each provider's own list of models (Gemini
+API `GET /models`; Groq and Z.AI `GET .../models`), leaves out what is not text (embeddings, images, speech,
+guards) and asks up to `TRY_NEW` new ones per provider a tiny question on the key, newest version first
+(`tools/provider-check.py` `discover`). The keys have no billing, so a model that answers is free there;
+Gemini's 429 with "limit: 0" says the free plan has none of it (recorded as not free, never used). The models
+that answered reach the automatic fix as `AUTOFIX_DISCOVERED` (`provider-check.py discovered`, read by the
+plan of `autofix.yml` from the weekly artifact) and are asked **after** the configured ones: the reserves
+(`chain`), Antigravity (`models`, in the CLI's form "Gemini 5 Flash (High)") and the Gemini reviewers.
+A configured model its provider no longer lists is said in the weekly issue, with the new free model that
+replaces it meanwhile; Claude then updates `tools/ai-providers.py`. OpenRouter rebuilds its free list at
+every run already. Not found by this: a model only Antigravity's CLI offers (it has no list), and a
+provider's change of its free plan that keeps the model listed (the answers' billing errors still mark it).
 
 **One place** for the providers: `tools/ai-providers.py` (protected, read by
 the agent, the reserves, the weekly check and the queue). It holds the order
