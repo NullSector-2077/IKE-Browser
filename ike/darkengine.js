@@ -413,6 +413,7 @@
     }
     p = { state: 'wait', data: null, waiting: done ? [done] : [] };
     pics.set(url, p);
+    stats.pictures++;
     pendingPictures++;
     stats.pictureCacheEntries = pics.size;
     var img = new Image();
@@ -711,7 +712,8 @@
   // Owner nodes are scanned for changes. Constructed sheets are looked up only
   // while adopted, so their records must not keep replaced sheets alive.
   var recs = new Map(), adoptedRecords = new WeakMap(), generatedStyles = new WeakSet();
-  var stats = { sheets: 0, fetched: 0, rules: 0, ms: 0, pictureCacheEntries: 0, pictureCacheChars: 0,
+  var stats = { sheets: 0, fetched: 0, rules: 0, ms: 0, batches: 0, looks: 0, looksMs: 0, pictures: 0,
+    pictureCacheEntries: 0, pictureCacheChars: 0,
     shadowRoots: 0 };
   function own(el) { return generatedStyles.has(el); }
   // The first value of every property written into the page's own rules and
@@ -1286,6 +1288,10 @@
     return out;
   }
   function looksDark() {
+    var t0 = performance.now();
+    try { return looksDarkNow(); } finally { stats.looks++; stats.looksMs += performance.now() - t0; }
+  }
+  function looksDarkNow() {
     if (!dBody() || innerWidth < 8 || innerHeight < 8) return false;
     var sheet = baseSheet || (baseEl && baseEl.sheet);
     if (sheet) sheet.disabled = true;
@@ -1484,6 +1490,7 @@
   }
   var touched = new Set();
   function handle(list) {
+    stats.batches++;
     for (var i = 0; i < list.length; i++) {
       var m = list[i], t = m.target;
       if (!t.isConnected) continue;

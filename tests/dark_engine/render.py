@@ -542,6 +542,10 @@ def main():
                 # how long the page takes to answer a script (a page kept busy shows here)
                 page.runJavaScript("1", 0, lambda _: print("page answered a script after %.1f s:" % (time.monotonic() - t_ask),
                                                             mode, name, flush=True))
+                if mode.startswith("proto"):
+                    # what the engine did meanwhile (its own time, batches, looks at the page, pictures)
+                    page.runJavaScript("JSON.stringify(window.__ikeDEStats||null)", 1,
+                                       lambda v: print("engine while busy:", mode, name, v, flush=True))
                 QTimer.singleShot(settle, click_then_shoot)
             else:
                 finish("navigation timed out")
