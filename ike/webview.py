@@ -333,7 +333,9 @@ class WebPage(QWebEnginePage):
         if not page_url:
             return
         if experiment:
-            darkengine.prepare(profile, url.toString(), host or url.scheme() + ":", own_on,
+            # the page sees its address in ASCII (xn--...): the site is registered so
+            ace = bytes(QUrl.toAce(host)).decode("ascii", "replace") if host else ""
+            darkengine.prepare(profile, url.toString(), ace or url.scheme() + ":", own_on,
                                self.app.shields.dark_chosen(host))
             return
         # the colours, checked again here (darktheme.py): every site's, and the site's own (1.1.25)

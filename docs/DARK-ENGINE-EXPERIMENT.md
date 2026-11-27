@@ -255,3 +255,49 @@ stylesheet inside an already open shadow root.
 ## Final package and session continuity
 
 Continue committing intermediate work and recording completed tests, remaining defects, blockers and next steps before session limits. On resumption, fetch the experimental branch and continue from the latest checkpoint. Do not request final packaging until all agreed visual, functional, privacy and performance objectives have been verified. Only then include `[experimental-ready]` in the final commit message and push it to this branch. The package workflow skips ordinary pushes; verify the final Arch package job and artifact before reporting readiness. Do not mark unresolved or blocked objectives as complete. Do not modify main or Automat.
+
+## Round 3 (Claude, 2026-11-27): toward replacing Dark Reader
+
+ChatGPT's branch was brought into `wip/ike-dark-engine-r3` as one commit, with
+main merged on top (the strict Content-Security-Policy fix of Dark Reader).
+
+### Measuring
+
+- `tests/dark_engine/conformance.py`: Dark Reader's own dynamic-theme test
+  scenarios (`tests/dark_engine/scenarios/`, MIT, attributed; 150 cases, 125
+  that can be shown as a page) opened with Dark Reader and with the engine;
+  element by element: text colour difference (CIEDE2000), the mean colour of
+  each element's box on screen, elements hidden that were shown without dark
+  mode, text below 3:1 that was readable without dark mode.
+- `render.py` can load a variant of the engine per mode (`DE_JS_<mode>=file`)
+  for A/B comparisons; Speedometer 3.1 runs alternate the modes, 3 rounds.
+- The 22 page copies of rounds 1-2 plus 6 big sites (Wikipedia, MDN, Hacker
+  News, YouTube, Python docs, GitHub); GitHub's copy has no style sheets
+  (github.githubassets.com is not reachable from the build machine).
+
+### Changes
+
+- The page's changes are handled once a frame, before it is drawn (Speedometer
+  -15 % -> -12 % from the page without dark mode; Dark Reader -31 %). One search
+  per added subtree instead of two gave no measurable gain and was left out.
+- Conformance with Dark Reader's scenarios: 115 -> 123 of 125. Every CSS colour
+  name in lists, gradients, shadows and fallbacks; pictures in custom
+  properties; url() holding quotes; large light backdrops made dark with their
+  details kept (Dark Reader hides them); links without their own colour as
+  Dark Reader draws them; SVG colour attributes holding variables; Dark
+  Reader's lock (`<meta name="darkreader-lock">`), also when added later,
+  through an undo log of every value written into the page. The two cases left
+  are deliberate (a system colour keyword resolved as the browser does; an SVG
+  stroke from a variable keeps its colour where Dark Reader greys it).
+- Bright background colours (orange, green, cyan, red) are made dark enough
+  for light text (relative luminance at most 0.10): Hacker News' bar was below
+  3:1 with Dark Reader and with the engine.
+- Pages dark by their own design without saying so are recognised (25 points
+  of the window, the background really drawn there, light text on it), after
+  the page's style sheets arrived (at most 1.5 s, the dark cover meanwhile),
+  and watched in case they turn light.
+- Dark Reader's fix CSS is filtered for the engine (`darkfixes.engine_css`):
+  rules that need Dark Reader's own output are left out, generically (3382 of
+  3821 rules kept); an invalid invert selector no longer voids the list. The
+  lists the engine uses: the fixes (invert, CSS, ignored inline styles,
+  ignored images, ignored style sheets), the dark sites and the detector hints.

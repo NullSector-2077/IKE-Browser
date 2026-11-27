@@ -34,11 +34,48 @@
     if (host === topHost && reg[host]) { window.__ikeDEGo = null; engine(reg[host]); }
   };
 
+  // The document's own methods and properties, taken from their prototypes when
+  // the script starts: a page's named elements (<img name="querySelector">,
+  // <form name="head">) override document properties of the same name in every
+  // world, and must not be able to stop or mislead the engine.
+  var DP = Document.prototype, SRP = window.ShadowRoot && ShadowRoot.prototype;
+  function nativeOf(proto, name) {
+    var d = Object.getOwnPropertyDescriptor(proto, name);
+    return d && (d.get || d.value);
+  }
+  var _head = nativeOf(DP, 'head'), _body = nativeOf(DP, 'body'), _root = nativeOf(DP, 'documentElement');
+  var _qs = DP.querySelector, _qsa = DP.querySelectorAll, _efp = DP.elementFromPoint;
+  var _ready = nativeOf(DP, 'readyState'), _base = nativeOf(Node.prototype, 'baseURI'), _create = DP.createElement;
+  var _listen = EventTarget.prototype.addEventListener, _design = nativeOf(DP, 'designMode');
+  var _adoptDoc = Object.getOwnPropertyDescriptor(DP, 'adoptedStyleSheets');
+  var _adoptSr = SRP && Object.getOwnPropertyDescriptor(SRP, 'adoptedStyleSheets');
+  function dHead() { return _head.call(document); }
+  function dBody() { return _body.call(document); }
+  function dRoot() { return _root.call(document); }
+  function dq(sel) { return _qs.call(document, sel); }
+  function dqa(sel) { return _qsa.call(document, sel); }
+  function dBase() { return _base.call(document); }
+  function adoptedOf(root) {
+    var d = root === document ? _adoptDoc : _adoptSr;
+    return d ? d.get.call(root) : [];
+  }
+  function setAdopted(root, list) {
+    var d = root === document ? _adoptDoc : _adoptSr;
+    if (d) d.set.call(root, list);
+  }
   function engine(siteFix) {
   // a frame of another site gets the common fix only, as in Dark Reader
   var sameSite = false;
   try { sameSite = window.top === window || (location.hostname || location.protocol) === topHost; } catch (e) {}
   var fix = (sameSite && siteFix) || __IKE_DE_COMMON__;
+  function readable(sel) {
+    if (!sel) return '';
+    try { _qs.call(document, sel); return sel; } catch (e) {}
+    return sel.split(',').filter(function (one) {
+      try { _qs.call(document, one); return true; } catch (e) { return false; }
+    }).join(',');
+  }
+  var ignoreInline = readable(fix.ignoreInline);
 
   function matchesPattern(value, pattern, substring) {
     if (pattern[0] === '^') return value.startsWith(pattern.slice(1));
@@ -158,7 +195,10 @@
   var PROPS = [['background-color', 'bg'], ['color', 'fg'], ['border-top-color', 'border'],
     ['border-right-color', 'border'], ['border-bottom-color', 'border'], ['border-left-color', 'border'],
     ['outline-color', 'border'], ['fill', 'fg'], ['stroke', 'fg'], ['text-decoration-color', 'fg'],
-    ['column-rule-color', 'border'], ['caret-color', 'fg'], ['-webkit-text-fill-color', 'fg']];
+    ['column-rule-color', 'border'], ['caret-color', 'fg'], ['-webkit-text-fill-color', 'fg'],
+    ['border-block-start-color', 'border'], ['border-block-end-color', 'border'],
+    ['border-inline-start-color', 'border'], ['border-inline-end-color', 'border'],
+    ['-webkit-text-stroke-color', 'fg'], ['text-emphasis-color', 'fg'], ['stop-color', 'bg'], ['flood-color', 'bg']];
   // shorthands whose longhands read empty while they hold a var()
   var SHORT = [['background', 'bg'], ['border', 'border'], ['border-top', 'border'], ['border-right', 'border'],
     ['border-bottom', 'border'], ['border-left', 'border'], ['border-color', 'border'], ['outline', 'border'],
@@ -180,11 +220,13 @@
     'palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue ' +
     'saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow ' +
     'springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen').split(' ');
-  var COLRE = new RegExp('#[0-9a-f]{3,8}\\b|rgba?\\([^)]*\\)|hsla?\\([^)]*\\)|(?<![\\w\\-./#])(?:' +
+  var COLRE = new RegExp('#[0-9a-f]{3,8}\\b|rgba?\\([^)]*\\)|hsla?\\([^)]*\\)|(?:ok)?l(?:ab|ch)\\([^)]*\\)|hwb\\([^)]*\\)|(?<![\\w\\-./#])(?:' +
     NAMES.join('|') + ')(?![\\w\\-.(])', 'gi');
   var COLTEST = new RegExp(COLRE.source, 'i');
   var PRE = /color|background|border|outline|shadow|fill|stroke|--|caret/;
   var TRIPLE = /^\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*$/;
+  var HSL_TRIPLE = /^\s*(-?[\d.]+)(?:deg)?\s+([\d.]+)%\s+([\d.]+)%\s*$/;
+  var COLOR_NAME = /colou?r|bg|background|foreground|text|border|fill|stroke|rgb|accent|primary|secondary|surface|muted|ring|shadow|link/i;
   // the mappings of a value, kept by kind and text (pages repeat a few colours thousands of times)
   var mapped = { bg: new Map(), fg: new Map(), border: new Map() };
   var listMapped = { bg: new Map(), fg: new Map(), border: new Map() };
@@ -205,13 +247,29 @@
     m.set(v, r);
     return r;
   }
-  function rgbTriple(c) {                   // "hsla(...)" -> "r, g, b" for a variable used inside rgba()
+  // "hsla(...)" -> "r, g, b" (or "r g b": sep) for a variable used inside rgb()
+  function rgbTriple(c, sep) {
     if (!ctx) ctx = new OffscreenCanvas(1, 1).getContext('2d', { willReadFrequently: true });
     ctx.fillStyle = c;
-    var s = ctx.fillStyle;
-    if (s[0] === '#') return parseInt(s.substr(1, 2), 16) + ', ' + parseInt(s.substr(3, 2), 16) + ', ' + parseInt(s.substr(5, 2), 16);
-    var m = s.match(/[\d.]+/g);
-    return m[0] + ', ' + m[1] + ', ' + m[2];
+    var s = ctx.fillStyle, m;
+    if (s[0] === '#') m = [parseInt(s.substr(1, 2), 16), parseInt(s.substr(3, 2), 16), parseInt(s.substr(5, 2), 16)];
+    else m = s.match(/[\d.]+/g);
+    return m[0] + (sep || ', ') + m[1] + (sep || ', ') + m[2];
+  }
+  // "hsla(h,s%,l%,a)" as written by css() -> "h s% l%" for a variable used inside hsl()
+  function hslTriple(c) {
+    var m = /hsla\(([\d.]+),([\d.]+)%,([\d.]+)%/.exec(c);
+    return m ? m[1] + ' ' + m[2] + '% ' + m[3] + '%' : null;
+  }
+  // a colour whose alpha is a variable (Tailwind: rgb(255 255 255 / var(--tw-bg-opacity))):
+  // its channels mapped, the alpha kept as written
+  var ALPHA_VAR = /\b(rgba?|hsla?)\(\s*([^()\/,]+?(?:\s*,\s*[^()\/,]+?){0,2})\s*(?:\/|,)\s*(var\((?:[^()]|\([^()]*\))*\))\s*\)/gi;
+  function alphaVars(v, kind) {
+    return v.replace(ALPHA_VAR, function (m, fn, chans, alpha) {
+      var c = parse(fn.replace(/a$/i, '') + '(' + chans + ')');
+      if (!c) return m;
+      return 'rgb(' + rgbTriple(mapColor([c[0], c[1], c[2], 1], kind), ' ') + ' / ' + alpha + ')';
+    });
   }
 
   // --- custom properties: one definition per use (background, text, border) ---
@@ -221,6 +279,10 @@
   var VK = { fg: 'fg', border: 'bd' };
   function useVars(v, kind) {
     if (v.indexOf('var(') < 0) return mapColors(v, kind);
+    if (/(rgb|hsl)a?\(/i.test(v)) {
+      var a = alphaVars(v, kind);
+      if (a !== v) { v = a; if (v.indexOf('var(') < 0) return v; }
+    }
     var k = VK[kind], out = '', i = 0;
     for (;;) {
       var j = v.indexOf('var(', i);
@@ -242,10 +304,22 @@
     var c = parse(v), name = n.slice(2);
     if (c) return n + ':' + mapColor(c, 'bg') + ';--ike-fg-' + name + ':' + mapColor(c, 'fg') + ';--ike-bd-' + name + ':' + mapColor(c, 'border') + ';';
     var t = v.match(TRIPLE);
-    if (t) {
-      var cc = [+t[1], +t[2], +t[3], 1];
-      return n + ':' + rgbTriple(mapColor(cc, 'bg')) + ';--ike-fg-' + name + ':' + rgbTriple(mapColor(cc, 'fg')) +
-        ';--ike-bd-' + name + ':' + rgbTriple(mapColor(cc, 'border')) + ';';
+    // channels of a colour (59 130 246, used as rgb(var(--c) / .5)); not 1 1 1 or 0 0 0
+    // of a scale or a translation, unless the name says colour
+    if (t && (+t[1] > 1 || +t[2] > 1 || +t[3] > 1 || COLOR_NAME.test(name))) {
+      var cc = [+t[1], +t[2], +t[3], 1], sep = v.indexOf(',') >= 0 ? ', ' : ' ';
+      return n + ':' + rgbTriple(mapColor(cc, 'bg'), sep) + ';--ike-fg-' + name + ':' + rgbTriple(mapColor(cc, 'fg'), sep) +
+        ';--ike-bd-' + name + ':' + rgbTriple(mapColor(cc, 'border'), sep) + ';';
+    }
+    // hue, saturation and lightness (shadcn/ui: --background: 0 0% 100%, used as hsl(var(--background)))
+    var hl = v.match(HSL_TRIPLE);
+    if (hl) {
+      var hc = parse('hsl(' + hl[1] + ',' + hl[2] + '%,' + hl[3] + '%)');
+      if (hc) {
+        var hb = hslTriple(mapColor([hc[0], hc[1], hc[2], 1], 'bg')), hf = hslTriple(mapColor([hc[0], hc[1], hc[2], 1], 'fg')),
+          hd = hslTriple(mapColor([hc[0], hc[1], hc[2], 1], 'border'));
+        if (hb && hf && hd) return n + ':' + hb + ';--ike-fg-' + name + ':' + hf + ';--ike-bd-' + name + ':' + hd + ';';
+      }
     }
     if (v.indexOf('var(') >= 0 && !/[;{}]/.test(v)) return '--ike-fg-' + name + ':' + useVars(v, 'fg') + ';--ike-bd-' + name + ':' + useVars(v, 'border') + ';';
     if (v.indexOf('gradient') >= 0) return n + ':' + mapColors(v, 'bg') + ';';
@@ -318,15 +392,15 @@
         }
         if (!n) { end(null); return; }
         var avg = sum / n, sd = Math.sqrt(Math.max(0, sq / n - avg * avg)), small = w <= 256 && h <= 256;
-        var darkIcon = clear > 100 && avg < 0.3 && small;              // dark drawing on transparency
+        var darkIcon = clear > 256 && avg < 0.3 && sd < 0.15 && small; // a flat dark drawing on transparency
         var lightPanel = clear < 50 && avg > 0.75 && (small || sd < 0.08); // light texture or plain light area
         // a large light backdrop (text is drawn on it): Dark Reader hides it, here
         // it is made dark and keeps its details: a drawing inverted, a photo dimmed
         var drawing = /^data:image\/svg|\.svg(?:[?#]|$)/i.test(url);
-        var lightBackdrop = !small && clear < 50 && avg > 0.7;
+        var lightBackdrop = !small && clear < 50 && avg > 0.7 && !/\.(gif|apng)(?:[?#]|$)/i.test(url);
         if (!(darkIcon || lightPanel || lightBackdrop) || w > 2048 || h > 2048) { end(null); return; }
         var cv = new OffscreenCanvas(w, h), c2 = cv.getContext('2d');
-        c2.filter = lightBackdrop && !lightPanel && !drawing ? 'brightness(30%)' : 'invert(100%) hue-rotate(180deg)';
+        c2.filter = lightBackdrop && !lightPanel && !drawing ? 'brightness(40%)' : 'invert(100%) hue-rotate(180deg)';
         c2.drawImage(img, 0, 0, w, h);
         cv.convertToBlob().then(function (b) {
           var r = new FileReader();
@@ -340,16 +414,17 @@
     return p;
   }
   var URL_RE = /url\(\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|([^"')\s]+))\s*\)/g;
-  function mapImage(v, base, again, skipPicture) {
+  function mapImage(v, base, again, skipPicture, gradKind) {
+    gradKind = gradKind || 'bg';
     if (v.indexOf('url(') < 0) {
-      return { value: v.indexOf('gradient') >= 0 ? mapColors(v, 'bg') : null, pending: false };
+      return { value: v.indexOf('gradient') >= 0 ? mapColors(v, gradKind) : null, pending: false };
     }
     var changed = v.indexOf('gradient') >= 0, pending = false;
     var out = v.replace(URL_RE, function (m, dq, sq, bare) {
       var u = (dq !== undefined ? dq : sq !== undefined ? sq : bare).replace(/\\(.)/g, '$1');
       if (/^data:image\/svg|^data:/.test(u) && u.length > 4000) return m;
       var abs;
-      try { abs = new URL(u, base || document.baseURI).href; } catch (e) { return m; }
+      try { abs = new URL(u, base || dBase()).href; } catch (e) { return m; }
       if (skipPicture) return 'url("' + abs.replace(/["\\]/g, '\\$&') + '")';
       // One pending layer is enough to trigger the next pass for this value.
       var p = picture(abs, pending ? null : again);
@@ -359,10 +434,13 @@
     });
     return { pending: pending, value: changed ? out.replace(
       /(linear|radial|conic|repeating-linear|repeating-radial)-gradient\((?:[^()]|\([^()]*\))*\)/g,
-      function (g) { return mapColors(g, 'bg'); }) : null };
+      function (g) { return mapColors(g, gradKind); }) : null };
   }
 
   var imageSources = new WeakMap();
+  function clipsText(st) {
+    return st.getPropertyValue('background-clip') === 'text' || st.getPropertyValue('-webkit-background-clip') === 'text';
+  }
   function background(st, value, mine, base, again, skipPicture) {
     var ours = mine && mine['background-image'] === value;
     var source = ours ? imageSources.get(st) : value;
@@ -370,7 +448,7 @@
       imageSources.delete(st);
       return null;
     }
-    var mapped = mapImage(source, base, again, skipPicture);
+    var mapped = mapImage(source, base, again, skipPicture, clipsText(st) ? 'fg' : 'bg');
     // Retain the author value only while asynchronous layers can still change
     // our output. A new value written by the page takes precedence.
     if (mine && mapped.pending) imageSources.set(st, source);
@@ -501,7 +579,7 @@
     var mine = ruleWrote.get(r);
     if (!mine) { mine = {}; ruleWrote.set(r, mine); }
     var again = function () { quiet(function () { inRule(r, base); }); };
-    var l = items(r.style, base, again, false, mine, r.selectorText);
+    var l = items(r.style, base, again, false, mine, r.selectorText || '');
     if (!l.length) return;
     var st = r.style;
     for (var i = 0; i < l.length; i++) {
@@ -512,7 +590,7 @@
   function inPlace(list, base, from) {
     for (var i = from || 0; i < list.length; i++) {
       var r = list[i];
-      if (r.style && r.selectorText !== undefined) {
+      if (r.style) {                                  // style, keyframe and nested declaration rules
         if (!ruleWrote.has(r)) inRule(r, base);
         if (r.cssRules && r.cssRules.length) inPlace(r.cssRules, base, 0);
       } else if (r.cssRules) {
@@ -554,18 +632,29 @@
   var stats = { sheets: 0, fetched: 0, rules: 0, ms: 0, pictureCacheEntries: 0, pictureCacheChars: 0,
     shadowRoots: 0 };
   function own(el) { return generatedStyles.has(el); }
-  // Every value written into the page's own rules and inline styles, so that it
-  // can be given back (a page that asks later not to be darkened, a site that
-  // switches to its own dark theme): [owner, declaration, name, old value, old
-  // priority, value written]. Owners gone from the page are dropped now and then.
-  var undoLog = [], undoPrune = 0;
+  // The first value of every property written into the page's own rules and
+  // inline styles, so that it can be given back (a page that asks later not to be
+  // darkened, a site that switches to its own dark theme): declaration ->
+  // {owner, props: name -> [original value, its priority, value written last]}.
+  // Declarations whose owner left the page are dropped when the map has grown.
+  var undoMap = new Map(), pruneAt = 4000;
   function writeProp(owner, st, n, v, prio) {
-    var old = st.getPropertyValue(n), oldPrio = st.getPropertyPriority(n);
+    var rec = undoMap.get(st);
+    if (!rec) {
+      rec = { owner: owner, props: new Map() };
+      undoMap.set(st, rec);
+      if (undoMap.size > pruneAt) pruneUndo();
+    }
+    var p = rec.props.get(n), cur;
+    if (!p) {
+      cur = st.getPropertyValue(n);
+      rec.props.set(n, p = [cur, cur ? prio || '' : '', null]);   // written with the original's priority
+    } else if ((cur = st.getPropertyValue(n)) !== p[2]) {
+      p[0] = cur;                               // the page wrote it since: that is the original now
+      p[1] = cur ? prio || '' : '';
+    }
     st.setProperty(n, v, prio || '');
-    var now = st.getPropertyValue(n);
-    if (now !== old || st.getPropertyPriority(n) !== oldPrio) undoLog.push([owner, st, n, old, oldPrio, now]);
-    if (undoLog.length > 20000 && !undoPrune) undoPrune = setTimeout(pruneUndo, 2000);
-    return now;
+    return (p[2] = st.getPropertyValue(n));
   }
   function gone(owner) {
     if (owner.nodeType === 1) return !owner.isConnected;
@@ -574,34 +663,36 @@
     return !sheet || (sheet.ownerNode ? !sheet.ownerNode.isConnected : false);
   }
   function pruneUndo() {
-    undoPrune = 0;
-    undoLog = undoLog.filter(function (u) { return !gone(u[0]); });
+    undoMap.forEach(function (rec, st) { if (gone(rec.owner)) undoMap.delete(st); });
+    pruneAt = Math.max(4000, undoMap.size * 2);
   }
   function undo() {
-    for (var i = undoLog.length - 1; i >= 0; i--) {
-      var u = undoLog[i];
-      try {
-        if (u[1].getPropertyValue(u[2]) !== u[5]) continue;       // the page has changed it since
-        if (u[3]) u[1].setProperty(u[2], u[3], u[4]);
-        else u[1].removeProperty(u[2]);
-      } catch (e) {}
-    }
-    undoLog = [];
+    undoMap.forEach(function (rec, st) {
+      rec.props.forEach(function (p, n) {
+        try {
+          if (st.getPropertyValue(n) !== p[2]) return;         // the page has changed it since
+          if (p[0]) st.setProperty(n, p[0], p[1]);
+          else st.removeProperty(n);
+        } catch (e) {}
+      });
+    });
+    undoMap = new Map();
     // what was done is forgotten: a later start maps everything again
     ruleWrote = new WeakMap(); applied = new WeakMap(); wrote = new WeakMap();
+    presentationSheets = new WeakMap(); editRules = {};
     recs.forEach(function (rec) { rec.n = -1; rec.last = null; });
     [document].concat(Array.from(roots)).forEach(function (root) {
       try {
         root.querySelectorAll('style.ike-de').forEach(function (el) { if (own(el)) el.remove(); });
-        if (root.adoptedStyleSheets.some(function (x) { return x.__ikeDE; })) {
-          root.adoptedStyleSheets = root.adoptedStyleSheets.filter(function (x) { return !x.__ikeDE; });
+        if (adoptedOf(root).some(function (x) { return x.__ikeDE; })) {
+          setAdopted(root, adoptedOf(root).filter(function (x) { return !x.__ikeDE; }));
         }
       } catch (e) {}
     });
-    document.querySelectorAll('.ike-de-lift').forEach(function (el) { el.classList.remove('ike-de-lift'); });
+    dqa('.ike-de-lift').forEach(function (el) { el.classList.remove('ike-de-lift'); });
   }
   function makeStyle() {
-    var style = document.createElement('style');
+    var style = _create.call(document, 'style');
     style.className = 'ike-de';
     generatedStyles.add(style);
     return style;
@@ -659,7 +750,7 @@
       put(node, rec);
       return;
     }
-    grow(rec, list, sh.href || document.baseURI);
+    grow(rec, list, sh.href || dBase());
   }
   // rules added at the end (CSS-in-JS): only those; any other change: every rule not done yet
   function grow(rec, list, base) {
@@ -688,9 +779,9 @@
   function detachOverride(rec) {
     if (rec.el) rec.el.remove();
     if (rec.root) {
-      rec.root.adoptedStyleSheets = rec.root.adoptedStyleSheets.filter(function (sheet) {
+      setAdopted(rec.root, adoptedOf(rec.root).filter(function (sheet) {
         return sheet !== rec.sheet;
-      });
+      }));
       rec.root = null;
     }
   }
@@ -753,14 +844,14 @@
   // sheets built in script (adoptedStyleSheets): changed in place too (one
   // sheet shared by many shadow roots is done once)
   function adopted(root) {
-    var list = root.adoptedStyleSheets;
+    var list = adoptedOf(root);
     if (!list || !list.length) return;
     for (var i = 0; i < list.length; i++) {
       var s = list[i];
       if (s.__ikeDE) continue;
       var rec = adoptedRecords.get(s);
       if (!rec) { rec = { n: -1, last: null }; adoptedRecords.set(s, rec); stats.sheets++; }
-      grow(rec, s.cssRules, document.baseURI);
+      grow(rec, s.cssRules, dBase());
     }
   }
   // rules added through insertRule leave no trace in the document: the sheets
@@ -800,7 +891,20 @@
     var root = el.getRootNode();
     ['fill', 'stroke'].forEach(function (p) {
       var value = el.getAttribute(p);
-      var color = value && (value.indexOf('var(') >= 0 ? useVars(value, 'fg') : mapValue(value, 'fg'));
+      if (!value) return;
+      // a large filled rectangle is the background of a chart or a drawing: mapped
+      // as a background (its labels as text), written on the element itself
+      if (p === 'fill' && largeShape(el)) {
+        var bg = value.indexOf('var(') >= 0 ? useVars(value, 'bg') : mapValue(value, 'bg');
+        var c0 = parse(getComputedStyle(el).fill), c1 = parse(value);
+        if (bg && c0 && c1 && c0[0] === c1[0] && c0[1] === c1[1] && c0[2] === c1[2]) {
+          var dn = wrote.get(el) || {};
+          wrote.set(el, dn);
+          dn.fill = writeProp(el, el.style, 'fill', bg, '');
+        }
+        return;
+      }
+      var color = value.indexOf('var(') >= 0 ? useVars(value, 'fg') : mapValue(value, 'fg');
       if (!color) return;
       var record = presentationSheets.get(root);
       if (!record) {
@@ -819,6 +923,14 @@
         presentationSheets.set(root, record);
       }
       var key = p + ':' + value;
+      // a page that animates its colours would add rules without end: past a few
+      // hundred colours the element gets its colour itself
+      if (!record.keys.has(key) && record.keys.size >= 400) {
+        var dk = wrote.get(el) || {};
+        wrote.set(el, dk);
+        dk[p] = writeProp(el, el.style, p, color, '');
+        return;
+      }
       if (!record.keys.has(key)) {
         var selector = '[' + p + '="' + CSS.escape(value) + '"]';
         var rule = ':where(svg' + selector + ',svg ' + selector + '){' + p + ':' + color + '}';
@@ -828,17 +940,38 @@
       }
     });
   }
+  function largeShape(el) {
+    if (el.localName !== 'rect') return false;
+    var w = el.getAttribute('width') || '', h = el.getAttribute('height') || '';
+    if (/%$/.test(w) || /%$/.test(h)) return true;
+    return parseFloat(w) >= 120 && parseFloat(h) >= 40;
+  }
+  var editRules = {};
+  function editRule(n) {
+    if (editRules[n]) return;
+    var sheet = baseSheet || (baseEl && baseEl.sheet);
+    if (!sheet) return;
+    try {
+      sheet.insertRule('[style*="--ike-i-' + n + ':"]{' + n + ':var(--ike-i-' + n + ')!important}', sheet.cssRules.length);
+      editRules[n] = true;
+    } catch (e) {}
+  }
   function seen(el) { return (el.getAttribute('style') || '') + '\u0001' + (el.getAttribute('bgcolor') || ''); }
   function inline(el) {
     if (off) return;
     var now = seen(el);
-    if (fix.ignoreInline && fix.ignoreInline.length && el.matches(fix.ignoreInline)) { applied.set(el, now); return; }
+    if (ignoreInline && el.matches(ignoreInline)) { applied.set(el, now); return; }
     if (el.namespaceURI === SVGNS) svgPresentation(el);
     if (applied.get(el) === now) return;
     var st = el.style, attr = el.getAttribute('style');
     var done = wrote.get(el);
     if (!done) { done = {}; wrote.set(el, done); }
+    // what the user writes (a mail being composed, an editor) keeps its own colours
+    // in its markup: the dark colour goes into a property of ours, which a rule of
+    // ours applies; the text sent or saved is the user's
+    var editable = el.isContentEditable || _design.call(document) === 'on';
     var set = function (n, v, prio) {
+      if (editable) { done['--ike-i-' + n] = writeProp(el, st, '--ike-i-' + n, v, ''); editRule(n); return; }
       done[n] = writeProp(el, st, n, v, prio);
     };
     if (attr && PRE.test(attr)) {
@@ -855,13 +988,13 @@
           if (m && m !== v) set(n, m, st.getPropertyPriority(n));
         } else if (n === 'background-image') {
           if (!v) { shorts = true; continue; }
-          var nb = background(st, v, done, document.baseURI, again, skipElementImage(el));
+          var nb = background(st, v, done, dBase(), again, skipElementImage(el));
           if (nb) set(n, nb);
         } else if ((n === 'box-shadow' || n === 'text-shadow') && v && v !== 'none' && v.indexOf('var(') < 0) {
           set(n, mapColors(v, 'bg'));
         } else if (n.charCodeAt(0) === 45 && n.charCodeAt(1) === 45 && n.indexOf('--ike-') !== 0 &&
                    v.indexOf('url(') >= 0) {
-          var pic = mapImage(v.trim(), document.baseURI, again, skipElementImage(el));
+          var pic = mapImage(v.trim(), dBase(), again, skipElementImage(el));
           if (pic.value) set(n, pic.value, st.getPropertyPriority(n));
         } else if (n.charCodeAt(0) === 45 && n.charCodeAt(1) === 45 && n.indexOf('--ike-') !== 0) {
           var d = defineVar(n, v);
@@ -907,13 +1040,17 @@
       probe = null;
       return;
     }
-    var clear = 0, n = 0, lum = 0;
+    var clear = 0, n = 0, lum = 0, sq = 0;
     for (var i = 0; i < d.length; i += 4) {
       if (d[i + 3] < 30) { clear++; continue; }
       n++;
-      lum += (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255;
+      var y = (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255;
+      lum += y; sq += y * y;
     }
-    if (clear > 0.2 * 576 && n && lum / n < 0.3) img.classList.add('ike-de-lift');
+    // a flat dark drawing on transparency (a logo, an icon); a round avatar or a
+    // cut-out photo has corners as clear but many tones, and is left as it is
+    var mean = n ? lum / n : 1, sdev = n ? Math.sqrt(Math.max(0, sq / n - mean * mean)) : 1;
+    if (clear > 0.3 * 576 && n && mean < 0.3 && sdev < 0.15) img.classList.add('ike-de-lift');
   }
 
   // --- shadow roots (open ones) are treated as small documents -------------------
@@ -953,7 +1090,7 @@
     if (e.localName === 'style') sheetOf(e);
     else if (e.localName === 'link') { trackLink(e); sheetOf(e); }
     else if (e.tagName === 'IMG') look(e);
-    else if (e.localName.indexOf('-') > 0) shadow(e);
+    else if (e.shadowRoot || e.localName.indexOf('-') > 0) shadow(e);
   }
   function tree(root) {
     var l, i;
@@ -963,9 +1100,9 @@
       if (!root.firstElementChild) return;              // most added nodes: nothing below
     }
     l = root.querySelectorAll(SEL);
-    for (i = 0; i < l.length; i++) inline(l[i]);
+    for (i = 0; i < l.length; i++) { try { inline(l[i]); } catch (e) {} }
     l = root.querySelectorAll('*');
-    for (i = 0; i < l.length; i++) visit(l[i]);
+    for (i = 0; i < l.length; i++) { try { visit(l[i]); } catch (e) {} }
   }
   function look(img) {
     if (!imageListeners.has(img)) {
@@ -979,17 +1116,18 @@
   var csp = false, baseSheet = null;
   function adopt(root, sheet) {
     sheet.__ikeDE = true;
-    var l = root.adoptedStyleSheets;
-    if (l.indexOf(sheet) < 0) root.adoptedStyleSheets = l.concat([sheet]);
+    var l = adoptedOf(root);
+    if (l.indexOf(sheet) < 0) setAdopted(root, l.concat([sheet]));
   }
   function base() {
     var t = ':root{color-scheme:dark!important}' +
       (window === window.top ? 'html{background-color:#181a1b!important}' : '') +
       ':where(html,body){color:#e8e6e3;border-color:#736b5e}' +
-      ':where(input,textarea,select,button){color:#e8e6e3}:where(a:any-link){color:#3391ff}';
+      ':where(input,textarea,select,button){color:#e8e6e3}:where(a:any-link){color:#3391ff}' +
+      '::selection{background-color:#004daf!important;color:#e8e6e3!important}';
     // one selector the engine cannot read would void the whole list: each is checked
     var inv = (fix.invert || []).filter(function (sel) {
-      try { document.querySelector(sel); return true; } catch (e) { return false; }
+      try { dq(sel); return true; } catch (e) { return false; }
     }).join(',');
     if (inv) t += inv + '{filter:invert(100%) hue-rotate(180deg)!important}';
     if (fix.css) {
@@ -1017,7 +1155,7 @@
 
   // --- a page that is dark already is left alone --------------------------------
   function darkPalette() {
-    var theme = (document.documentElement.getAttribute('data-theme') || '').toLowerCase();
+    var theme = (dRoot().getAttribute('data-theme') || '').toLowerCase();
     if (theme !== 'dark' && (theme !== 'system' || !matchMedia('(prefers-color-scheme: dark)').matches)) {
       return false;
     }
@@ -1026,8 +1164,8 @@
     var sheet = baseSheet || (baseEl && baseEl.sheet);
     if (sheet) sheet.disabled = true;
     try {
-      var root = getComputedStyle(document.documentElement);
-      var body = document.body ? getComputedStyle(document.body) : root;
+      var root = getComputedStyle(dRoot());
+      var body = dBody() ? getComputedStyle(dBody()) : root;
       var background = parse(body.backgroundColor);
       if (!background || background[3] < 0.95) background = parse(root.backgroundColor);
       var foreground = parse(body.color);
@@ -1045,7 +1183,7 @@
   // and the text there reads light. Pictures do not count (a dark photo on a
   // light page is not a dark page). The engine's own cover is left out.
   function canvasColor() {
-    var scheme = getComputedStyle(document.documentElement).colorScheme || '';
+    var scheme = getComputedStyle(dRoot()).colorScheme || '';
     return /^\s*dark\b|only dark/.test(scheme) ? [18, 18, 18, 1] : [255, 255, 255, 1];
   }
   function drawnBackground(el, canvas) {
@@ -1065,19 +1203,26 @@
     return out;
   }
   function looksDark() {
-    if (!document.body || innerWidth < 8 || innerHeight < 8) return false;
+    if (!dBody() || innerWidth < 8 || innerHeight < 8) return false;
     var sheet = baseSheet || (baseEl && baseEl.sheet);
     if (sheet) sheet.disabled = true;
     try {
       var canvas = canvasColor(), dark = 0, seen = 0, w = innerWidth, h = innerHeight;
       // a frame shows its parent through a transparent canvas: only an opaque one counts
       if (window !== window.top) {
-        var own = drawnBackground(document.body, [0, 0, 0, 0]);
+        var own = drawnBackground(dBody(), [0, 0, 0, 0]);
         if (own[3] < 0.95) return false;
+      }
+      // three points first (the middle, the top, the left): two light ones and
+      // the page cannot be dark at 85 % of the points
+      var light = 0, quick = [[2, 2], [2, 0], [0, 2]];
+      for (var q = 0; q < quick.length; q++) {
+        var qe = _efp.call(document, (quick[q][0] + 0.5) * w / 5, (quick[q][1] + 0.5) * h / 5);
+        if (qe && lum(drawnBackground(qe, canvas)) >= 0.2 && ++light >= 2) return false;
       }
       for (var iy = 0; iy < 5; iy++) {
         for (var ix = 0; ix < 5; ix++) {
-          var el = document.elementFromPoint((ix + 0.5) * w / 5, (iy + 0.5) * h / 5);
+          var el = _efp.call(document, (ix + 0.5) * w / 5, (iy + 0.5) * h / 5);
           if (!el || el.tagName === 'IMG' || el.tagName === 'VIDEO' || el.tagName === 'CANVAS') continue;
           var bg = drawnBackground(el, canvas), lb = lum(bg);
           seen++;
@@ -1087,7 +1232,14 @@
           dark++;
         }
       }
-      return seen >= 8 && dark >= 0.85 * seen;
+      if (seen < 8 || dark < 0.85 * seen) return false;
+      // a dark hero, splash or scrim filling the window over a light page is not a
+      // dark page: the page's own background must be dark too, or the page no
+      // taller than what is seen, all of it dark
+      var bodyBg = drawnBackground(dBody(), canvas);
+      if (lum(bodyBg) < 0.2) return true;
+      var root = dRoot();
+      return dark === seen && Math.max(root.scrollHeight, dBody().scrollHeight) <= h * 1.5;
     } catch (e) {
       return false;
     } finally {
@@ -1095,9 +1247,9 @@
     }
   }
   function isDarkAlready() {
-    if (document.querySelector('meta[name="darkreader-lock"]')) return true;
+    if (dq('meta[name="darkreader-lock"]')) return true;
     if (siteFix.chosen) return false;
-    var m = document.querySelector('meta[name="color-scheme"]');
+    var m = dq('meta[name="color-scheme"]');
     if (m && /^\s*(?:only\s+dark|dark(?:\s+only)?)\s*$/i.test(m.content)) return true;
     var hint = fix.hint;
     if (!hint) return (window === window.top && darkPalette()) || looksDark();
@@ -1105,7 +1257,7 @@
     if (hint.systemTheme && matchMedia('(prefers-color-scheme: dark)').matches) return true;
     if (!hint.target || !hint.match || !hint.match.length) return false;
     try {
-      var target = document.querySelector(hint.target);
+      var target = dq(hint.target);
       if (!target || !target.matches(hint.match.join(','))) return false;
       // Some sites advertise both palettes with data-theme="light dark".
       // A substring hint alone cannot distinguish the palette being shown.
@@ -1131,9 +1283,9 @@
     mo.disconnect();
     if (baseEl) baseEl.remove();
     if (baseSheet) {
-      document.adoptedStyleSheets = document.adoptedStyleSheets.filter(function (sheet) {
+      setAdopted(document, adoptedOf(document).filter(function (sheet) {
         return sheet !== baseSheet;
-      });
+      }));
     }
   }
   function waitForLightTheme() {
@@ -1143,19 +1295,19 @@
 
     function watch() {
       observer.disconnect();
-      var root = document.documentElement;
-      var meta = document.querySelector('meta[name="color-scheme"]');
+      var root = dRoot();
+      var meta = dq('meta[name="color-scheme"]');
       observer.observe(document, { childList: true });
       if (root) observer.observe(root, { childList: true, attributes: true, attributeFilter: ['data-theme', 'class', 'style'] });
-      if (document.body) observer.observe(document.body, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] });
-      if (document.head) observer.observe(document.head, { childList: true });
+      if (dBody()) observer.observe(dBody(), { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] });
+      if (dHead()) observer.observe(dHead(), { childList: true });
       if (meta) observer.observe(meta, { attributes: true, attributeFilter: ['content', 'name'] });
       if (!fix.hint || !fix.hint.target) return;
       var target;
-      try { target = document.querySelector(fix.hint.target); } catch (e) { return; }
+      try { target = dq(fix.hint.target); } catch (e) { return; }
       if (target) {
-        observer.observe(target, { attributes: true, childList: target === root || target === document.head });
-        for (var parent = target.parentElement; parent && parent !== root && parent !== document.head;
+        observer.observe(target, { attributes: true, childList: target === root || target === dHead() });
+        for (var parent = target.parentElement; parent && parent !== root && parent !== dHead();
              parent = parent.parentElement) {
           observer.observe(parent, { childList: true });
         }
@@ -1163,7 +1315,7 @@
     }
 
     function check() {
-      if (!document.documentElement || isDarkAlready()) { watch(); return; }
+      if (!dRoot() || isDarkAlready()) { watch(); return; }
       observer.disconnect();
       preference.removeEventListener('change', check);
       // No author declarations were changed while the site used its theme.
@@ -1175,6 +1327,25 @@
     preference.addEventListener('change', check);
     watch();
   }
+  function restart() {
+    if (!off) return;
+    baseEl = baseSheet = null;
+    csp = off = false;
+    ready.done = false;
+    readyWait = 99;
+    ready();
+  }
+  var printing = false;
+  addEventListener('beforeprint', function () {
+    if (off || !ready.done) return;
+    printing = true;
+    stop();
+  });
+  addEventListener('afterprint', function () {
+    if (!printing) return;
+    printing = false;
+    restart();
+  });
   // the sheets' lengths, the hosts still without a shadow root and the
   // pictures that came back are looked at once a frame (before it is drawn),
   // not with every batch of changes
@@ -1189,6 +1360,8 @@
       quiet(function () {
         hosts.forEach(function (h) { if (!h.isConnected) hosts.delete(h); else if (h.shadowRoot) shadow(h); });
         pruneShadowRoots();
+        if (ready.done && baseEl && !csp && !baseEl.isConnected && dHead()) dHead().insertBefore(baseEl, dHead().firstChild);
+        if (ready.done && baseSheet && adoptedOf(document).indexOf(baseSheet) < 0) adopt(document, baseSheet);
         if (ready.done) grown();
       });
       trimPicturesLater();
@@ -1226,13 +1399,13 @@
           if (n.nodeType !== 1 || !n.isConnected || own(n)) continue;
           // a page that asks later not to be darkened (Dark Reader's lock) gets its colours back
           if (n.localName === 'meta' && n.getAttribute('name') === 'darkreader-lock') { stop(); return; }
-          tree(n);
+          try { tree(n); } catch (e) {}
         }
       }
-      if (t && t.localName === 'style' && !own(t)) sheetOf(t);
+      if (t && t.localName === 'style' && !own(t)) { try { sheetOf(t); } catch (e) {} }
     }
     if (touched.size) {
-      touched.forEach(function (el) { if (el.isConnected) inline(el); });
+      touched.forEach(function (el) { try { if (el.isConnected) inline(el); } catch (e) {} });
       touched.clear();
     }
     schedule();
@@ -1257,10 +1430,10 @@
   });
   function start() {
     if (baseEl || off) return true;
-    var root = document.documentElement;
+    var root = dRoot();
     if (!root) return false;
     baseEl = base();
-    (document.head || root).insertBefore(baseEl, (document.head || root).firstChild);
+    (dHead() || root).insertBefore(baseEl, (dHead() || root).firstChild);
     if (!baseEl.sheet) {                          // refused by the page's policy
       csp = true;
       baseSheet = new CSSStyleSheet();
@@ -1273,7 +1446,7 @@
     if (window === window.top) {
       coverSheet = baseSheet || baseEl.sheet;
       coverRule = coverSheet.cssRules[coverSheet.insertRule(
-        ':root:root > body{background-color:#181a1b!important}', 0)];
+        ':root:root > body{background-color:#181a1b!important;color:#e8e6e3}', 0)];
     }
     return true;
   }
@@ -1284,7 +1457,7 @@
   // style sheets of the page still loading: the page is judged once they are
   // there (at most 1.5 s; the dark cover stays meanwhile)
   function sheetsPending() {
-    var links = document.querySelectorAll('link[rel~="stylesheet"]');
+    var links = dqa('link[rel~="stylesheet"]');
     for (var i = 0; i < links.length; i++) {
       var l = links[i];
       if (!l.sheet && !l.disabled && (!l.media || matchMedia(l.media).matches) && !l.__ikeDEFailed) return l;
@@ -1292,6 +1465,10 @@
     return null;
   }
   var readyWait = 0;
+  _listen.call(document, 'error', function (e) {
+    var t = e.target;
+    if (t && t.localName === 'link') t.__ikeDEFailed = true;
+  }, true);
   function ready() {
     if (off || ready.done) return;
     var pend = sheetsPending();
@@ -1309,20 +1486,23 @@
     mo.observe(document, OBS);
     var t0 = performance.now();
     // first in <head>: the page's own rules come after the defaults
-    if (!csp && baseEl && baseEl.parentNode !== document.head && document.head) document.head.insertBefore(baseEl, document.head.firstChild);
+    if (!csp && baseEl && baseEl.parentNode !== dHead() && dHead()) dHead().insertBefore(baseEl, dHead().firstChild);
     mo.takeRecords();
     queue = [];                          // the whole page is looked at now
-    adopted(document);
-    tree(document.documentElement);
-    if (coverSheet && coverSheet.cssRules[0] === coverRule) coverSheet.deleteRule(0);
-    coverSheet = coverRule = null;
+    try {
+      adopted(document);
+      tree(dRoot());
+    } finally {                          // the cover never stays, whatever the page holds
+      try { if (coverSheet && coverSheet.cssRules[0] === coverRule) coverSheet.deleteRule(0); } catch (e) {}
+      coverSheet = coverRule = null;
+    }
     mo.takeRecords();
     stats.ms += performance.now() - t0;
     // CSS-in-JS and components that start late: looked at again a few times
     [500, 1500, 4000].forEach(function (t) { setTimeout(function () { quiet(function () { hosts.forEach(function (h) { if (h.shadowRoot) shadow(h); }); grown(true); }); }, t); });
   }
-  if (document.readyState !== 'loading' && document.body) ready();
-  else document.addEventListener('DOMContentLoaded', ready, { once: true });
+  if (_ready.call(document) !== 'loading' && dBody()) ready();
+  else _listen.call(document, 'DOMContentLoaded', ready, { once: true });
   window.addEventListener('load', function () { quiet(function () { grown(true); }); }, { once: true });
   window.__ikeDEStats = stats;           // isolated world only: for tests/dark_engine
   }
