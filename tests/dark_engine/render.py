@@ -40,6 +40,15 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox")
+# a dark mode forced for every Chromium program of the computer (set for another
+# browser) is taken away, as I.K.E. itself does (ike/app.py _strip_dark_flags):
+# else "without dark mode" is the engine's own forced dark, and the Dark Engine
+# runs on top of it
+from ike.app import _strip_dark_flags, split_flags  # noqa: E402
+_flags, FORCED_DARK = _strip_dark_flags(split_flags(os.environ["QTWEBENGINE_CHROMIUM_FLAGS"]))
+os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(_flags)
+if FORCED_DARK:
+    print("a forced dark mode of the computer (QTWEBENGINE_CHROMIUM_FLAGS) is left out here, as in I.K.E.", flush=True)
 
 import pages  # noqa: E402
 

@@ -153,6 +153,9 @@ def main():
                 [sys.executable, str(HERE / "render.py"), str(shots), "--snaps", tmp, "--live",
                  "--pages", ",".join(names), "--modes", ",".join(MODES), "--settle", str(a.settle)],
                 env=env, stdout=log, stderr=subprocess.STDOUT)
+        if "forced dark mode of the computer" in (out / "run.log").read_text(errors="replace"):
+            print("Note: this computer forces a dark mode on Chromium programs (QTWEBENGINE_CHROMIUM_FLAGS);"
+                  " it is left out here, as I.K.E. does.", flush=True)
         if render.returncode:
             print(f"Some renders failed. See {out / 'run.log'} and {shots / 'results.json'}.", file=sys.stderr)
             def current(path):

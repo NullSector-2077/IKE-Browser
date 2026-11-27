@@ -20,7 +20,7 @@ DE_JS_protonosvg="$tmp/nosvg.js" DE_JS_protonofrag="$tmp/nofrag.js" \
     sh "$here/owner-check.sh" --modes "$modes" --url "$url" "$@" "$out"
 echo
 echo "== what happened (send this):"
-grep -E "clicked|shot|still|answered|busy|error|Trace" "$out/run.log"
+grep -E "forced|clicked|shot|still|answered|busy|error|Trace" "$out/run.log"
 if grep -q "\[ike-de\]" "$out/run.log"; then
     echo "== the last pictures before it stopped:"
     grep "\[ike-de\]" "$out/run.log" | tail -15
