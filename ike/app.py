@@ -17,8 +17,14 @@ from PyQt6.QtWidgets import QApplication, QFileDialog
 from . import APP_ID, APP_LONG_NAME, APP_NAME, __version__, background
 from .config import CACHE_DIR, CONFIG_DIR, PROFILE, RES_DIR, Config, ensure_dirs
 
-# the application icon's pictures in resources/icons (ike-browser-N.png)
-ICON_SIZES = (16, 22, 24, 32, 48, 64, 128, 256, 512, 1024)
+# the application icon's pictures in resources/icons (ike-browser-N.png) that
+# the windows carry. Not 512 and 1024 (1.1.27): a window's icon goes to the
+# desktop whole (X11's _NET_WM_ICON, every size, uncompressed), and those two
+# made it 5.6 MB instead of 0.4: Plasma's task bar read it again at each hover
+# and its buttons vanished, the bar painted black, until it had caught up. The
+# large pictures stay for the package and the menu (desktopicons.py); Qt draws
+# any larger size from the 256 one.
+ICON_SIZES = (16, 22, 24, 32, 48, 64, 128, 256)
 
 def find_widevine(home=None):
     """Path of the Widevine library I.K.E. may use, or None (see drm.py)."""

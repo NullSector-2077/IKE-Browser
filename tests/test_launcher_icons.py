@@ -160,3 +160,25 @@ def test_each_level_shows_its_own_octagon(run_ike):
         assert out[level] >= 10, out                 # the letter, in the level's colour
     assert out["off"] == 0, out
     assert out["tip"].endswith("Strict") or "Strict" in out["tip"], out
+
+
+def test_the_windows_icon_stays_small():
+    """1.1.27: the windows' icon reaches the desktop whole (X11's _NET_WM_ICON);
+    with the 512 and 1024 pictures it was 5.6 MB and Plasma's task bar flashed
+    black on hover. Up to 256, as in 1.1.26: well under one megabyte."""
+    from ike.app import ICON_SIZES
+    assert max(ICON_SIZES) == 256
+    assert sum(4 * n * n for n in ICON_SIZES) < 1_000_000
+
+
+def test_cyber_letters_inside_the_octagon_only():
+    """The owner: the letters inside the octagon in a cyber cut (strokes with
+    corners cut at 45 degrees), the menus' own texts as they are."""
+    from ike.shieldpanel import CYBER, LEVEL_LETTER
+    assert set(CYBER) == set(LEVEL_LETTER.values())
+    for letter, strokes in CYBER.items():
+        for stroke in strokes:
+            for (x1, y1), (x2, y2) in zip(stroke, stroke[1:]):
+                dx, dy = abs(x2 - x1), abs(y2 - y1)
+                # straight lines only: across, down, or a cut (M's middle is its own V)
+                assert dx == 0 or dy == 0 or abs(dx - dy) < 1e-9 or letter == "M", (letter, stroke)

@@ -6,7 +6,6 @@ from math import sqrt
 from PyQt6.QtCore import QPointF, QRect, QRectF, QSize, Qt, QTimer
 from PyQt6.QtGui import (
     QColor,
-    QFont,
     QFontMetricsF,
     QGuiApplication,
     QIcon,
@@ -79,13 +78,77 @@ def paint_shield(p, rect, level, grow=1.0):
         p.drawLine(centre + QPointF(-arm, -arm), centre + QPointF(arm, arm))
         p.drawLine(centre + QPointF(-arm, arm), centre + QPointF(arm, -arm))
     else:
-        font = QFont(QGuiApplication.font())
-        font.setBold(True)
-        font.setPixelSize(max(1, round(side * 0.64)))
-        glyph = QPainterPath()
-        glyph.addText(QPointF(), font, LEVEL_LETTER.get(level, "B"))
-        glyph.translate(centre - glyph.boundingRect().center())
-        p.fillPath(glyph, QColor(LEVEL_COLOUR.get(level, "#F1F3F6")))
+        paint_cyber_letter(p, centre, side, LEVEL_LETTER.get(level, "B"),
+                           QColor(LEVEL_COLOUR.get(level, "#F1F3F6")))
+    p.restore()
+
+
+# The level letters in a "cyber" cut (1.1.27, the owner): drawn as strokes on a
+# 4 x 7 grid, straight lines with corners cut at 45 degrees and square ends,
+# the same at every size (no font: the same letters on every computer). Each
+# letter is a list of strokes; each stroke a list of grid points.
+CYBER = {
+    "C": [[(4, 0), (1, 0), (0, 1), (0, 6), (1, 7), (4, 7)]],
+    "B": [[(0, 3.5), (3, 3.5), (4, 2.5), (4, 1), (3, 0), (0, 0), (0, 7), (3, 7), (4, 6), (4, 4.5), (3, 3.5)]],
+    "S": [[(4, 0), (1, 0), (0, 1), (0, 2.5), (1, 3.5), (3, 3.5), (4, 4.5), (4, 6), (3, 7), (0, 7)]],
+    "M": [[(0, 7), (0, 0), (2, 2.8), (4, 0), (4, 7)]],
+}
+# where each letter gets its "cyber" notch: a short cut across one stroke
+CYBER_NOTCH = {"C": ((0, 3.5), "h"), "B": ((0, 3.5), "h"), "S": ((4, 5.25), "h"), "M": ((2, 2.8), "v")}
+
+
+def paint_cyber_letter(p, centre, side, letter, colour):
+    """One level letter, cyber cut, centred in the octagon of size `side`.
+    Every point of the letter sits on the screen's pixel grid and its strokes
+    are a whole number of pixels wide, so the letter is sharp at 16, 22 and
+    24 px too (no stroke spread over two pixels)."""
+    from PyQt6.QtGui import QPainterPathStroker
+    strokes = CYBER.get(letter)
+    if not strokes:
+        return
+    dev = p.device()
+    dpr = dev.devicePixelRatioF() if dev is not None else 1.0
+    tf = p.worldTransform()
+    dpr *= max(tf.m11(), 1e-6)                    # a painter that scales (an icon drawn larger)
+    height = side * 0.50
+    unit = height / 7.0
+    # thick enough to read at 16 px, not heavier than the octagon's own rim at large sizes
+    pen_px = max(1, round(max(1.25, min(unit * 1.25, side * 0.085)) * dpr))
+    pen_w = pen_px / dpr
+    half = 0.5 / dpr if pen_px % 2 else 0.0       # an odd width: on the pixels' centres
+    x0, y0 = centre.x() - 2 * unit, centre.y() - 3.5 * unit
+
+    def at(gx, gy):
+        return QPointF(round((x0 + gx * unit) * dpr) / dpr + half, round((y0 + gy * unit) * dpr) / dpr + half)
+    path = QPainterPath()
+    for stroke in strokes:
+        path.moveTo(at(*stroke[0]))
+        for x, y in stroke[1:]:
+            path.lineTo(at(x, y))
+    stroker = QPainterPathStroker()
+    stroker.setWidth(pen_w)
+    stroker.setCapStyle(Qt.PenCapStyle.SquareCap)
+    stroker.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
+    stroker.setMiterLimit(2.0)
+    outline = stroker.createStroke(path).simplified()
+    # centred on the letter as drawn (its square ends included), by whole pixels
+    d = centre - outline.boundingRect().center()
+    shift = QPointF(round(d.x() * dpr) / dpr, round(d.y() * dpr) / dpr)
+    outline.translate(shift)
+    p.save()
+    p.setPen(Qt.PenStyle.NoPen)
+    p.fillPath(outline, colour)
+    # the notch only where there is room for it to be seen (26 px and up)
+    notch = CYBER_NOTCH.get(letter)
+    if notch and side >= 26:
+        (nx, ny), way = notch
+        c = at(nx, ny) + shift
+        gap = max(1.0, round(pen_px * 0.45)) / dpr
+        reach = pen_w * 0.9
+        rect = (QRectF(c.x() - reach, c.y() - gap / 2, 2 * reach, gap) if way == "h"
+                else QRectF(c.x() - gap / 2, c.y() - reach, gap, 2 * reach))
+        p.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
+        p.fillRect(rect, QColor(CENTRE_COLOUR))
     p.restore()
 
 

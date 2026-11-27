@@ -100,7 +100,9 @@ def test_window_icons_use_the_approved_size_variants(run_ike):
                     own = QImage(str(RES_DIR / "icons" / ("ike-browser-%d.png" % n))).convertToFormat(PREMUL)
                     same["16@%d" % n] = shown == own
     """)
-    every = sorted(PNG_SHA256)
+    # the windows' icon: every picture up to 256 (1.1.27: 512 and 1024 made the
+    # window's icon 5.6 MB, and Plasma's task bar flickered black on each hover)
+    every = sorted(n for n in PNG_SHA256 if n <= 256)
     assert out["sizes"] == every
     for name in ("app", "qapp", "window", "horizontal", "vertical", "about"):
         assert out[name] == every, (name, out[name])
