@@ -218,7 +218,7 @@ def steps(ike, qapp, out):
 
 
 def test_settings_search(run_ike, tmp_path):
-    words = ["zoom", "modalita lettura", "va-api", "dark reader", "DOWNLOAD", "qqqxxyy", "vertic", "estensioni"]
+    words = ["zoom", "modalita lettura", "va-api", "scura automatica", "DOWNLOAD", "qqqxxyy", "vertic", "estensioni"]
     out = run_ike(SEARCH.replace("WORDS", repr(words)), env=screen(tmp_path, 1366, 768),
                   settings={"language": "it"})
     res = out["res"]
@@ -228,8 +228,8 @@ def test_settings_search(run_ike, tmp_path):
     assert "general" not in res["zoom"]["shown"]
     # by an explanation only (the ⓘ of the video decoding, page System)
     assert res["va-api"]["found"].get("system", 0) >= 1, res["va-api"]
-    # by a choice of a combo box ("Dark Reader", Appearance)
-    assert res["dark reader"]["found"].get("appearance", 0) >= 1
+    # by a choice of a combo box (Chromium's own dark mode, Appearance; Dark Reader left in 1.1.29)
+    assert res["scura automatica"]["found"].get("appearance", 0) >= 1
     # small or capital letters, accents: "DOWNLOAD", "modalita" for "modalità"
     assert "downloads" in res["DOWNLOAD"]["found"]
     assert res["modalita lettura"]["found"] or res["modalita lettura"]["none"] is False
