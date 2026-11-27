@@ -180,13 +180,12 @@
    {
     "attempt": 1,
     "date": "2026-11-27",
-    "detail": "",
+    "detail": "its tests failed after it (error 9bb974249c103954)",
     "files": [
      "ike/window.py"
     ],
     "model": "renamed-symbol",
-    "outcome": "published",
-    "patch": "diff --git a/ike/window.py b/ike/window.py\nindex 3411da1..590b72c 100644\n--- a/ike/window.py\n+++ b/ike/window.py\n@@ -1587,7 +1587,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):\n             prefix = \"\ud83d\udca4 \"\n         elif view.page().isAudioMuted():\n             prefix = \"\ud83d\udd07 \"\n-        elif view.page().recentlyAudible():\n+        elif view.page().isRecentlyAudible():\n             prefix = \"\ud83d\udd0a \"\n         tip = title\n         g = self.groups.get(view.group) if view.group else None\n",
+    "outcome": "tests-failed",
     "ph": "45bae370dc40c1b3",
     "provider": "Recipe",
     "sig": "20ebaccd1dea71f7",
@@ -223,6 +222,20 @@
     "sig": "5269ae9140634c90",
     "summary": "Il componente aggiornato ha cambiato nome a recentlyAudible (ora isRecentlyAudible): un programma ha sostituito il vecchio nome con il nuovo nei file di I.K.E. coinvolti, senza chiedere a nessuna AI. _(ricetta automatica \"renamed-symbol\", nessuna AI)_",
     "task": "python"
+   }
+  ],
+  "automation/update/drill-qt@9bb974249c103954": [
+   {
+    "attempt": 2,
+    "date": "2026-11-27",
+    "detail": "rotated",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "9bb974249c103954",
+    "summary": "L'agente non ha scritto un riassunto. **Riserve: La quota gratuita di oggi non basta per scrivere una correzione e farla anche rivedere da altre AI, oppure \u00e8 lavoro di fondo che aspetta (prima gli aggiornamenti veri): la correzione aspetta, nessuna quota \u00e8 stata sprecata. Riprova",
+    "task": "multi-file"
    }
   ],
   "automation/update/drill-qt@a7cef3ff1933688f": [
@@ -375,10 +388,10 @@
    "since": "2026-11-27"
   },
   "automation/update/drill-qt": {
-   "at": "2026-11-27T21:51:15Z",
+   "at": "2026-11-27T22:47:39Z",
    "date": "2026-11-27",
-   "n": 0,
-   "sig": "20ebaccd1dea71f7",
+   "n": 1,
+   "sig": "9bb974249c103954",
    "since": "2026-11-27"
   },
   "automation/update/lists-2026-11-22": {

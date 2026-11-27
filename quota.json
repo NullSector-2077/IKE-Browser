@@ -353,7 +353,7 @@
     "automation/update/drill-qt": 1,
     "automation/update/lists-2026-11-22": 2
    },
-   "no_provider": 0,
+   "no_provider": 1,
    "providers": {
     "Groq": {
      "by": {
@@ -446,7 +446,10 @@
      "tokens": 385393
     }
    },
-   "runs": 7
+   "runs": 8,
+   "unasked": {
+    "automation/update/drill-qt": 1
+   }
   }
  },
  "schema": 1
