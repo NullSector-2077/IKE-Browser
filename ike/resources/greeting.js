@@ -307,7 +307,7 @@
         shown = p;
         var r = decide(D, now, rng);
         els.title(D.s[r.p] || "");
-        els.line(r.key ? words(r.key, r.n) : "");
+        els.line(r.key ? words(r.key, r.n) : "", r.key || "");
         if (r.changed && save) save(D.st);
       },
       setWeather: function (w) { D.w = w || {}; }

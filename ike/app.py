@@ -918,6 +918,9 @@ class IkeApp(QObject):
             item._ike_dialog = dlg
             dlg.open()
         else:
+            win = self.active_window()
+            if win is not None:
+                win.download_fly(name)
             self._notify(T("Download started: %s") % name)
 
     # a site that starts one download after another (without the user saving

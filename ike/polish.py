@@ -88,6 +88,9 @@ PARTS = {
     "gestures": True,        # touchpad: swipe for back and forward, pinch to zoom
     "key_hints": True,       # Ctrl or Alt held for a second: the toolbar buttons show their keys
     "group_fold": True,      # a tab group folds and unfolds smoothly
+    # 1.1.29 (the owner)
+    "download_fly": True,    # a file that starts downloading flies to the Downloads button
+    "swipe_arrow": True,     # touchpad: an arrow at the edge shows the swipe back or forward coming
 }
 
 MARK_MS = 180
@@ -339,6 +342,103 @@ class FoldStrip(QWidget):
 
 # --- a bar that slides in from the bottom (1.1.24) -----------------------------
 SLIDE_IN_MS = 160
+
+
+class FlyingIcon(QWidget):
+    """A file's icon flying in an arc from start to end (points of parent),
+    smaller and fading as it lands: a download that starts goes to the
+    Downloads button (1.1.29, the owner). Under half a second, then gone."""
+
+    MS = 450
+    SIZE = 32
+
+    def __init__(self, parent, icon, start, end):
+        super().__init__(parent)
+        keep(self)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setObjectName("ike_download_fly")
+        self.pix = icon.pixmap(QSize(self.SIZE, self.SIZE), self.devicePixelRatioF())
+        self.a, self.b = QPointF(start), QPointF(end)
+        # the arc's top: above the higher of the two points
+        self.c = QPointF((self.a.x() + self.b.x()) / 2, min(self.a.y(), self.b.y()) - 80)
+        self.t = 0.0
+        self.setGeometry(parent.rect())
+        self.anim = QVariantAnimation(self)
+        self.anim.setDuration(self.MS)
+        self.anim.setStartValue(0.0)
+        self.anim.setEndValue(1.0)
+        self.anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+        self.anim.valueChanged.connect(self._step)
+        self.anim.finished.connect(self.deleteLater)
+        self.show()
+        self.raise_()
+        self.anim.start()
+
+    def _step(self, v):
+        self.t = float(v)
+        self.update()
+
+    def paintEvent(self, event):
+        t, u = self.t, 1 - self.t
+        pos = self.a * (u * u) + self.c * (2 * u * t) + self.b * (t * t)       # a quadratic arc
+        side = self.SIZE * (1 - 0.5 * t)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        p.setOpacity(1.0 if t < 0.7 else max(0.0, (1 - t) / 0.3))
+        p.drawPixmap(QRectF(pos.x() - side / 2, pos.y() - side / 2, side, side), self.pix,
+                     QRectF(self.pix.rect()))
+        p.end()
+
+
+class SwipeArrow(QWidget):
+    """A round arrow that comes in from the edge of the page while the fingers
+    swipe on the touchpad (1.1.29, the owner): back at the left, forward at the
+    right; it fills with the theme's colour when the swipe is far enough to
+    act. Drawn only while the fingers move, gone when they lift."""
+
+    D = 40                  # the circle's diameter
+
+    def __init__(self, view):
+        super().__init__(view.parentWidget())
+        keep(self)
+        self.view = view
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setObjectName("ike_swipe_arrow")
+        self.back, self.progress = True, 0.0
+        self.hide()
+
+    def show_progress(self, back, progress):
+        self.back, self.progress = back, max(0.0, min(1.0, progress))
+        r = self.view.geometry()
+        travel = self.D + 12
+        x = r.left() - self.D + int(travel * self.progress) if back else r.right() - int(travel * self.progress)
+        self.setGeometry(x, r.center().y() - self.D // 2, self.D, self.D)
+        self.show()
+        self.raise_()
+        self.update()
+
+    def paintEvent(self, event):
+        pal = self.palette()
+        full = self.progress >= 1.0
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setOpacity(0.35 + 0.65 * self.progress)
+        back = pal.color(QPalette.ColorRole.Highlight) if full else pal.color(QPalette.ColorRole.Window)
+        p.setPen(QPen(pal.color(QPalette.ColorRole.Mid), 1))
+        p.setBrush(back)
+        p.drawEllipse(QRectF(self.rect()).adjusted(1, 1, -1, -1))
+        ink = pal.color(QPalette.ColorRole.HighlightedText if full else QPalette.ColorRole.WindowText)
+        p.setPen(QPen(ink, 2.2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        c, a = QPointF(self.rect().center()), self.D * 0.16
+        sign = -1 if self.back else 1
+        path = QPainterPath(c + QPointF(-sign * a * 0.5, -a))
+        path.lineTo(c + QPointF(sign * a * 0.5, 0))
+        path.lineTo(c + QPointF(-sign * a * 0.5, a))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawPath(path)
+        p.end()
 
 
 class SlidingPicture(QWidget):

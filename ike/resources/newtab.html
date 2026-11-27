@@ -195,11 +195,34 @@ function ikeIconLater(img) {
       gD.lang = lang;
       hi = IkeGreeting.create(gD, {
         title: function (t) { put(document.getElementById("greet-t"), t); },
-        line: function (t) { put(document.getElementById("greet-l"), t); }
+        line: function (t, k) { think(document.getElementById("greet-l"), t, k); }
       }, function (st) { new Image().src = "ike:greet?k=" + gD.k + "&s=" + encodeURIComponent(JSON.stringify(st)); });
     } catch (e) {}
   }
   function put(el, text) { if (el && el.textContent !== text) el.textContent = text; }
+  // 1.1.29 (the owner): I.K.E.'s own thoughts are written letter by letter, as
+  // if it were thinking them now; under a second, only with the interface's
+  // effects on and no reduced motion asked; the whole line is there at once
+  // for a screen reader. Other lines appear as before.
+  function think(el, text, key) {
+    if (!el || el.textContent === text) return;
+    var still = !document.body.classList.contains("fx") ||
+      (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+    if (key.indexOf("thought") !== 0 || still || !window.requestAnimationFrame) { put(el, text); return; }
+    // whole letters, as each script draws them (Hindi, Thai...: a letter with its marks)
+    var chars = window.Intl && Intl.Segmenter ? Array.from(new Intl.Segmenter(undefined, {granularity: "grapheme"})
+      .segment(text), function (x) { return x.segment; }) : Array.from(text), step = Math.max(12, Math.min(28, 900 / chars.length)), start = null;
+    el.setAttribute("aria-label", text);
+    el.textContent = "";
+    function frame(t) {
+      if (start === null) start = t;
+      var n = Math.min(chars.length, Math.floor((t - start) / step) + 1);
+      el.textContent = chars.slice(0, n).join("");
+      if (n < chars.length) requestAnimationFrame(frame);
+      else el.removeAttribute("aria-label");
+    }
+    requestAnimationFrame(frame);
+  }
   function tick() {
     var now = new Date();
     put(clock, fmt(now, {hour: "2-digit", minute: "2-digit"}));

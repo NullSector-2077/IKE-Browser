@@ -3408,6 +3408,29 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_downloads.setIcon(ring_icon(self._dl_icon, fraction, state == "done",
                                              bob=getattr(self, "_dl_bob", None) if state == "active" else None))
 
+    def download_fly(self, name):
+        """A file that starts downloading flies, as its type's icon, from the
+        pointer (or the page's middle) to the Downloads button (1.1.29)."""
+        if not polish.moving(self.app.config, "download_fly") or not self.isVisible():
+            return
+        btn = self.nav.widgetForAction(self.act_downloads)
+        if btn is None or not btn.isVisible():
+            btn = getattr(self, "more_btn", None)            # the button is in the "more" menu
+            if btn is None or not btn.isVisible():
+                return
+        from PyQt6.QtCore import QMimeDatabase
+        mime = QMimeDatabase().mimeTypeForFile(name, QMimeDatabase.MatchMode.MatchExtension)
+        icon = QIcon.fromTheme(mime.iconName(), QIcon.fromTheme(mime.genericIconName(),
+                                                                 QIcon.fromTheme("text-x-generic")))
+        if icon.isNull():
+            icon = self._dl_icon
+        start = self.mapFromGlobal(QCursor.pos())
+        if not self.rect().contains(start):
+            v = self.current_view()
+            start = v.mapTo(self, v.rect().center()) if v is not None else self.rect().center()
+        end = btn.mapTo(self, btn.rect().center())
+        polish.FlyingIcon(self, icon, start, end)
+
     def _download_arrow(self, active):
         """While files arrive the arrow of the Downloads button moves gently (polish.py)."""
         timer = getattr(self, "_dl_arrow", None)
