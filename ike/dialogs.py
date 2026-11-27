@@ -1482,7 +1482,7 @@ class SettingsDialog(QDialog):
         _row(f, T("Default protection level"), self.level, T(
             "Off: nothing is blocked. Compatibility: ads, trackers and tracking links only. "
             "Balanced: also cross-site cookies and per-site noise on canvas, WebGL and audio. "
-            "Strict: also generic hardware, screen, font and Client Hints values, no WebGPU. "
+            "Kontrol: also generic hardware, screen, font and Client Hints values, no WebGPU. "
             "Maximum: also English as the only language. The shield in the "
             "toolbar changes the level for a single site."))
         lay.addLayout(f)

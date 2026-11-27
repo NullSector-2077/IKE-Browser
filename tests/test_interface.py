@@ -69,7 +69,7 @@ def test_shield_icon_levels(run_ike):
                 assert panel.site_level.currentData() == level and panel.global_level.currentData() == "maximum"
             out["hosts"] = len(hosts)
     """)
-    assert out["letters"] == {"compatibility": "C", "balanced": "B", "strict": "S", "maximum": "M"}
+    assert out["letters"] == {"compatibility": "C", "balanced": "B", "strict": "K", "maximum": "M"}
     assert out["hosts"] == 7
 
 

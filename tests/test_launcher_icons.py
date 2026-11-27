@@ -120,7 +120,7 @@ def test_the_level_letter_is_back_and_readable():
     """The owner (2026-11-27): the level's letter inside the octagon, as in the
     shield of 1.1.26, in a colour of its own for each level, readable."""
     from ike.shieldpanel import CENTRE_COLOUR, LEVEL_COLOUR, LEVEL_LETTER
-    assert LEVEL_LETTER == {"compatibility": "C", "balanced": "B", "strict": "S", "maximum": "M"}
+    assert LEVEL_LETTER == {"compatibility": "C", "balanced": "B", "strict": "K", "maximum": "M"}
     assert len(set(LEVEL_COLOUR.values())) == 4
     dark = _luminance(CENTRE_COLOUR)
     for level, colour in LEVEL_COLOUR.items():
@@ -159,7 +159,7 @@ def test_each_level_shows_its_own_octagon(run_ike):
     for level in ("compatibility", "balanced", "strict", "maximum"):
         assert out[level] >= 10, out                 # the letter, in the level's colour
     assert out["off"] == 0, out
-    assert out["tip"].endswith("Strict") or "Strict" in out["tip"], out
+    assert out["tip"].endswith("Kontrol") or "Kontrol" in out["tip"], out
 
 
 def test_the_windows_icon_stays_small():

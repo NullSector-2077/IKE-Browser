@@ -424,7 +424,7 @@ def test_welcome_on_the_first_start_then_never(run_ike):
     assert [p[2] for p in out["pages"]] == ["Next", "Next", "Next", "Done"]
     assert [p[3] for p in out["pages"]] == [False, True, True, True]
     assert all(p[1].endswith("?") for p in out["pages"])
-    assert [x[0] for x in out["levels"]] == ["Compatibility", "Balanced", "Strict"]
+    assert [x[0] for x in out["levels"]] == ["Compatibility", "Balanced", "Kontrol"]
     assert all(x[1] for x in out["levels"])
     assert out["default_ticked"] is False                          # never chosen for the user
     assert out["welcome_after"] and out["windows_after"] == 1

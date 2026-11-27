@@ -40,7 +40,7 @@ RES_DIR = PKG_DIR / "resources"
 LEVELS = ("off", "compatibility", "balanced", "strict", "maximum")
 _RANK = {name: i for i, name in enumerate(LEVELS)}
 LEVEL_NAMES = {"off": "Off", "compatibility": "Compatibility", "balanced": "Balanced",
-               "strict": "Strict", "maximum": "Maximum"}
+               "strict": "Kontrol", "maximum": "Maximum"}
 _LEVEL_ALIASES = {"standard": "balanced"}
 
 

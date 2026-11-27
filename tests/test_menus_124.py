@@ -32,7 +32,7 @@ ENTRIES_1123 = [
     "Copy", "Paste", "Select all", "Find in page…", "Vertical tabs", "Menu bar", "System title bar",
     "Customise toolbar…", "Split view", "Reader mode", "Workspaces", "Zoom in", "Zoom out", "Actual size",
     "Dark mode for pages", "On everywhere", "On for this site", "Full screen", "Page source",
-    "Developer tools", "Protection level for every site", "Off", "Compatibility", "Balanced", "Strict",
+    "Developer tools", "Protection level for every site", "Off", "Compatibility", "Balanced", "Kontrol",
     "Maximum", "Repair this site", "Site permissions…", "Update filter lists now", "Clear browsing data…",
     "Protection settings…", "User scripts", "Skip ads in videos", "Cookie banners", "Password manager",
     "Notify me when a page changes", "Video in a floating window", "Translate page", "Containers",
