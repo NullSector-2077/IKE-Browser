@@ -85,6 +85,15 @@ def test_window_icons_use_the_approved_size_variants(run_ike):
             out["sizes"] = list(ICON_SIZES)
             win = ike.windows[0]
             index = win.views.index(win.current_view())
+            # the new tab page loaded and its icon's fade over (1.1.27: on GitHub's slower
+            # runners the tab still showed the loading mark, a single 32 px picture, at 0.3 s)
+            for _ in range(200):
+                view = win.current_view()
+                if (not getattr(view, "loading_marked", False)
+                        and len(win.tabbar.tabIcon(index).availableSizes()) > 1):
+                    break
+                yield 50
+            yield 400
             for name, icon in (("app", ike.icon), ("qapp", qapp.windowIcon()),
                                ("window", win.windowIcon()), ("horizontal", win.tabbar.tabIcon(index)),
                                ("vertical", win.vtabs.item(index).icon()), ("about", win.act_about.icon())):
