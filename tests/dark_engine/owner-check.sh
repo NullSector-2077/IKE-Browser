@@ -9,6 +9,7 @@
 # Result: ~/ike-dark-check-<date>/ (side-by-side pictures in sheets/: without
 # dark mode, Dark Reader, I.K.E. Dark Engine; the verdicts in metrics.txt, load
 # times in times.txt). Options: see owner_check.py (--sites wikipedia,github,...;
+# --url ADDRESS for any other page, repeatable, kept on this computer only;
 # another folder as argument).
 here=$(cd "$(dirname "$0")" && pwd)
 missing=""

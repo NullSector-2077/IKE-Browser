@@ -78,19 +78,28 @@ def main():
     ap.add_argument("out", nargs="?", default=str(Path.home() / ("ike-dark-check-" + datetime.date.today().isoformat())))
     ap.add_argument("--sites", default="", help="names, separated by commas (default: all): " + ",".join(SITES))
     ap.add_argument("--settle", type=int, default=4000, help="ms to wait after each load")
+    ap.add_argument("--url", action="append", default=[],
+                    help="any other address to check (repeatable); kept on this computer only")
     a = ap.parse_args()
     out = Path(a.out).expanduser()
     shots = out / "shots"
     shots.mkdir(parents=True, exist_ok=True)
-    names = a.sites.split(",") if a.sites else list(SITES)
+    names = a.sites.split(",") if a.sites else ([] if a.url else list(SITES))
     unknown = sorted(set(names) - SITES.keys())
     if unknown:
         ap.error("unknown sites: " + ", ".join(unknown))
+    sites = dict(SITES)
+    for i, u in enumerate(a.url, 1):
+        if not u.startswith(("https://", "http://")):
+            u = "https://" + u
+        name = "site%d-%s" % (i, (urllib.parse.urlsplit(u).hostname or "page").replace(".", "-"))
+        sites[name] = u
+        names.append(name)
     with tempfile.TemporaryDirectory() as tmp:
         # render.py's live mode reads the address of each page from a manifest
         for n in names:
             (Path(tmp) / n).mkdir()
-            u = SITES[n]
+            u = sites[n]
             (Path(tmp) / n / "manifest.json").write_text(json.dumps(
                 {"url": u, "entry": "index", "site": urllib.parse.urlsplit(u).hostname,
                  "expected_content": EXPECTED_CONTENT.get(n)}))
