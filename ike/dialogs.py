@@ -1012,7 +1012,11 @@ class SettingsDialog(QDialog):
         self.dark_engine = QComboBox()
         self.dark_engine.addItem(T("Dark Reader (can be set per site, immediate)"), "reader")
         self.dark_engine.addItem(T("Chromium Auto Dark Mode (can be set per site, immediate)"), "engine")
-        self.dark_engine.setCurrentIndex(max(0, self.dark_engine.findData(self.cfg["dark_engine"])))
+        self.dark_engine.addItem(T("I.K.E. Dark Engine (experimental)"), "ike")
+        selected = self.cfg["dark_engine"]
+        if selected == "reader" and self.cfg.get("dark_engine_experiment") is True:
+            selected = "ike"
+        self.dark_engine.setCurrentIndex(max(0, self.dark_engine.findData(selected)))
         self.dark_pdf = Switch(T("Show PDFs with dark colours"))
         self.dark_pdf.setChecked(bool(self.cfg["dark_pdf"]))
         from . import icons
@@ -1928,7 +1932,7 @@ class SettingsDialog(QDialog):
                 for view in win.all_views():
                     dark_pdf(view, cfg["dark_pdf"])
         dark_choice, dark_engine = self.dark.currentData(), self.dark_engine.currentData()
-        if dark_choice != cfg["dark_mode"] or dark_engine != cfg["dark_engine"]:
+        if dark_choice != cfg["dark_mode"] or dark_engine != cfg["dark_engine"] or cfg.get("dark_engine_experiment") is True:
             from PyQt6.QtCore import QTimer
             QTimer.singleShot(0, lambda: self.app.set_dark_mode(dark_choice, self.parent(), dark_engine))
         engines = self._engine_rows()

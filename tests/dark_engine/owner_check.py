@@ -24,6 +24,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.parse
 from pathlib import Path
 
@@ -47,6 +48,7 @@ SITES = {
     "ansa": "https://www.ansa.it/",
     "duckduckgo": "https://duckduckgo.com/?q=arch+linux",
 }
+EXPECTED_CONTENT = {}
 
 
 def main():
@@ -58,38 +60,56 @@ def main():
     out = Path(a.out).expanduser()
     shots = out / "shots"
     shots.mkdir(parents=True, exist_ok=True)
-    names = [n for n in (a.sites.split(",") if a.sites else SITES) if n in SITES]
+    names = a.sites.split(",") if a.sites else list(SITES)
+    unknown = sorted(set(names) - SITES.keys())
+    if unknown:
+        ap.error("unknown sites: " + ", ".join(unknown))
     with tempfile.TemporaryDirectory() as tmp:
         # render.py's live mode reads the address of each page from a manifest
         for n in names:
             (Path(tmp) / n).mkdir()
             u = SITES[n]
             (Path(tmp) / n / "manifest.json").write_text(json.dumps(
-                {"url": u, "entry": "index", "site": urllib.parse.urlsplit(u).hostname}))
+                {"url": u, "entry": "index", "site": urllib.parse.urlsplit(u).hostname,
+                 "expected_content": EXPECTED_CONTENT.get(n)}))
         env = dict(os.environ, QT_QPA_PLATFORM=os.environ.get("QT_QPA_PLATFORM", "offscreen"))
         print("Opening %d sites, 3 times each (off, Dark Reader, Dark Engine): a few minutes..." % len(names),
               flush=True)
+        started = time.time_ns()
         with open(out / "run.log", "w") as log:
-            subprocess.run([sys.executable, str(HERE / "render.py"), str(shots), "--snaps", tmp, "--live",
-                            "--pages", ",".join(names), "--modes", "off,dr,proto", "--settle", str(a.settle)],
-                           env=env, stdout=log, stderr=subprocess.STDOUT, check=False)
+            render = subprocess.run(
+                [sys.executable, str(HERE / "render.py"), str(shots), "--snaps", tmp, "--live",
+                 "--pages", ",".join(names), "--modes", "off,dr,proto", "--settle", str(a.settle)],
+                env=env, stdout=log, stderr=subprocess.STDOUT)
+        if render.returncode:
+            print(f"Some renders failed. See {out / 'run.log'} and {shots / 'results.json'}.", file=sys.stderr)
+            def current(path):
+                return path.is_file() and path.stat().st_mtime_ns >= started
+            names = [name for name in names if all(current(shots / f"{name}__{mode}.{ext}")
+                     for mode in ("off", "dr", "proto") for ext in ("json", "png"))]
+            if not names:
+                return 1
     with open(out / "metrics.txt", "w") as f:
         subprocess.run([sys.executable, str(HERE / "metrics.py"), str(shots), "--modes", "off,dr,proto",
-                        "--json", str(out / "metrics.json"), "--sheets", str(out / "sheets")],
-                       stdout=f, stderr=subprocess.STDOUT, check=False)
+                        "--json", str(out / "metrics.json"), "--sheets", str(out / "sheets"),
+                        "--pages", ",".join(names)],
+                       stdout=f, stderr=subprocess.STDOUT, check=True)
     lines = ["| site | off dcl/load | dr dcl/load | proto dcl/load |"]
     for n in names:
         cells = []
         for m in ("off", "dr", "proto"):
             p = shots / ("%s__%s.json" % (n, m))
-            d = json.loads(p.read_text()) if p.exists() else {}
+            if not p.is_file():
+                raise RuntimeError("Missing renderer result: %s" % p)
+            d = json.loads(p.read_text())
             cells.append("%s/%s" % (d.get("dcl", "-"), d.get("load", "-")))
         lines.append("| %s | %s |" % (n, " | ".join(cells)))
     (out / "times.txt").write_text("\n".join(lines) + "\n")
     print((out / "metrics.txt").read_text())
     print("\n".join(lines))
     print("\nEverything is in", out)
+    return render.returncode
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

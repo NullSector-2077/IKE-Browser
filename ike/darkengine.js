@@ -40,6 +40,25 @@
   try { sameSite = window.top === window || (location.hostname || location.protocol) === topHost; } catch (e) {}
   var fix = (sameSite && siteFix) || __IKE_DE_COMMON__;
 
+  function matchesPattern(value, pattern, substring) {
+    if (pattern[0] === '^') return value.startsWith(pattern.slice(1));
+    if (pattern.endsWith('$')) return value.endsWith(pattern.slice(0, -1));
+    return substring ? value.includes(pattern) : value === pattern;
+  }
+  function skipRuleImage(selector) {
+    var ignored = fix.ignoreImage;
+    if (!ignored.length) return false;
+    var selectors = selector.split(/,\s*/);
+    return ignored.some(function (p) {
+      return p === '*' || selectors.some(function (s) { return matchesPattern(s, p, false); });
+    });
+  }
+  function skipElementImage(el) {
+    return fix.ignoreImage.some(function (s) {
+      try { return el.matches(s); } catch (e) { return false; }
+    });
+  }
+
   // --- colours ---------------------------------------------------------------
   var BG = [200, 0.06, 0.1], FG = [36, 0.098, 0.9];       // hsl poles: #181a1b, #e8e6e3
   var ctx = null;
@@ -55,14 +74,23 @@
       h = h[1];
       if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
       c = [parseInt(h.substr(0, 2), 16), parseInt(h.substr(2, 2), 16), parseInt(h.substr(4, 2), 16), 1];
-    } else if (!/^(var|inherit|initial|unset|revert|currentcolor|transparent)/i.test(v) && v.indexOf('var(') < 0) {
-      if (!ctx) ctx = new OffscreenCanvas(1, 1).getContext('2d');
+    } else if (!/^(inherit|initial|unset|revert|transparent)/i.test(v) &&
+               !/\b(?:currentcolor\b|var\(|light-dark\()/i.test(v)) {
+      if (!ctx) ctx = new OffscreenCanvas(1, 1).getContext('2d', { willReadFrequently: true });
       ctx.fillStyle = '#010203';
       ctx.fillStyle = v;
       var s = ctx.fillStyle;
       if (s !== '#010203' || /^#010203$/i.test(v)) {
         if (s[0] === '#') c = [parseInt(s.substr(1, 2), 16), parseInt(s.substr(3, 2), 16), parseInt(s.substr(5, 2), 16), 1];
-        else { var m = s.match(/[\d.]+/g); c = m ? [+m[0], +m[1], +m[2], +m[3]] : null; }
+        else if ((f = RGB.exec(s))) c = [+f[1], +f[2], +f[3], f[4] === undefined ? 1 : +f[4]];
+        else {
+          // Chromium can keep wide-gamut and perceptual CSS syntax in fillStyle.
+          // Read the converted sRGB pixel instead of interpreting its components as RGB.
+          ctx.clearRect(0, 0, 1, 1);
+          ctx.fillRect(0, 0, 1, 1);
+          var pixel = ctx.getImageData(0, 0, 1, 1).data;
+          c = [pixel[0], pixel[1], pixel[2], pixel[3] / 255];
+        }
       }
     }
     if (cache.size > 8000) cache.clear();
@@ -85,6 +113,11 @@
   // kind: 'bg' | 'fg' | 'border'
   function mapColor(c, kind) {
     var hsl = toHsl(c[0], c[1], c[2]), h = hsl[0], s = hsl[1], l = hsl[2], a = c[3];
+    // Low-opacity light strokes and washes already act as highlights over
+    // dark surfaces. Darkening the RGB channels would erase them.
+    if (kind !== 'fg' && a < 0.2 && l >= 0.6) return css(h, s, l, a);
+    // Dark translucent controls and scrims already dim their backdrop.
+    if (kind === 'bg' && a < 1 && l <= 0.25) return css(h, s, l, a);
     var blue = h >= 195 && h <= 260;
     if (kind === 'bg') {
       var yellow = Math.abs(h - 60) < 15 && s > 0.12;
@@ -142,7 +175,7 @@
     return r;
   }
   function rgbTriple(c) {                   // "hsla(...)" -> "r, g, b" for a variable used inside rgba()
-    if (!ctx) ctx = new OffscreenCanvas(1, 1).getContext('2d');
+    if (!ctx) ctx = new OffscreenCanvas(1, 1).getContext('2d', { willReadFrequently: true });
     ctx.fillStyle = c;
     var s = ctx.fillStyle;
     if (s[0] === '#') return parseInt(s.substr(1, 2), 16) + ', ' + parseInt(s.substr(3, 2), 16) + ', ' + parseInt(s.substr(5, 2), 16);
@@ -191,20 +224,53 @@
 
   // --- background pictures: light ones are made dark, photos kept -----------------
   var pics = new Map();                     // absolute url -> {state, data, waiting: [fn]}
+  var pictureLimit = 256, pictureCharLimit = 4 * 1024 * 1024;
+  var pictureChars = 0, pendingPictures = 0, pictureTrim = 0;
   var work = null;
+  function trimPicturesLater() {
+    if (pendingPictures || pictureTrim || (pics.size <= pictureLimit && pictureChars <= pictureCharLimit)) return;
+    pictureTrim = setTimeout(function () {
+      pictureTrim = 0;
+      // Give declarations waiting for the next frame their completed layers.
+      // The frame will request a trim again after it consumes them.
+      if (pendingPictures || frame) return;
+      for (var entry of pics) {
+        if (pics.size <= pictureLimit && pictureChars <= pictureCharLimit) break;
+        pics.delete(entry[0]);
+        if (entry[1].data) pictureChars -= entry[1].data.length;
+      }
+      stats.pictureCacheEntries = pics.size;
+      stats.pictureCacheChars = pictureChars;
+    }, 0);
+  }
   function picture(url, done) {
     var p = pics.get(url);
-    if (p) { if (p.state === 'wait') p.waiting.push(done); return p; }
-    p = { state: 'wait', data: null, waiting: [done] };
+    if (p) {
+      if (p.state === 'wait') {
+        if (done) p.waiting.push(done);
+      } else {
+        pics.delete(url);
+        pics.set(url, p);
+      }
+      return p;
+    }
+    p = { state: 'wait', data: null, waiting: done ? [done] : [] };
     pics.set(url, p);
+    pendingPictures++;
+    stats.pictureCacheEntries = pics.size;
     var img = new Image();
-    img.crossOrigin = 'anonymous';          // read without cookies; a picture that does not allow it stays as it is
+    img.crossOrigin = 'anonymous';          // no cross-origin credentials; non-CORS pictures stay as they are
     var end = function (data) {
+      if (p.state !== 'wait') return;
       p.state = data ? 'dark' : 'keep';
       p.data = data;
+      pendingPictures--;
+      if (data) pictureChars += data.length;
+      stats.pictureCacheChars = pictureChars;
       var w = p.waiting;
       p.waiting = [];
-      if (data) for (var i = 0; i < w.length; i++) w[i]();
+      for (var i = 0; i < w.length; i++) w[i]();
+      trimPicturesLater();
     };
     img.onerror = function () { end(null); };
     img.onload = function () {
@@ -238,21 +304,41 @@
     img.src = url;
     return p;
   }
-  // background-image value -> new value, or null when nothing changes
-  function mapImage(v, base, again) {
-    if (v.indexOf('url(') < 0) return v.indexOf('gradient') >= 0 ? mapColors(v, 'bg') : null;
-    var changed = v.indexOf('gradient') >= 0;
+  function mapImage(v, base, again, skipPicture) {
+    if (v.indexOf('url(') < 0) {
+      return { value: v.indexOf('gradient') >= 0 ? mapColors(v, 'bg') : null, pending: false };
+    }
+    var changed = v.indexOf('gradient') >= 0, pending = false;
     var out = v.replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/g, function (m, q, u) {
       if (/^data:image\/svg|^data:/.test(u) && u.length > 4000) return m;
       var abs;
       try { abs = new URL(u, base || document.baseURI).href; } catch (e) { return m; }
-      var p = picture(abs, again);
+      if (skipPicture) return 'url("' + abs + '")';
+      // One pending layer is enough to trigger the next pass for this value.
+      var p = picture(abs, pending ? null : again);
+      if (p.state === 'wait') pending = true;
       if (p.state === 'dark') { changed = true; return 'url("' + p.data + '")'; }
       return 'url("' + abs + '")';
     });
-    if (!changed) return null;
-    return out.replace(/(linear|radial|conic|repeating-linear|repeating-radial)-gradient\((?:[^()]|\([^()]*\))*\)/g,
-      function (g) { return mapColors(g, 'bg'); });
+    return { pending: pending, value: changed ? out.replace(
+      /(linear|radial|conic|repeating-linear|repeating-radial)-gradient\((?:[^()]|\([^()]*\))*\)/g,
+      function (g) { return mapColors(g, 'bg'); }) : null };
+  }
+
+  var imageSources = new WeakMap();
+  function background(st, value, mine, base, again, skipPicture) {
+    var ours = mine && mine['background-image'] === value;
+    var source = ours ? imageSources.get(st) : value;
+    if (!source || source === 'none' || source.indexOf('var(') >= 0) {
+      imageSources.delete(st);
+      return null;
+    }
+    var mapped = mapImage(source, base, again, skipPicture);
+    // Retain the author value only while asynchronous layers can still change
+    // our output. A new value written by the page takes precedence.
+    if (mine && mapped.pending) imageSources.set(st, source);
+    else imageSources.delete(st);
+    return mapped.value !== value ? mapped.value : null;
   }
 
   // --- one style declaration -> the override text ------------------------------
@@ -272,21 +358,21 @@
   // keep: also the values that do not change (an override sheet keeps the
   // page's cascade order with them); mine: the values written into this
   // declaration before (never mapped twice)
-  function items(st, base, again, keep, mine) {
+  function items(st, base, again, keep, mine, selector) {
     var out = [], shorts = false, v;
     function add(n, val) { out.push([n, val, st.getPropertyPriority(n)]); }
-    function addText(t) {
+    function addText(t, priority) {
       if (!t) return;
       t.split(';').forEach(function (pair) {
         var c = pair.indexOf(':');
-        if (c > 0) out.push([pair.slice(0, c), pair.slice(c + 1), '']);
+        if (c > 0) out.push([pair.slice(0, c), pair.slice(c + 1), priority]);
       });
     }
     for (var j = 0; j < st.length; j++) {
       var n = st[j], k = KIND[n];
       if (n.charCodeAt(0) === 45 && n.charCodeAt(1) === 45) {
         v = st.getPropertyValue(n);
-        if (!mine || mine[n] !== v) addText(defineVar(n, v));
+        if (!mine || mine[n] !== v) addText(defineVar(n, v), st.getPropertyPriority(n));
         continue;
       }
       if (k) {
@@ -302,11 +388,8 @@
       } else if (n === 'background-image') {
         v = st.getPropertyValue(n);
         if (!v) { shorts = true; continue; }
-        if (mine && mine[n] === v) continue;
-        if (v !== 'none' && v.indexOf('var(') < 0) {
-          var nb = mapImage(v, base, again);
-          if (nb) add(n, nb);
-        }
+        var nb = background(st, v, mine, base, again, skipRuleImage(selector));
+        if (nb) add(n, nb);
       } else if (n === 'box-shadow' || n === 'text-shadow') {
         v = st.getPropertyValue(n);
         if (mine && mine[n] === v) continue;
@@ -326,8 +409,8 @@
     if (!mine || (mine.color === undefined && mine['background-color'] === undefined)) guard(st, out);
     return out;
   }
-  function decl(st, base, again) {
-    var l = items(st, base, again, true, null), t = '';
+  function decl(st, base, again, selector) {
+    var l = items(st, base, again, true, null, selector), t = '';
     for (var i = 0; i < l.length; i++) t += l[i][0] + ':' + l[i][1] + (l[i][2] ? ' !important' : '') + ';';
     return t;
   }
@@ -337,18 +420,32 @@
     var f = function (v) { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
     return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
   }
+  function contrast(fg, bg, bgLuminance) {
+    var fgLuminance = lum(fg[3] === 1 ? fg : [
+      fg[0] * fg[3] + bg[0] * (1 - fg[3]),
+      fg[1] * fg[3] + bg[1] * (1 - fg[3]),
+      fg[2] * fg[3] + bg[2] * (1 - fg[3])
+    ]);
+    return (Math.max(bgLuminance, fgLuminance) + 0.05) / (Math.min(bgLuminance, fgLuminance) + 0.05);
+  }
   function guard(st, out) {
     var fv = st.getPropertyValue('color'), bv = st.getPropertyValue('background-color');
     var fc = fv && parse(fv), bc = bv && parse(bv);
-    if (!fc || !bc || bc[3] < 0.5 || keepLight('color', fv, st)) return;
+    if (!fc || !bc || bc[3] < 0.5 || onPicture(st)) return;
     var fm = parse(mapColor(fc, 'fg')), bm = parse(mapColor(bc, 'bg'));
-    var lb = lum(bm), lf = lum(fm);
-    if ((Math.max(lb, lf) + 0.05) / (Math.min(lb, lf) + 0.05) >= 4.5) return;
-    var hsl = toHsl(fm[0], fm[1], fm[2]), up = lb < 0.18, l = hsl[2];
+    if (!fm || !bm) return;
+    var lb = lum(bm);
+    if (contrast(fm, bm, lb) >= 4.5) return;
+    var alpha = fm[3];
+    var onWhite = contrast([255, 255, 255, alpha], bm, lb);
+    var onBlack = contrast([0, 0, 0, alpha], bm, lb);
+    // An intentionally faint color may never reach the target at its opacity.
+    if (Math.max(onWhite, onBlack) < 4.5) return;
+    var hsl = toHsl(fm[0], fm[1], fm[2]), up = onWhite >= onBlack, l = hsl[2];
     for (var i = 0; i < 20; i++) {
       l = up ? Math.min(1, l + 0.04) : Math.max(0, l - 0.04);
-      var c = parse(css(hsl[0], hsl[1], l, fm[3])), lc = lum(c);
-      if ((Math.max(lb, lc) + 0.05) / (Math.min(lb, lc) + 0.05) >= 4.5) break;
+      var c = parse(css(hsl[0], hsl[1], l, alpha));
+      if (contrast(c, bm, lb) >= 4.5) break;
     }
     out.push(['color', css(hsl[0], hsl[1], l, fm[3]), st.getPropertyPriority('color')]);
   }
@@ -358,10 +455,10 @@
   // twice. A rule is done once; the values written are remembered per rule.
   var ruleWrote = new WeakMap();
   function inRule(r, base) {
-    var mine = ruleWrote.get(r) || null;
-    var again = function () { quiet(function () { inRule(r, base); }); };
-    var l = items(r.style, base, again, false, mine);
+    var mine = ruleWrote.get(r);
     if (!mine) { mine = {}; ruleWrote.set(r, mine); }
+    var again = function () { quiet(function () { inRule(r, base); }); };
+    var l = items(r.style, base, again, false, mine, r.selectorText);
     if (!l.length) return;
     var st = r.style;
     for (var i = 0; i < l.length; i++) {
@@ -387,7 +484,7 @@
     for (var i = 0; i < list.length; i++) {
       var r = list[i];
       if (r.style && r.selectorText !== undefined) {
-        var d = decl(r.style, base, again);
+        var d = decl(r.style, base, again, r.selectorText);
         var sub = [];
         if (r.cssRules && r.cssRules.length) rules(r.cssRules, sub, base, again);
         if (d || sub.length) out.push(r.selectorText + '{' + d + sub.join('') + '}');
@@ -409,9 +506,18 @@
   }
 
   // --- style sheets: one override sheet right after each source ----------------
-  // records: owner node (a <style>/<link>) or an adopted sheet -> {n, el|sheet, last}
-  var recs = new Map(), stats = { sheets: 0, fetched: 0, rules: 0, ms: 0 };
-  function own(el) { return el.classList && el.classList.contains('ike-de'); }
+  // Owner nodes are scanned for changes. Constructed sheets are looked up only
+  // while adopted, so their records must not keep replaced sheets alive.
+  var recs = new Map(), adoptedRecords = new WeakMap(), generatedStyles = new WeakSet();
+  var stats = { sheets: 0, fetched: 0, rules: 0, ms: 0, pictureCacheEntries: 0, pictureCacheChars: 0,
+    shadowRoots: 0 };
+  function own(el) { return generatedStyles.has(el); }
+  function makeStyle() {
+    var style = document.createElement('style');
+    style.className = 'ike-de';
+    generatedStyles.add(style);
+    return style;
+  }
   function write(rec, list, base) {
     var t0 = performance.now(), n = list.length, out = [];
     var again = function () { rec.n = -1; schedule(); };
@@ -436,11 +542,20 @@
   }
   function sheetOf(node) {
     if (own(node)) return;
-    var sh = node.sheet;
-    if (!sh) return;
-    var rec = recs.get(node);
+    var sh = node.sheet, href = node.href || '', rec = recs.get(node);
+    if (!node.isConnected || !sh ||
+        (sh.href && fix.ignoreSheet.some(function (p) { return matchesPattern(sh.href, p, true); }))) {
+      if (rec) { detachOverride(rec); recs.delete(node); }
+      return;
+    }
+    if (rec && (rec.sh !== sh || rec.href !== href)) {
+      detachOverride(rec);
+      // While a replacement link is loading Chrome can still expose the old sheet.
+      if (rec.sh === sh) return;
+      rec = null;
+    }
     if (!rec) {
-      rec = { n: -1, node: node };
+      rec = { n: -1, sh: sh, href: href };
       recs.set(node, rec);
       stats.sheets++;
     }
@@ -449,14 +564,13 @@
       // a sheet of another site: an override sheet made from its text
       if (!rec.el && !rec.sheet) {
         if (csp) rec.sheet = new CSSStyleSheet();
-        else { rec.el = document.createElement('style'); rec.el.className = 'ike-de'; }
+        else rec.el = makeStyle();
       }
       if (!rec.cs) { other(node, rec); return; }
       if (rec.n === -1) write(rec, rec.cs.cssRules, rec.base);
       put(node, rec);
       return;
     }
-    if (rec.sh !== sh) { rec.sh = sh; rec.n = -1; rec.last = null; }
     grow(rec, list, sh.href || document.baseURI);
   }
   // rules added at the end (CSS-in-JS): only those; any other change: every rule not done yet
@@ -469,8 +583,28 @@
     rec.last = n ? list[n - 1] : null;
   }
   function put(node, rec) {
-    if (rec.el) { if (node.nextSibling !== rec.el && node.parentNode) node.parentNode.insertBefore(rec.el, node.nextSibling); }
-    else adopt(node.getRootNode(), rec.sheet);
+    var root = node.getRootNode();
+    var media = rec.sh.media.mediaText;
+    if (rec.el) {
+      if (rec.el.media !== media) rec.el.media = media;
+      if (node.nextSibling !== rec.el) node.parentNode.insertBefore(rec.el, node.nextSibling);
+      if (rec.el.sheet) rec.el.sheet.disabled = rec.sh.disabled;
+    } else {
+      if (rec.root && rec.root !== root) detachOverride(rec);
+      rec.sheet.media.mediaText = media;
+      rec.sheet.disabled = rec.sh.disabled;
+      adopt(root, rec.sheet);
+      rec.root = root;
+    }
+  }
+  function detachOverride(rec) {
+    if (rec.el) rec.el.remove();
+    if (rec.root) {
+      rec.root.adoptedStyleSheets = rec.root.adoptedStyleSheets.filter(function (sheet) {
+        return sheet !== rec.sheet;
+      });
+      rec.root = null;
+    }
   }
   // a style sheet of another site: its text comes as Dark Reader's own does in
   // I.K.E. (resources/darkmode.js): a plain fetch without cookies, else the
@@ -516,7 +650,8 @@
       if (!r.ok) throw new Error('status');
       return r.text();
     }).catch(function () { return viaBrowser(url); }).then(function (text) {
-      if (off) return;
+      if (off || !node.isConnected || recs.get(node) !== rec || node.href !== url ||
+          node.sheet !== rec.sh) return;
       var cs = new CSSStyleSheet();
       cs.replaceSync(text.replace(/@import[^;]+;/g, ''));
       rec.n = -1;
@@ -535,8 +670,8 @@
     for (var i = 0; i < list.length; i++) {
       var s = list[i];
       if (s.__ikeDE) continue;
-      var rec = recs.get(s);
-      if (!rec) { rec = { n: -1, last: null }; recs.set(s, rec); stats.sheets++; }
+      var rec = adoptedRecords.get(s);
+      if (!rec) { rec = { n: -1, last: null }; adoptedRecords.set(s, rec); stats.sheets++; }
       grow(rec, s.cssRules, document.baseURI);
     }
   }
@@ -546,25 +681,23 @@
   // before they are seen, and a page can hold thousands of roots)
   function grown(all) {
     recs.forEach(function (rec, owner) {
-      if (rec.node) {
-        if (!rec.node.isConnected) { recs.delete(owner); return; }
-        if (rec.cs) { if (rec.n === -1) sheetOf(rec.node); return; }
-        var sh = rec.node.sheet, l;
-        if (!sh || rec.fetching) return;
-        try { l = sh.cssRules; } catch (e) { return; }
-        if (sh !== rec.sh || l.length !== rec.n || (l.length && l[l.length - 1] !== rec.last)) sheetOf(rec.node);
+      var sh = owner.sheet, l;
+      if (!owner.isConnected || sh !== rec.sh || (owner.href || '') !== rec.href || rec.cs) {
+        sheetOf(owner);
+        return;
       }
+      if (rec.fetching) return;
+      try { l = sh.cssRules; } catch (e) { return; }
+      if (l.length !== rec.n || (l.length && l[l.length - 1] !== rec.last)) sheetOf(owner);
     });
     adopted(document);
-    if (all) roots.forEach(function (r) { if (!r.host.isConnected) roots.delete(r); else adopted(r); });
+    if (all) roots.forEach(function (r) { if (r.host.isConnected) adopted(r); });
   }
-  function scanSheets(root) {
-    var n = root.querySelectorAll('style:not(.ike-de),link[rel~="stylesheet"]');
-    for (var i = 0; i < n.length; i++) {
-      if (n[i].tagName === 'LINK' && !n[i].sheet) n[i].addEventListener('load', function () { quiet(sheetOf.bind(null, this)); }, { once: true });
-      else sheetOf(n[i]);
-    }
-    adopted(root);
+  var trackedLinks = new WeakSet();
+  function trackLink(node) {
+    if (trackedLinks.has(node) || !node.relList || !node.relList.contains('stylesheet')) return;
+    trackedLinks.add(node);
+    node.addEventListener('load', function () { quiet(sheetOf.bind(null, this)); });
   }
 
   // --- inline styles and colour attributes -----------------------------------
@@ -573,11 +706,46 @@
   // that touches no colour costs one string comparison and one test, and a value
   // we wrote is never mapped twice (a light text would drift darker each time)
   var applied = new WeakMap(), wrote = new WeakMap();
+  var presentationSheets = new WeakMap();
+  function svgPresentation(el) {
+    if (!el.isConnected) return;
+    var root = el.getRootNode();
+    ['fill', 'stroke'].forEach(function (p) {
+      var value = el.getAttribute(p);
+      var color = value && mapValue(value, 'fg');
+      if (!color) return;
+      var record = presentationSheets.get(root);
+      if (!record) {
+        var sheet = root === document && (baseSheet || baseEl.sheet);
+        if (!sheet) {
+          var style = makeStyle();
+          root.insertBefore(style, root.firstChild);
+          sheet = style.sheet;
+          if (!sheet) {
+            style.remove();
+            sheet = new CSSStyleSheet();
+            adopt(root, sheet);
+          }
+        }
+        record = { sheet: sheet, keys: new Set() };
+        presentationSheets.set(root, record);
+      }
+      var key = p + ':' + value;
+      if (!record.keys.has(key)) {
+        var selector = '[' + p + '="' + CSS.escape(value) + '"]';
+        var rule = ':where(svg' + selector + ',svg ' + selector + '){' + p + ':' + color + '}';
+        // Keep presentation attributes at zero specificity, below author rules.
+        record.sheet.insertRule(rule, record.sheet.cssRules.length);
+        record.keys.add(key);
+      }
+    });
+  }
   function seen(el) { return (el.getAttribute('style') || '') + '\u0001' + (el.getAttribute('bgcolor') || ''); }
   function inline(el) {
     var now = seen(el);
-    if (applied.get(el) === now) return;
     if (fix.ignoreInline && fix.ignoreInline.length && el.matches(fix.ignoreInline)) { applied.set(el, now); return; }
+    if (el.namespaceURI === SVGNS) svgPresentation(el);
+    if (applied.get(el) === now) return;
     var st = el.style, attr = el.getAttribute('style');
     var done = wrote.get(el);
     if (!done) { done = {}; wrote.set(el, done); }
@@ -591,7 +759,7 @@
       for (var i = 0; i < st.length; i++) names.push(st[i]);
       for (var q = 0; q < names.length; q++) {
         var n = names[q], k = KIND[n], v = st.getPropertyValue(n);
-        if (v && done[n] === v) continue;               // ours already
+        if (v && done[n] === v && n !== 'background-image') continue;
         if (k) {
           if (!v) { shorts = true; continue; }
           if (keepLight(n, v, st)) continue;
@@ -599,14 +767,16 @@
           if (m && m !== v) set(n, m, st.getPropertyPriority(n));
         } else if (n === 'background-image') {
           if (!v) { shorts = true; continue; }
-          if (v !== 'none' && v.indexOf('var(') < 0) { var nb = mapImage(v, document.baseURI, again); if (nb) set(n, nb); }
+          var nb = background(st, v, done, document.baseURI, again, skipElementImage(el));
+          if (nb) set(n, nb);
         } else if ((n === 'box-shadow' || n === 'text-shadow') && v && v !== 'none' && v.indexOf('var(') < 0) {
           set(n, mapColors(v, 'bg'));
         } else if (n.charCodeAt(0) === 45 && n.charCodeAt(1) === 45 && n.indexOf('--ike-') !== 0) {
           var d = defineVar(n, v);
+          var priority = st.getPropertyPriority(n);
           if (d) d.split(';').forEach(function (pair) {
             var c = pair.indexOf(':');
-            if (c > 0) set(pair.slice(0, c), pair.slice(c + 1));
+            if (c > 0) set(pair.slice(0, c), pair.slice(c + 1), priority);
           });
         }
       }
@@ -619,31 +789,32 @@
     }
     var a = el.getAttribute('bgcolor');
     if (a) { var c = parse(a); if (c) set('background-color', mapColor(c, 'bg')); }
-    if (el.namespaceURI === SVGNS) {
-      if (!applied.has(el)) ['fill', 'stroke'].forEach(function (p) {
-        var v = el.getAttribute(p), cc = v && parse(v);
-        if (cc && !st.getPropertyValue(p)) set(p, mapColor(cc, 'fg'));
-      });
-    } else if (el.localName === 'font' && el.getAttribute('color')) {
+    if (el.localName === 'font' && el.getAttribute('color')) {
       var fc = parse(el.getAttribute('color'));
       if (fc) set('color', mapColor(fc, 'fg'));
     }
     applied.set(el, seen(el));
   }
 
-  // --- pictures: only small ones with transparency, once each, when loaded ------
-  var probe = null;
+  // --- pictures: recheck only when the element loads a different source ------
+  var probe = null, imageSource = new WeakMap(), imageListeners = new WeakSet();
   function lookAt(img) {
-    if (img.__ikeDE || !img.complete || !img.naturalWidth) return;
-    img.__ikeDE = true;
-    if (img.naturalWidth * img.naturalHeight > 512 * 512 || /\.jpe?g($|\?)/i.test(img.currentSrc)) return;
+    var src = img.currentSrc;
+    if (!img.complete || !img.naturalWidth || !src || imageSource.get(img) === src) return;
+    imageSource.set(img, src);
+    img.classList.remove('ike-de-lift');
+    if (skipElementImage(img) || img.naturalWidth * img.naturalHeight > 512 * 512 || /\.jpe?g($|\?)/i.test(src)) return;
     var d;
     try {
       if (!probe) probe = new OffscreenCanvas(24, 24).getContext('2d', { willReadFrequently: true });
       probe.clearRect(0, 0, 24, 24);
       probe.drawImage(img, 0, 0, 24, 24);
       d = probe.getImageData(0, 0, 24, 24).data;   // a picture of another site cannot be read here
-    } catch (e) { return; }
+    } catch (e) {
+      // Clearing pixels does not restore origin cleanliness after a foreign image.
+      probe = null;
+      return;
+    }
     var clear = 0, n = 0, lum = 0;
     for (var i = 0; i < d.length; i += 4) {
       if (d[i + 3] < 30) { clear++; continue; }
@@ -655,42 +826,61 @@
 
   // --- shadow roots (open ones) are treated as small documents -------------------
   var roots = new Set(), hosts = new Set();
+  var shadowRootsMayBeDetached = false;
+  function pruneShadowRoots() {
+    if (!shadowRootsMayBeDetached) return;
+    shadowRootsMayBeDetached = false;
+    var previous = roots.size;
+    roots.forEach(function (root) { if (!root.host.isConnected) roots.delete(root); });
+    if (roots.size === previous) return;
+    stats.shadowRoots = roots.size;
+    // An observer can only disconnect all targets. The surrounding quiet()
+    // call has already delivered pending author records.
+    mo.disconnect();
+    mo.observe(document, OBS);
+    roots.forEach(function (root) { mo.observe(root, OBS); });
+  }
   function shadow(el) {
     var sr = el.shadowRoot;
     if (!sr) { hosts.add(el); return; }
     hosts.delete(el);
     if (roots.has(sr)) return;
     roots.add(sr);
+    stats.shadowRoots = roots.size;
     mo.observe(sr, OBS);
-    scanSheets(sr);
+    adopted(sr);
     tree(sr);
   }
-  var SEL = '[style],[bgcolor],font[color],svg [fill],svg [stroke]';
+  var SEL = '[style],[bgcolor],font[color],svg[fill],svg[stroke],svg [fill],svg [stroke]';
   var SVGNS = 'http://www.w3.org/2000/svg';
   function needsInline(e) {
     return e.hasAttribute('style') || (e.namespaceURI === SVGNS ? e.hasAttribute('fill') || e.hasAttribute('stroke')
       : e.hasAttribute('bgcolor') || (e.tagName === 'FONT' && e.hasAttribute('color')));
   }
+  function visit(e) {
+    if (e.localName === 'style') sheetOf(e);
+    else if (e.localName === 'link') { trackLink(e); sheetOf(e); }
+    else if (e.tagName === 'IMG') look(e);
+    else if (e.localName.indexOf('-') > 0) shadow(e);
+  }
   function tree(root) {
-    var l, i, e;
+    var l, i;
     if (root.nodeType === 1) {
       if (needsInline(root)) inline(root);
-      if (root.tagName === 'IMG') look(root);
-      if (root.localName.indexOf('-') > 0) shadow(root);
+      visit(root);
       if (!root.firstElementChild) return;              // most added nodes: nothing below
     }
     l = root.querySelectorAll(SEL);
     for (i = 0; i < l.length; i++) inline(l[i]);
     l = root.querySelectorAll('*');
-    for (i = 0; i < l.length; i++) {
-      e = l[i];
-      if (e.tagName === 'IMG') look(e);
-      else if (e.localName.indexOf('-') > 0) shadow(e);
-    }
+    for (i = 0; i < l.length; i++) visit(l[i]);
   }
   function look(img) {
-    if (img.complete) lookAt(img);
-    else img.addEventListener('load', function () { lookAt(this); }, { once: true });
+    if (!imageListeners.has(img)) {
+      imageListeners.add(img);
+      img.addEventListener('load', function () { lookAt(this); });
+    }
+    lookAt(img);
   }
 
   // --- the base sheet and the site's fix (Dark Reader's list) -----------------
@@ -702,8 +892,9 @@
   }
   function base() {
     var t = ':root{color-scheme:dark!important}' +
-      'html{background-color:#181a1b!important}:where(html,body){color:#e8e6e3;border-color:#736b5e}' +
-      ':where(a){color:#3391ff}:where(input,textarea,select,button){color:#e8e6e3}';
+      (window === window.top ? 'html{background-color:#181a1b!important}' : '') +
+      ':where(html,body){color:#e8e6e3;border-color:#736b5e}' +
+      ':where(input,textarea,select,button){color:#e8e6e3}';
     var inv = (fix.invert || []).join(',');
     if (inv) t += inv + '{filter:invert(100%) hue-rotate(180deg)!important}';
     if (fix.css) {
@@ -724,31 +915,110 @@
     // the engine's own dark button face is mid-grey: a page's grey button text on it is unreadable
     t += ':where(button,select,input[type=button],input[type=submit],input[type=reset]){background-color:#2b2e30}';
     t += '.ike-de-lift{filter:invert(100%) hue-rotate(180deg)!important}';
-    var s = document.createElement('style');
-    s.className = 'ike-de';
+    var s = makeStyle();
     s.textContent = t;
     return s;
   }
 
   // --- a page that is dark already is left alone --------------------------------
-  // (only a page that says so: a dark page that does not is mapped like any
-  // other, its dark colours stay dark and its light parts become dark too)
+  function darkPalette() {
+    var theme = (document.documentElement.getAttribute('data-theme') || '').toLowerCase();
+    if (theme !== 'dark' && (theme !== 'system' || !matchMedia('(prefers-color-scheme: dark)').matches)) {
+      return false;
+    }
+    // Verify a declared palette against the author's canvas colors. Our
+    // temporary cover and default foreground would otherwise bias the result.
+    var sheet = baseSheet || (baseEl && baseEl.sheet);
+    if (sheet) sheet.disabled = true;
+    try {
+      var root = getComputedStyle(document.documentElement);
+      var body = document.body ? getComputedStyle(document.body) : root;
+      var background = parse(body.backgroundColor);
+      if (!background || background[3] < 0.95) background = parse(root.backgroundColor);
+      var foreground = parse(body.color);
+      if (!background || background[3] < 0.95 || !foreground) return false;
+      var luminance = lum(background);
+      return luminance < 0.18 && lum(foreground) > luminance && contrast(foreground, background, luminance) >= 4.5;
+    } finally {
+      if (sheet) sheet.disabled = false;
+    }
+  }
   function isDarkAlready() {
+    if (siteFix.chosen) return false;
     var m = document.querySelector('meta[name="color-scheme"]');
-    return !!(m && /^\s*dark\s*$/i.test(m.content));
+    if (m && /^\s*(?:only\s+dark|dark(?:\s+only)?)\s*$/i.test(m.content)) return true;
+    var hint = fix.hint;
+    if (!hint) return window === window.top && darkPalette();
+    if (hint.noDarkTheme || (window !== window.top && !hint.iframe)) return false;
+    if (hint.systemTheme && matchMedia('(prefers-color-scheme: dark)').matches) return true;
+    if (!hint.target || !hint.match || !hint.match.length) return false;
+    try {
+      var target = document.querySelector(hint.target);
+      if (!target || !target.matches(hint.match.join(','))) return false;
+      // Some sites advertise both palettes with data-theme="light dark".
+      // A substring hint alone cannot distinguish the palette being shown.
+      var themes = (target.getAttribute('data-theme') || '').toLowerCase().split(/\s+/);
+      if (themes.includes('light') && themes.includes('dark')) {
+        return matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+      return true;
+    } catch (e) { return false; }
   }
 
   // --- start, then only what is added ----------------------------------------
-  var baseEl = null, off = false, pending = [], queued = false, wait = null;
-  var OBS = { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'bgcolor'] };
+  var baseEl = null, coverSheet = null, coverRule = null;
+  var off = false, pending = [], queued = false, wait = null;
+  var OBS = { childList: true, subtree: true, attributes: true,
+    attributeFilter: ['style', 'bgcolor', 'fill', 'stroke', 'href', 'rel', 'media', 'disabled'] };
   function stop() {
     off = true;
+    coverSheet = coverRule = null;
     if (wait) wait.disconnect();
     mo.disconnect();
-    document.querySelectorAll('style.ike-de').forEach(function (e) { e.remove(); });
-    if (document.adoptedStyleSheets.some(function (x) { return x.__ikeDE; })) {
-      document.adoptedStyleSheets = document.adoptedStyleSheets.filter(function (x) { return !x.__ikeDE; });
+    if (baseEl) baseEl.remove();
+    if (baseSheet) {
+      document.adoptedStyleSheets = document.adoptedStyleSheets.filter(function (sheet) {
+        return sheet !== baseSheet;
+      });
     }
+  }
+  function waitForLightTheme() {
+    stop();
+    var preference = matchMedia('(prefers-color-scheme: dark)');
+    var observer = new MutationObserver(check);
+
+    function watch() {
+      observer.disconnect();
+      var root = document.documentElement;
+      var meta = document.querySelector('meta[name="color-scheme"]');
+      observer.observe(document, { childList: true });
+      if (root) observer.observe(root, { childList: true, attributes: true, attributeFilter: ['data-theme'] });
+      if (document.head) observer.observe(document.head, { childList: true });
+      if (meta) observer.observe(meta, { attributes: true, attributeFilter: ['content', 'name'] });
+      if (!fix.hint || !fix.hint.target) return;
+      var target;
+      try { target = document.querySelector(fix.hint.target); } catch (e) { return; }
+      if (target) {
+        observer.observe(target, { attributes: true, childList: target === root || target === document.head });
+        for (var parent = target.parentElement; parent && parent !== root && parent !== document.head;
+             parent = parent.parentElement) {
+          observer.observe(parent, { childList: true });
+        }
+      }
+    }
+
+    function check() {
+      if (!document.documentElement || isDarkAlready()) { watch(); return; }
+      observer.disconnect();
+      preference.removeEventListener('change', check);
+      // No author declarations were changed while the site used its theme.
+      baseEl = baseSheet = null;
+      csp = off = false;
+      ready();
+    }
+
+    preference.addEventListener('change', check);
+    watch();
   }
   // the sheets' lengths, the hosts still without a shadow root and the
   // pictures that came back are looked at once a frame (before it is drawn),
@@ -761,8 +1031,10 @@
       if (off) return;
       quiet(function () {
         hosts.forEach(function (h) { if (!h.isConnected) hosts.delete(h); else if (h.shadowRoot) shadow(h); });
+        pruneShadowRoots();
         if (ready.done) grown();
       });
+      trimPicturesLater();
     });
   }
   // work done outside the observer: the page's changes still waiting are
@@ -780,14 +1052,20 @@
   function handle(list) {
     for (var i = 0; i < list.length; i++) {
       var m = list[i], t = m.target;
-      if (m.type === 'attributes') { touched.add(t); continue; }
+      if (!t.isConnected) continue;
+      if (m.type === 'attributes') {
+        if (t.localName === 'link') { trackLink(t); sheetOf(t); }
+        else if (!own(t) && needsInline(t)) touched.add(t);
+        continue;
+      }
       {
+        for (var k = 0; !shadowRootsMayBeDetached && roots.size && k < m.removedNodes.length; k++) {
+          if (m.removedNodes[k].nodeType === 1 && !own(m.removedNodes[k])) shadowRootsMayBeDetached = true;
+        }
         for (var j = 0; j < m.addedNodes.length; j++) {
           var n = m.addedNodes[j];
-          if (n.nodeType !== 1 || own(n)) continue;
-          if (n.localName === 'style') sheetOf(n);
-          else if (n.localName === 'link') n.addEventListener('load', function () { quiet(sheetOf.bind(null, this)); }, { once: true });
-          else tree(n);
+          if (n.nodeType !== 1 || !n.isConnected || own(n)) continue;
+          tree(n);
         }
       }
       if (t && t.localName === 'style' && !own(t)) sheetOf(t);
@@ -818,7 +1096,13 @@
       baseEl.remove();
       adopt(document, baseSheet);
     }
-    mo.observe(document, OBS);
+    // The body can paint while a parser-blocking resource is pending.
+    // Cover its canvas background until the author declarations are mapped.
+    if (window === window.top) {
+      coverSheet = baseSheet || baseEl.sheet;
+      coverRule = coverSheet.cssRules[coverSheet.insertRule(
+        ':root:root > body{background-color:#181a1b!important}', 0)];
+    }
     return true;
   }
   if (!start()) {
@@ -829,14 +1113,18 @@
     if (off || ready.done) return;
     if (wait) wait.disconnect();
     start();
-    if (isDarkAlready()) { stop(); return; }
+    if (isDarkAlready()) { waitForLightTheme(); return; }
     ready.done = true;
+    // Wait for the page's color-scheme metadata before rewriting author styles.
+    mo.observe(document, OBS);
     var t0 = performance.now();
     // first in <head>: the page's own rules come after the defaults
     if (!csp && baseEl && baseEl.parentNode !== document.head && document.head) document.head.insertBefore(baseEl, document.head.firstChild);
     mo.takeRecords();
-    scanSheets(document);
+    adopted(document);
     tree(document.documentElement);
+    if (coverSheet && coverSheet.cssRules[0] === coverRule) coverSheet.deleteRule(0);
+    coverSheet = coverRule = null;
     mo.takeRecords();
     stats.ms += performance.now() - t0;
     // CSS-in-JS and components that start late: looked at again a few times

@@ -43,9 +43,6 @@ SITES = {
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
 MAX_FILES, MAX_BYTES = 250, 16 << 20
 CTX = ssl.create_default_context()
-for ca in ("/root/.ccr/ca-bundle.crt",):
-    if Path(ca).exists():
-        CTX.load_verify_locations(ca)
 
 
 def get(url):

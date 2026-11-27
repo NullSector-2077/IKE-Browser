@@ -258,7 +258,7 @@ DEFAULTS = {
     "comp_consent": True,
     "comp_dark": True,
     "dark_mode": "off",                 # off | on
-    # reader: Dark Reader API; engine: Chromium Auto Dark Mode. Both support
+    # reader: Dark Reader API; engine: Chromium Auto Dark Mode; ike: experimental I.K.E. Dark Engine. All support
     # per-site include/exclude rules and are applied at page navigation.
     "dark_engine": "reader",
     "dark_sites": [],                   # hosts that are dark while dark mode is off

@@ -11,10 +11,9 @@ Hidden setting (round 3): nothing in the menus or in Settings. With
 "dark_engine_experiment": true written by hand in the profile's settings.json
 (~/.config/ike-browser/settings.json, the browser closed) and the dark mode
 method "Dark Reader", a page that would be made dark by Dark Reader is made
-dark by this engine instead, at the protection levels Off, Compatibility and
-Balanced; at Strict and Maximum no script darkens the page: Chromium's own
-dark mode does (the owner's privacy rule). Without the key, or with false,
-nothing changes.
+dark by this engine instead at every protection level, including Strict and
+Maximum. This experimental configuration still requires privacy and performance
+validation. Without the key, or with false, nothing changes.
 
 The engine is installed for the whole profile and does nothing on its own: a
 small script per dark site registers that site's fix (as darkpages.py does for
@@ -42,7 +41,9 @@ def wanted(cfg):
 
 def _fix(fix):
     return {"invert": fix.get("invert") or [], "css": fix.get("css") or "",
-            "ignoreInline": ",".join(fix.get("ignoreInlineStyle") or [])}
+            "ignoreInline": ",".join(fix.get("ignoreInlineStyle") or []),
+            "ignoreImage": fix.get("ignoreImageAnalysis") or [],
+            "ignoreSheet": fix.get("ignoreCSSUrl") or []}
 
 
 def _script(name, source):
@@ -81,14 +82,16 @@ def install(profile):
     _state[id(profile)] = {"sites": {}, "order": []}
 
 
-def site(profile, url, host):
+def site(profile, url, host, chosen):
     """Register the Dark Reader fix of a site (call before its page loads)."""
     from . import darkfixes
     st = _state.get(id(profile))
     if st is None:
         install(profile)
         st = _state[id(profile)]
-    cfg = json.dumps(_fix(darkfixes.fix_for(url)))
+    fix = _fix(darkfixes.fix_for(url))
+    hints = [] if chosen else darkfixes.hints_for(url)
+    cfg = json.dumps({**fix, "chosen": chosen, "hint": hints[0] if hints else None})
     if st["sites"].get(host) != cfg:
         _remove(profile, _NAME + ":" + host)
         profile.scripts().insert(_script(_NAME + ":" + host, _site_source(host, cfg)))
@@ -119,7 +122,7 @@ def prepare(profile, url, host, dark, chosen):
             del st["sites"][host]
             st["order"].remove(host)
         return False
-    site(profile, url, host)
+    site(profile, url, host, chosen)
     return True
 
 

@@ -293,18 +293,13 @@ class WebPage(QWebEnginePage):
         reader_on = on and engine == "reader"
         native_on = on and engine == "engine"
         # the I.K.E. Dark Engine experiment (darkengine.py), on only by hand in
-        # settings.json: it takes Dark Reader's place at the levels Off to
-        # Balanced; at Strict and Maximum no script darkens the page, Chromium's
-        # own dark mode does (the owner's privacy rule)
+        # settings.json: replace Dark Reader at every protection level.
+        # The experimental engine runs in ApplicationWorld.
         from . import darkengine
-        experiment = engine == "reader" and darkengine.wanted(cfg)
-        own_on = False
-        if experiment and reader_on:
+        experiment = engine == "ike" or (engine == "reader" and darkengine.wanted(cfg))
+        own_on = on and experiment
+        if experiment:
             reader_on = False
-            if cfg.level_for(host) in ("strict", "maximum"):
-                native_on = True
-            else:
-                own_on = True
 
         # Qt 6.7+ exposes ForceDarkMode as a page-level WebAttribute.  This lets
         # users exempt a single site instead of forcing Chromium's filter over

@@ -21,13 +21,18 @@ _data = None
 _index = None
 
 
+def bundled_data():
+    try:
+        return json.loads((RES_DIR / "darkreader-data.json").read_text("utf-8"))
+    except (OSError, ValueError):
+        return {"fixes": [{"url": ["*"]}], "dark_sites": [], "detector_hints": []}
+
+
 def data():
     global _data
     if _data is None:
-        try:
-            _data = json.loads((RES_DIR / "darkreader-data.json").read_text("utf-8"))
-        except (OSError, ValueError):
-            _data = {"fixes": [{"url": ["*"]}], "dark_sites": [], "detector_hints": []}
+        from . import darklists
+        _data = darklists.load(bundled_data())
     return _data
 
 

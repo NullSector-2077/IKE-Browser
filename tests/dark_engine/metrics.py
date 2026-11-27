@@ -203,16 +203,22 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("dir")
     ap.add_argument("--modes", default="off,dr,native,proto")
+    ap.add_argument("--pages", help="comma-separated names required in the comparison")
     ap.add_argument("--json")
     ap.add_argument("--sheets", help="folder for side-by-side pictures of the modes")
     a = ap.parse_args()
     d = Path(a.dir)
     modes = a.modes.split(",")
-    pages = sorted({p.name.split("__")[0] for p in d.glob("*__off.png")} - {"calib", "bench"})
+    pages = a.pages.split(",") if a.pages else sorted(
+        {p.stem.split("__")[0] for p in d.glob("*__*.png")} - {"calib", "bench"})
+    if not pages or "off" not in modes:
+        ap.error("comparison requires at least one page and an off reference")
+    missing = [f"{page}__{mode}.{ext}" for page in pages for mode in modes
+               for ext in ("png", "json") if not (d / f"{page}__{mode}.{ext}").is_file()]
+    if missing:
+        ap.error("missing renderer results: " + ", ".join(missing))
     out = {}
     for page in pages:
-        if not all((d / ("%s__%s.png" % (page, m))).exists() for m in modes):
-            continue
         base = baseline(d, page)
         dr = load(d / ("%s__dr.png" % page)) if "dr" in modes else None
         out[page] = {m: analyse(d, page, m, base, dr) for m in modes}

@@ -30,7 +30,6 @@ import os
 import re
 import sys
 import threading
-import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -168,17 +167,21 @@ def main():
     ap.add_argument("--snaps", default="")
     ap.add_argument("--live", action="store_true")
     ap.add_argument("--bench", type=int, default=0, help="runs of the speed proxy per mode (0: none)")
+    ap.add_argument("--bench-only", action="store_true", help="skip screenshots and run only the speed proxy")
     ap.add_argument("--loadtime", type=int, default=0, help="loads per page and mode, times only")
     ap.add_argument("--speedometer", default="", help="a Speedometer checkout: run it once per mode")
     ap.add_argument("--settle", type=int, default=0, help="ms to wait after the load")
     ap.add_argument("--size", default="")
     a = ap.parse_args()
+    if a.bench_only and (a.bench < 1 or a.loadtime or a.speedometer):
+        ap.error("--bench-only requires a positive --bench count")
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
 
     from PyQt6.QtCore import QFile, QIODevice, QObject, QTimer, QUrl, pyqtSignal, pyqtSlot
     from PyQt6.QtWebChannel import QWebChannel
     from PyQt6.QtWebEngineCore import (
+        QWebEngineLoadingInfo,
         QWebEnginePage,
         QWebEngineProfile,
         QWebEngineScript,
@@ -247,10 +250,10 @@ def main():
         jobs += [(m, "speedometer", "speedo") for m in modes]
     elif a.loadtime:
         jobs += [(m, n, "time") for _ in range(a.loadtime) for m in modes for n in names]
-    else:
+    elif not a.bench_only:
         jobs += [(m, n, "shot") for m in modes for n in names]
     jobs += [(m, "bench", "bench") for m in modes for _ in range(a.bench)]
-    results = {"bench": {}, "times": {}, "speedometer": {}, "bridge": {}}
+    results = {"bench": {}, "times": {}, "speedometer": {}, "bridge": {}, "errors": []}
     profiles = {}
     qwc = QFile(":/qtwebchannel/qwebchannel.js")
     qwc.open(QIODevice.OpenModeFlag.ReadOnly)
@@ -259,13 +262,13 @@ def main():
 
     def url_of(name):
         if name == "speedometer":
-            return base + "speedometer/index.html?startAutomatically=true", "http://127.0.0.1/"
+            return base + "speedometer/index.html?startAutomatically=true", "http://127.0.0.1/", None
         if a.snaps and name != "bench":
             m = json.loads((Path(a.snaps) / name / "manifest.json").read_text())
             if a.live and m.get("site") != "local.test":
-                return m["url"], m["url"]
-            return base + "snap/%s/%s" % (name, m["entry"]), m["url"]
-        return base + name + ".html", base + name + ".html"
+                return m["url"], m["url"], m.get("expected_content")
+            return base + "snap/%s/%s" % (name, m["entry"]), m["url"], m.get("expected_content")
+        return base + name + ".html", base + name + ".html", None
 
     def profile_for(mode):
         if mode not in profiles:
@@ -304,18 +307,21 @@ def main():
                 results.setdefault("blocked", 0)
                 results["blocked"] += g.blocked
             (out / "results.json").write_text(json.dumps(results, indent=1))
-            app.quit()
+            app.exit(bool(results["errors"]))
             return
         mode, name, kind = jobs.pop(0)
+        if kind == "shot":
+            for ext in ("png", "json"):
+                (out / f"{name}__{mode}.{ext}").unlink(missing_ok=True)
         prof, guard, log = profile_for(mode)
-        url, orig = url_of(name)
+        url, orig, expected_content = url_of(name)
         if mode == "dr":
             from ike import darkpages
             darkpages.prepare(prof, orig, "127.0.0.1" if not a.live else QUrl(orig).host(),
                               {"brightness": 100, "contrast": 100, "sepia": 0}, True, False)
         if mode.startswith("proto"):
             from ike import darkengine
-            darkengine.site(prof, orig, "127.0.0.1" if not a.live else QUrl(orig).host())
+            darkengine.prepare(prof, orig, "127.0.0.1" if not a.live else QUrl(orig).host(), True, False)
         view = QWebEngineView()
         page = Page(prof, view)
         view.setPage(page)
@@ -328,13 +334,33 @@ def main():
         view.resize(width if kind != "speedo" else 1400, height if kind != "speedo" else 1000)
         view.show()
         state["view"] = view
-        t0 = time.monotonic()
-        done = {"v": False}
+        job = {"loaded": False, "finished": False}
 
-        def loaded(ok):
-            if done["v"]:
+        def finish(error=None):
+            if job["finished"]:
                 return
-            done["v"] = True
+            job["finished"] = True
+            if error:
+                results["errors"].append({"page": name, "mode": mode, "kind": kind, "error": error})
+                print("error", mode, name, error, flush=True)
+            QTimer.singleShot(0, next_job)
+
+        def loaded(info):
+            status = info.status()
+            final = QWebEngineLoadingInfo.LoadStatus
+            if status not in (final.LoadSucceededStatus, final.LoadFailedStatus):
+                return
+            if job["loaded"] or job["finished"]:
+                return
+            job["loaded"] = True
+            code = info.errorCode()
+            if info.errorDomain() == QWebEngineLoadingInfo.ErrorDomain.HttpStatusCodeDomain and code >= 400:
+                finish(f"HTTP {code}")
+                return
+            if status == final.LoadFailedStatus:
+                finish(f"navigation failed ({info.errorDomain().name} {code})")
+                return
+            job["status"] = code
             if kind == "bench":
                 QTimer.singleShot(settle, lambda: page.runJavaScript(
                     "bench().then(function(t){window.__bt=t})", 0, lambda _: QTimer.singleShot(200, poll)))
@@ -346,7 +372,11 @@ def main():
                 QTimer.singleShot(settle, shoot)
 
         def poll():
+            if job["finished"]:
+                return
             def got(v):
+                if job["finished"]:
+                    return
                 if v is None:
                     QTimer.singleShot(100, poll)
                 else:
@@ -354,7 +384,7 @@ def main():
 
                     def stats(e):
                         print("bench", mode, round(v, 1), "engine:", e, flush=True)
-                        next_job()
+                        finish()
                     if mode.startswith("proto"):
                         page.runJavaScript("JSON.stringify(window.__ikeDEStats||null)", 1, stats)
                     else:
@@ -362,13 +392,13 @@ def main():
             page.runJavaScript("window.__bt", 0, got)
 
         def speedo():
+            if job["finished"]:
+                return
             def got(v):
+                if job["finished"]:
+                    return
                 if not v:
-                    if time.monotonic() - t0 > 3000:
-                        print("speedometer", mode, "timeout", flush=True)
-                        next_job()
-                    else:
-                        QTimer.singleShot(5000, speedo)
+                    QTimer.singleShot(5000, speedo)
                     return
                 results["speedometer"][mode] = v
                 print("speedometer", mode, v, flush=True)
@@ -376,7 +406,7 @@ def main():
                 page.runJavaScript("JSON.stringify(window.__ikeDEProf||null)", 1,
                                    lambda p: p and p != "null" and print("profile", mode, p, flush=True))
                 view.grab().toImage().save(str(out / ("speedometer__%s.png" % mode)))
-                next_job()
+                finish()
             page.runJavaScript("(function(){var e=document.querySelector('#result-number');"
                                "var s=document.querySelector('#summary');"
                                "return e&&e.textContent.trim()&&s&&s.offsetParent!==null?"
@@ -385,39 +415,58 @@ def main():
 
         def timing():
             def got(js):
-                d = json.loads(js or "{}")
+                if job["finished"]:
+                    return
+                if not js:
+                    finish("navigation timing unavailable")
+                    return
+                d = json.loads(js)
                 results["times"].setdefault(name, {}).setdefault(mode, []).append([d.get("dcl"), d.get("load")])
                 print("time", mode, name, d.get("dcl"), d.get("load"), flush=True)
-                next_job()
+                finish()
             page.runJavaScript("(function(){var n=performance.getEntriesByType('navigation')[0]||{};"
                                "return JSON.stringify({dcl:Math.round(n.domContentLoadedEventEnd||0),"
                                "load:Math.round(n.loadEventEnd||0)})})()", 0, got)
 
         def shoot():
             def probed(js):
-                img = view.grab().toImage()
-                img.save(str(out / ("%s__%s.png" % (name, mode))))
-                d = json.loads(js or "{}")
+                if job["finished"]:
+                    return
+                if not js:
+                    finish("expected content missing" if expected_content else "render probe unavailable")
+                    return
+                d = json.loads(js)
 
                 def stats(v):
+                    if job["finished"]:
+                        return
+                    img = view.grab().toImage()
+                    if not img.save(str(out / ("%s__%s.png" % (name, mode)))):
+                        finish("could not save screenshot")
+                        return
                     d["engine"] = v
+                    d["http_status"] = job["status"]
                     (out / ("%s__%s.json" % (name, mode))).write_text(json.dumps(d))
                     print("shot", mode, name, "engine:", v, flush=True)
-                    next_job()
+                    finish()
                 if mode.startswith("proto"):
                     page.runJavaScript("JSON.stringify(window.__ikeDEStats||null)", 1, lambda v: stats(json.loads(v or "null")))
                 else:
                     stats(None)
-            page.runJavaScript(PROBE, 0, probed)
+            probe = PROBE
+            if expected_content:
+                probe = f"document.querySelector({json.dumps(expected_content)}) && ({probe})"
+            page.runJavaScript(probe, 0, probed)
 
-        page.loadFinished.connect(loaded)
+        page.loadingChanged.connect(loaded)
         page.load(QUrl(url))
-        # a page that never finishes loading is measured all the same
-        QTimer.singleShot(20000 if kind != "speedo" else 1, lambda: kind != "speedo" and loaded(True))
+        QTimer.singleShot(20000, lambda: None if job["loaded"] else finish("navigation timed out"))
+        QTimer.singleShot(3000000 if kind == "speedo" else 30000 + settle,
+                          lambda: finish("measurement timed out"))
 
     QTimer.singleShot(0, next_job)
-    app.exec()
+    return app.exec()
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

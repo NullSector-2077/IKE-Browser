@@ -1,0 +1,51 @@
+name: Experimental Dark Engine package
+on:
+  # Final packaging only: push a final commit with [experimental-ready] in its message
+  # after all objectives and regression checks are complete. Ordinary pushes skip packaging.
+  # The push route works even when this workflow is absent from the default branch.
+  push:
+    branches: [experiment/dark-engine-chatgpt]
+  workflow_dispatch:
+    inputs:
+      objectives_verified:
+        description: 'All experimental objectives and regression checks completed'
+        required: true
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  package:
+    if: github.ref == 'refs/heads/experiment/dark-engine-chatgpt' && ((github.event_name == 'workflow_dispatch' && inputs.objectives_verified == true) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[experimental-ready]')))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    container: archlinux:latest
+    steps:
+      - name: Install Arch build dependencies
+        run: |
+          pacman -Syu --noconfirm --needed git base-devel rust sudo python python-pyqt6 python-pyqt6-webengine qt6-webengine qt6-webchannel qt6-svg python-cryptography python-jeepney hicolor-icon-theme publicsuffix-list
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Build and verify package
+        shell: bash
+        run: |
+          useradd -m builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+          runuser -u builder -- makepkg --noconfirm
+          mkdir -p out
+          cp ./*.pkg.tar.zst out/
+          for pkg in out/*.pkg.tar.zst; do
+            zstd -t "$pkg"
+            pacman -Qip "$pkg"
+            pacman -U --noconfirm "$pkg"
+          done
+          python -m compileall -q /usr/lib/ike-browser/ike
+          cd out
+          sha256sum *.pkg.tar.zst > SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ike-dark-engine-experimental
+          path: out/
+          if-no-files-found: error
+          retention-days: 14

@@ -241,6 +241,7 @@ I.K.E. has no servers of its own and sends no telemetry. It contacts only:
 | The pages you chose to watch | at the interval you chose, only while I.K.E. is open | a normal page load, like a private window: without your cookies |
 | The sites of your user scripts | once a day, if automatic updates are on | a plain download of each script |
 | GitHub (github.com and its download servers) | once a day, unless I.K.E. updates are off | a plain download of the latest release's signed manifest, and of the update when you install it |
+| Dark Reader compatibility lists (api.github.com and raw.githubusercontent.com) | at most once a day when page dark mode is in use | the public upstream revision and list files, without browsing URLs or cookies. The next launch uses a validated download, with the bundled lists as fallback |
 | Chrome Web Store (chromewebstore.google.com, clients2.google.com) | only if you install an experimental Chrome extension | the extension's id; the package is downloaded |
 | Have I Been Pwned's password range service (api.pwnedpasswords.com), free, no account | only if you turn the breach check on (Passwords window), when a password is saved or filled in, once per password and session | the first 5 hexadecimal characters of the password's SHA-1 fingerprint, with the padding header (every answer about the same size); the comparison is made on your computer |
 

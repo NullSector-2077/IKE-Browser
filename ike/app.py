@@ -479,8 +479,9 @@ class IkeApp(QObject):
         """Turn dark mode for pages on or off and apply it without restarting."""
         cfg = self.config
         cfg["dark_mode"] = "on" if mode == "on" else "off"
-        if engine in ("reader", "engine"):
+        if engine in ("reader", "engine", "ike"):
             cfg["dark_engine"] = engine
+            cfg["dark_engine_experiment"] = False
         cfg.save()
         self._dark_changed()
 
@@ -627,6 +628,13 @@ class IkeApp(QObject):
         elif self.blocker.needs_fast_update():
             self.blocker.update(fast=True)
         cfg = self.config
+        if (not os.environ.get("IKE_TEST_HOOK") and cfg.get("comp_dark", True)
+                and (cfg["dark_mode"] == "on" or cfg["dark_sites"])):
+            from . import darkfixes, darklists
+
+            if darklists.due():
+                darkfixes.data()  # pin this process to one snapshot before fetching the next
+                background.start(darklists.Checker())
         if (cfg["app_updates"] != "off" and self.updater.configured()
                 and time.time() - cfg["last_app_check"] > 24 * 3600):
             self.updater.run(install=cfg["app_updates"] == "auto")
