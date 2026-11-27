@@ -746,6 +746,18 @@ def verified_file_problem(f, by, guard_allowed, repo, ref="", tags=None, sha_of=
 
 REFRESH = re.compile(r"^refresh: main ([0-9a-f]{40}) into (automation/[A-Za-z0-9._/-]{1,120}?)"
                      r"(, version as main's)?(, conflicts as main's)? \(tools/automerge\.py, no AI\)$")
+# GitHub's own "Update branch" (2026-11-27): Claude brings a candidate behind main up to date when a shared step
+# was fixed (docs/automat/JAMS.md, jam 4). Accepted exactly like the refresh: two parents, the second a commit of
+# main, and the tree refreshed_tree computes again from them with nothing resolved otherwise (a merge GitHub
+# resolved in another way than this file would is refused, as before).
+UPDATE_BRANCH = re.compile(r"^Merge branch 'main' into (automation/[A-Za-z0-9._/-]{1,120})$")
+
+
+def is_refresh(first_line):
+    """True for the refresh's own commit or GitHub's "Update branch" of a candidate (both judged by refresh_problem)."""
+    return bool(REFRESH.match(first_line or "") or UPDATE_BRANCH.match(first_line or ""))
+
+
 BOT_NAME, BOT_MAIL = "github-actions[bot]", "41898282+github-actions[bot]@users.noreply.github.com"
 
 
@@ -899,17 +911,20 @@ def refresh_problem(sha, ref, cwd=ROOT, main_ref="origin/main"):
     branch's commit, then a commit of main it names), and the tree refreshed_tree computes again from
     them; else why it is not (a disguised one: more changes, one parent, a main that is not main's)."""
     try:
-        m = REFRESH.match(_out(cwd, "log", "-1", "--format=%s", sha))
-        if not m or m.group(2) != ref:
+        first = _out(cwd, "log", "-1", "--format=%s", sha)
+        m = REFRESH.match(first)
+        github = UPDATE_BRANCH.match(first) if not m else None
+        if not (m and m.group(2) == ref) and not (github and github.group(1) == ref):
             return "not the refresh commit of %s" % ref
         parents = _out(cwd, "rev-list", "--parents", "-n", "1", sha).split()[1:]
         if len(parents) != 2:
             return "not a merge of the branch and main"
-        if parents[1] != m.group(1):
+        if m and parents[1] != m.group(1):
             return "its second parent is not the main it names"
         if _git(cwd, "merge-base", "--is-ancestor", parents[1], main_ref, check=False).returncode:
             return "the main it names is not in main"
-        tree, why = refreshed_tree(parents[0], parents[1], cwd, reset=bool(m.group(4)), reversion=bool(m.group(3)))
+        tree, why = refreshed_tree(parents[0], parents[1], cwd, reset=bool(m and m.group(4)),
+                                   reversion=bool(m and m.group(3)))
         if why:
             return why
         if tree != _out(cwd, "rev-parse", "%s^{tree}" % sha):
@@ -992,7 +1007,7 @@ def decide(repo, pr, commits, files, checks, guard_allowed, published=False, unr
         return "person", "not a pull request of the automation or of ChatGPT"
     if not chatgpt:
         # the refresh: main merged into the branch, checked again from git; the rest judges the others
-        refreshes = [c for c in commits if REFRESH.match(_first(c))]
+        refreshes = [c for c in commits if is_refresh(_first(c))]
         for c in refreshes:
             if c.get("refresh") != "":
                 return "person", "a refresh commit that is not main merged in as decided: %s" % (
@@ -1201,7 +1216,7 @@ def ai_files(ref, commits, files):
 def strict_gate_files(ref, commits, files):
     """The files of the stricter gate (tools/tier-b.py STRICT_GATE_FILES) that an AI commit
     of this pull request changed; none without an AI commit (an update with no AI, a person's pull request)."""
-    commits = [c for c in commits if not REFRESH.match(_first(c))]
+    commits = [c for c in commits if not is_refresh(_first(c))]
     if not ai_commits(commits):
         return []
     gate = _tool("tier-b").STRICT_GATE_FILES
@@ -1253,7 +1268,7 @@ def ai_requirements(pr, commits, files, evidence, review, sha_of=None, tier_b=Fa
     fingerprinting rows of "Nothing gets worse": strict_gate); else ("wait", why) or ("person", why)."""
     head = pr.get("head") or {}
     ref, sha = head.get("ref", ""), head.get("sha", "")
-    commits = [c for c in commits if not REFRESH.match(_first(c))]
+    commits = [c for c in commits if not is_refresh(_first(c))]
     if not ai_commits(commits):
         return "merge", ""
     fg = _fix_guard()
@@ -2029,7 +2044,7 @@ def main(argv=None):
     published = released(a.repo, "v" + main_version)
     tier_b = tier_b_on()                 # the owner's switch (a repository variable; default off)
     # a refresh commit is judged from git: fetched, and computed again from its parents
-    refreshes = [c for c in commits if REFRESH.match(_first(c))] if verified else []
+    refreshes = [c for c in commits if is_refresh(_first(c))] if verified else []
     if refreshes:
         fetched = fetch_commit(a.sha)
         for c in refreshes:
