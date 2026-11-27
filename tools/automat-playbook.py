@@ -41,6 +41,19 @@ GENERAL = (
     "Every new function must be called by the code: a helper nothing calls fixes nothing.",
     "Keep both the old and the new version of a component working when you can (a fallback), so the fix does not "
     "depend on which version a user has.",
+    "In I.K.E.'s page scripts (ike/resources/*.js, fingerprint.js first) new code goes AFTER the last old "
+    "statement of its block, never before or between old statements, never before 'use strict' (at the top level "
+    "of fingerprint.js: after `try { realms.add(window.Function); } catch (e) {}` at the end of the IIFE). There "
+    "it is only a new function declaration, a `var` given a literal, a function, or a list or object of those, or "
+    "`try { ... } catch (e) {}` with an EMPTY catch; anything that runs goes inside that try.",
+    "In page scripts new code uses only Math, Number, String, Boolean, Array, Object, Reflect, JSON, Symbol, Map, "
+    "Set, WeakMap, WeakSet, parseInt, parseFloat, isNaN, isFinite; the old script's helpers (hash, sslice, rng, "
+    "wrap, getter, setter...); its own functions; the original a wrap hands it (`orig`). No document, observers, "
+    "timers or promises, no methods of the page's or the old script's objects. A new property is "
+    "wrap/getter/setter(X.prototype, 'literalName', function ...) with one literal name the old script never uses, "
+    "on a page interface it already names; a protected property is never wrapped again. Conditions only on "
+    "literals, the level (lv, strict, maximum) and measured values compared with a literal "
+    "(navigator.hardwareConcurrency, screen.width, devicePixelRatio, the time zone...).",
     "Never weaken ad blocking, the fingerprint protection or any security check, never touch YouTube's ad "
     "blocking, the tests, the workflows or tools/: if the fix needs one of those, answer \"fixable\": false and "
     "say which file and why.",
