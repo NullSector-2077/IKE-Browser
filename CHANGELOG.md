@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.28 (in preparation, branch feature/1.1.28-dark-engine)
+## 1.1.28
 
 - **The I.K.E. Dark Engine** (the owner's decision): I.K.E.'s own dark mode
   for pages, a choice beside Dark Reader and Chromium's own (Settings → Web
