@@ -25,6 +25,8 @@
    "automation/bench/",
    "automation/evolve/"
   ],
+  "drill_any_hour_until": "2026-12-06",
+  "drill_any_hour_about": "TEMPORARY, the owner's decision of 2026-11-27: until this date the AUTOMAT drill may use the free quotas at any hour (not only in the leftover window), still never while a real update is pending; removed once the drill succeeds with the free AIs, and back to the rule of 2026-11-24 by itself after the date",
   "release_hours": 3,
   "pending_days": 2,
   "maintenance_window": {

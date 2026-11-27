@@ -50,6 +50,19 @@ def load(name):
 
 
 quota = load("ai-quota")
+
+
+@pytest.fixture(autouse=True)
+def _the_standing_rule(monkeypatch):
+    """These tests prove the owner's rule of 2026-11-24; the temporary exception for the drill (priority
+    "drill_any_hour_until", 2026-11-27) is proved in tests/test_automat_stall_1125.py."""
+    real = quota.load_limits
+
+    def without(*a, **kw):
+        limits = real(*a, **kw)
+        limits["priority"]["drill_any_hour_until"] = ""
+        return limits
+    monkeypatch.setattr(quota, "load_limits", without)
 drill = load("automat-drill")
 work_tool = load("ai-work")
 ledger_tool = load("maintenance-ledger")
