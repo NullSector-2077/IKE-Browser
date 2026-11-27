@@ -1336,3 +1336,30 @@ def test_the_filter_lists_recorded_evidence_is_not_a_test_change():
     for other in (lists.RECORDED_DIR + "/conftest.py", lists.RECORDED_DIR + "/sub/x.txt",
                   lists.RECORDED_DIR + "/../test_x.txt", "tests/data/other/x.txt", "tests/test_new.py"):
         assert test_file in why(f(other, "@@ -0,0 +1 @@\n+a", "added")), other
+
+
+def test_githubs_update_branch_is_accepted_like_the_refresh_and_a_disguised_one_refused(tmp_path):
+    """2026-11-27 (docs/automat/JAMS.md, jam 4): Claude brings a candidate behind main up to date with GitHub's
+    "Update branch". Its commit is judged as the refresh is: two parents, the second in main, the very tree git
+    computes again; a hidden change, another branch or a "main" that is not main's are refused."""
+    repo, git, sha = _world(tmp_path)
+    good, why = merge.make_refresh(DARK, sha["dark"], sha["main"], cwd=repo)
+    assert why == ""
+    tree = git("rev-parse", good + "^{tree}")
+    msg = "Merge branch 'main' into %s" % DARK
+
+    def commit(tree_, *parents, message=msg):
+        return git("commit-tree", tree_, *[x for p in parents for x in ("-p", p)], "-m", message)
+    assert merge.is_refresh(msg) and not merge.is_refresh("Merge branch 'other' into %s" % DARK)
+    assert merge.refresh_problem(commit(tree, sha["dark"], sha["main"]), DARK, cwd=repo) == ""
+    git("checkout", "-q", "-B", "hide2", good)
+    (repo / "ike/updater.py").write_text("SOURCE = 'https://evil.example/update.json'\n")
+    git("add", "-A")
+    git("commit", "-q", "-m", "x")
+    hidden = commit(git("rev-parse", "HEAD^{tree}"), sha["dark"], sha["main"])
+    side = git("commit-tree", git("rev-parse", "main^{tree}"), "-p", sha["main"], "-m", "side")
+    assert merge.refresh_problem(hidden, DARK, cwd=repo) == \
+        "more than main merged in with the CHANGELOG and version resolutions"
+    assert merge.refresh_problem(commit(tree, sha["dark"], side), DARK, cwd=repo) == "the main it names is not in main"
+    assert merge.refresh_problem(commit(tree, sha["dark"], sha["main"]), "automation/update/crates", cwd=repo)
+    assert merge.refresh_problem(commit(tree, sha["dark"]), DARK, cwd=repo) == "not a merge of the branch and main"

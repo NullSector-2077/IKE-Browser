@@ -74,11 +74,11 @@ next to the code it guards.
   which makes a new merge and new runs.
 - **Rule**: after a fix of a shared step, update the branches, never re-run.
   An update by a person or Claude adds "Merge branch 'main' into …", which
-  the verified merge does not accept as its own (`tools/automerge.py`
-  `commit_problem`): such a pull request is then merged by Claude when green
-  (the owner's standing order), or rebuilt from `main` by the daily
-  maintenance. The verified merge's own refresh ("refresh: main … into …")
-  is the automatic way, and it only runs on a candidate already verified.
+  the verified merge accepts since 2026-11-27 exactly like its own refresh
+  (`tools/automerge.py` `UPDATE_BRANCH`, `refresh_problem`: two parents, the
+  second in `main`, the very tree git computes again), so the candidate still
+  merges by itself. A merge GitHub resolved otherwise is refused, as before,
+  and Claude merges it when green.
 
 ### 5. Arch Linux does not run on most pull requests
 
