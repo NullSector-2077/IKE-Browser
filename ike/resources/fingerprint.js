@@ -739,10 +739,10 @@
   }
   // Strict and Maximum (1.1.25): one WebGL identity for every user (GLX above):
   // the extensions offered are those of the fixed list the real context has,
-  // the others are never enabled (WEBGL_debug_renderer_info among them: the
-  // card's name gives the engine's own INVALID_ENUM and null, as Chrome
-  // without the extension); the limits are the fixed floor (never above the
-  // real ones). The enum is read once, as the engine reads it.
+  // the others are never enabled; the card's name is the site's common card
+  // (x.gpu, 1.1.29; until 1.1.28 the extension was not offered); the limits
+  // are the fixed floor (never above the real ones). The enum is read once,
+  // as the engine reads it.
   // Self-contained: it also runs inside workers (passed by its source).
   function glIdentity(GLP, wrap, RA, low, tagOf, len, F32, I32, Arr, put, x) {
     var E = { __proto__: null }, L = { __proto__: null }, k;
@@ -772,6 +772,8 @@
       return function (p) {
         if (!arguments.length || odd(p)) return RA(orig, this, arguments);
         var e = p >>> 0, r = RA(orig, this, [e]);
+        // UNMASKED_VENDOR_WEBGL / UNMASKED_RENDERER_WEBGL (the extension enabled): the site's card
+        if ((e === 37445 || e === 37446) && x.gpu && typeof r === 'string') return x.gpu[e - 37445];
         var l = L[e];
         if (l === undefined || r === null || r === undefined) return r;
         if (typeof r === 'number') return l[0] === 1 ? (r > l[1] ? r : l[1]) : (r < l[1] ? r : l[1]);
@@ -887,9 +889,12 @@
   // Linux their name always carries the LLVM and DRM versions, which made
   // each such name very rare (seen in Cover Your Tracks). A fixed value of
   // our own would mark I.K.E.'s users; the real one marks the computer.
-  // Strict and Maximum: no name at all. The WEBGL_debug_renderer_info
-  // extension, the only source of the vendor and renderer pair, is hidden in
-  // every frame and worker, and WebGPU is not offered.
+  // Strict and Maximum (1.1.29, the owner's choice): one of the cards most
+  // common in Steam's hardware survey (STEAM_GPUS), the same in every frame
+  // and worker of a site, another on another site and in another session.
+  // Until 1.1.28 no name at all: Cover Your Tracks counted that "None" as
+  // rare (1 browser in 183, 7.5 bits), more than any common card. WebGPU is
+  // still not offered.
   var DEBUG_GPU_EXTENSION = 'webgl_debug_renderer_info';
   var GPUS = [
     ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) UHD Graphics 620 (KBL GT2), OpenGL 4.6)', 'intel', 'gen-9'],
@@ -902,6 +907,16 @@
     ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 3060/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'ampere']
   ];
   var PICK = seed >>> 7;
+  // the cards most used by Steam's players (Valve's survey of October 2026:
+  // RTX 3060 first, then RTX 5070, RTX 4060 Laptop GPU, RTX 4060, RTX 3050),
+  // written as Chrome on Linux writes an NVIDIA card on NVIDIA's driver
+  var STEAM_GPUS = [
+    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 3060/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'ampere'],
+    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 5070/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'blackwell'],
+    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'lovelace'],
+    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 4060/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'lovelace'],
+    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 3050/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'ampere']
+  ];
   // The model for this site among those of the real card's maker (1.1.18):
   // the limits and extensions WebGL and WebGPU report depend on the maker, so
   // an Intel name over an NVIDIA card's limits would be a contradiction a
@@ -941,9 +956,10 @@
   // instead of a random part of the extensions hidden with the real limits (a
   // combination of its own, and "suspicious" to the fingerprinting scripts
   // that compare them):
-  // - no card name: WEBGL_debug_renderer_info is not offered (the owner's
-  //   choice; a common card's name over limits that are not that card's own
-  //   would be a contradiction a script can prove);
+  // - a common card's name (1.1.29, the owner's choice; 1.1.25 to 1.1.28 gave
+  //   none, as a common name over limits that are not that card's own is a
+  //   contradiction a script can prove; "None" proved rarer in Cover Your
+  //   Tracks): one of STEAM_GPUS, through WEBGL_debug_renderer_info;
   // - the extensions are a fixed list every common desktop card has (Intel on
   //   Mesa from Ivy Bridge on, AMD on Mesa, NVIDIA's own driver, the llvmpipe
   //   software renderer), never one the real context lacks, never enabled;
@@ -962,8 +978,9 @@
       'ext_frag_depth', 'ext_srgb', 'ext_texture_compression_rgtc', 'ext_texture_filter_anisotropic',
       'khr_parallel_shader_compile', 'oes_element_index_uint', 'oes_fbo_render_mipmap', 'oes_standard_derivatives',
       'oes_texture_float', 'oes_texture_float_linear', 'oes_texture_half_float', 'oes_texture_half_float_linear',
-      'oes_vertex_array_object', 'webgl_color_buffer_float', 'webgl_compressed_texture_s3tc', 'webgl_depth_texture',
-      'webgl_draw_buffers', 'webgl_lose_context', 'webgl_multi_draw'],
+      'oes_vertex_array_object', 'webgl_color_buffer_float', 'webgl_compressed_texture_s3tc', 'webgl_debug_renderer_info',
+      'webgl_depth_texture', 'webgl_draw_buffers', 'webgl_lose_context', 'webgl_multi_draw'],
+    gpu: STEAM_GPUS[PICK % STEAM_GPUS.length],
     lim: {
       3379: [0, 16384], 34076: [0, 16384], 34024: [0, 16384], 3386: [2, 16384, 16384],  // textures, viewport (llvmpipe, Mesa)
       34921: [0, 16], 36347: [0, 1024], 36349: [0, 1024], 36348: [0, 15],               // attributes (ES3), uniforms (llvmpipe), varyings (ES3)
@@ -1283,6 +1300,140 @@
     natives.set(s, nativeText(orig, 'set ', name));
     d.set = s;
     try { Object.defineProperty(obj, name, d); } catch (e) {}
+  }
+  // window.chrome as Chromium has it (1.1.29, Engine Privacy Layer study):
+  // Qt WebEngine leaves it an empty object, and "chrome.loadTimes missing"
+  // is a classic test for "not a real Chrome". Shape measured on Chromium
+  // 140 (tools/engine-probe/chrome-shape.html): loadTimes and csi, anonymous
+  // constructible natives; app with isInstalled and four methods that
+  // refuse extra arguments; window.chrome not configurable. The values come
+  // from the page's own timing, as Chromium computes them.
+  function chromeObject(w) {
+    try {
+      var c = w.chrome;
+      if (!c || typeof c !== 'object' || Reflect.ownKeys(c).length) return;
+      var WO = w.Object, perf = w.performance, PP = w.Performance && w.Performance.prototype;
+      var PTP = w.PerformanceTiming && w.PerformanceTiming.prototype;
+      var G_TIMING = getterOf(PP, 'timing'), NOW = PP && PP.now, BYTYPE = PP && PP.getEntriesByType;
+      var G_NAVTYPE = getterOf(w.PerformanceNavigationTiming && w.PerformanceNavigationTiming.prototype, 'type');
+      var G_PROTO = getterOf(w.PerformanceResourceTiming && w.PerformanceResourceTiming.prototype, 'nextHopProtocol');
+      var EP = w.PerformanceEntry && w.PerformanceEntry.prototype;
+      var G_ENAME = getterOf(EP, 'name'), G_START = getterOf(EP, 'startTime'), G_ORIGIN = getterOf(PP, 'timeOrigin');
+      var T = {};
+      ['navigationStart', 'responseStart', 'domContentLoadedEventEnd', 'loadEventEnd'].forEach(function (k) { T[k] = getterOf(PTP, k); });
+      var timing = function (k) { try { return RAPPLY(T[k], RAPPLY(G_TIMING, perf, []), []); } catch (e) { return 0; } };
+      var nav = function () { try { return RAPPLY(BYTYPE, perf, ['navigation'])[0]; } catch (e) { return undefined; } };
+      var navType = function () { var e = nav(); try { return e ? RAPPLY(G_NAVTYPE, e, []) : 'navigate'; } catch (x) { return 'navigate'; } };
+      var proto = function () { var e = nav(); try { return e ? `${RAPPLY(G_PROTO, e, [])}` : ''; } catch (x) { return ''; } };
+      var firstPaint = function () {
+        try {
+          var list = RAPPLY(BYTYPE, perf, ['paint']);
+          for (var i = 0; i < list.length; i++) {
+            if (RAPPLY(G_ENAME, list[i], []) === 'first-paint') return (RAPPLY(G_ORIGIN, perf, []) + RAPPLY(G_START, list[i], [])) / 1000;
+          }
+        } catch (e) {}
+        return 0;
+      };
+      var put = function (o, k, v) { DEFPROP(o, k, { value: v, writable: true, enumerable: true, configurable: true }); };
+      var TE = w.TypeError, SETTIMEOUT = w.setTimeout;
+      var loadTimes = (0, function () {
+        var o = new WO(), t = navType(), p = proto(), spdy = p === 'h2' || p === 'h3';
+        var start = timing('navigationStart') / 1000;
+        put(o, 'requestTime', start);
+        put(o, 'startLoadTime', start);
+        put(o, 'commitLoadTime', timing('responseStart') / 1000);
+        put(o, 'finishDocumentLoadTime', timing('domContentLoadedEventEnd') / 1000);
+        put(o, 'finishLoadTime', timing('loadEventEnd') / 1000);
+        put(o, 'firstPaintTime', firstPaint());
+        put(o, 'firstPaintAfterLoadTime', 0);
+        put(o, 'navigationType', t === 'reload' ? 'Reload' : t === 'back_forward' ? 'BackForward' : 'Other');
+        put(o, 'wasFetchedViaSpdy', spdy);
+        put(o, 'wasNpnNegotiated', spdy);
+        put(o, 'npnNegotiatedProtocol', spdy ? p : 'unknown');
+        put(o, 'wasAlternateProtocolAvailable', false);
+        put(o, 'connectionInfo', p || 'http/1.1');
+        return o;
+      });
+      var csi = (0, function () {
+        var o = new WO(), t = navType();
+        put(o, 'startE', timing('navigationStart'));
+        put(o, 'onloadT', timing('loadEventEnd'));
+        put(o, 'pageT', RAPPLY(NOW, perf, []));
+        put(o, 'tran', t === 'reload' ? 16 : t === 'back_forward' ? 6 : 15);
+        return o;
+      });
+      natives.set(loadTimes, 'function () { [native code] }');
+      natives.set(csi, 'function () { [native code] }');
+      var invocation = function (name, args) { return new TE('Error in invocation of app.' + name + '(' + args + '): '); };
+      var app = new WO();
+      var M = {
+        getDetails() { if (arguments.length) throw invocation('getDetails', ''); return null; },
+        getIsInstalled() { if (arguments.length) throw invocation('getIsInstalled', ''); return false; },
+        installState(cb) {
+          if (arguments.length !== 1 || typeof cb !== 'function') throw invocation('installState', 'function callback');
+          RAPPLY(SETTIMEOUT, w, [function () { cb('not_installed'); }, 0]);
+        },
+        runningState() { if (arguments.length) throw invocation('runningState', ''); return 'cannot_run'; }
+      };
+      put(app, 'isInstalled', false);
+      ['getDetails', 'getIsInstalled', 'installState', 'runningState'].forEach(function (k) {
+        var f = M[k], g = { [k]() { try { return RAPPLY(f, this, arguments); } catch (e) { clean(e); throw e; } } }[k];
+        try { Object.setPrototypeOf(g, w.Function.prototype); } catch (e) {}
+        natives.set(g, 'function ' + k + '() { [native code] }');
+        put(app, k, g);
+      });
+      var IS = new WO(), RS = new WO();
+      put(IS, 'DISABLED', 'disabled'); put(IS, 'INSTALLED', 'installed'); put(IS, 'NOT_INSTALLED', 'not_installed');
+      put(RS, 'CANNOT_RUN', 'cannot_run'); put(RS, 'READY_TO_RUN', 'ready_to_run'); put(RS, 'RUNNING', 'running');
+      put(app, 'InstallState', IS);
+      put(app, 'RunningState', RS);
+      [loadTimes, csi].forEach(function (f) {
+        try { Object.setPrototypeOf(f, w.Function.prototype); Object.setPrototypeOf(f.prototype, WO.prototype); } catch (e) {}
+      });
+      put(c, 'loadTimes', loadTimes);
+      put(c, 'csi', csi);
+      put(c, 'app', app);
+      DEFPROP(w, 'chrome', { value: c, writable: true, enumerable: true, configurable: false });
+    } catch (e) {}
+  }
+  // The answers of navigator.permissions.query as Chromium gives them
+  // (1.1.29, Engine Privacy Layer study): Qt WebEngine says "denied" for
+  // every permission it has no prompt for, Chromium 140 "prompt" or
+  // "granted". Only the state read is changed, and only from "denied" (or
+  // "prompt" where Chromium answers "granted");
+  // asking for the permission itself is refused as before.
+  var CHROMIUM_PERMS = { 'midi': 'prompt', 'background-fetch': 'granted', 'background-sync': 'granted',
+    'persistent-storage': 'prompt', 'accelerometer': 'granted', 'gyroscope': 'granted', 'magnetometer': 'granted',
+    'clipboard-write': 'granted', 'payment-handler': 'granted', 'idle-detection': 'prompt', 'screen-wake-lock': 'granted',
+    'storage-access': 'granted', 'window-management': 'prompt', 'captured-surface-control': 'prompt',
+    'keyboard-lock': 'granted', 'pointer-lock': 'granted', 'local-network-access': 'prompt' };
+  var permShown = hardMap();
+  function chromiumPermissions(w) {
+    try {
+      var PSP = w.PermissionStatus && w.PermissionStatus.prototype, PMP = w.Permissions && w.Permissions.prototype;
+      if (!PSP || !PMP) return;
+      var G_STATE = getterOf(PSP, 'state');
+      getter(PSP, 'state', function (orig) {
+        var v = permShown.get(this);
+        return v !== undefined ? v : RAPPLY(orig, this, []);
+      });
+      wrap(PMP, 'query', function (orig) {
+        return function (desc) {
+          var p = RAPPLY(orig, this, arguments), name = '';
+          try { name = desc && typeof desc === 'object' ? `${desc.name}` : ''; } catch (e) {}
+          if (!own(CHROMIUM_PERMS, name)) return p;
+          return then(p, function (st) {
+            // from "denied", or from "prompt" where Chromium needs no question
+            // (clipboard-write, pointer-lock); never a state the user chose
+            try {
+              var was = RAPPLY(G_STATE, st, []), want = CHROMIUM_PERMS[name];
+              if (was === 'denied' || (was === 'prompt' && want === 'granted')) permShown.set(st, want);
+            } catch (e) {}
+            return st;
+          }, w.Promise);
+        };
+      });
+    } catch (e) {}
   }
   // A current Firefox on Linux, in one realm (1.1.27): its navigator's texts,
   // its own oscpu and buildID, and none of Chromium's userAgentData or
@@ -2067,7 +2218,7 @@
   // could otherwise be turned into something else by the page's toJSON);
   // at Strict and above it carries the masks for the workers' own fonts
   WCFG = JSON_STR({ cores: cores, mem: strict ? 8 : 0, langs: workerLangs, strict: strict, maximum: maximum,
-    gpus: GPUS, pick: PICK, hidden: hiddenExt, lines: PRELUDE_LINES, glx: GLX, net: strict ? NET : null,
+    gpus: GPUS, pick: PICK, hidden: hiddenExt, lines: PRELUDE_LINES, glx: GLX, net: NET,
     mtop: MODULE_TOP,
     fonts: strict ? MASKED : null, blank: strict ? BLANK_FONT : null });
   // A FontFace source written by the page at Strict and above: every local()
@@ -2227,6 +2378,10 @@
       return;
     }
     if (FIREFOX) firefoxIdentity(w);
+    else {
+      chromeObject(w);
+      chromiumPermissions(w);
+    }
     if (CFG.gpc) {
       try {
         Object.defineProperty(w.Navigator.prototype, 'globalPrivacyControl', {
@@ -2529,8 +2684,9 @@
     }
     getter(NP, 'hardwareConcurrency', function () { return cores; });
     if (strict) getter(NP, 'deviceMemory', function () { return 8; });
-    if (strict && w.NetworkInformation) {
-      // one common network for everyone, the same as the client hints say it
+    if (w.NetworkInformation) {
+      // Balanced and above since 1.1.29 (Engine Privacy Layer study: Qt
+      // says rtt 0, no Chromium does); one common network for everyone, the same as the client hints say it
       // (1.1.25, shields._NETWORK_HINTS): rtt 0 and a downlink of about 9.5
       // here, 100 and about 1.7 in the headers, before
       var NIP = w.NetworkInformation.prototype;

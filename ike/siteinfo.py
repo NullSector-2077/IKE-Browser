@@ -3,7 +3,7 @@
 For the site in the current tab: whether the connection is encrypted, the
 permissions it was given, its cookies, the protection level, its zoom and
 whether its videos and sounds may start by themselves. Everything here is
-also somewhere else (shield, View menu, Settings): this is the one place
+also somewhere else (shield, Page menu, Settings): this is the one place
 that shows it all for one site.
 """
 

@@ -1,6 +1,7 @@
 """Persistent settings (JSON) and standard paths."""
 
 import copy
+import functools
 import hashlib
 import json
 import os
@@ -385,6 +386,15 @@ DEFAULTS = {
     "bounce_used": {},                  # site -> day the user last used it (bounce.py)
     "bounce_seeded": False,             # the sites of the history before it counted once
     "protect_timezone": False,          # pages see UTC (after a restart; opt-in)
+    # 1.1.29: sites are told the common American English (en-US) at every
+    # level instead of the user's languages (the Octagon; after a restart for
+    # workers and the engine's own texts). I.K.E.'s interface keeps its language.
+    "common_english": False,
+    # 1.1.29: the broom's panel (cleanpanel.py): sites whose data goes when
+    # their last tab is closed (cookies at once; what the site stored, before
+    # its next page can read it: autoclean_pending)
+    "autoclean_sites": [],
+    "autoclean_pending": [],
     "quiet_permissions": True,          # a sign in the address bar instead of a window
     "pw_breach_check": False,           # Have I Been Pwned, k-anonymity (opt-in)
     "engine_advisory": {},              # the last verified advisory of the web engine
@@ -747,11 +757,35 @@ def engine_language(config):
     global level Strict the one language Strict shows, as Chrome sends it
     ("it-IT,it;q=0.9"), so a worker started from a site's own file agrees
     with the page and the header (1.1.25); otherwise accept_language()."""
-    if config["shield_level"] == "maximum":
+    return _engine_language(config["shield_level"], bool(config["common_english"]), accept_language(config))
+
+
+@functools.lru_cache(maxsize=32)
+def _engine_language(level, common, accept):
+    if level == "maximum" or common:
         return "en-US,en;q=0.9"
-    if config["shield_level"] == "strict":
-        return one_language_header(accept_language(config))
-    return accept_language(config)
+    if level == "strict":
+        return one_language_header(accept)
+    return chrome_accept_language(accept)
+
+
+def chrome_accept_language(header):
+    """An Accept-Language list as Chrome writes it (1.1.29, Engine Privacy
+    Layer study): the first language bare, then q=0.9, 0.8 ... down to 0.1
+    ("de-DE,de,en-US,en" -> "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7"). Qt sends
+    the list exactly as given, and a list without q-values is one no
+    Chromium sends. Weights the user wrote are replaced, the order kept."""
+    tags = []
+    for part in (header or "").split(","):
+        tag = part.split(";")[0].strip()
+        if tag and re.fullmatch(r"[A-Za-z]{1,8}(-[A-Za-z0-9]{1,8})*|\*", tag) and tag not in tags:
+            tags.append(tag)
+    if not tags:
+        return "en-US,en;q=0.9"
+    out = [tags[0]]
+    for i, tag in enumerate(tags[1:], 1):
+        out.append("%s;q=%.1f" % (tag, max(0.1, 1 - i / 10)))
+    return ",".join(out)
 
 
 def one_language_header(header):

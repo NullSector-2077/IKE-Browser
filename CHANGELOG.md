@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (1.1.29)
+## 1.1.29
 
 - **Dark Reader leaves I.K.E.** (the owner's decision, after trying the I.K.E.
   Dark Engine in 1.1.28): the I.K.E. Dark Engine is the dark mode for pages,
@@ -60,6 +60,118 @@
   the large light areas the engine left and where their colour comes from (a
   rule of a sheet, an inline style, a sheet the page cannot read, a frame, a
   picture).
+- **Menus and Settings reorganised** (the owner's request; no function added
+  or removed, every shortcut unchanged: tests/test_menus_reorg.py compares
+  everything reachable with 1.1.29's inventory).
+  - The menu bar: File (open, save, print, downloads, backups, quit), Edit,
+    **Tabs** (new tabs and windows, containers, profiles, workspaces, close),
+    **Page** (zoom, reader, dark mode, translation, sound, source and
+    developer tools), View (only the window's bars), History, Bookmarks,
+    **Privacy** (levels, repairs, passwords, clearing data), Extensions, Tools
+    (command bar, resources, watched pages, search engines, Settings), Help
+    (now with About I.K.E.).
+  - The ☰ menu: no "More" any longer. New tab, window and private window,
+    then the owner's categories (Tabs and windows, Web page, Edit, File and
+    downloads, Audio and video, Bookmarks and history, Privacy and security,
+    Browser appearance, I.K.E. extensions, Performance and tools, Backup and
+    restore), Settings, Help, About, Quit; never more than two levels (a
+    submenu's entries are shown in place, under its name).
+  - Both are described in one place, `ike/menus.py`, and share the same
+    QActions.
+  - The extensions under five headings (Privacy and security, Browsing and
+    appearance, Audio and video, Productivity, System and resources), the
+    same in the menus and in Settings → I.K.E. extensions.
+  - Settings: the crowded pages split (**Web pages**: zoom, dark mode, the
+    Dark Engine, sound and DRM videos; **Ads and trackers**: the blocker and
+    its lists; **Site permissions**; the translation service under **Language
+    and translation**), and the 14 pages in four areas named in the list
+    (Basics, Appearance and browsing, Privacy and security, System and
+    extensions). Their icons 28 px (were 22). Every link and the names of
+    earlier versions open the right page; the search also finds an area by
+    its name.
+- **The Settings' search no longer misses options**: it could take an option
+  for one already seen (Python's id() of a short-lived Qt wrapper reused).
+- The note on Chrome extensions no longer names uBlock Origin, Dark Reader
+  and Consent-O-Matic: I.K.E. has all three built in (the owner).
+- **Where a link goes, again** (the owner): the address of the link under the
+  mouse in a small box at the page's bottom corner, as other browsers show it
+  (the other corner when the mouse is there). 1.0 had put it in the status
+  bar, which took room from the page each time: the whole page shook, and
+  1.0.1 removed it. The box lies over the page and moves nothing; KDE's
+  tooltip look, its corners slightly rounded.
+- Icons and texts aligned: the extensions' cards (icon and bold name in the
+  middle of the card) and the containers' dots in the menus (the owner).
+- **Short messages in Plasma's style** (zoom, notes; the owner): the window's
+  colour with a thin line and a soft shadow, the corners slightly rounded
+  (4 px), rising a few pixels as they fade in. They were a flat grey box.
+- **A common graphics card at Strict and Maximum** (the owner's choice, after
+  Cover Your Tracks on his computer: canvas, WebGL and audio "randomized",
+  yet "unique" in the summary, the card's name "None" counting 1 browser in
+  183, 7.52 bits). Sites are now told one of the cards most used in Steam's
+  hardware survey of October 2026 (RTX 3060, RTX 5070, RTX 4060 Laptop GPU,
+  RTX 4060, RTX 3050), as Chrome on Linux names an NVIDIA card, the same in
+  every frame and worker of a site, another on another site and in another
+  session. The limits and extensions stay the shared ones of 1.1.25.
+- **Sites see a more ordinary Chromium** (the Engine Privacy Layer study,
+  measured against Arch's own Chromium of the engine's version, Chrome and
+  Brave: docs/review/engine-privacy-study.md on the study's branch). At
+  Balanced and above `window.chrome` is the one Chromium 140 has (`loadTimes`,
+  `csi`, `app`, measured shape: no difference left), `permissions.query`
+  answers as Chromium where Qt WebEngine said "denied" for everything it has
+  no prompt for, and the network a page reads (rtt, downlink) and the network
+  hints are the common ones Strict already showed (Qt said rtt 0). CreepJS
+  already saw I.K.E. as "like headless" no more than Chrome and Brave.
+- **No advertising measurement**: Attribution Reporting and Topics are off in
+  the engine (`ConversionMeasurement`, `BrowsingTopics`; their APIs taken from
+  pages). Qt WebEngine kept an advertiser's attribution source in the profile,
+  where Chromium keeps none, and sent the Topics header.
+- **One language everywhere**: the engine is given the first language sites
+  are told at every level (it was at Maximum only), so shared and service
+  workers, dates and numbers say what the page says (they said "en" where
+  the page said "en-US"). The language header is written as Chrome writes it
+  (`de-DE,de;q=0.9,en-US;q=0.8`; Qt sent the list without weights, which no
+  Chromium does), and at Strict and Maximum it keeps the engine's own place
+  among the headers.
+- **HTTP/3**, as Chrome, Chromium and Brave use it (Qt WebEngine leaves it
+  off): faster on weak or changing networks, never through a proxy; a
+  `--disable-quic` of the user's keeps it off. Each site's connections, HTTP/3
+  sessions and what the engine remembers of servers are kept apart
+  (`PartitionConnectionsByNetworkIsolationKey`), so one site's traffic cannot
+  mark another's. Measured on real sites, 6 rounds each: CPU 24.5 s without,
+  25.1 s with HTTP/3, 24.7 s with both (within the runs' own spread of 22-28 s);
+  load times alike on GitHub's fast network.
+- **The Octagon: "Common English language"**: sites are told American English,
+  the most common language, at every level; I.K.E.'s own menus keep yours.
+- **The new tab page thinks**: 205 new lines (the owner: "it must seem that
+  I.K.E. really thinks"): 80 thoughts of I.K.E.'s own, 20 tips with real
+  shortcuts, 60 more fun facts, 45 more kind words, in every language.
+- **I.K.E.'s thoughts are written letter by letter** on the new tab page, as
+  if it were thinking them now (about two and a half seconds; whole letters in every
+  script; the other lines appear as before; not with reduced motion).
+- **A download flies to the Downloads button**: the file's icon goes in an arc
+  from the pointer to the button, smaller and fading as it lands (0.45 s).
+- **Touchpad: the swipe shows itself**: a round arrow comes in from the page's
+  edge while the fingers swipe back or forward, and fills with the theme's
+  blue when letting go will act; nothing where there is no page to go to.
+- **The broom has its own panel** (the owner): what the site keeps before
+  anything goes (its cookies, the data it stored, its cache, the cookies of
+  the other sites its page loaded that you never opened yourself, the
+  permissions you gave it), each with a switch and its count; "Clear" deletes
+  what is on (everything but the permissions at first), loads the page again
+  and says what went. A switch cleans the site by itself when its last tab is
+  closed: its cookies at once, what it stored before its next page can read it.
+- **The switches' knob keeps its colour** on and off (it turned white when
+  on); only the track becomes the theme's blue.
+- **A lighter toolbar** (the owner): the octagon in the address bar a little
+  smaller and its letter too, so its rim no longer nearly touches the bar's
+  border; the navigation and bookmarks bars a little lower (35 and 30 px
+  instead of 39 and 34 at the usual scale; buttons, icons and the address
+  field keep their size); the bookmarks bar's "more" button shows KDE's own
+  double arrow (as Falkon), exactly as tall and as thick as the Forward arrow.
+- Measured, not changed (the study's security part): Qt WebEngine has no
+  revocation list of Chrome's (a revoked certificate opens), and, as Chrome
+  140, it no longer applies its built-in HSTS preload list; I.K.E.'s own
+  automatic HTTPS (on by default) still sends every `http://` page to HTTPS.
 
 ## 1.1.28
 

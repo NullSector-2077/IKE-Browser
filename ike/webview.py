@@ -822,7 +822,7 @@ class WebView(QWebEngineView):
     GESTURES = {"L": "back", "R": "forward", "U": "reload", "DR": "close"}
 
     def _wheel(self, event):
-        """Ctrl + wheel: the zoom steps of the View menu, remembered for the site."""
+        """Ctrl + wheel: the zoom steps of the Page menu, remembered for the site."""
         if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
             return False
         self._wheel_sum = getattr(self, "_wheel_sum", 0) + event.angleDelta().y()
@@ -1015,7 +1015,7 @@ DARK_PDF_JS = ("(function(on){if(document.contentType!=='application/pdf')return
 
 def dark_pdf(view, on, done=None):
     """Dark colours for a PDF shown in the engine's viewer (Settings →
-    Appearance → Show PDFs with dark colours); any other page is left alone."""
+    Web pages → Show PDFs with dark colours); any other page is left alone."""
     try:
         page = view.page()
     except RuntimeError:

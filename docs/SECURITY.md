@@ -127,7 +127,7 @@ Each with a test in `tests/test_review_fixes.py` that failed before the fix.
 | M-2 | `matchMedia('(min-device-width: Npx)')` gave the real screen size behind Strict's usual one | `device-width`, `device-height`, `device-aspect-ratio` (both syntaxes) answered for the shown size; the query's text kept. Style sheets: see "Known limits of the noise" |
 | L-2 | The noise's site came from a short list of hosting domains: unrelated sites under another one shared their noise | The system's Public Suffix List, as for the rest of I.K.E., given to the page as sorted 24-bit hashes (about 35 KB); a chance match makes a site one label longer, never shared |
 | L-3 | `window.name` written on one site was still there on the next site of the tab | Emptied in a top-level document reached from another site (or from nowhere) on a new navigation, unless a script opened the tab; kept within a site and on a reload |
-| GPU name at Strict | Hidden ("not available" in Cover Your Tracks, about 7.5 bits) | Kept hidden: every Linux renderer name carries the driver's details and is rarer than "not available"; a fixed name of I.K.E.'s would mark its users (still so in 1.1.25: no name, with one shared set of extensions and limits, below) |
+| GPU name at Strict | Hidden ("not available" in Cover Your Tracks, about 7.5 bits) | Kept hidden: every Linux renderer name carries the driver's details and is rarer than "not available"; a fixed name of I.K.E.'s would mark its users (still so in 1.1.25: no name, with one shared set of extensions and limits, below). **1.1.29, the owner's choice:** one of the cards most common in Steam's survey (RTX 3060, RTX 5070, RTX 4060 Laptop GPU, RTX 4060, RTX 3050), as Chrome on Linux names an NVIDIA card on NVIDIA's driver, per site and session: Cover Your Tracks on the owner's computer counted "None" as 1 browser in 183 (7.52 bits). Known limit: the shared limits below are a floor every card meets, lower than an NVIDIA card's own (a script that compares them can see the name is not this computer's) |
 
 ## Fingerprinting: the sites' own checks (1.1.25)
 
@@ -360,8 +360,15 @@ like the rest of the noise it cannot resist a script written against it
   connection at all while the saver is off.
 - **The engine's patch lag** depends on Qt and Arch: Chrome fixes arrive in
   `qt6-webengine` some weeks later.
-- **Certificate Transparency, HSTS preload, V8 hardening of Arch's build and
-  the GPU process on real hardware** were not verified (no means here).
+- **Measured in 1.1.29** (docs/review/engine-privacy-study.md, section 10):
+  Arch's build has the same ELF hardening as Chrome (PIE, full RELRO, NX,
+  stack protector, fortify) and the V8 heap sandbox; bad certificates and
+  weak TLS are refused as in Chromium. Two gaps, neither closable with an
+  engine switch: a **revoked certificate opens** (Qt WebEngine has no CRLSet,
+  Chromium's revocation list), and the built-in **HSTS preload list is not
+  applied** (as in Chromium 140 itself, too old for it); I.K.E.'s automatic
+  HTTPS still sends every `http://` page to HTTPS. Certificate Transparency
+  and the GPU process on real hardware were not measurable here.
 - `IKE_ALLOW_UNSAFE_ENGINE=1` exists for tests and special cases: with it the
   user takes protections away on purpose, and the window says so.
 

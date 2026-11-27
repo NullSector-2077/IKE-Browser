@@ -202,7 +202,10 @@ def steps(ike, qapp, out):
     QFileDialog.getSaveFileName = staticmethod(fake_save)
     # the menus: "Screenshot…" with its three choices, the same in the ☰ menu, File and a page's menu
     out["submenu"] = [a.text() for a in win.act_shot.menu().actions()]
-    out["in_burger"] = win.act_shot in win.burger.actions()
+    # (1.1.29: ☰ → File and downloads, its three choices under "Screenshot")
+    cat = win.burger_menus["file"]
+    cat.aboutToShow.emit()
+    out["in_burger"] = all(a in cat.actions() for a in win.m_shot.actions())
     from ike import contextmenu
     out["in_page_menu"] = win.act_shot in contextmenu.build(v, None).actions()
     out["keys"] = [a.shortcut().toString() for a in win.m_shot.actions()]
@@ -327,7 +330,7 @@ def steps(ike, qapp, out):
     yield 300
     out["start"] = res.get("start")
     out["centre_start"] = v.grab().toImage().pixelColor(500, 350).name()
-    dlg = win.open_settings("appearance")
+    dlg = win.open_settings("sites")
     from PyQt6.QtWidgets import QLabel
     out["switch"] = [bool([w for w in dlg.findChildren(QLabel) if w.text() == "Show PDFs with dark colours"]),
                      dlg.dark_pdf.isChecked()]
@@ -577,10 +580,12 @@ def steps(ike, qapp, out):
     out["reopened"] = win.current_view().pending_url or win.current_view().url().toString()
     out["left"] = len(win.closed_tabs)
     out["keys"] = win.act_reopen.shortcut().toString()
-    # the same submenu in the ☰ menu's History
-    hist = [a.menu() for a in win.burger.actions() if a.menu() is not None and a.text() == "History"][0]
-    hist.aboutToShow.emit()
-    out["burger"] = win.m_closed in [a.menu() for a in hist.actions()]
+    # the same tabs in the ☰ menu's Bookmarks and history (1.1.29: under their name, the last five)
+    lib = win.burger_menus["library"]
+    lib.aboutToShow.emit()
+    texts = [a.text() for a in lib.actions()]
+    i = texts.index("Recently closed tabs")
+    out["burger"] = [t.split("\t")[0] for t in texts[i + 1:i + 6]] == ["Page 10", "Page 9", "Page 7", "Page 6", "Page 5"]
 ''', timeout=90)
     h = out["history_menu"]
     assert h.index("Recently closed tabs") == h.index("Reopen closed tab") + 1

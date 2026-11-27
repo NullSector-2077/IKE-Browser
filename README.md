@@ -11,7 +11,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.28** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.29** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -19,7 +19,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.28-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.29-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -155,7 +155,7 @@ profiles: `ike-browser --profile NAME`.
   two that are off until you choose them: automatic scrolling with the middle
   button, and opening the selected text with the middle button.
 - I.K.E.'s own pages for sites that cannot be reached, with "Try again".
-- Quiet permission questions (on by default; Settings → Privacy): a site
+- Quiet permission questions (on by default; Settings → Site permissions): a site
   asking for notifications, the location, the camera or the microphone shows
   a small sign in the address bar; a click answers. Notifications asked for
   without a click on the page are refused at once (not remembered).

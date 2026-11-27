@@ -20,11 +20,39 @@ from collections import namedtuple
 # actions: attributes of the window (QAction or QMenu) hidden while the
 # extension is off; toolbar: keys of toolbar buttons hidden while it is off.
 # hook: what has to be done again when it is switched (see changed()).
-Ext = namedtuple("Ext", "id name icon description key default options actions toolbar hook")
+# category: the group it is shown under (CATEGORIES below, 1.1.29).
+Ext = namedtuple("Ext", "id name icon description key default options actions toolbar hook category")
+
+
+def _t(text):
+    """A text translated where it is shown (marked for tools/check-lang.py)."""
+    return text
+
+
+# 1.1.29 (the owner's grouping): the extensions under five headings, in the
+# menu bar's Extensions menu, in ☰ → I.K.E. extensions and in Settings → I.K.E.
+# extensions alike. (key, name, icon names)
+CATEGORIES = (
+    ("privacy", _t("Privacy and security"), ("security-high", "preferences-security", "object-locked")),
+    ("browsing", _t("Browsing and appearance"), ("preferences-desktop-theme", "internet-web-browser", "globe")),
+    ("media", _t("Audio and video"), ("applications-multimedia", "media-playback-start", "audio-volume-high")),
+    ("productivity", _t("Productivity"), ("view-task", "office-calendar", "accessories-text-editor", "edit-find")),
+    ("system", _t("System and resources"), ("computer", "utilities-system-monitor", "preferences-system")),
+)
+# which extension goes where; every extension has one (tests/test_menus_reorg.py)
+_CATEGORY_OF = {
+    "passwords": "privacy", "consent": "privacy", "containers": "privacy",
+    "dark": "browsing", "split": "browsing", "autoscroll": "browsing", "middleclick": "browsing",
+    "videoads": "media", "pip": "media",
+    "watcher": "productivity", "translate": "productivity", "commandbar": "productivity",
+    "userscripts": "productivity",
+    "resources": "system", "weather": "system", "plasma": "system",
+}
 
 
 def _ext(id, name, icon, description, key, default=True, options="", actions=(), toolbar=(), hook=""):
-    return Ext(id, name, icon, description, key, default, options, tuple(actions), tuple(toolbar), hook)
+    return Ext(id, name, icon, description, key, default, options, tuple(actions), tuple(toolbar), hook,
+               _CATEGORY_OF[id])
 
 
 EXTENSIONS = (
@@ -33,7 +61,7 @@ EXTENSIONS = (
          "userscripts_enabled", options="dialog:show_userscripts", hook="userscripts"),
     _ext("dark", "Dark mode for pages", ("weather-clear-night",),
          "Makes bright pages dark with Dark Reader, everywhere or only on the sites you choose.",
-         "comp_dark", options="page:appearance", actions=("m_dark",), toolbar=("dark",), hook="dark"),
+         "comp_dark", options="page:sites", actions=("m_dark",), toolbar=("dark",), hook="dark"),
     _ext("videoads", "Skip ads in videos", ("media-skip-forward", "media-playback-start"),
          "Mutes, fast-forwards and skips the ads inside YouTube videos.",
          "video_ad_skip", hook="scripts"),
@@ -56,7 +84,7 @@ EXTENSIONS = (
          "ext_pip", actions=("act_float",), toolbar=("pip",)),
     _ext("translate", "Translate page", ("translate", "preferences-desktop-locale"),
          "Sends the page to a translation service, only when you ask for it.",
-         "ext_translate", options="page:system", actions=("act_translate",)),
+         "ext_translate", options="page:language", actions=("act_translate",)),
     _ext("containers", "Containers", ("folder-locked", "folder-lock", "channel-secure-symbolic", "tab-duplicate"),
          "Tabs with their own cookies and logins, to keep accounts apart.",
          "ext_containers", options="page:privacy", actions=("m_containers",)),
@@ -84,6 +112,14 @@ EXTENSIONS = (
 )
 
 BY_ID = {e.id: e for e in EXTENSIONS}
+
+
+def by_category():
+    """[(category key, name, icon names, [extensions])], in the order of
+    CATEGORIES and, inside each, in the order of the owner's list."""
+    order = list(_CATEGORY_OF)
+    return [(key, name, icons, sorted((e for e in EXTENSIONS if e.category == key), key=lambda e: order.index(e.id)))
+            for key, name, icons in CATEGORIES]
 
 # the settings each new switch adds to DEFAULTS (config.py)
 NEW_KEYS = {e.key: e.default for e in EXTENSIONS if e.key.startswith("ext_")}

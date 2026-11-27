@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 from PyQt6.QtCore import QEvent, QRect, QSize, Qt, QTimer, QUrl
-from PyQt6.QtGui import QIcon, QPalette
+from PyQt6.QtGui import QFont, QFontMetrics, QIcon, QPalette
 from PyQt6.QtWebEngineCore import QWebEngineDownloadRequest
 from PyQt6.QtWidgets import (
     QAbstractButton,
@@ -33,6 +33,8 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QSpinBox,
     QStyle,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
     QTableWidget,
     QTableWidgetItem,
     QToolButton,
@@ -336,16 +338,23 @@ def _search_targets(page, query):
     """What the search marks on a page: [[widgets, or a layout]], one entry per
     option found. A row of a form is one option (its name, its field and its
     ⓘ); an extension's card is one; any other text is one by itself."""
+    from PyQt6 import sip
     R = QFormLayout.ItemRole
     targets, covered = [], set()
+
+    def key(x):
+        # the widget itself (1.1.29): Python's id() of a wrapper made for the
+        # moment can be given again to another widget's, which then counted
+        # as already seen and an option could not be found
+        return sip.unwrapinstance(x)
 
     def words(widgets):
         found = []
         for w in widgets:
             for x in [w] + w.findChildren(QWidget):
-                if id(x) in covered or not x.isVisibleTo(page):
+                if key(x) in covered or not x.isVisibleTo(page):
                     continue
-                covered.add(id(x))
+                covered.add(key(x))
                 found.extend(_texts_of(x))
         return fold(" ".join(t for t in found if t))
 
@@ -364,9 +373,9 @@ def _search_targets(page, query):
         if card.isVisibleTo(page) and query in words([card]):
             targets.append([card])
     for w in page.findChildren(QWidget):
-        if id(w) in covered or not w.isVisibleTo(page):
+        if key(w) in covered or not w.isVisibleTo(page):
             continue
-        covered.add(id(w))
+        covered.add(key(w))
         texts = [t for t in _texts_of(w) if t]
         if not texts or query not in fold(" ".join(texts)):
             continue
@@ -497,24 +506,94 @@ def _align_forms(page):
                 lab.setMinimumWidth(width + line - end)
 
 
+class _NavDelegate(QStyledItemDelegate):
+    """The pages' list of Settings (1.1.29): the name of an area (Basics,
+    Appearance and browsing...) drawn small, bold and dimmed above the first
+    page of the area shown, in the same row, so a row is still a page."""
+
+    AREA = Qt.ItemDataRole.UserRole + 7          # the area's name, on the first page of it shown
+    ROW = 34                                     # px: a page (its 28 px icon, 3 px above and below)
+
+    def head_height(self, font):
+        return QFontMetrics(self.head_font(font)).height() + 7
+
+    @staticmethod
+    def head_font(font):
+        f = QFont(font)
+        f.setBold(True)
+        if f.pointSizeF() > 0:
+            f.setPointSizeF(f.pointSizeF() * 0.86)
+        else:
+            f.setPixelSize(max(9, round(f.pixelSize() * 0.86)))
+        return f
+
+    def sizeHint(self, option, index):
+        s = super().sizeHint(option, index)
+        h = max(self.ROW, s.height())
+        if index.data(self.AREA):
+            h += self.head_height(option.font)
+        return QSize(s.width(), h)
+
+    def paint(self, painter, option, index):
+        area = index.data(self.AREA)
+        if not area:
+            super().paint(painter, option, index)
+            return
+        head = self.head_height(option.font)
+        r = QRect(option.rect.left() + 6, option.rect.top(), option.rect.width() - 12, head - 2)
+        painter.save()
+        painter.setFont(self.head_font(option.font))
+        colour = option.palette.color(QPalette.ColorRole.WindowText)
+        colour.setAlphaF(0.62)
+        painter.setPen(colour)
+        flags = Qt.AlignmentFlag.AlignBottom | (Qt.AlignmentFlag.AlignRight if option.direction
+                                                 == Qt.LayoutDirection.RightToLeft else Qt.AlignmentFlag.AlignLeft)
+        painter.drawText(r, flags, painter.fontMetrics().elidedText(area, Qt.TextElideMode.ElideRight, r.width()))
+        painter.restore()
+        opt = QStyleOptionViewItem(option)
+        opt.rect = option.rect.adjusted(0, head, 0, 0)
+        super().paint(painter, opt, index)
+
+
 class SettingsDialog(QDialog):
     # The pages, in the order of the sidebar (1.1.20). Their names are what
     # open_settings(page) takes; the names of earlier versions still work.
     WIDE_COMBO = 300      # px: a combo box with an entry wider than this is narrowed (_narrow)
-    # 1.1.24: everyday browsing first (start, look, new tab, search, downloads),
-    # then safety (protection, privacy), then the features, then I.K.E. itself
-    # (language, updates, how it works with the computer)
-    PAGES = ["general", "appearance", "newtab", "search", "downloads", "protection", "privacy",
-             "extensions", "language", "updates", "system"]
-    ALIASES = {"components": "extensions", "userscripts": "extensions"}
+    # 1.1.29 (the owner's reorganisation): the crowded pages split, and the
+    # pages in four areas, each with its name in the list: I.K.E.'s basics,
+    # how it looks and browses, privacy and security, the computer and the
+    # extensions (their names: area_names). (key, its pages)
+    AREAS = (("basics", ("general", "language", "downloads", "updates")),
+             ("browsing", ("appearance", "newtab", "search", "sites")),
+             ("privacy", ("protection", "blocker", "privacy", "permissions")),
+             ("system", ("system", "extensions")))
+    PAGES = [p for _k, pages in AREAS for p in pages]
+    # the names of earlier versions, and other words for a page, still open it
+    ALIASES = {"components": "extensions", "userscripts": "extensions", "translation": "language",
+               "toolbar": "appearance", "dark": "sites", "media": "sites", "adblock": "blocker",
+               "filters": "blocker", "cookies": "privacy", "desktop": "system", "performance": "system"}
 
     @staticmethod
     def page_names():
         """{page: name shown in the sidebar} (also used by the command bar)."""
-        return {"general": T("General"), "language": T("Language"), "appearance": T("Appearance"),
-                "newtab": T("New tab page"), "search": T("Search"), "protection": T("Protection"),
-                "privacy": T("Privacy"), "extensions": T("I.K.E. extensions"),
-                "downloads": T("Downloads"), "updates": T("Updates"), "system": T("System")}
+        return {"general": T("General"), "language": T("Language and translation"),
+                "downloads": T("Downloads"), "updates": T("Updates"),
+                "appearance": T("Appearance"), "newtab": T("New tab page"), "search": T("Search"),
+                "sites": T("Web pages"),
+                "protection": T("Protection"), "blocker": T("Ads and trackers"), "privacy": T("Privacy"),
+                "permissions": T("Site permissions"),
+                "system": T("System"), "extensions": T("I.K.E. extensions")}
+
+    @classmethod
+    def area_names(cls):
+        """{area: its name} (1.1.29)."""
+        names = {"basics": T("Basics"), "browsing": T("Appearance and browsing"),
+                 "privacy": T("Privacy and security"), "system": T("System and extensions")}
+        return {key: names[key] for key, _p in cls.AREAS}
+
+    @classmethod
+    def area_of(cls, page):
+        return next(key for key, pages in cls.AREAS if page in pages)
 
     def __init__(self, app, parent=None, page=None):
         super().__init__(parent)
@@ -522,7 +601,7 @@ class SettingsDialog(QDialog):
         self.cfg = app.config
         self.setWindowTitle(T("Settings") + " — I.K.E.")
         from .uistyle import fit_window
-        fit_window(self, 1100, 700)  # room for a scroll bar beside the widest page; never past the screen
+        fit_window(self, 1100, 720)  # room for a scroll bar beside the widest page; never past the screen
         from PyQt6.QtWidgets import QScrollArea, QStackedWidget
 
         from .icons import themed
@@ -531,9 +610,12 @@ class SettingsDialog(QDialog):
         lay.addLayout(body, 1)
         self.nav = QListWidget(self)
         self.nav.setObjectName("settingsNav")
-        self.nav.setIconSize(QSize(22, 22))
-        self.nav.setSpacing(2)
-        self.nav.setUniformItemSizes(True)
+        # 1.1.29, the owner: the pages' icons larger, 28 px (sharp on any
+        # scale: drawn by the icon theme at the screen's own size)
+        self.nav.setIconSize(QSize(28, 28))
+        self.nav.setSpacing(0)
+        self._nav_delegate = _NavDelegate(self.nav)
+        self.nav.setItemDelegate(self._nav_delegate)
         self.nav.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.stack = QStackedWidget(self)
         # 1.1.24: a search field on top of the pages' list: it keeps the pages
@@ -563,17 +645,26 @@ class SettingsDialog(QDialog):
                         T("What I.K.E. opens when it starts, your home page, and how links of other "
                           "programs open.")),
             "language": (self._language, ("preferences-desktop-locale", "globe"),
-                         T("The language of I.K.E. and the languages websites are asked for.")),
+                         T("The language of I.K.E., the languages websites are asked for, and the "
+                           "translation of pages.")),
             "appearance": (self._appearance, ("preferences-desktop-theme", "preferences-desktop"),
-                           T("Colours, icons, tabs, toolbar and the dark mode of pages.")),
+                           T("Colours and icons of I.K.E., the window's bars and the toolbar's buttons.")),
+            "sites": (self._sites, ("internet-web-browser", "applications-internet", "text-html", "view-readermode"),
+                      T("How pages are shown: their size, dark mode, sound and protected videos.")),
             "newtab": (self._newtab_page, ("tab-new", "document-new"),
                        T("What the page of a new tab shows: tiles, clock, weather and a photo.")),
             "search": (self._search, ("edit-find", "system-search"),
                        T("The search engines of the address bar and of the new tab page.")),
             "protection": (self._protection, ("security-high", "preferences-security"),
-                           T("What I.K.E. blocks: ads, trackers, fingerprinting and unsafe connections.")),
-            "privacy": (self._privacy, ("view-private", "preferences-system-privacy"),
-                        T("What is kept on this computer, and what sites are allowed to use.")),
+                           T("How much I.K.E. protects you: the level, the connections and the warnings.")),
+            "blocker": (self._blocker, ("preferences-web-browser-adblock", "edit-delete-shred", "process-stop",
+                                     "security-medium"),
+                        T("The ad and tracker blocker, its filter lists and your own rules.")),
+            "privacy": (self._privacy, ("preferences-web-browser-cookies", "view-private", "preferences-system-privacy"),
+                        T("Encrypted DNS, containers and the data kept on this computer.")),
+            "permissions": (self._permissions, ("preferences-desktop-user-password", "object-locked",
+                                                "preferences-security"),
+                            T("What sites may use: camera, microphone, location, notifications and more.")),
             "extensions": (self._extensions, ("preferences-plugin", "application-x-addon"),
                            T("Features that come with I.K.E. Switch on only the ones you want.")),
             "downloads": (self._downloads, ("download", "folder-download"),
@@ -581,15 +672,16 @@ class SettingsDialog(QDialog):
             "updates": (self._updates, ("system-software-update", "view-refresh"),
                         T("New versions of I.K.E. and of the blocking lists, checked by themselves.")),
             "system": (self._system, ("computer", "preferences-system", "window-new"),
-                       T("How I.K.E. works with your computer: desktop, video, memory and translation.")),
+                       T("How I.K.E. works with your computer: the desktop, speed and memory.")),
         }
         widest = 0
+        areas = self.area_names()
         for key in self.PAGES:
             build, icons, about = sections[key]
             label = names[key]
             item = QListWidgetItem(themed(icons), label)
-            item.setSizeHint(QSize(0, 38))
             item.setToolTip(about)
+            item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, areas[self.area_of(key)] + ": " + about)
             self.nav.addItem(item)
             widest = max(widest, self.nav.fontMetrics().horizontalAdvance(label))
             area = QScrollArea(self)          # a long page scrolls instead of stretching the window
@@ -599,7 +691,10 @@ class SettingsDialog(QDialog):
             _align_forms(page_widget)
             area.setWidget(page_widget)
             self.stack.addWidget(area)
-        self.nav.setFixedWidth(widest + 22 + 46)
+        head = QFontMetrics(_NavDelegate.head_font(self.nav.font()))
+        widest_area = max(head.horizontalAdvance(n) for n in areas.values())
+        self.nav.setFixedWidth(max(widest + 28 + 46, widest_area + 30))
+        self._mark_areas()
         self.search.setFixedWidth(self.nav.width())
         self.search_none.setFixedWidth(self.nav.width())
         self.search.textChanged.connect(self.find_options)
@@ -694,7 +789,8 @@ class SettingsDialog(QDialog):
         for row, key in enumerate(self.PAGES):
             page = self.stack.widget(row).widget()
             targets = _search_targets(page, query) if query else []
-            in_name = bool(query) and query in fold(self.nav.item(row).text())
+            in_name = bool(query) and (query in fold(self.nav.item(row).text())
+                                       or query in fold(self.area_names()[self.area_of(key)]))
             marks = self._marks.get(row)
             if marks is None and targets:
                 marks = self._marks[row] = _Marks(page)
@@ -707,12 +803,28 @@ class SettingsDialog(QDialog):
         nothing = bool(query) and first is None
         for row in range(self.nav.count()):
             self.nav.item(row).setHidden(bool(query) and not nothing and self.PAGES[row] not in found)
+        self._mark_areas()
         self.search_none.setVisible(nothing)
         if first is not None and self.PAGES[self.nav.currentRow()] not in found:
             self.nav.setCurrentRow(first)
         elif first is not None:
             self._show_page(self.nav.currentRow())
         return found
+
+    def _mark_areas(self):
+        """Each area's name over the first of its pages the list shows."""
+        names = self.area_names()
+        seen = set()
+        for row, key in enumerate(self.PAGES):
+            item = self.nav.item(row)
+            area = self.area_of(key)
+            first = not item.isHidden() and area not in seen
+            if first:
+                seen.add(area)
+            want = names[area] if first else None
+            if item.data(_NavDelegate.AREA) != want:
+                item.setData(_NavDelegate.AREA, want)
+        self.nav.doItemsLayout()
 
     def _reveal(self, row, marks):
         """Scroll the page to its first option found."""
@@ -761,13 +873,9 @@ class SettingsDialog(QDialog):
         _row(f, "", default_btn, T("Links opened in other programs will open in I.K.E."))
         _row(f, T("Email links"), self.mail, T("What happens when you click an email address on a page."))
         box, g = self._group(T("Browsing"))
-        self.autoplay = Switch(T("Do not let videos and sounds start by themselves (single sites: the lock "
-                                    "in the address bar)"))
-        self.autoplay.setChecked(bool(self.cfg["autoplay_block"]))
         self.gestures = Switch(T("Mouse gestures: hold the right button and draw ← back, → forward, "
                                     "↑ reload, ↓→ close the tab"))
         self.gestures.setChecked(bool(self.cfg["mouse_gestures"]))
-        _row(g, "", _wrapping(self.autoplay), T("Pages stay quiet until you press play."))
         _row(g, "", _wrapping(self.gestures), T("A right click without moving the mouse still opens the menu."))
         lay.addWidget(box)
         lay.addStretch(1)
@@ -797,6 +905,14 @@ class SettingsDialog(QDialog):
         _row(f, "", lang_row, T("More languages: a language pack from a file, or from I.K.E.'s list."))
         _row(f, T("Languages for websites"), self.accept_lang,
              T("Sites use it to choose the language of their pages. Empty: the languages of your system."))
+        # (1.1.29: the translation of pages, here from System)
+        box, g = self._group(T("Translation"))
+        self.translate = QLineEdit(self.cfg["translate_url"])
+        _row(g, T("Translation service"), self.translate,
+             T("{url} is the page address, {lang} the interface language") + "\n\n"
+             + T("Used only when you choose “Translate page”: the address of the page is sent "
+                 "to this service."))
+        f.addRow(box)
         return w
 
     def _system(self):
@@ -848,14 +964,6 @@ class SettingsDialog(QDialog):
         _row(f, "", self.battery_saver, T("On battery, background tabs pause after a minute and the "
                                           "interface's animations and tab pictures stop."))
         lay.addWidget(box)
-        box, f = self._group(T("Translation"))
-        self.translate = QLineEdit(self.cfg["translate_url"])
-        _row(f, T("Translation service"), self.translate,
-             T("{url} is the page address, {lang} the interface language") + "\n\n"
-             + T("Used only when you choose “Translate page”: the address of the page is sent "
-                 "to this service."))
-        lay.addWidget(box)
-        lay.addWidget(self._drm_box())
         lay.addStretch(1)
         return w
 
@@ -1000,6 +1108,51 @@ class SettingsDialog(QDialog):
             c.setChecked(key not in self.cfg["toolbar_hidden"])
             self.tb_btns[key] = c
             tb_row.addWidget(_wrapping(c), i // 3, i % 3)      # a long name wraps (1.1.21)
+        from . import icons
+        self.icon_theme = QComboBox()
+        self._narrow(self.icon_theme)          # long set names in some languages must not widen the page
+        self.icon_theme.addItem(T("Follow the system"), "system")
+        for key, label in icons.SETS:
+            self.icon_theme.addItem(T("%s (included with I.K.E.)") % label, "set:" + key)
+        for folder, label in icons.installed_themes():
+            self.icon_theme.addItem(label, "theme:" + folder)
+        self.icon_theme.setCurrentIndex(max(0, self.icon_theme.findData(self.cfg["icon_theme"])))
+        self.ui_scheme = QComboBox()
+        self._narrow(self.ui_scheme)
+        self._fill_schemes(self.cfg["ui_scheme"])
+        custom = QPushButton(T("Customize…"))
+        custom.setToolTip(T("Colours and font of the interface"))
+        custom.clicked.connect(self._edit_theme)
+        scheme_row = QHBoxLayout()
+        scheme_row.addWidget(self.ui_scheme, 1)
+        scheme_row.addWidget(custom)
+        _row(f, T("Interface colours"), scheme_row,
+             T("With “Follow the system” colours, icons and fonts are those of your desktop. "
+               "A different icon choice is fully applied when I.K.E. is restarted."))
+        _row(f, T("Icons"), self.icon_theme, T("The icons of the toolbar and of the menus."))
+        _row(f, "", _wrapping(self.effects), T("They are also off when the desktop is set to show no animations"))
+        _row(f, "", _wrapping(self.site_tint), T("A light tint of the site's own colour around the address bar."))
+        box, g = self._group(T("Window"))
+        _row(g, T("Tabs"), self.tabs_pos, T("Tabs in a bar at the top, or in a list at the side."))
+        _row(g, "", _wrapping(self.vauto), T("Only with vertical tabs: more room for pages."))
+        _row(g, T("Bookmarks bar"), self.bookbar, T("The bar of your bookmarks under the address bar."))
+        _row(g, "", self.menubar, T("The classic menus above the toolbar. Everything is also in the ☰ menu."))
+        _row(g, "", _wrapping(self.titlebar), T("The bar with the window's name, drawn by the desktop."))
+        _row(g, "", self.maximized, T("New windows fill the screen."))
+        lay.addWidget(box)
+        box, g = self._group(T("Toolbar buttons"))
+        g.addRow(_with_hint(tb_row, T("Which buttons the toolbar shows. To move them, right-click the toolbar."),
+                            g.fieldGrowthPolicy()))         # the whole width of the box
+        lay.addWidget(box)
+        lay.addStretch(1)
+        return w
+
+    def _sites(self):
+        """Web pages (1.1.29, from Appearance and System): how pages are
+        shown, their dark mode, their sound and their protected videos."""
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(0, 0, 0, 0)
         self.zoom = QDoubleSpinBox()
         self.zoom.setRange(0.5, 3.0)
         self.zoom.setSingleStep(0.1)
@@ -1041,47 +1194,11 @@ class SettingsDialog(QDialog):
         self.de_detect.setChecked(look["detect"])
         self.dark_pdf = Switch(T("Show PDFs with dark colours"))
         self.dark_pdf.setChecked(bool(self.cfg["dark_pdf"]))
-        from . import icons
-        self.icon_theme = QComboBox()
-        self._narrow(self.icon_theme)          # long set names in some languages must not widen the page
-        self.icon_theme.addItem(T("Follow the system"), "system")
-        for key, label in icons.SETS:
-            self.icon_theme.addItem(T("%s (included with I.K.E.)") % label, "set:" + key)
-        for folder, label in icons.installed_themes():
-            self.icon_theme.addItem(label, "theme:" + folder)
-        self.icon_theme.setCurrentIndex(max(0, self.icon_theme.findData(self.cfg["icon_theme"])))
-        self.ui_scheme = QComboBox()
-        self._narrow(self.ui_scheme)
-        self._fill_schemes(self.cfg["ui_scheme"])
-        custom = QPushButton(T("Customize…"))
-        custom.setToolTip(T("Colours and font of the interface"))
-        custom.clicked.connect(self._edit_theme)
-        scheme_row = QHBoxLayout()
-        scheme_row.addWidget(self.ui_scheme, 1)
-        scheme_row.addWidget(custom)
-        _row(f, T("Interface colours"), scheme_row,
-             T("With “Follow the system” colours, icons and fonts are those of your desktop. "
-               "A different icon choice is fully applied when I.K.E. is restarted."))
-        _row(f, T("Icons"), self.icon_theme, T("The icons of the toolbar and of the menus."))
-        _row(f, "", _wrapping(self.effects), T("They are also off when the desktop is set to show no animations"))
-        _row(f, "", _wrapping(self.site_tint), T("A light tint of the site's own colour around the address bar."))
-        box, g = self._group(T("Window"))
-        _row(g, T("Tabs"), self.tabs_pos, T("Tabs in a bar at the top, or in a list at the side."))
-        _row(g, "", _wrapping(self.vauto), T("Only with vertical tabs: more room for pages."))
-        _row(g, T("Bookmarks bar"), self.bookbar, T("The bar of your bookmarks under the address bar."))
-        _row(g, "", self.menubar, T("The classic menus above the toolbar. Everything is also in the ☰ menu."))
-        _row(g, "", _wrapping(self.titlebar), T("The bar with the window's name, drawn by the desktop."))
-        _row(g, "", self.maximized, T("New windows fill the screen."))
-        lay.addWidget(box)
-        box, g = self._group(T("Toolbar buttons"))
-        g.addRow(_with_hint(tb_row, T("Which buttons the toolbar shows. To move them, right-click the toolbar."),
-                            g.fieldGrowthPolicy()))         # the whole width of the box
-        lay.addWidget(box)
         box, g = self._group(T("Web pages"))
         _row(g, T("Default zoom"), self.zoom,
              T("The size of the pages you have not zoomed yourself. 1.0 is the normal size."))
         _row(g, T("Dark mode for pages"), self.dark,
-             T("Makes bright pages dark. Single sites: ☰ → Dark mode for pages. Part of the "
+             T("Makes bright pages dark. Single sites: ☰ → Web page → Dark mode for pages. Part of the "
                "“Dark mode for pages” extension."))
         _row(g, T("Dark mode method"), self.dark_engine,
              T("The I.K.E. Dark Engine is I.K.E.'s own, with its styles and options; "
@@ -1100,6 +1217,13 @@ class SettingsDialog(QDialog):
         _row(g, "", _wrapping(self.de_detect),
              T("Sites with a dark theme of their own keep it, also when they do not declare it."))
         lay.addWidget(box)
+        box, g = self._group(T("Sound and video"))
+        self.autoplay = Switch(T("Do not let videos and sounds start by themselves (single sites: the lock "
+                                    "in the address bar)"))
+        self.autoplay.setChecked(bool(self.cfg["autoplay_block"]))
+        _row(g, "", _wrapping(self.autoplay), T("Pages stay quiet until you press play."))
+        lay.addWidget(box)
+        lay.addWidget(self._drm_box())
         lay.addStretch(1)
         return w
 
@@ -1526,7 +1650,14 @@ class SettingsDialog(QDialog):
         self.login_compat.setChecked(bool(self.cfg["login_compat"]))
         _row(g, "", _wrapping(self.login_compat), T("Everywhere else the protection stays as it is."))
         lay.addWidget(box)
+        lay.addStretch(1)
+        return w
 
+    def _blocker(self):
+        """Ads and trackers (1.1.29, from Protection): the blocker, its lists
+        and the user's own rules."""
+        w = QWidget()
+        lay = QVBoxLayout(w)
         fbox = QGroupBox(T("Ad and tracker blocker"))
         fl = QVBoxLayout(fbox)
         self.comp = {}
@@ -1589,6 +1720,25 @@ class SettingsDialog(QDialog):
         _row(f2, T("Containers (comma separated)"), self.containers,
              T("Each container keeps its own cookies and logins"))
         lay.addLayout(f2)
+        box, g = self._group(T("Browsing data"))
+        c = Switch(T("Clear cookies, cache and history when I.K.E. is closed"))
+        c.setChecked(bool(self.cfg["clear_on_exit"]))
+        self.checks["clear_on_exit"] = c
+        _row(g, "", _wrapping(c), T("Bookmarks, passwords and settings are kept."))
+        clear = QPushButton(T("Clear browsing data…"))
+        clear.clicked.connect(self.app.show_clear_data)
+        crow = QHBoxLayout()
+        crow.addWidget(clear)
+        crow.addStretch(1)
+        _row(g, "", crow, T("Choose what to delete now: history, cookies, cache, permissions."))
+        lay.addWidget(box)
+        lay.addStretch(1)
+        return w
+
+    def _permissions(self):
+        """Site permissions (1.1.29, from Privacy): what sites may use."""
+        w = QWidget()
+        lay = QVBoxLayout(w)
         box, g = self._group(T("Permissions"))
         prow = QHBoxLayout()
         self.perm_block = {}
@@ -1629,18 +1779,6 @@ class SettingsDialog(QDialog):
         _row(g, "", row, T("Forget the protection levels and blocked scripts chosen for single sites, "
                            "or see what each site may use."))
         lay.addWidget(box)
-        box, g = self._group(T("Browsing data"))
-        c = Switch(T("Clear cookies, cache and history when I.K.E. is closed"))
-        c.setChecked(bool(self.cfg["clear_on_exit"]))
-        self.checks["clear_on_exit"] = c
-        _row(g, "", _wrapping(c), T("Bookmarks, passwords and settings are kept."))
-        clear = QPushButton(T("Clear browsing data…"))
-        clear.clicked.connect(self.app.show_clear_data)
-        crow = QHBoxLayout()
-        crow.addWidget(clear)
-        crow.addStretch(1)
-        _row(g, "", crow, T("Choose what to delete now: history, cookies, cache, permissions."))
-        lay.addWidget(box)
         lay.addStretch(1)
         return w
 
@@ -1651,8 +1789,11 @@ class SettingsDialog(QDialog):
         lay = QVBoxLayout(w)
         lay.setSpacing(6)
         self.ext_switch = {}
-        for e in ikeextensions.EXTENSIONS:
-            lay.addWidget(self._ext_card(e))
+        # 1.1.29: under the owner's five headings, as in the menus
+        for key, name, icons, exts in ikeextensions.by_category():
+            lay.addWidget(self._ext_heading(T(name), icons, key))
+            for e in exts:
+                lay.addWidget(self._ext_card(e))
         # the weather switch is also on the new tab page's own page: the two move together
         sw = self.ext_switch["weather"]
         sw.toggled.connect(lambda on: self.nt_weather.setChecked(on) if hasattr(self, "nt_weather") else None)
@@ -1662,6 +1803,25 @@ class SettingsDialog(QDialog):
         lay.addWidget(self._chrome_box())
         lay.addStretch(1)
         return w
+
+    def _ext_heading(self, name, icons, key):
+        """The name of a group of extensions, with its icon."""
+        from .icons import themed
+        head = QWidget()
+        head.setObjectName("ike_ext_category")
+        head.setProperty("category", key)
+        row = QHBoxLayout(head)
+        row.setContentsMargins(2, 8, 2, 0)
+        row.setSpacing(6)
+        pic = QLabel()
+        pic.setPixmap(themed(icons).pixmap(QSize(16, 16), self.devicePixelRatioF()))
+        title = QLabel(name)
+        f = title.font()
+        f.setBold(True)
+        title.setFont(f)
+        row.addWidget(pic)
+        row.addWidget(title, 1)
+        return head
 
     def _ext_card(self, e):
         from . import ikeextensions
@@ -1675,7 +1835,9 @@ class SettingsDialog(QDialog):
         pic.setPixmap(ikeextensions.icon(e).pixmap(QSize(28, 28), self.devicePixelRatioF()))
         pic.setFixedSize(34, 34)
         pic.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        row.addWidget(pic, 0, Qt.AlignmentFlag.AlignTop)
+        # 1.1.29 (the owner): the icon and the name on one line, in the middle of
+        # the card's height (the name was at its top, above the icon's middle)
+        row.addWidget(pic, 0, Qt.AlignmentFlag.AlignVCenter)
         text = QVBoxLayout()
         text.setSpacing(1)
         name = _WrapLabel(T(e.name))
@@ -1683,7 +1845,9 @@ class SettingsDialog(QDialog):
         f.setBold(True)
         name.setFont(f)
         name.setWordWrap(True)
+        text.addStretch(1)
         text.addLayout(_info_row(name, T(e.description)))
+        text.addStretch(1)
         row.addLayout(text, 1)
         if e.options:
             b = QPushButton(T("Options…"))
@@ -1715,8 +1879,7 @@ class SettingsDialog(QDialog):
             "With the Qt WebEngine version tested (6.11) enabling an extension "
             "crashes the engine, so this is off by default. If you turn it on and "
             "the browser crashes, I.K.E. switches it off again at the next start. "
-            "Only Manifest V3 extensions can be loaded: uBlock Origin, Dark Reader "
-            "and Consent-O-Matic in their original form are not guaranteed to work.")))
+            "Only Manifest V3 extensions can be loaded.")))
         self._ext_mgr = self.app.extension_manager() if self.cfg["experimental_extensions"] else None
         if self._ext_mgr is None:
             return ebox
