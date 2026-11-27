@@ -481,6 +481,33 @@ def test_switches_are_squared_with_rounded_corners_and_a_little_smaller():
         img.pixelColor(int(right) - 2, int(top) + 1).name()
 
 
+def test_the_knob_keeps_its_colour_on_and_off():
+    """1.1.29, the owner: the knob is the same colour turned on and off (it
+    turned white when on); only the track becomes the theme's blue."""
+    from PyQt6.QtCore import QRect
+    from PyQt6.QtGui import QColor, QImage, QPainter, QPalette
+    from PyQt6.QtWidgets import QApplication
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    app = QApplication.instance() or QApplication([])                  # noqa: F841 (kept alive)
+    from ike.uistyle import paint_switch
+    pal = QPalette()
+    R = QPalette.ColorRole
+    for role, colour in ((R.Highlight, "#3daee9"), (R.HighlightedText, "#ffffff"), (R.Mid, "#4d4d4d"),
+                         (R.Base, "#232629"), (R.WindowText, "#fcfcfc")):
+        pal.setColor(role, QColor(colour))
+    W, H = 38, 20
+    knobs = []
+    for on in (False, True):
+        img = QImage(W, H, QImage.Format.Format_ARGB32)
+        img.fill(QColor("#000000"))
+        p = QPainter(img)
+        paint_switch(p, QRect(0, 0, W, H), on, pal)
+        p.end()
+        x = W - 2 - (H - 4) // 2 if on else 2 + (H - 4) // 2          # the knob's centre
+        knobs.append(img.pixelColor(x, H // 2).name())
+    assert knobs == ["#232629", "#232629"], knobs
+
+
 def test_a_switch_turned_off_has_an_outline():
     """1.1.24, the owner's report: a switch turned off hardly showed, its border being the colour
     of its own track; it has a thin outline in the text colour, half seen."""
