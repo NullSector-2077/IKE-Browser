@@ -367,7 +367,13 @@
         if (hb && hf && hd) return n + ':' + hb + ';--ike-fg-' + name + ':' + hf + ';--ike-bd-' + name + ':' + hd + ';';
       }
     }
-    if (v.indexOf('var(') >= 0 && !/[;{}]/.test(v)) return '--ike-fg-' + name + ':' + useVars(v, 'fg') + ';--ike-bd-' + name + ':' + useVars(v, 'border') + ';';
+    // another variable, with a colour to use when that one is not defined
+    // (--background-color: var(--theme-bg, #fff), a shop's widgets): the fallback
+    // is mapped in all three, else an undefined theme leaves the light colour
+    if (v.indexOf('var(') >= 0 && !/[;{}]/.test(v)) {
+      var vb = useVars(v, 'bg');
+      return (vb !== v ? n + ':' + vb + ';' : '') + '--ike-fg-' + name + ':' + useVars(v, 'fg') + ';--ike-bd-' + name + ':' + useVars(v, 'border') + ';';
+    }
     if (v.indexOf('gradient') >= 0) return n + ':' + mapColors(v, 'bg') + ';';
     if (COLTEST.test(v) && (/shadow|-bg|background/i.test(n) || /px/.test(v))) return n + ':' + mapColors(v, 'bg') + ';';
     return '';
@@ -1350,7 +1356,9 @@
   // --- start, then only what is added ----------------------------------------
   var baseEl = null, coverSheet = null, coverRule = null;
   var off = false, pending = [], queued = false, wait = null;
-  var OBS = { childList: true, subtree: true, attributes: true,
+  // characterData: the text of a <style> changed in place (a framework that
+  // rewrites its style element's text node): the sheet is a new one
+  var OBS = { childList: true, subtree: true, attributes: true, characterData: true,
     attributeFilter: ['style', 'bgcolor', 'fill', 'stroke', 'href', 'rel', 'media', 'disabled'] };
   function stop() {
     off = true;
@@ -1450,7 +1458,16 @@
         if (ready.done) grown();
       });
       trimPicturesLater();
+      later();
     });
+  }
+  // rules a page inserts with insertRule change no node, so nothing tells us:
+  // after a burst of changes the sheets' lengths are looked at again a few
+  // times (0.3, 1.5, 5 and 15 s later), then not until the page changes again
+  var LATER = [300, 1500, 5000, 15000], laterStep = 0, laterTimer = 0;
+  function later() {
+    if (laterTimer || off || laterStep >= LATER.length) return;
+    laterTimer = setTimeout(function () { laterTimer = 0; laterStep++; schedule(); }, LATER[laterStep]);
   }
   // work done outside the observer: the page's changes still waiting are
   // handled first, the records of our own writes are dropped after
@@ -1470,6 +1487,11 @@
     for (var i = 0; i < list.length; i++) {
       var m = list[i], t = m.target;
       if (!t.isConnected) continue;
+      if (m.type === 'characterData') {
+        var sp = t.parentNode;
+        if (sp && sp.localName === 'style' && !own(sp)) { try { sheetOf(sp); } catch (e) {} }
+        continue;
+      }
       if (m.type === 'attributes') {
         if (t.localName === 'link') { trackLink(t); sheetOf(t); }
         else if (!own(t) && needsInline(t)) touched.add(t);
@@ -1509,6 +1531,7 @@
       stats.ms += performance.now() - t0;
       return;
     }
+    if (laterStep) { laterStep = 0; clearTimeout(laterTimer); laterTimer = 0; }
     for (var i = 0; i < ms.length; i++) queue.push(ms[i]);
     if (queue.length > 20000) quiet(function () {});
     else schedule();

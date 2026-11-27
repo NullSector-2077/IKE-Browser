@@ -108,6 +108,8 @@ def main():
     ap.add_argument("--settle", type=int, default=4000, help="ms to wait after each load")
     ap.add_argument("--url", action="append", default=[],
                     help="any other address to check (repeatable); kept on this computer only")
+    ap.add_argument("--click", default="",
+                    help="click first a button or link with this text (an age or cookie question), e.g. \"I'm Over 18\"")
     a = ap.parse_args()
     out = Path(a.out).expanduser()
     shots = out / "shots"
@@ -131,7 +133,7 @@ def main():
             (Path(tmp) / n / "manifest.json").write_text(json.dumps(
                 {"url": u, "entry": "index", "site": urllib.parse.urlsplit(u).hostname,
                  "expected_content": EXPECTED_CONTENT.get(n)}))
-        env = dict(os.environ, QT_QPA_PLATFORM=os.environ.get("QT_QPA_PLATFORM", "offscreen"), DE_DIAG="1")
+        env = dict(os.environ, QT_QPA_PLATFORM=os.environ.get("QT_QPA_PLATFORM", "offscreen"), DE_DIAG="1", DE_CLICK=a.click)
         # Dark Reader left I.K.E. in 1.1.29: it is compared only when a checkout of 1.1.28
         # is given (DE_DR_ROOT, tests/dark_engine/drcompare.py)
         global MODES

@@ -30,6 +30,19 @@
   every element when the property is not inherited), so a value the page sets
   itself still wins (tests/test_dark_engine_hard.py). The owner's check also
   says where a light area's variables get their value.
+- **A variable's fallback colour is darkened too**: a page that defines a
+  colour as another variable with a fallback (`--band-bg: var(--theme-bg,
+  #fff)`, the theme never defined) kept the fallback white; the engine now
+  maps the fallback where the variable is defined, in style sheets and in
+  style attributes alike.
+- **Rules added later without a change to the page are seen**: rules a page
+  inserts into a style sheet by script (`insertRule`, CSS-in-JS) change no
+  element, so nothing told the engine; the sheets are now looked at again
+  0.3, 1.5, 5 and 15 s after the page last changed. A style element whose
+  text is rewritten in place is seen at once (tests/test_dark_engine_hard.py).
+- The owner's check can click a site's age or cookie question first
+  (`--click "I'm Over 18"`) and takes a page that never stops loading (live
+  video) as it is after 20 s instead of giving up.
 - **AUTOMAT follows Dark Reader's lists only**: the engine, its builder and its
   re-anchoring are gone (`tools/build-darkreader-lists.py` rebuilds the
   shipped lists byte for byte with `ike/darklists.py`'s own functions); the

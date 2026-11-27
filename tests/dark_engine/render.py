@@ -412,7 +412,23 @@ def main():
             elif kind == "time":
                 QTimer.singleShot(1500, timing)
             else:
-                QTimer.singleShot(settle, shoot)
+                QTimer.singleShot(settle, click_then_shoot)
+
+        # DE_CLICK=text: a button or link with that text is clicked first (a site's
+        # age or cookie question), then the page is given the time to settle again
+        def click_then_shoot():
+            if job["finished"]:
+                return
+            text = os.environ.get("DE_CLICK", "")
+            if not text:
+                shoot()
+                return
+            page.runJavaScript(
+                "(function(t){t=t.toLowerCase();var es=document.querySelectorAll('button,a,[role=button],input[type=submit]');"
+                "for(var i=0;i<es.length;i++){var s=(es[i].innerText||es[i].value||'').trim().toLowerCase();"
+                "if(s&&s.indexOf(t)>=0){es[i].click();return true;}}return false;})(%s)" % json.dumps(text), 0,
+                lambda clicked: (print("clicked", mode, name, bool(clicked), flush=True),
+                                 QTimer.singleShot(max(settle, 4000), shoot)))
 
         def poll():
             if job["finished"]:
@@ -509,8 +525,20 @@ def main():
 
         page.loadingChanged.connect(loaded)
         page.load(QUrl(url))
-        QTimer.singleShot(20000, lambda: None if job["loaded"] else finish("navigation timed out"))
-        QTimer.singleShot(3000000 if kind == "speedo" else 30000 + settle,
+        def slow():
+            # a page that never stops loading (live video, endless requests): its
+            # picture is taken as it is after 20 s, not given up
+            if job["loaded"] or job["finished"]:
+                return
+            if kind == "shot":
+                job["loaded"] = True
+                job["status"] = 0
+                print("still loading after 20 s, taken as it is:", mode, name, flush=True)
+                QTimer.singleShot(settle, click_then_shoot)
+            else:
+                finish("navigation timed out")
+        QTimer.singleShot(20000, slow)
+        QTimer.singleShot(3000000 if kind == "speedo" else 60000 + 2 * settle,
                           lambda: finish("measurement timed out"))
 
     QTimer.singleShot(0, next_job)
