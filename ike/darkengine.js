@@ -107,6 +107,16 @@
     }
     return [h, s, l];
   }
+  // relative luminance of an hsl colour (h in degrees, s and l from 0 to 1)
+  function hslLum(h, s, l) {
+    var q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+    function ch(t) {
+      t = ((t % 360) + 360) % 360 / 360;
+      var v = t < 1 / 6 ? p + (q - p) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p;
+      return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    }
+    return 0.2126 * ch(h + 120) + 0.7152 * ch(h) + 0.0722 * ch(h - 120);
+  }
   function css(h, s, l, a) {
     return 'hsla(' + h.toFixed(1) + ',' + (s * 100).toFixed(1) + '%,' + (l * 100).toFixed(1) + '%,' + a + ')';
   }
@@ -125,6 +135,10 @@
       else l = 0.1 + (1 - l) * (yellow ? 0.4 : 0.6);
       if (s > 0.12 && hsl[2] >= 0.5 && h > 90 && h < 150) h -= 15 * (1 - Math.abs(h - 120) / 30);
       if (s <= 0.12 || (h >= 200 && h <= 260 && hsl[2] >= 0.5 && s * (1 - hsl[2]) < 0.15)) { h = BG[0]; s = BG[1]; }
+      // a bright colour (orange, green, cyan) stays too light at that lightness for
+      // the light text drawn on it (Hacker News' bar: 2.1:1 with Dark Reader):
+      // darker until light text reads on it
+      if (a >= 0.5 && s > 0.3) while (l > 0.05 && hslLum(h, s, l) > 0.1) l -= 0.02;
       return css(h, s, l, a);
     }
     if (kind === 'fg') {
