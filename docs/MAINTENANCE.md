@@ -254,6 +254,45 @@ covers. Where an older paragraph below still says "waits for a person" or
      `DOMException`, `Float16Array`, `AsyncIterator` and `console` join
      `BUILTINS`.
 
+   **Round 9** (Fable's review of round 8, by fragments) added:
+   - *A definition's arguments by their shape.* Exactly one literal name;
+     the rest are functions, a plain descriptor (`get`, `set`, `value`,
+     `enumerable`, `configurable`, `writable` of functions and literals) or
+     a page interface's prototype named by its chain (`X.prototype` with `X`
+     a global, `w.X.prototype` with `w` a global or an old name, or a new
+     name given only such chains). The interface is one the old script
+     names, and neither one of the language's objects nor the window, its
+     events, nodes, elements and document (`GLOBAL_INTERFACES`: a getter on
+     `Window.prototype` is a new global, on `Event.prototype` a changed
+     `isTrusted`). A name or a target laundered through a new object
+     (`{prototype: 'x'}`), a key whose `toString` gives the name, or a
+     decoy literal beside it are refused. More names every object has join
+     `INHERITED_NAMES` (`next`, `catch`, `apply`, `value`, `get`...).
+   - *Containers.* Only the change's own object, named directly, may be
+     changed, one level deep: `h.k = v` on a new `h`, never `h.a.x`, and
+     `Object.defineProperty`, `.push` and the like only on the new name
+     itself (`{a: Navigator.prototype}` then `delete h.a.x` removed a
+     protection). `__defineGetter__` and its kin are never used; a method
+     that changes its object is only called directly.
+   - *A configuration read on its own object.* A covered name counts only
+     on `navigator`, `screen`, `window`, `self`, `globalThis`,
+     `visualViewport` or `Intl.DateTimeFormat().resolvedOptions()`
+     (`document.body.dataset.language` is page data).
+   - *Values the sessions really get.* `read_measured` checks that the
+     sessions derived for a comparison make it both true and false with the
+     values they really set (rounded to 3 decimals for the scale, floored at
+     1 GB and 1 processor, whole pixels), and that the literal is of the
+     axis's type: `devicePixelRatio === 1.3333333333333333`,
+     `deviceMemory < 1`, `hardwareConcurrency > -3` and the languages' list
+     against a text are refused. Between two values a change compares one
+     kind with, a session in between is added.
+   - *What the sessions cannot set together.* A change that compares both
+     the window's width (or height) and the screen's is refused (the
+     sessions put the window at the screen's size). The touch, scheme,
+     motion and colour reads join the joint sessions with both their values.
+     A change whose values make more sessions than a run measures
+     (`MAX_DERIVED`, `MAX_JOINT`) is refused by the guard too.
+
    *What it accepts and refuses*, measured on 2026-11-25:
    - **Weakened copies:** all 46 made in the reviews are refused. These
      include Fable's twelve forms of round 7 and the gated re-wraps.

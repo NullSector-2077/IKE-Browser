@@ -1485,8 +1485,8 @@ def test_round_six_the_forms_of_a_write_a_read_and_a_branch_are_refused():
     for line, word in (("k = n;", "assigns to k"), ("[k] = [n];", "assigns to k"), ("({ k } = { k: n });", "assigns to k"),
                        ("for (k of [n]) {}", "loop over data"), ("var n = g(n);", "declares n again"),
                        ("var b = g(b);", "refers to"), ("var a = g(a);", "refers to"),
-                       ("Object.defineProperty(tbl, 'x', { value: n });", "neither a prototype"),
-                       ("Reflect.set(tbl, 'x', n);", "neither a prototype"),
+                       ("Object.defineProperty(tbl, 'x', { value: n });", "not a page interface"),
+                       ("Reflect.set(tbl, 'x', n);", "not a page interface"),
                        ("Object.assign(tbl, { x: n });", "Object.assign changes"),
                        ("Object.freeze(tbl);", "Object.freeze changes"),
                        ("tbl.__proto__ = null;", "assigns to"), ("delete tbl.x;", "assigns to tbl.x"),
@@ -1556,7 +1556,10 @@ def test_round_six_a_condition_is_allowed_only_on_what_is_measured():
                  "  var gentle = lv < 3 && !strict;\n"):
         assert judged(text) == [], (text, judged(text))
     # declarations that cannot throw need no try
-    for text in ("  var wide = innerWidth > 3000 || screen.width >= 2560;\n  var many = navigator.hardwareConcurrency > 8;\n"
+    # round 9: the window's size and the screen's in one change are refused (the sessions cannot tell them apart)
+    assert any("both the window's width" in p for p in judged("  var wide = innerWidth > 3000 || screen.width >= 2560;\n",
+                                                               bare=True))
+    for text in ("  var wide = innerWidth > 3000;\n  var many = navigator.hardwareConcurrency > 8;\n"
                  "  var dark = matchMedia('(prefers-color-scheme: dark)').matches ? 1 : 0;\n",
                  "  function isThing(o) { if (!o) return false; return true; }\n",
                  "  var zone = Intl.DateTimeFormat().resolvedOptions().timeZone === 'Asia/Tokyo';\n"):
@@ -1662,7 +1665,8 @@ def test_round_seven_a_renamed_engine_interface_is_the_one_re_wrap_allowed():
     copy = ("    try {\n      var J = w.GPUDeviceInfo.prototype;\n"
             "      getter(J, 'device', function () { return ''; });\n    } catch (e) {}\n")
     new = old.replace(last, last + copy, 1)
-    assert any("device again" in p for p in guard.file_problems(name, old, new))
+    # without the rename: refused (an interface the old script does not name, round 9; a second wrap before)
+    assert guard.file_problems(name, old, new)
     real = guard._renames
     try:
         guard._renames = lambda: {("I", "J")}
@@ -1670,7 +1674,7 @@ def test_round_seven_a_renamed_engine_interface_is_the_one_re_wrap_allowed():
         # the same copy with its body changed is no rename
         changed = new.replace("getter(J, 'device', function () { return ''; });",
                               "getter(J, 'device', function () { return 'x'; });")
-        assert any("device again" in p for p in guard.file_problems(name, old, changed))
+        assert guard.file_problems(name, old, changed)
     finally:
         guard._renames = real
 
@@ -1784,6 +1788,63 @@ def test_round_eight_the_matrix_meets_every_combination_of_a_changes_values():
     assert not axes.read_measured("screen.orientation", "===", "portrait-primary")
 
 
+def test_round_nine_names_targets_containers_and_values_the_probe_really_sets():
+    """Fable's review of round 8 (fragments, 2026-11-27): a protected name or target laundered through a new
+    object (`{prototype: 'x'}`, a key whose toString gives the name, a decoy literal beside it), the window or
+    Object.prototype as a target, __defineGetter__ reached by bind or an alias, an old object kept in a new
+    container (`{a: Navigator.prototype}` then `delete h.a.x`), a getter on Window or Event, a covered name read
+    on any object (`document.body.dataset.language`), values the sessions round or floor away (4/3, memory
+    below 1, a negative threshold, the languages list against a text), the window's size with the screen's,
+    and more combinations than a run sets. Each is refused; the honest forms still pass."""
+    guard = load("fix-guard")
+    name = "ike/resources/fingerprint.js"
+    old = (ROOT / name).read_text("utf-8")
+    end = "  try { realms.add(window.Function); } catch (e) {}\n"
+
+    def after(x):
+        return guard.file_problems(name, old, old.replace(end, end + "  try { %s } catch (e) {}\n" % x, 1))
+    P, hc = "Navigator.prototype", "'hardwareConcurrency'"
+    for x in ("var h = {prototype: %s}; getter(%s, h.prototype, function () { return 2; }, 'decoy');" % (hc, P),
+              "var h = {prototype: %s}; Reflect.deleteProperty(%s, h.prototype, 'decoy');" % (hc, P),
+              "getter(%s, {toString: function () { return %s; }}, function () { return 2; }, 'decoy');" % (P, hc),
+              "var h = {prototype: Object.prototype}; getter(h.prototype, 'value', function () { return 1; });",
+              "var h = {prototype: window}; getter(h.prototype, 'freshQ', function () { return 1; });",
+              "({}).__defineGetter__.bind(%s)(%s, function () { return 2; });" % (P, hc),
+              "var d = ({}).__defineGetter__; d.call(%s, %s, function () { return 2; });" % (P, hc),
+              "var h = {a: %s}; delete h.a.hardwareConcurrency;" % P,
+              "var h = {a: %s}; Object.defineProperty(h.a, %s, {get: function () { return 2; }});" % (P, hc),
+              "var h = [%s]; h[0].hardwareConcurrency = 2;" % P,
+              "getter(%s, 'next', function () { return 1; });" % P,
+              "getter(Window.prototype, 'zzGlobal', function () { return 1; });",
+              "getter(Event.prototype, 'isTrusted', function () { return true; });",
+              "if (document.body.dataset.language === 'zz-ZZ') { var q = 1; }",
+              "if (({timeZone: document.title}).timeZone === 'Abc') { var q = 1; }",
+              "if (devicePixelRatio === 1.3333333333333333) { var q = 1; }",
+              "if (navigator.deviceMemory < 1) { var q = 1; }",
+              "if (navigator.languages == 'it-IT') { var q = 1; }",
+              "if (innerWidth < 1000 && screen.width > 1900) { var q = 1; }",
+              "if (innerHeight === 900 && screen.height === 1080) { var q = 1; }",
+              "if (screen.width === 1920 && navigator.hardwareConcurrency === 4 && navigator.deviceMemory === 8 && "
+              "navigator.maxTouchPoints === 0) { var q = 1; }",
+              "if (navigator.hardwareConcurrency > -3) { var q = 1; }"):
+        assert after(x), x
+    for x in ("var I = window.Navigator.prototype; getter(I, 'freshName', function () { return 0; });",
+              "if (navigator.maxTouchPoints === 0 && navigator.hardwareConcurrency === 6) { var q = 1; }",
+              "var h = {a: 1}; h.a = 2; delete h.a;",
+              "var o2 = {}; var ok = o2 instanceof Object;"):
+        assert after(x) == [], (x, after(x))
+    # the probe meets a change's touch, scheme, motion and colour reads with its other values, and puts a value
+    # between two thresholds of one kind
+    axes = load("env-axes")
+    lit = [{"read": "hardwareConcurrency", "op": "===", "value": 6}, {"axis": "touch"}]
+    rows = axes.sessions(5, literals=lit)
+    assert any(r["cores"] == 6 and r["touch"] is False and r["level"] == "strict" for r in rows)
+    d = axes.derive([{"read": "devicePixelRatio", "op": ">", "value": 1.01}, {"read": "devicePixelRatio", "op": "<",
+                                                                           "value": 1.04}])
+    assert any(1.01 < v < 1.04 for v in d["dpr"])
+    assert not axes.read_measured("deviceMemory", "===", 0.5) and not axes.read_measured("navigator.languages", "==", "it")
+
+
 # the weakened copies measured in round 7 and 8 (docs/MAINTENANCE.md, the PR's table): every one refused
 _B = "  install(window);\n"
 _E = "  try { realms.add(window.Function); } catch (e) {}\n"
@@ -1810,6 +1871,10 @@ WEAKENED_COPIES = {
                             "navigator.deviceMemory === 2")),
     "K2": (_E, _E + "  try { wrap.call(null, Navigator.prototype, 'hardwareConcurrency', function (o) "
                     "{ return function () { return realCores; }; }); } catch (e) {}\n"),
+    "K1b": (_E, _E + _GATE % ("innerWidth === 1600 && Intl.DateTimeFormat().resolvedOptions().timeZone === "
+                             "'Europe/Berlin' && devicePixelRatio === 1.5")),
+    "K2b": (_E, _E + "  try { getter.call(null, Navigator.prototype, 'hardwareConcurrency', function () "
+                     "{ return realCores; }); } catch (e) {}\n"),
 }
 
 

@@ -883,6 +883,12 @@ def page_script_problems(name, run, had, known=(), structural=True):
 #      (INHERITED_NAMES: then, toString, valueOf...); compare a covered read with a value the probe cannot
 #      set (tools/env-axes.py read_measured, media_measured). The probe measures every combination of a
 #      change's own values (env-axes.py _joint_rows).
+#  (i) round 9 (Fable's review of round 8): define with arguments of another shape than one literal name,
+#      functions, a plain descriptor and a page interface's prototype named by its chain (interface_target:
+#      named in the old script, not GLOBAL_INTERFACES); change a new object deeper than one level; use
+#      __defineGetter__ and its kin; read a covered name on another object than the configuration's own
+#      (_covered_object); compare with a value the sessions do not really set (read_measured); compare both the
+#      window's size and the screen's; compare with more values than a run measures (too_many).
 # A text that does not parse is refused (and the rules on lines say what they see).
 
 ENV_NAMES = frozenset("""
@@ -930,7 +936,14 @@ INHERITED_NAMES = frozenset("""constructor __proto__ __defineGetter__ __defineSe
 __lookupSetter__ hasOwnProperty isPrototypeOf propertyIsEnumerable toLocaleString toString valueOf then toJSON
 length name prototype caller arguments handleEvent Symbol.toPrimitive Symbol.iterator Symbol.asyncIterator
 Symbol.hasInstance Symbol.toStringTag Symbol.species Symbol.isConcatSpreadable Symbol.unscopables Symbol.match
-Symbol.matchAll Symbol.replace Symbol.search Symbol.split""".split())
+Symbol.matchAll Symbol.replace Symbol.search Symbol.split next done return throw catch finally apply call bind
+value get set enumerable configurable writable raw""".split())
+# what a descriptor given to Object.defineProperty may hold (round 9)
+DESCRIPTOR_KEYS = frozenset(("get", "set", "value", "enumerable", "configurable", "writable"))
+# page interfaces whose new properties every page and the old code itself meet (round 9, Fable's review of
+# round 8: a getter on Window.prototype is a new global, on Event.prototype a changed isTrusted)
+GLOBAL_INTERFACES = frozenset("""Window WindowProperties EventTarget Event Node Document HTMLDocument Location
+History Element HTMLElement CustomEvent MessageEvent ErrorEvent PromiseRejectionEvent""".split())
 # Object's and Reflect's functions that define or change (round 8: reached only as the direct callee of a call,
 # never through .call, .apply, .bind, an alias, a comma, `new` or a tag, where rule (f) does not see them)
 OBJECT_HOLDERS = frozenset(("Object", "Reflect"))
@@ -1021,6 +1034,8 @@ def _covered(node, scopes, axes):
     key = _env_key(node, scopes)
     if not key or key not in axes.COVERED_READS:
         return False
+    if node["type"] == "MemberExpression" and not _covered_object(node["object"], scopes):
+        return False                     # round 9: `document.body.dataset.language` is no configuration
     name = node.get("name") if node["type"] == "Identifier" else _prop_name(node)
     if name == "matchMedia":
         par = scopes.parent.get(id(node))
@@ -1032,6 +1047,32 @@ def _covered(node, scopes, axes):
         return bool(feats) and all(f in axes.COVERED_MEDIA for f in feats) and \
             axes.media_measured(call["arguments"][0]["value"])
     return True
+
+
+COVERED_HOLDERS = frozenset(("navigator", "screen", "window", "self", "globalThis", "visualViewport"))
+
+
+def _covered_object(obj, scopes):
+    """What a covered property is read on (round 9, Fable's review of round 8: a read was recognised by its
+    name on any object): the global navigator, screen, window..., or `Intl.DateTimeFormat().resolvedOptions()`
+    and `Intl.DateTimeFormat`'s own `Intl`."""
+    obj = _strip(obj)
+    if obj["type"] == "Identifier":
+        return obj["name"] in COVERED_HOLDERS | {"Intl"} and scopes.refs.get(id(obj), 0) is None
+    if obj["type"] == "MemberExpression":
+        return _prop_name(obj) in COVERED_HOLDERS and _covered_object(obj["object"], scopes) or \
+            _prop_name(obj) == "DateTimeFormat" and _covered_object(obj["object"], scopes)
+    if obj["type"] == "CallExpression" and not obj["arguments"]:
+        c = _strip(obj["callee"])
+        if c["type"] == "MemberExpression" and _prop_name(c) == "DateTimeFormat":
+            return _covered_object(c["object"], scopes)
+        if c["type"] == "MemberExpression" and _prop_name(c) == "resolvedOptions":
+            inner = _strip(c["object"])
+            return inner["type"] == "CallExpression" and not inner["arguments"] and \
+                _strip(inner["callee"])["type"] == "MemberExpression" and \
+                _prop_name(_strip(inner["callee"])) == "DateTimeFormat" and \
+                _covered_object(_strip(inner["callee"])["object"], scopes)
+    return False
 
 
 PURE_CALLS = {("Math",), ("parseInt",), ("parseFloat",), ("Number",), ("String",), ("Boolean",), ("isNaN",),
@@ -1219,12 +1260,15 @@ def axis_literals(name, old, new):
     r = _embed(told[0], tnew[0])
     if r is None:
         return []
-    sn, axes = _Scopes(tnew[0]), _env_axes()
-    added_ids = set()
-    for s in r[1]:
-        added_ids.update(id(n) for n in _walk(s))
+    return _literals_of(r[1], _Scopes(tnew[0]), _env_axes())
+
+
+def _literals_of(added, sn, axes):
+    """axis_literals of the statements a change adds: the comparisons of covered reads with literals, the
+    literal media queries, and (round 9) the touch, scheme, motion and colour reads, whose both values the
+    joint sessions then meet with the change's other values."""
     out = []
-    for s in r[1]:
+    for s in added:
         for node in _walk(s):
             if node["type"] in ("Identifier", "MemberExpression") and _covered(node, sn, axes):
                 key = _env_key(node, sn)
@@ -1242,6 +1286,10 @@ def axis_literals(name, old, new):
                 item = {"media": node["arguments"][0]["value"]}
                 if item not in out:
                     out.append(item)
+            if node["type"] == "Identifier" and node["name"] in ("maxTouchPoints", "ontouchstart") or \
+                    node["type"] == "MemberExpression" and _prop_name(node) in ("maxTouchPoints", "ontouchstart"):
+                if _covered(node, sn, axes) and {"axis": "touch"} not in out:
+                    out.append({"axis": "touch"})
     return out
 
 
@@ -1823,19 +1871,23 @@ def page_tree_problems(name, old, new):
     def clean(e):
         return _clean(e, sn, clean_keys, axes)
 
-    def root_ok(target):
-        """A member chain changed by new code: its object is one the change made itself."""
-        node = _strip(target)
-        while node["type"] == "MemberExpression":
-            if _prop_name(node) == "__proto__":
-                return False
-            node = _strip(node["object"])
+    def fresh_obj(node):
+        """An object the change made itself, named directly (round 9, Fable's review of round 8: `h.a` of a new
+        `h` may hold an old object, `{a: Navigator.prototype}`, so only the new name itself counts)."""
+        node = _strip(node)
         if node["type"] != "Identifier":
             return False
         key = sn.refs.get(id(node))
         if key is None or old_binding(key):
             return False
         return all(_fresh(v, sn) for v in sn.values.get(key, [None]))
+
+    def root_ok(target):
+        """A target new code writes: a new name, or a member of an object the change made, one level deep."""
+        node = _strip(target)
+        if node["type"] == "MemberExpression":
+            return _prop_name(node) != "__proto__" and fresh_obj(node["object"])
+        return fresh_obj(node)
 
     def write_targets(p):
         """The names and members a pattern or a target writes."""
@@ -1918,7 +1970,7 @@ def page_tree_problems(name, old, new):
     def defining_call(call, how):
         """(f): a call that defines a property (an I.K.E. helper or Object.defineProperty and the like)."""
         args = call["arguments"]
-        if how == "native" and args and root_ok(args[0]):
+        if how == "native" and args and fresh_obj(args[0]):
             return
         if any(builtin_target(a) for a in args if a["type"] not in FUNCTIONS):
             say(call, "a new call defines or wraps a property of the language's own objects (String, Function, "
@@ -1926,6 +1978,30 @@ def page_tree_problems(name, old, new):
             return
         if renamed_copy(call):
             return
+        # round 9 (Fable's review of round 8): every argument is a literal name, a function, a descriptor of
+        # literals and functions, or a page interface's prototype named by its chain; exactly one name. A
+        # name or a target laundered through a new object (`h.prototype` of `{prototype: 'x'}`), an object
+        # whose toString gives the name, or a decoy literal beside it, is no new disguise
+        protos = [a for a in args if a["type"] not in FUNCTIONS and _fold_text(a, sn, consts) is None and
+                  a["type"] != "ObjectExpression"]
+        for a in protos:
+            why = interface_target(a)
+            if why:
+                say(call, why)
+                return
+        names = [a for a in args if _fold_text(a, sn, consts) is not None]
+        if len(names) != 1:
+            say(call, "a new call that defines a property names %s by a literal: exactly one name, beside a "
+                      "prototype and functions" % ("none" if not names else "more than one"))
+            return
+        for a in args:
+            if a["type"] == "ObjectExpression" and not all(
+                    p["type"] == "Property" and not p["computed"] and p["key"].get("type") == "Identifier" and
+                    p["key"]["name"] in DESCRIPTOR_KEYS and
+                    (p["value"]["type"] in FUNCTIONS or p["value"]["type"] == "Literal") for p in a["properties"]):
+                say(call, "a new call that defines a property is given an object that is no plain descriptor "
+                          "(get, set, value, enumerable, configurable, writable of functions and literals)")
+                return
         texts = []
         for a in args:
             s = _fold_text(a, sn, consts)
@@ -1953,6 +2029,46 @@ def page_tree_problems(name, old, new):
             if s in old_names:
                 say(call, "a new call defines or wraps %s again, which the old script already protects or "
                           "names: only a person changes a protection" % s)
+
+    def interface_target(a, seen=()):
+        """Why a target of a new definition is not a page interface's prototype the old script covers (None
+        when it is): `X.prototype` or `w.X.prototype` (w a global or an old name), or a new name given only
+        such chains; X named in the old script, neither one of the language's objects nor the window, its
+        events and its document (a new global, a changed isTrusted)."""
+        a = _strip(a)
+        if a["type"] == "LogicalExpression" and a["operator"] == "&&":
+            return interface_target(a["right"], seen)
+        if a["type"] == "Identifier":
+            key = sn.binding(a)
+            vals = sn.values.get(key) or [] if key is not None else []
+            if key is None or key in seen or not vals or old_binding(key) and not all(
+                    isinstance(v, dict) for v in vals):
+                return "a new call that defines a property on %s, which is not a page interface's prototype" % \
+                    a["name"]
+            for v in vals:
+                why = interface_target(v, seen + (key,)) if isinstance(v, dict) else "unknown"
+                if why:
+                    return why
+            return None
+        ch = _chain(a) if a["type"] == "MemberExpression" else None
+        if not ch or ch[-1] != "prototype" or len(ch) not in (2, 3):
+            return "a new call that defines a property on something that is not a page interface's prototype"
+        root = _strip(a["object"]["object"]) if len(ch) == 3 else _strip(a["object"])
+        key = sn.refs.get(id(root), 0)
+        # X.prototype: X a global; w.X.prototype: w a global or an old name (install's window)
+        if root["type"] != "Identifier" or key == 0 or (len(ch) == 2 and key is not None) or \
+                (key is not None and not old_binding(key)):
+            return "a new call that defines a property on a prototype reached through a new object"
+        iface = ch[-2]
+        if not re.fullmatch(r"[A-Z][A-Za-z0-9]*", iface):
+            return "a new call that defines a property on %s.prototype, which is no page interface" % iface
+        if iface in BUILTINS:
+            return ("a new call defines or wraps a property of the language's own objects (String, Function, "
+                    "Math, Reflect, Array...), which the old script relies on: only page interfaces")
+        if iface in GLOBAL_INTERFACES or iface not in old_names:
+            return ("a new call that defines a property on %s: only the page interfaces the old script covers "
+                    "(not the window, its events, nodes and document)" % iface)
+        return None
 
     helpers = PAGE_HELPERS.get(name, frozenset())
 
@@ -1988,9 +2104,19 @@ def page_tree_problems(name, old, new):
             global_name = t == "MemberExpression" or sn.refs.get(id(node), 0) is None
             par = sn.parent.get(id(node))
             if nm in OBJECT_HOLDERS and global_name and not (
-                    par is not None and par["type"] == "MemberExpression" and par["object"] is node):
+                    par is not None and par["type"] == "MemberExpression" and par["object"] is node or
+                    direct_callee(node) and nm == "Object" or
+                    par is not None and par["type"] == "BinaryExpression" and par["operator"] == "instanceof" and
+                    par["right"] is node or
+                    par is not None and par["type"] == "UnaryExpression" and par["operator"] == "typeof"):
                 say(node, "a new use of %s itself (only its functions, by name: an alias of it hides a "
                           "definition from the guard)" % nm)
+            if t == "MemberExpression" and _prop_name(node) in ("__defineGetter__", "__defineSetter__",
+                                                                 "__lookupGetter__", "__lookupSetter__"):
+                say(node, "a new use of .%s" % _prop_name(node))
+            if t == "MemberExpression" and _prop_name(node) in MUTATING_METHODS and not direct_callee(node):
+                say(node, "a new indirect use of .%s, a method that changes its object (only called directly "
+                          "on an object the change made)" % _prop_name(node))
             if t == "MemberExpression":
                 ch = _chain(node)
                 if ch and tuple(ch[-2:]) in OBJECT_MUTATORS and not direct_callee(node):
@@ -2119,17 +2245,17 @@ def page_tree_problems(name, old, new):
                 kind = pair if pair in OBJECT_MUTATORS else aliases.get(key)
                 if kind in DEFINERS:
                     defining_call(node, "native")
-                elif not (node["arguments"] and root_ok(node["arguments"][0])):
+                elif not (node["arguments"] and fresh_obj(node["arguments"][0])):
                     say(node, "a new call of %s.%s changes an object the change did not make" % kind)
             elif key is not None and key in definers:
                 defining_call(node, "helper")
             if callee["type"] == "MemberExpression":
                 m = _prop_name(callee)
-                if m in MUTATING_METHODS and not root_ok(callee["object"]):
+                if m in MUTATING_METHODS and not fresh_obj(callee["object"]):
                     say(node, "a new call of .%s changes an object the change did not make" % m)
                 if m in ("call", "apply") and callee["object"]["type"] == "MemberExpression" and \
                         _prop_name(callee["object"]) in MUTATING_METHODS and \
-                        not (node["arguments"] and root_ok(node["arguments"][0])):
+                        not (node["arguments"] and fresh_obj(node["arguments"][0])):
                     say(node, "a new call of .%s on an object the change did not make" % _prop_name(callee["object"]))
             # Reflect.apply (or an old name for it) of a method that changes its object
             applied = pair == ("Reflect", "apply") or any(
@@ -2144,7 +2270,7 @@ def page_tree_problems(name, old, new):
                     for v in sn.values.get(sn.binding(fn), []) or []:
                         if isinstance(v, dict) and v["type"] == "MemberExpression":
                             names.append(_prop_name(v))
-                if any(n in MUTATING_METHODS for n in names) and not root_ok(node["arguments"][1]):
+                if any(n in MUTATING_METHODS for n in names) and not fresh_obj(node["arguments"][1]):
                     say(node, "a new call applies a method that changes an object the change did not make")
         if t in LOOPS:
             for k, c in _kids(node):
@@ -2252,6 +2378,18 @@ def page_tree_problems(name, old, new):
     for s in added:
         placed(s)
         visit(s, False, 0, 0, ())
+    # round 9 (Fable's review of round 8): what the probe cannot set together. A window's size and its
+    # screen's in one change (a half-width window on a wide screen: the sessions have the window at the
+    # screen's size); more values or combinations than a run measures
+    if axes is not None and added:
+        kinds = set(axes.derive(_literals_of(added, sn, axes)))
+        for dim in ("width", "height"):
+            if {"viewport-" + dim, "screen-" + dim} <= kinds:
+                say(added[0], "a new condition on both the window's %s and the screen's: the measurement sets "
+                              "the window at the screen's size, so no session could tell them apart" % dim)
+        if axes.too_many(_literals_of(added, sn, axes)):
+            say(added[0], "a new condition compares the configurations with more values than a run of the "
+                          "measurement sets (tools/env-axes.py MAX_DERIVED, MAX_JOINT)")
     return out, True
 
 

@@ -100,9 +100,14 @@ READ_AXIS = {
     "innerWidth": "viewport-width", "innerHeight": "viewport-height", "visualViewport": "viewport-width",
     "devicePixelRatio": "dpr", "timeZone": "timezone", "resolvedOptions": "timezone",
     "Intl.DateTimeFormat": "timezone",
-    "language": "language", "languages": "language", "navigator.language": "language",
-    "navigator.languages": "language",
+    "language": "language", "navigator.language": "language",
 }
+# round 9 (Fable's review of round 8): the grid's two-valued axes a change reads, met with its other values in
+# the joint sessions (a desktop with no touch screen and 1920, 4 cores, 8 GB was in no session)
+MEDIA_AXIS = {"pointer": "touch", "any-pointer": "touch", "hover": "touch", "any-hover": "touch",
+              "prefers-color-scheme": "scheme", "prefers-reduced-motion": "motion", "forced-colors": "contrast"}
+BOOLEAN_KINDS = {"touch": (False, True), "scheme": ("light", "dark"), "motion": ("no-preference", "reduce"),
+                 "contrast": ("none", "forced")}
 MEDIA_NUMBER = re.compile(r"\(\s*(min-|max-)?(-webkit-(?:min-|max-)?device-pixel-ratio|width|height|device-width|"
                           r"device-height|resolution)\s*:\s*([0-9.]+)\s*(px|dppx|x|dpi|dpcm)?\s*\)")
 
@@ -111,12 +116,19 @@ def derive(literals):
     """The configurations a change's conditions name ([{"read", "op", "value"} | {"media"}] from
     tools/fix-guard.py axis_literals): {kind: sorted values}, each number with the values beside it (a
     threshold is then measured on both sides), each text as it is."""
-    out = {}
+    out, raw = {}, {}
 
     def add(kind, values):
         out.setdefault(kind, set()).update(values)
     for item in literals or ():
+        if item.get("axis") in BOOLEAN_KINDS:
+            add(item["axis"], set(BOOLEAN_KINDS[item["axis"]]))
+            continue
         if "media" in item:
+            for g in MEDIA_GROUP.findall(str(item["media"])):
+                feat = g.partition(":")[0].strip().lower()
+                if feat in MEDIA_AXIS:
+                    add(MEDIA_AXIS[feat], set(BOOLEAN_KINDS[MEDIA_AXIS[feat]]))
             for m in MEDIA_NUMBER.finditer(str(item["media"])):
                 feat, v, unit = m.group(2), float(m.group(3)), m.group(4) or ""
                 if "pixel-ratio" in feat or feat == "resolution":
@@ -137,6 +149,15 @@ def derive(literals):
         if isinstance(v, bool) or not isinstance(v, (int, float)):
             continue
         add(kind, _beside(v, 0.05 if kind == "dpr" else 1))
+        raw.setdefault(kind, []).append(v)
+    # round 9: between two values a change compares one kind with, a value inside (1.01 < dpr < 1.04 was
+    # true in no session)
+    for kind, nums in raw.items():
+        nums = sorted(set(nums))
+        for a, b in zip(nums, nums[1:]):
+            mid = round((a + b) / 2, 3) if kind == "dpr" else (a + b) // 2
+            if a < mid < b:
+                out[kind].add(mid)
     return {k: sorted(v, key=str) for k, v in out.items()}
 
 
@@ -167,16 +188,45 @@ def media_measured(query):
     return True
 
 
+OPS = {"===": lambda a, b: a == b, "==": lambda a, b: a == b, "!==": lambda a, b: a != b,
+       "!=": lambda a, b: a != b, "<": lambda a, b: a < b, "<=": lambda a, b: a <= b, ">": lambda a, b: a > b,
+       ">=": lambda a, b: a >= b}
+
+
 def read_measured(read, op, value):
     """True when a comparison of a covered read with a literal is one the probe makes true and false (round 8,
-    Fable's fourth review: a text derive cannot set, such as 'pt_BR.UTF-8', was accepted and never measured)."""
-    return bool(derive([{"read": read, "op": op, "value": value}]))
+    Fable's fourth review: a text derive cannot set, such as 'pt_BR.UTF-8', was accepted and never measured;
+    round 9: the values the sessions really get, rounded and floored, and the literal's own type)."""
+    kind = READ_AXIS.get(read)
+    if kind is None or op not in OPS:
+        return False
+    if kind in ("timezone", "language"):
+        if not isinstance(value, str) or op not in ("===", "==", "!==", "!="):
+            return False
+    elif isinstance(value, bool) or not isinstance(value, (int, float)) or \
+            (kind == "dpr" and round(value, 3) != value) or (kind != "dpr" and value != int(value)):
+        return False
+    got = [_session_value(kind, v) for v in derive([{"read": read, "op": op, "value": value}]).get(kind, [])]
+    try:
+        results = {bool(OPS[op](g, value)) for g in got}
+    except TypeError:
+        return False
+    return results == {True, False} or (kind in ("timezone", "language") and True in results)
+
+
+def _session_value(kind, v):
+    """What a session derived at v makes the page read (the floors of _derived_rows)."""
+    if kind == "memory":
+        return max(1, int(v))
+    if kind in ("cores",) or kind.startswith("screen-") or kind.startswith("viewport-"):
+        return int(v)
+    return v
 
 
 def _beside(v, step):
     if step == 1:
         return {int(round(x)) for x in (v - 1, v, v + 1) if x >= 1}
-    return {round(x, 2) for x in (v - step, v, v + step) if x >= 0.5}
+    return {round(x, 3) for x in (v - step, v, v + step) if x >= 0.5}
 
 
 def _derived_rows(derived, axes, levels):
@@ -198,6 +248,8 @@ def _derived_rows(derived, axes, levels):
                     s["timezone"] = v
                 elif kind == "language":
                     s["language"] = v
+                elif kind in BOOLEAN_KINDS:
+                    s[kind] = v
                 elif kind == "screen-width":
                     s["screen"] = (int(v), max(480, int(round(v * 9 / 16))))
                 elif kind == "screen-height":
@@ -211,7 +263,8 @@ def _derived_rows(derived, axes, levels):
     return rows
 
 
-JOINT_SLOTS = ("width", "height", "cores", "memory", "dpr", "timezone", "language")
+JOINT_SLOTS = ("width", "height", "cores", "memory", "dpr", "timezone", "language", "touch", "scheme", "motion",
+               "contrast")
 MAX_JOINT = 128               # the joint sessions a run measures: beyond them the run is not verified
 
 
@@ -269,7 +322,7 @@ def _joint_rows(derived, axes, levels):
                 s["memory"] = max(1, int(got["memory"]))
             if "dpr" in got:
                 s["scale"] = float(got["dpr"])
-            for k in ("timezone", "language"):
+            for k in ("timezone", "language", "touch", "scheme", "motion", "contrast"):
                 if k in got:
                     s[k] = got[k]
             s["derived"] = "joint " + ", ".join("%s %s" % (n, got[n]) for n in names)
