@@ -22,6 +22,14 @@
   (`de-DE,de;q=0.9,en-US;q=0.8`; Qt sent the list without weights, which no
   Chromium does), and at Strict and Maximum it keeps the engine's own place
   among the headers.
+- **HTTP/3**, as Chrome, Chromium and Brave use it (Qt WebEngine leaves it
+  off): faster on weak or changing networks, never through a proxy; a
+  `--disable-quic` of the user's keeps it off. Each site's connections, HTTP/3
+  sessions and what the engine remembers of servers are kept apart
+  (`PartitionConnectionsByNetworkIsolationKey`), so one site's traffic cannot
+  mark another's. Measured on real sites, 6 rounds each: CPU 24.5 s without,
+  25.1 s with HTTP/3, 24.7 s with both (within the runs' own spread of 22-28 s);
+  load times alike on GitHub's fast network.
 - **The Octagon: "Common English language"**: sites are told American English,
   the most common language, at every level; I.K.E.'s own menus keep yours.
 - **The new tab page thinks**: 205 new lines (the owner: "it must seem that
