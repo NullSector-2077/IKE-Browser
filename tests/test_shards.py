@@ -670,7 +670,7 @@ def test_every_arch_part_installs_one_snapshot_of_arch():
     assert snap.index("install -m644") < snap.index("pacman -Syy")
     # after it no database is read again: the upgrade and the installs use the snapshot's
     after = part.split("- name: Arch's snapshot\n", 1)[1].split("\n      - ", 1)[1]
-    assert "pacman -Su --noconfirm --needed git" in after
+    assert "pac -Su --noconfirm --needed git" in after and "pacman -Su" not in after.split("pac() {")[0]
     assert not re.search(r"pacman -S\w*y", after) and "pacman -Sy" not in after
     assert plan_tool.ARCH_INFRA_STEP.match("Arch's snapshot")
 
@@ -681,5 +681,18 @@ def test_a_mirror_without_a_snapshot_file_falls_back_to_the_archive():
     with the snapshot's own archive alone, which keeps every version."""
     text = (ROOT / ".github/workflows/arch.yml").read_text("utf-8")
     assert text.count("grep -m1 '^Server = https://archive.archlinux.org/' /etc/pacman.d/mirrorlist") == 2
-    assert 'pacman -S --noconfirm --needed "${pkgs[@]}"; then' in text
-    assert "if ! pacman -Su --noconfirm --needed git; then" in text
+    assert 'pac -S --noconfirm --needed "${pkgs[@]}"' in text
+    assert "pac -Su --noconfirm --needed git" in text
+
+
+def test_a_slow_archive_is_asked_again_with_the_mirrors_after_it():
+    """2026-11-27: the fallback to the archive alone failed on main, every part at once: the archive sent nothing
+    for 10 s ("Operation too slow") and pacman gave up. The retry puts the archive first and the mirrors after it,
+    so each file comes from the first server that has it in time, and asks again after growing pauses."""
+    text = (ROOT / ".github/workflows/arch.yml").read_text("utf-8")
+    assert text.count("pac() {") == 2
+    body = text.split("pac() {", 1)[1].split("\n          }\n", 1)[0]
+    assert 'printf \'%s\\n%s\\n\' "$archive" "$mirrors" > /tmp/mirrorlist.again' in body
+    assert "for pause in 30 120 300; do" in body and 'pacman --disable-download-timeout "$@" && return 0' in body
+    assert "ParallelDownloads = 1" in body and body.rstrip().endswith("return 1")
+    assert 'echo "$archive" > /etc/pacman.d/mirrorlist' not in text          # never the archive alone again
