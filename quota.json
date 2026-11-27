@@ -347,9 +347,9 @@
    "runs": 2
   },
   "2026-11-27": {
-   "answered": 3,
+   "answered": 4,
    "answered_for": {
-    "automation/autofix-main": 1,
+    "automation/autofix-main": 2,
     "automation/update/lists-2026-11-22": 2
    },
    "no_provider": 0,
@@ -357,8 +357,8 @@
     "Groq": {
      "by": {
       "automation/autofix-main": {
-       "requests": 5,
-       "tokens": 25584
+       "requests": 11,
+       "tokens": 55644
       },
       "automation/update/lists-2026-11-22": {
        "requests": 3,
@@ -367,31 +367,31 @@
      },
      "classes": {
       "2": {
-       "requests": 8,
-       "tokens": 42901
+       "requests": 14,
+       "tokens": 72961
       }
      },
      "observed": {
       "requests": {
-       "at": 1795780822,
+       "at": 1795809209,
        "limit": 1000,
-       "mark": 8,
+       "mark": 14,
        "remaining": 997,
        "reset": 260,
        "window": "day"
       },
       "tokens": {
-       "at": 1795780822,
+       "at": 1795809209,
        "limit": 8000,
-       "mark": 42901,
-       "remaining": 2720,
+       "mark": 72961,
+       "remaining": 2715,
        "reset": 40,
        "window": "minute"
       }
      },
-     "requests": 8,
+     "requests": 14,
      "spent": "",
-     "tokens": 42901
+     "tokens": 72961
     },
     "OpenRouter": {
      "account": "free",
@@ -421,8 +421,8 @@
     "Z.AI": {
      "by": {
       "automation/autofix-main": {
-       "requests": 2,
-       "tokens": 42451
+       "requests": 9,
+       "tokens": 147257
       },
       "automation/update/lists-2026-11-22": {
        "requests": 9,
@@ -431,17 +431,17 @@
      },
      "classes": {
       "2": {
-       "requests": 11,
-       "tokens": 231526
+       "requests": 18,
+       "tokens": 336332
       }
      },
      "observed": {},
-     "requests": 11,
+     "requests": 18,
      "spent": "",
-     "tokens": 231526
+     "tokens": 336332
     }
    },
-   "runs": 3
+   "runs": 4
   }
  },
  "schema": 1
