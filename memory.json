@@ -40,6 +40,20 @@
     "task": "multi-file"
    }
   ],
+  "automation/autofix-main@d821e27d139c34be": [
+   {
+    "attempt": 1,
+    "date": "2026-11-27",
+    "detail": "rotated",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "d821e27d139c34be",
+    "summary": "La build fallisce perch\u00e9 il runner GitHub non riesce a scaricare i pacchetti da archive.archlinux.org: la connessione \u00e8 troppo lenta (meno di 1 byte al secondo). \u00c8 un problema di rete esterno, non di codice, quindi non posso correggerlo. _(La riserva (Z.AI / glm-4.7-flash) dice c",
+    "task": "python"
+   }
+  ],
   "automation/update/crates@12c104ff9231a16b": [
    {
     "attempt": 1,
@@ -294,11 +308,11 @@
  "solved": {},
  "streak": {
   "automation/autofix-main": {
-   "at": "2026-11-25T00:49:46Z",
-   "date": "2026-11-25",
+   "at": "2026-11-27T12:02:57Z",
+   "date": "2026-11-27",
    "n": 1,
-   "sig": "12d85f2f0d7bd999",
-   "since": "2026-11-25"
+   "sig": "d821e27d139c34be",
+   "since": "2026-11-27"
   },
   "automation/update/drill-qt": {
    "at": "2026-11-25T14:08:22Z",
