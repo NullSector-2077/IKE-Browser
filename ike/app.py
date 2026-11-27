@@ -488,7 +488,6 @@ class IkeApp(QObject):
         cfg["dark_mode"] = "on" if mode == "on" else "off"
         if engine in ("reader", "engine", "ike"):
             cfg["dark_engine"] = engine
-            cfg["dark_engine_experiment"] = False
         cfg.save()
         self._dark_changed()
 

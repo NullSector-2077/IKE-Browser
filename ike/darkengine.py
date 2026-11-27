@@ -1,19 +1,17 @@
-"""I.K.E. Dark Engine: an EXPERIMENT, off by default. I.K.E.'s own dark mode
-for pages, meant to look like Dark Reader at a fraction of its cost:
-darkengine.js (next to this file, kept out of resources/ while it is an
-experiment) walks the page's style sheets and inline styles once, writes one
-override style sheet per source sheet, then handles only what is added later.
-Dark Reader's lists (resources/darkreader-data.json, through darkfixes.py) give
-the per-site fixes (their CSS and INVERT selectors) and the sites that are dark
-already. Measured by tests/dark_engine/.
+"""I.K.E. Dark Engine (1.1.28): I.K.E.'s own dark mode for pages, Dark Reader's
+colours at about half its cost, a choice in Settings (dark mode method
+"I.K.E. Dark Engine"; Dark Reader stays the default and stays available) with
+its own panel (darkenginepanel.py). darkengine.js (next to this file) rewrites
+the page's own style rules and inline styles in place with its colour mapping
+(every value it writes can be given back: a page that asks not to be darkened,
+printing), then handles what the page adds, once a frame. Dark Reader's lists
+(darkfixes.py, the rules the engine can use: engine_css) give the per-site
+fixes and the sites that are dark already; its own detector finds sites dark
+by design that do not say so. It works at every protection level (the owner's
+decision). Measured by tests/dark_engine/ (docs/DARK-ENGINE-EXPERIMENT.md).
 
-Hidden setting (round 3): nothing in the menus or in Settings. With
-"dark_engine_experiment": true written by hand in the profile's settings.json
-(~/.config/ike-browser/settings.json, the browser closed) and the dark mode
-method "Dark Reader", a page that would be made dark by Dark Reader is made
-dark by this engine instead at every protection level, including Strict and
-Maximum. This experimental configuration still requires privacy and performance
-validation. Without the key, or with false, nothing changes.
+The experiment's hidden switch ("dark_engine_experiment": true with the method
+"Dark Reader", 1.1.26-27) becomes the choice by itself (config.py).
 
 The engine is installed for the whole profile and does nothing on its own: a
 small script per dark site registers that site's fix (as darkpages.py does for

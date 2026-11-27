@@ -607,7 +607,7 @@ class Config:
         # the hidden switch of the experiment (1.1.26-27) becomes the choice in Settings (1.1.28)
         if d.get("dark_engine_experiment") is True and d.get("dark_engine") == "reader":
             d["dark_engine"] = "ike"
-        d["dark_engine_experiment"] = False
+        d.pop("dark_engine_experiment", None)
 
     def save(self):
         """Write the settings, unless the file already holds exactly them: the

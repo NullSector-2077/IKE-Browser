@@ -117,9 +117,9 @@ def test_the_hidden_switch_of_the_experiment_becomes_the_choice(run_ike, site):
 def steps(ike, qapp, out):
     yield 300
     out["engine"] = ike.config["dark_engine"]
-    out["flag"] = ike.config.get("dark_engine_experiment")
+    out["flag"] = ike.config.get("dark_engine_experiment", "gone")
     out["look"] = ike.config["dark_engine_look"]
 ''', settings={"dark_mode": "on", "dark_engine": "reader", "dark_engine_experiment": True,
                "dark_engine_look": {"style": "nope", "depth": 999}})
-    assert out["engine"] == "ike" and out["flag"] is False, out
+    assert out["engine"] == "ike" and out["flag"] == "gone", out
     assert out["look"]["style"] == "graphite" and out["look"]["depth"] == 100, out
