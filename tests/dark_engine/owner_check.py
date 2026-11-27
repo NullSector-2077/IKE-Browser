@@ -14,6 +14,8 @@ Saved in the folder given (default ~/ike-dark-check-<date>):
                                        3:1, invisible icons, light areas), and
                                        the colour difference from Dark Reader
   times.txt                            page load times per mode (ms)
+  diagnose.txt                         the light areas the Dark Engine left, and where
+                                       their colour comes from (to send to Claude)
   run.log                              the renderer's own log
 """
 
@@ -103,7 +105,7 @@ def main():
             (Path(tmp) / n / "manifest.json").write_text(json.dumps(
                 {"url": u, "entry": "index", "site": urllib.parse.urlsplit(u).hostname,
                  "expected_content": EXPECTED_CONTENT.get(n)}))
-        env = dict(os.environ, QT_QPA_PLATFORM=os.environ.get("QT_QPA_PLATFORM", "offscreen"))
+        env = dict(os.environ, QT_QPA_PLATFORM=os.environ.get("QT_QPA_PLATFORM", "offscreen"), DE_DIAG="1")
         print("Opening %d sites, 3 times each (off, Dark Reader, Dark Engine): a few minutes..." % len(names),
               flush=True)
         started = time.time_ns()
@@ -136,6 +138,28 @@ def main():
             cells.append("%s/%s" % (d.get("dcl", "-"), d.get("load", "-")))
         lines.append("| %s | %s |" % (n, " | ".join(cells)))
     (out / "times.txt").write_text("\n".join(lines) + "\n")
+    # the light areas left by the Dark Engine and where their colour comes from (diagnose.txt)
+    diag = []
+    for n in names:
+        p = shots / ("%s__proto.diag.json" % n)
+        try:
+            d = json.loads(p.read_text())
+        except (OSError, ValueError):
+            continue
+        if not d:
+            continue
+        diag.append("== %s: %d sheets (%d the page cannot read), %d frames"
+                    % (n, d.get("sheets", 0), len(d.get("unreadable", [])), d.get("frames", 0)))
+        for u in d.get("unreadable", []):
+            diag.append("   unreadable sheet: %s" % u)
+        for e in d.get("light", []):
+            diag.append("   %s at %s background %s%s%s" % (e["el"], e["rect"], e["bg"],
+                        " frame " + e["frame"] if e.get("frame") else "", " (shadow host)" if e.get("shadowHost") else ""))
+            for r in e.get("rules", []):
+                diag.append("      rule: %s" % r)
+            if e.get("inline"):
+                diag.append("      inline style: %s" % e["inline"])
+    (out / "diagnose.txt").write_text("\n".join(diag) + "\n")
     print((out / "metrics.txt").read_text())
     print("\n".join(lines))
     print("\nEverything is in", out)

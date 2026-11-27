@@ -1533,7 +1533,19 @@
     var t = e.target;
     if (t && t.localName === 'link') t.__ikeDEFailed = true;
   }, true);
+  // begun while the page arrived: shadow roots attached by its scripts meanwhile
+  // (on any element: no change of the document tells of them) are found now
+  function lateRoots() {
+    quiet(function () {
+      var all = dqa('*');
+      for (var i = 0; i < all.length; i++) {
+        var sr = all[i].shadowRoot;
+        if (sr && !roots.has(sr)) { try { shadow(all[i]); } catch (e) {} }
+      }
+    });
+  }
   function ready() {
+    if (ready.done && earlyDone && !lateRoots.done) { lateRoots.done = true; lateRoots(); }
     if (off || ready.done) return;
     var pend = sheetsPending();
     if (pend && readyWait < 15) {
@@ -1545,6 +1557,12 @@
     if (wait) wait.disconnect();
     start();
     if (isDarkAlready()) { waitForLightTheme(); return; }
+    begin();
+  }
+  // The mapping of the page, from now on (at DOMContentLoaded, or earlier: see early())
+  function begin() {
+    if (off || ready.done) return;
+    if (earlyWatch) { earlyWatch.disconnect(); earlyWatch = null; }
     ready.done = true;
     // Wait for the page's color-scheme metadata before rewriting author styles.
     mo.observe(document, OBS);
@@ -1565,8 +1583,48 @@
     // CSS-in-JS and components that start late: looked at again a few times
     [500, 1500, 4000].forEach(function (t) { setTimeout(function () { quiet(function () { hosts.forEach(function (h) { if (h.shadowRoot) shadow(h); }); grown(true); }); }, t); });
   }
+  // --- an early start: the page is darkened while it arrives -----------------------
+  // A page that comes slowly (a big shop) was drawn with its own light panels until
+  // DOMContentLoaded: seconds of white. As soon as its <body> exists and its style
+  // sheets are there, a page that is plainly light is darkened at once, and what
+  // arrives after is handled as it comes. Anything that may say "dark already"
+  // (Dark Reader's lock, a dark colour scheme, a dark theme marker, a hint of the
+  // lists, a dark canvas or body) leaves the judgement to DOMContentLoaded, as before.
+  var earlyWatch = null, earlyDone = false;
+  function earlyLight() {
+    if (dq('meta[name="darkreader-lock"]')) return false;
+    var m = dq('meta[name="color-scheme"]');
+    if (m && /dark/i.test(m.content || '')) return false;
+    if (!LOOK.detect || siteFix.chosen) return true;
+    if (fix.hint && !fix.hint.noDarkTheme) return false;
+    var root = dRoot();
+    if (/dark/i.test((root.getAttribute('data-theme') || '') + ' ' + (root.className && root.className.baseVal === undefined ? root.className : ''))) return false;
+    var sheet = baseSheet || (baseEl && baseEl.sheet);
+    if (sheet) sheet.disabled = true;
+    try {
+      return lum(drawnBackground(dBody(), canvasColor())) >= 0.2;
+    } catch (e) {
+      return false;
+    } finally {
+      if (sheet) sheet.disabled = false;
+    }
+  }
+  function early() {
+    if (off || ready.done || earlyDone || !dBody() || sheetsPending()) return;
+    earlyDone = true;
+    if (earlyWatch) { earlyWatch.disconnect(); earlyWatch = null; }
+    if (earlyLight()) begin();
+  }
   if (_ready.call(document) !== 'loading' && dBody()) ready();
-  else _listen.call(document, 'DOMContentLoaded', ready, { once: true });
+  else {
+    _listen.call(document, 'DOMContentLoaded', ready, { once: true });
+    earlyWatch = new MutationObserver(early);
+    earlyWatch.observe(document, { childList: true, subtree: true });
+    _listen.call(document, 'load', function (e) {
+      var t = e.target;
+      if (t && t.localName === 'link' && !earlyDone) early();
+    }, true);
+  }
   window.addEventListener('load', function () { quiet(function () { grown(true); }); }, { once: true });
   window.__ikeDEStats = stats;           // isolated world only: for tests/dark_engine
   }

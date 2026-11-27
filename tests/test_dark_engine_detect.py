@@ -21,6 +21,8 @@ PAGES = {
     "/dark-late": ("<!doctype html><title>dark late</title><link rel='stylesheet' href='/slow-dark.css'>"
                    "<main><div class='card'>Card</div>%s</main>" % TEXT, "text/html"),
     "/slow-dark.css": (DARK_CSS, "text/css"),
+    "/arriving": ("", "text/html"),               # sent slowly by the handler below
+    "/shop.css": ("body{background:#fff;color:#111;margin:0}.top{background:#fff;height:60px}", "text/css"),
     # a light page with a dark header: darkened
     "/light-header": ("<!doctype html><title>light</title><style>body{background:#fff;color:#222;margin:0}"
                       "header{background:#222;color:#fff;height:90px}</style><header>Site</header><main>%s</main>"
@@ -46,6 +48,23 @@ def site():
                 return
             if path == "/slow-dark.css":
                 time.sleep(0.6)
+            if path == "/arriving":
+                # a page that arrives slowly, as a big shop's: its header must be dark while
+                # the rest is still coming (the page reads it itself before DOMContentLoaded)
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()          # HTTP/1.0: the end of the connection ends the page
+
+                def chunk(text):
+                    self.wfile.write(text.encode())
+                    self.wfile.flush()
+                chunk("<!doctype html><title>shop</title><link rel=stylesheet href='/shop.css'>"
+                      "<header id=top class=top>Header</header><script>setTimeout(function(){"
+                      "window.__early = [document.readyState, getComputedStyle(document.getElementById('top'))"
+                      ".backgroundColor]}, 400)</script>" + " " * 2048)
+                time.sleep(1.2)
+                chunk("<p id='t'>Text arrived late.</p>")
+                return
             data = body.encode()
             self.send_response(200)
             self.send_header("Content-Type", ctype + "; charset=utf-8")
@@ -72,6 +91,9 @@ READ = """JSON.stringify({
 def steps(ike, qapp, out):
     view = ike.windows[0].current_view()
     yield 500
+    yield from load(view, SITE + "/arriving")
+    yield 1500
+    out["arriving"] = json.loads((yield from js(view, "JSON.stringify(window.__early || null)")))
     for name in ("dark-plain", "dark-late", "light-header", "dark-light-cards", "plain-light"):
         yield from load(view, SITE + "/" + name)
         yield 2500
@@ -89,6 +111,8 @@ def test_a_page_dark_already_is_left_alone(run_ike, site):
     for name in ("light-header", "dark-light-cards", "plain-light"):
         p = out[name]
         assert p["mapped"] is True, (name, p)
+    # a page arriving slowly is dark while it arrives (no white flash)
+    assert out["arriving"][0] == "loading" and out["arriving"][1] != "rgb(255, 255, 255)", out["arriving"]
     # the light parts were made dark, their text light
     assert out["light-header"]["body"] != "rgb(255, 255, 255)", out["light-header"]
     assert out["plain-light"]["body"] != "rgb(250, 250, 250)", out["plain-light"]

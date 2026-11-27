@@ -80,6 +80,33 @@ new QWebChannel(qt.webChannelTransport, function (channel) {
 """
 
 
+# DE_DIAG=1: for the Dark Engine's pages, the large light areas left on the screen and
+# where their colour comes from (a rule of a style sheet, an inline style, a sheet the
+# page cannot read, a frame, a picture), to find why a part stayed light
+DIAG = r"""(function(){
+function rgba(s){var m=/rgba?\(([^)]+)\)/.exec(s||'');if(!m)return null;var p=m[1].split(/[ ,\/]+/).filter(Boolean).map(Number);return [p[0],p[1],p[2],p.length>3?p[3]:1];}
+function lum(c){function f(v){v/=255;return v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4)}return 0.2126*f(c[0])+0.7152*f(c[1])+0.0722*f(c[2]);}
+function label(e){return e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(typeof e.className==='string'&&e.className?'.'+e.className.trim().split(/\s+/).slice(0,3).join('.'):'');}
+var sheets=[],unreadable=[];
+for(var i=0;i<document.styleSheets.length;i++){var sh=document.styleSheets[i];try{sh.cssRules;sheets.push(sh);}catch(e){unreadable.push(sh.href||'(inline)');}}
+function rulesFor(el){var found=[];function walk(list,href){for(var j=0;j<list.length&&found.length<4;j++){var r=list[j];
+ try{if(r.selectorText&&r.style&&(r.style.backgroundColor||r.style.background)&&el.matches(r.selectorText))found.push((href||'inline')+' :: '+r.selectorText.slice(0,80)+' { background: '+(r.style.backgroundColor||r.style.background).slice(0,60)+' }');
+ else if(r.cssRules)walk(r.cssRules,href);}catch(e){}}}
+ for(var k=0;k<sheets.length;k++)walk(sheets[k].cssRules,(sheets[k].href||'').slice(-60));return found;}
+var out=[],all=document.querySelectorAll('body *'),W=innerWidth,H=innerHeight;
+for(var i=0;i<all.length&&out.length<25;i++){var e=all[i],r=e.getBoundingClientRect();
+ if(r.width*r.height<W*H*0.01||r.bottom<0||r.top>H||r.right<0||r.left>W)continue;
+ var cs=getComputedStyle(e);if(cs.visibility==='hidden'||+cs.opacity<0.3)continue;
+ var bg=rgba(cs.backgroundColor),img=cs.backgroundImage;
+ var light=bg&&bg[3]>0.5&&lum(bg)>0.5;
+ if(!light&&!(/^(IMG|IFRAME|CANVAS|VIDEO|EMBED|OBJECT)$/.test(e.tagName)))continue;
+ out.push({el:label(e),rect:[Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)],
+  bg:cs.backgroundColor,image:img.slice(0,80),inline:(e.getAttribute('style')||'').slice(0,120),
+  shadowHost:!!e.shadowRoot,frame:e.tagName==='IFRAME'?(e.src||'(no src)').slice(0,80):null,rules:light?rulesFor(e):[]});}
+return JSON.stringify({light:out,unreadable:unreadable.slice(0,20),sheets:document.styleSheets.length,
+ adopted:document.adoptedStyleSheets.length,frames:document.querySelectorAll('iframe').length});})()"""
+
+
 def serve(snaps, speedo):
     imgs = pages.images()
     docs = dict(pages.PAGES, bench=pages.BENCH)
@@ -448,6 +475,12 @@ def main():
                     d["http_status"] = job["status"]
                     (out / ("%s__%s.json" % (name, mode))).write_text(json.dumps(d))
                     print("shot", mode, name, "engine:", v, flush=True)
+                    if mode.startswith("proto") and os.environ.get("DE_DIAG"):
+                        def diag(js2):
+                            (out / ("%s__%s.diag.json" % (name, mode))).write_text(js2 or "null")
+                            finish()
+                        page.runJavaScript(DIAG, 0, diag)
+                        return
                     finish()
                 if mode.startswith("proto"):
                     page.runJavaScript("JSON.stringify(window.__ikeDEStats||null)", 1, lambda v: stats(json.loads(v or "null")))
