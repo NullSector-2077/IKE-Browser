@@ -1117,6 +1117,9 @@ of that day's four reasons, are `tests/test_automat_deadlock.py`):
   `GenerateRequestsPerDayPerProjectPerModel-FreeTier`, `quotaValue`): `learned_quotas` reads it,
   `Budget.learn` keeps it for the rest of the provider's day as its day limit of requests (and a
   `PerMinute` token limit as its minute), from the reviewers' calls and from Antigravity's errors alike.
+- **What is learned stays** (2026-11-27): a limit a provider said itself (its headers, its 429's own numbers)
+  replaces the estimate of `tools/ai-quota.json` also on the next days (`Budget.last_seen`: the latest of the
+  days AUTOMAT's memory keeps), until the provider says otherwise.
 
 **From the providers' own pages** (read on 2026-11-25 on each provider's own page or code: every
 provider in `tools/ai-quota.json` has `source_urls`, `source_verified_on` and a `signals_source` or
