@@ -591,9 +591,10 @@ def build_darkreader(root, work, dr_src=None):
 
 def check_darkreader(root, work, dr_src=None):
     """1.1.29: Dark Reader's engine is gone, its lists are the whole component. The browser fetches
-    them itself once a day (ike/darklists.py, 1.1.27: no new version every day for simple lists), so
-    the copy I.K.E. comes with is refreshed by a weekly candidate (WEEKLY of tools/update-candidates.py):
-    an update when the lists (or Dark Reader's version they come with) changed, made on Mondays only."""
+    them itself once a day, without GitHub's automation (ike/darklists.py, 1.1.27, the owner's decision: no
+    new version for simple lists), so a change of the lists makes NO candidate: it is only noted. The copy
+    I.K.E. comes with is the first start's fallback; the builder still checks every day that the lists
+    parse and hold nothing that looks like a script (a refusal is reported)."""
     cur = json.loads((root / "ike" / "resources" / "darkreader-data.json").read_text("utf-8"))
     out = build_darkreader(root, work, dr_src)
     new = json.loads((out / "darkreader-data.json").read_text("utf-8"))
@@ -602,7 +603,8 @@ def check_darkreader(root, work, dr_src=None):
     note = ", ".join(x for x, on in (("lists changed", lists), ("Dark Reader %s" % new["version"], version)) if on)
     return {"current": "%s, lists %s (%s)" % (cur["version"], cur.get("lists_commit", "")[:10], cur.get("lists_date", "")),
             "latest": "%s, lists %s (%s)" % (new["version"], new["lists_commit"][:10], new["lists_date"]),
-            "update": lists or version, "note": note, "_dir": str(out)}
+            "update": False, "note": (note + " (the browser fetches them itself)") if note else "",
+            "_dir": str(out)}
 
 
 def apply_darkreader(root, info):

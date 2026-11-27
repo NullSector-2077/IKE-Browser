@@ -690,7 +690,7 @@ def dark_repo(repo, bundled=None):
 @pytest.mark.skipif(not shutil.which("git"), reason="needs git")
 def test_dark_readers_lists_are_built_and_anything_like_a_script_is_refused(repo, tmp_path, monkeypatch):
     """1.1.29: Dark Reader's engine left I.K.E.; the component is its lists, built from a checkout of its
-    repository (no npm). New lists are an update (a weekly candidate, tools/update-candidates.py WEEKLY);
+    repository (no npm). New lists are noted, never a candidate (the browser fetches them itself);
     anything that looks like a script, a site fixes list without the common fix first, or a list much
     shorter than the copy in use is refused at its step, and nothing of the lists in use is replaced."""
     tool = load_tool()
@@ -701,8 +701,9 @@ def test_dark_readers_lists_are_built_and_anything_like_a_script_is_refused(repo
     assert [r["id"] for r in results] == ["darkreader"]
     dr = by_name(results)["Dark"]
     assert dr["name"] == "Dark Reader (lists)"
-    assert not dr["refused"] and dr["update"] and not dr["error"], dr
-    assert dr["note"] == "lists changed, Dark Reader 9.9.9" and dr["latest"].startswith("9.9.9, lists ")
+    assert not dr["refused"] and not dr["update"] and not dr["error"], dr
+    assert dr["note"] == "lists changed, Dark Reader 9.9.9 (the browser fetches them itself)"
+    assert dr["latest"].startswith("9.9.9, lists ")
     assert dr["current"].startswith("4.9.135, lists aaaaaaaaaa (2026-11-25)")
     built = sorted(p.name for p in Path(dr["_dir"]).iterdir())
     assert built == ["darkreader-data.json"]                               # no engine, no proxy
@@ -713,14 +714,9 @@ def test_dark_readers_lists_are_built_and_anything_like_a_script_is_refused(repo
     assert data["dark_sites"] == ["dark.example"] and data["detector_hints"] == [{"url": ["own.example"],
                                                                                    "noDarkTheme": True}]
     assert re.fullmatch(r"[0-9a-f]{40}", data["lists_commit"]) and re.fullmatch(r"\d{4}-\d\d-\d\d", data["lists_date"])
-    cand = next(c for c in tool.candidates_of(results) if c["id"] == "darkreader")
-    assert not cand.get("refused") and cand["to"] == dr["latest"]
-    assert (repo / "ike/resources/darkreader-data.json").read_text() == before     # nothing applied yet
-    tool.apply_candidate(repo, results, "darkreader")
-    assert json.loads((repo / "ike/resources/darkreader-data.json").read_text()) == data
-    # the same lists again: nothing newer
-    again = by_name(tool.check_all(repo, work=tmp_path / "w1", dr_src=src, only="darkreader"))["Dark"]
-    assert not again["update"] and again["note"] == ""
+    # never a candidate (the browser fetches the lists itself), and the copy in use is untouched
+    assert not [c for c in tool.candidates_of(results) if c["id"] == "darkreader"]
+    assert (repo / "ike/resources/darkreader-data.json").read_text() == before
 
     dark_repo(repo)
     refusals = {

@@ -12,7 +12,7 @@ automatic fix, ledger entry and verified merge (tools/automerge.py).
     pyo3               a new pyo3 release line (the requirement in Cargo.toml raised)
     crate-major-<c>    a new major version of another direct crate of the engine
     ubo-scriptlets     uBlock Origin's scriptlets (rebuilt by tools/build-ubo-scriptlets.mjs)
-    darkreader         Dark Reader's lists (rebuilt by tools/build-darkreader-lists.py; weekly)
+    darkreader         Dark Reader's lists (tools/build-darkreader-lists.py): never a candidate, the browser fetches them
     breeze-icons       KDE's Breeze icons of the set "Breeze (KDE)" (rebuilt by tools/build-breeze-icons.py)
     test-qt            Qt's wheels of the automatic tests
     test-tools         pytest, ruff and what they bring
@@ -112,7 +112,7 @@ PRIORITY = ("adblock", "pyo3", "crates", "crate-major-", "test-qt", "test-tools"
 # 1.1.29: Dark Reader's engine left I.K.E.; its lists are fetched by the browser itself once a day
 # (ike/darklists.py, 1.1.27: no new version every day for simple lists), so the copy I.K.E. comes with (for a
 # new profile, or one that could not fetch them) is refreshed weekly: never more than a week old in a release.
-WEEKLY = ("crates", "test-tools", "test-libs", "ci-", "darkreader")
+WEEKLY = ("crates", "test-tools", "test-libs", "ci-")
 WEEKLY_DAY = 0                  # Monday
 UPDATE_COMMIT = re.compile(r"^update: ([a-z0-9_-]+) (.{1,300}) -> (.{1,300}) \(no AI\)$")
 CI_COMMIT = re.compile(r"^ci: ([a-z0-9-]+) (\S{1,80}) -> (\S{1,80}) \(tools/ci-pins\.py, no AI\)$")

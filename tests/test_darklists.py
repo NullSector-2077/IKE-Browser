@@ -13,8 +13,8 @@ owner's decision: no new version every day for simple lists).
 - In the browser: once a day (with automatic updates on), in the background;
   a failure is tried again a few hours later; the dark pages loaded next take
   the new lists; nothing with automatic updates off.
-- The daily maintenance no longer makes a version every day for changed lists
-  only: the bundled copy is refreshed by a weekly candidate (1.1.29).
+- The daily maintenance makes no version for changed lists: the browser fetches
+  them itself (1.1.27; and since 1.1.29 they are the whole component).
 
 SIMULATION: stand-ins for the network (no request leaves the computer).
 """
@@ -241,17 +241,15 @@ def test_the_browser_fetches_them_once_a_day(run_ike, mode):
         assert darklists.RETRY_FAILED_AFTER - 60 < due <= darklists.RETRY_FAILED_AFTER, out
 
 
-def test_the_maintenance_makes_no_daily_version_for_lists_only(tmp_path, monkeypatch):
-    """1.1.29: the lists are the whole component (its engine left); a change of them is an update the
-    daily maintenance makes on Mondays only (tools/update-candidates.py WEEKLY), never every day."""
-    import datetime as dt
-
+def test_the_maintenance_makes_no_version_for_lists_only(tmp_path, monkeypatch):
+    """1.1.27, kept in 1.1.29 (the lists are the whole component, its engine left): the browser fetches the
+    lists itself every day, so a change of them is noted and never a candidate."""
     def load(name):
         spec = importlib.util.spec_from_file_location(name.replace("-", "_"), ROOT / "tools" / (name + ".py"))
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         return mod
-    cc, uc = load("check-components"), load("update-candidates")
+    cc = load("check-components")
     cur = json.loads((ROOT / "ike/resources/darkreader-data.json").read_text("utf-8"))
     out = tmp_path / "out"
     out.mkdir()
@@ -262,8 +260,4 @@ def test_the_maintenance_makes_no_daily_version_for_lists_only(tmp_path, monkeyp
         return cc.check_darkreader(ROOT, tmp_path)
     assert built(dict(cur))["update"] is False
     lists_only = built(dict(cur, dark_sites=cur["dark_sites"] + ["new.example"], lists_commit="f" * 40))
-    assert lists_only["update"] is True and lists_only["note"] == "lists changed", lists_only
-    report = {"candidates": [{"id": "darkreader", "from": lists_only["current"], "to": lists_only["latest"]}]}
-    monday, friday = dt.date(2026, 11, 30), dt.date(2026, 12, 4)
-    assert uc.plan(report, {}, today=friday)[0]["action"] == "weekly"
-    assert uc.plan(report, {}, today=monday)[0]["action"] == "make"
+    assert lists_only["update"] is False and lists_only["note"] == "lists changed (the browser fetches them itself)"

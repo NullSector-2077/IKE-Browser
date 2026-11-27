@@ -25,9 +25,7 @@ def test_low_risk_candidates_wait_for_monday_and_the_rest_stays_daily():
     ids = ("crates", "test-tools", "test-libs", "ci-cargo-deny", "adblock", "darkreader", "ubo-scriptlets",
            "test-qt", "pyo3")
     friday = {r["id"]: r["action"] for r in u.plan(report(*ids), {}, today=FRIDAY)}
-    # 1.1.29: Dark Reader's lists (its engine left I.K.E.) are fetched by the browser every day: weekly too
-    assert {i for i, a in friday.items() if a == "weekly"} == {"crates", "test-tools", "test-libs", "ci-cargo-deny",
-                                                                "darkreader"}
+    assert {i for i, a in friday.items() if a == "weekly"} == {"crates", "test-tools", "test-libs", "ci-cargo-deny"}
     assert all(friday[i] in ("make", "queued") for i in ("adblock", "ubo-scriptlets", "test-qt", "pyo3"))
     monday = {r["id"]: r["action"] for r in u.plan(report(*ids), {}, today=MONDAY)}
     assert "weekly" not in monday.values()

@@ -1257,7 +1257,7 @@ group of them, `--only <id>`):
 | pyo3, the bridge to Python | `pyo3` | `ike-adblock/Cargo.toml`, `ike-adblock/Cargo.lock` | A new release line: the requirement is raised (the automatic fix may adapt I.K.E.'s wrapper) |
 | A new major version of another direct crate of the engine (serde_json 2, ...) | `crate-major-<crate>` | `ike-adblock/Cargo.toml`, `ike-adblock/Cargo.lock` | Its requirement in `Cargo.toml` is raised, then `cargo update`; the automatic fix may adapt the wrapper. A major version of a crate only adblock brings (thiserror 2, rand, selectors...) cannot be taken by I.K.E.'s requirements: it comes with a new adblock, which is its own candidate; the ledger keeps it as retry-later, looked at weekly |
 | uBlock Origin scriptlets | `ubo-scriptlets` | `ike/resources/ubo-scriptlets.json` | The rebuilt scriptlets differ, not merely a new upstream commit |
-| Dark Reader's lists (its extension's site fixes, dark sites and detector hints, from its repository on GitHub; its engine left I.K.E. in 1.1.29) | `darkreader` | `ike/resources/darkreader-data.json` (`tools/build-darkreader-lists.py`) | Lists that changed (or a new Dark Reader version they come with). A **weekly** candidate (Mondays, `WEEKLY` of `tools/update-candidates.py`): the browser fetches the lists itself once a day (`ike/darklists.py`), so the bundled copy only serves a new profile or one that could not fetch them (see "Dark Reader's lists" below) |
+| Dark Reader's lists (its extension's site fixes, dark sites and detector hints, from its repository on GitHub; its engine left I.K.E. in 1.1.29) | `darkreader` | `ike/resources/darkreader-data.json` (`tools/build-darkreader-lists.py`) | **No candidate**: the browser fetches the lists itself once a day (`ike/darklists.py`), without GitHub; the daily check only notes "lists changed (the browser fetches them itself)" and still checks that they build safely. The bundled copy only serves a new profile or one that could not fetch them yet (see "Dark Reader's lists" below) |
 | The packages of the automatic tests: Qt's wheels; pytest, ruff and theirs; the other libraries | `test-qt`, `test-tools`, `test-libs` | `tools/test-requirements.txt` | A newer package set on PyPI (no new version of I.K.E.: nothing ships) |
 | The workflows' pins: every GitHub Action, cargo-deny, setup-python's and setup-node's versions, the Rust toolchain | `ci-<name>` | `.github/workflows/*.yml`, `.github/actions/*` (`tools/ci-pins.py`) | A newer release (see "The workflows' pins") |
 | The PKGBUILD's depends, optdepends and minima | `pkgbuild` | `PKGBUILD` (`tools/pkgbuild-sync.py`) | A module, Qt module or program the code uses and no package declares, a package needed at run time that is only optional, or a `# needs: <package> >= <version>` the code declares (see "Arch Linux's own packages") |
@@ -1293,20 +1293,14 @@ its `version` and `lists_date`). They are kept current two ways:
   (`ike/darklists.py`: `parse`, `data_problems`, `check`; the builder has no
   reader of its own). The daily check (`tools/check-components.py --only
   darkreader`) clones the repository and builds them; when they differ from
-  the copy in use it is an update, made into the candidate
-  `automation/update/darkreader` **on Mondays only** (`WEEKLY`), like any
-  other component (tests, the verified merge, the version raised when `main`'s
-  is published).
+  the copy in use it is only noted, never a candidate: the browser has them
+  already (the owner's rule of 1.1.27, "no new version for simple lists").
+  The builder still runs every day, so a list that does not parse or holds
+  what looks like a script is reported ("builder refused").
 
-Why weekly (the decision of 1.1.29): the owner's rule of 1.1.27 is "no new
-version every day for simple lists", and the browser already has fresh lists
-every day; but with the engine gone nothing else would ever refresh the
-bundled copy, which would grow months old. No release-time mechanism exists to
-refresh it, and a candidate that changes a shipped file without raising the
-version waits for a person when `main`'s version is published (the verified
-merge's rule), so the simplest choice is the existing weekly round: the copy
-in a release is never more than about a week old, and at most one candidate a
-week. The rules of the build (each one STOPS it, writes nothing and keeps the
+Why no candidate (the owner, 2026-11-27: the browser downloads the lists itself every day, with no work on
+GitHub): the bundled copy is only the first start's fallback, refreshed when a version of I.K.E. is made
+anyway (a person may rebuild it with the builder below before signing). The rules of the build (each one STOPS it, writes nothing and keeps the
 copy in use):
 
 | Check | Stops when |
@@ -2012,8 +2006,8 @@ changes the browser gets its version when the owner orders the merge.
 moved by a patch release. On other days the plan says `weekly`, and an open weekly candidate stays as it is (it
 still merges by itself when verified). Daily as before: the AdBlock engine, pyo3, a crate's new major version,
 uBlock Origin's scriptlets, Breeze, the PKGBUILD and test-qt (the early warning of a Qt release);
-security fixes are their own branches and never wait. Since 1.1.29 Dark Reader's lists are weekly too (its engine
-left I.K.E.; the browser fetches the lists itself every day: see "Dark Reader's lists").
+security fixes are their own branches and never wait. Dark Reader's lists make no candidate at all (the browser
+fetches them itself every day: see "Dark Reader's lists").
 
 Since 2026-11-22 (WP5) the daily maintenance makes **one isolated candidate per
 component**, or per small coherent group, instead of one combined candidate
