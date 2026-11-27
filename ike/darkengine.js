@@ -972,6 +972,7 @@
     attributeFilter: ['style', 'bgcolor', 'fill', 'stroke', 'href', 'rel', 'media', 'disabled'] };
   function stop() {
     off = true;
+    queue = [];
     coverSheet = coverRule = null;
     if (wait) wait.disconnect();
     mo.disconnect();
@@ -1029,6 +1030,8 @@
     frame = requestAnimationFrame(function () {
       frame = 0;
       if (off) return;
+      inFrame = true;
+      setTimeout(function () { inFrame = false; }, 0);   // the next task comes after the frame is drawn
       quiet(function () {
         hosts.forEach(function (h) { if (!h.isConnected) hosts.delete(h); else if (h.shadowRoot) shadow(h); });
         pruneShadowRoots();
@@ -1043,6 +1046,7 @@
     if (off) return;
     var t0 = performance.now();
     var waiting = mo.takeRecords();
+    if (queue.length) { waiting = queue.concat(waiting); queue = []; }
     if (waiting.length) handle(waiting);
     fn();
     mo.takeRecords();
@@ -1076,12 +1080,23 @@
     }
     schedule();
   }
+  // The page's changes wait for the next frame and are handled then, before it
+  // is drawn: a node added and taken away again in between costs nothing, and
+  // many small changes are handled together. Changes made by the page's own
+  // frame callbacks after ours (inFrame) are handled at once.
+  var queue = [], inFrame = false;
   var mo = new MutationObserver(function (ms) {
     if (off) return;
-    var t0 = performance.now();
-    handle(ms);
-    mo.takeRecords();                    // what we wrote ourselves (inline styles, our sheets)
-    stats.ms += performance.now() - t0;
+    if (inFrame) {
+      var t0 = performance.now();
+      handle(ms);
+      mo.takeRecords();                  // what we wrote ourselves (inline styles, our sheets)
+      stats.ms += performance.now() - t0;
+      return;
+    }
+    for (var i = 0; i < ms.length; i++) queue.push(ms[i]);
+    if (queue.length > 20000) quiet(function () {});
+    else schedule();
   });
   function start() {
     if (baseEl || off) return true;
@@ -1121,6 +1136,7 @@
     // first in <head>: the page's own rules come after the defaults
     if (!csp && baseEl && baseEl.parentNode !== document.head && document.head) document.head.insertBefore(baseEl, document.head.firstChild);
     mo.takeRecords();
+    queue = [];                          // the whole page is looked at now
     adopted(document);
     tree(document.documentElement);
     if (coverSheet && coverSheet.cssRules[0] === coverRule) coverSheet.deleteRule(0);
