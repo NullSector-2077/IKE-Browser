@@ -1398,25 +1398,37 @@ def test_the_guard_refuses_the_added_lines_that_weakened_the_fingerprinting():
     branch = own.replace("  function bump(a) {\n", "  function bump(a) {\n    a = a || CFG.step;\n")
     assert any("|| on data" in p for p in guard.file_problems(name, page5, branch))
     # every name of a declaration list is the change's own (a real commit of main, 34e0e4a, declares two)
-    pair = after("  try {\n    var call = Function.prototype.call, apply2 = call.bind(call);\n    apply2 = null;\n"
+    pair = after("  try {\n    var call = Function.prototype.call, apply2 = call;\n    apply2 = null;\n"
                  "  } catch (e) {}\n")
     assert guard.file_problems(name, page5, pair) == [], guard.file_problems(name, page5, pair)
+    # round 11: `.bind` is no method new code calls (only SAFE_METHODS of its own values)
+    bound = after("  try {\n    var call = Function.prototype.call, apply2 = call.bind(call);\n  } catch (e) {}\n")
+    assert any(".bind" in p for p in guard.file_problems(name, page5, bound))
     # a new helper with its own exit, a new wrap of a property the old script never names: still accepted.
     # Round 6: the round-5 forms of both had a branch on data (`if (v < 0)`, `if (!n)`): refused now
     helper = after("  function clamp(v) {\n    return Math.max(v, 0);\n  }\n", PAGE_OLD)
     assert guard.file_problems(name, PAGE_OLD, helper) == [], guard.file_problems(name, PAGE_OLD, helper)
     wrap_more = after("  try {\n    wrap(Navigator.prototype, 'freshName', function (orig) {\n"
                       "      return function () { return 0; };\n    });\n  } catch (e) {}\n", PAGE_OLD)
-    assert guard.file_problems(name, PAGE_OLD, wrap_more) == [], guard.file_problems(name, PAGE_OLD, wrap_more)
+    # round 11: in this toy `wrap` is no function of the script's (a global new code may not call); in the real
+    # script the same new wrap is accepted
+    assert any("global wrap" in p for p in guard.file_problems(name, PAGE_OLD, wrap_more))
+    real = (ROOT / name).read_text("utf-8")
+    real_end = "  try { realms.add(window.Function); } catch (e) {}\n"
+    real_more = real.replace(real_end, real_end + "  try {\n    wrap(Navigator.prototype, 'freshName', function (orig) {\n"
+                             "      return function () { return 0; };\n    });\n  } catch (e) {}\n", 1)
+    assert guard.file_problems(name, real, real_more) == [], guard.file_problems(name, real, real_more)
     old_helper = after("  function clamp(v) {\n    if (v < 0) {\n      return 0;\n    }\n    return v;\n  }\n", PAGE_OLD)
     assert guard.file_problems(name, PAGE_OLD, old_helper) == []          # a branch on its own parameter
     on_site = old_helper.replace("    if (v < 0) {\n", "    if (host.length > 30) {\n")
     assert any("condition on data" in p for p in guard.file_problems(name, PAGE_OLD, on_site))
     old_wrap = after("  try {\n    [1, 2].forEach(function (n) {\n      if (!n) {\n        return;\n      }\n"
                      "      wrap(n, 'x', function (orig) { return orig; });\n    });\n  } catch (e) {}\n", PAGE_OLD)
-    assert guard.file_problems(name, PAGE_OLD, old_wrap) == []             # a callback's parameter, a list of its own
+    # round 9: a callback's parameter is no page interface's prototype to define on
+    assert guard.file_problems(name, PAGE_OLD, old_wrap)
     over_old = old_wrap.replace("[1, 2].forEach", "MASKED.forEach")
-    assert guard.file_problems(name, PAGE_OLD, over_old) == []             # reading an old list is no change of it
+    # round 10: outside a new function an old list's length chose how often new code ran (no condition)
+    assert any("reads the old state MASKED" in p for p in guard.file_problems(name, PAGE_OLD, over_old))
     gated = old_wrap.replace("      if (!n) {\n", "      if (MASKED.length > 1) {\n")
     assert any("condition on data" in p for p in guard.file_problems(name, PAGE_OLD, gated))
     # the same new code before the last old statement, or outside try: refused (round 7)
@@ -1505,7 +1517,7 @@ def test_round_six_the_forms_of_a_write_a_read_and_a_branch_are_refused():
         assert any(word in p for p in found), (line, found)
     # what the change makes itself it may set, in its own functions too
     for line in ("var fresh = {}; fresh.x = 1;", "var count = 0; count += 2;",
-                 "for (var i = 0; i < 4; i++) { use(i); }", "var list = [1, 2]; list.push(3);",
+                 "var seen = []; for (var i = 0; i < 4; i++) { seen.push(i); }", "var list = [1, 2]; list.push(3);",
                  "var add = function (x) { return x + 1; };"):
         assert toy(line) == [], (line, toy(line))
     # round 7: anywhere but after the last old statement, or outside try, a new statement is refused
@@ -1557,7 +1569,7 @@ def test_round_six_a_condition_is_allowed_only_on_what_is_measured():
         assert judged(text) == [], (text, judged(text))
     # declarations that cannot throw need no try
     # round 9: the window's size and the screen's in one change are refused (the sessions cannot tell them apart)
-    assert any("both the window's width" in p for p in judged("  var wide = innerWidth > 3000 || screen.width >= 2560;\n",
+    assert any("the window's, the screen's" in p for p in judged("  var wide = innerWidth > 3000 || screen.width >= 2560;\n",
                                                                bare=True))
     for text in ("  var wide = innerWidth > 3000;\n  var many = navigator.hardwareConcurrency > 8;\n"
                  "  var dark = matchMedia('(prefers-color-scheme: dark)').matches ? 1 : 0;\n",
@@ -1635,8 +1647,8 @@ def test_round_seven_new_code_runs_only_after_the_old_and_cannot_stop_it():
     # what an honest fix needs: at the end, a declaration, a helper, a new wrap in try, a pure helper called
     for text in ("  function isThing(o) { if (!o) return false; return true; }\n",
                  "  var calls = 0;\n  var big = innerWidth > 3000;\n",
-                 "  try {\n    var bucket = hash(host) % 97;\n    wrap(Navigator.prototype, 'newThing', function (orig) {\n"
-                 "      return function () { return bucket; };\n    });\n  } catch (e) {}\n",
+                 "  try {\n    wrap(Navigator.prototype, 'newThing', function (orig) {\n"
+                 "      return function () { return hash(host) % 97; };\n    });\n  } catch (e) {}\n",
                  "  try {\n    if (navigator.hardwareConcurrency === 6) { var six = 1; }\n  } catch (e) {}\n"):
         assert after(text) == [], (text, after(text))
     # the values a change's conditions compare the configurations with, for the probe
@@ -1843,6 +1855,105 @@ def test_round_nine_names_targets_containers_and_values_the_probe_really_sets():
                                                                            "value": 1.04}])
     assert any(1.01 < v < 1.04 for v in d["dpr"])
     assert not axes.read_measured("deviceMemory", "===", 0.5) and not axes.read_measured("navigator.languages", "==", "it")
+
+
+def test_round_ten_unknown_values_proxies_closures_old_state_holders_and_touch():
+    """Fable's review of round 9 (fragments, 2026-11-27): a parameter or a name taken from a pattern counted as an
+    object of the change's own (`function h(o) { delete o.x; } h(Navigator.prototype)`), so did
+    `new Proxy(old, {})` and a name given an old object in a nested function; new code outside a function
+    branched on the old state or on arithmetic of a configuration with no condition (`[0].slice(x)`,
+    `'x'.repeat(-x)`); `window.language` and a bare `language` passed as the configuration; a touch laptop's
+    mix of a fine pointer and touch points, the outer window with the screen and a 4/3 media ratio were in no
+    session. Each is refused; the honest forms still pass."""
+    guard = load("fix-guard")
+    name = "ike/resources/fingerprint.js"
+    old = (ROOT / name).read_text("utf-8")
+    end = "  try { realms.add(window.Function); } catch (e) {}\n"
+
+    def after(x):
+        return guard.file_problems(name, old, old.replace(end, end + "  try { %s } catch (e) {}\n" % x, 1))
+    P, F = "Navigator.prototype", "function () { return 2; }"
+    for x in ("function h(o) { delete o.hardwareConcurrency; } h(%s);" % P,
+              "[%s].forEach(function (o) { Object.defineProperty(o, 'hardwareConcurrency', {get: %s}); });" % (P, F),
+              "var [p] = [%s]; Object.defineProperty(p, 'hardwareConcurrency', {get: %s});" % (P, F),
+              "var {prototype: p} = Navigator; delete p.hardwareConcurrency;",
+              "function h(o) { o.k = 2; } h(hiddenExt);",
+              "var q = {set zz(v) { v.k = 2; }}; q.zz = hiddenExt;",
+              "getter(%s, 'zzNew', function () { [this].forEach(function (o) { delete o.hardwareConcurrency; }); "
+              "return 8; });" % P,
+              "var p = new Proxy(%s, {}); Object.defineProperty(p, 'hardwareConcurrency', {get: %s});" % (P, F),
+              "var p = new Proxy(window, {}); p.zzGlobal = 1;",
+              "var p = {}; (function () { p = %s; })(); delete p.hardwareConcurrency;" % P,
+              "[0].slice(Math.abs(navigator.hardwareConcurrency - 6)).forEach(function () { getter(%s, 'zzNew', %s); });"
+              % (P, F),
+              "'x'.repeat(-Math.abs(devicePixelRatio * 3 - 4)); getter(%s, 'zzNew', %s);" % (P, F),
+              "[0].slice(hiddenExt.k).forEach(function () { var z = 1; });",
+              "if (window.language === 'zz-ZZ') { var q = 1; }",
+              "if (language === 'zz-ZZ') { var q = 1; }",
+              "if (navigator.maxTouchPoints !== 0 && navigator.maxTouchPoints !== 5) { var q = 1; }",
+              "if (navigator.maxTouchPoints > 0 && matchMedia('(pointer: fine)').matches) { var q = 1; }",
+              "if (matchMedia('(pointer: coarse) and (hover: hover)').matches) { var q = 1; }",
+              "if (outerWidth < 1000 && screen.width > 1900) { var q = 1; }",
+              "if (matchMedia('(min-resolution: 1.3332dppx) and (max-resolution: 1.3334dppx)').matches) { var q = 1; }",
+              "getter(hiddenExt.Navigator.prototype, 'zzNew', %s);" % F):
+        assert after(x), x
+    for x in ("if (new Intl.DateTimeFormat().resolvedOptions().timeZone === 'Europe/Rome') { var q = 1; }",
+              "if (navigator.maxTouchPoints === 0 && navigator.hardwareConcurrency === 6) { var q = 1; }",
+              "var h = {a: 1}; h.a = 2; delete h.a; var m = new Map(); m.set(1, 2);",
+              "getter(%s, 'freshName', function () { return hash(host) %% 97; });" % P):
+        assert after(x) == [], (x, after(x))
+
+
+def test_round_eleven_new_code_uses_only_what_is_listed():
+    """Fable's review of round 10 (fragments, 2026-11-27): a function called at once ran what round 10 refused at
+    top level; an old object's own methods (`hiddenExt.disconnect()`), observers, promises, a media listener,
+    page globals (`window.name`, any global), page changes (`document.documentElement.remove()`,
+    `window.stop()`, `new Audio(...)`) were not judged at all; a hidden real value was exposed under a new name;
+    a ratio in dpi and one pointer feature with two values escaped the sessions. New code now uses only what is
+    listed (GLOBALS_OK, SAFE_METHODS, PURE_GLOBAL_CALLS, FRESH_CTORS, the old helpers, its own functions, the
+    originals handed to it, the configurations measured); the honest forms still pass."""
+    guard = load("fix-guard")
+    name = "ike/resources/fingerprint.js"
+    old = (ROOT / name).read_text("utf-8")
+    end = "  try { realms.add(window.Function); } catch (e) {}\n"
+
+    def after(x):
+        return guard.file_problems(name, old, old.replace(end, end + "  try { %s } catch (e) {}\n" % x, 1))
+    P, F = "Navigator.prototype", "function () { return 2; }"
+    G = "getter(%s, 'zzNew', %s);" % (P, F)
+    for x in ("(function () { [0].slice(hiddenExt.k).forEach(function () { %s }); })();" % G,
+              "(function () { 'x'.repeat(-Math.abs(devicePixelRatio * 3 - 4)); %s })();" % G,
+              "var o = {get z() { 'x'.repeat(-Math.abs(screen.width - 1234)); %s return 1; }}; o.z;" % G,
+              "var o = {valueOf() { hiddenExt.zz(); return 1; }}; +o;",
+              "(function () { hiddenExt.disconnect(); })();",
+              "getter(%s, 'zzNew', function () { hiddenExt.disconnect(); return 1; });" % P,
+              "new MutationObserver(function () { %s }).observe(document, {childList: true});" % G,
+              "var o = {then(r) { %s }}; Promise.resolve(o);" % G,
+              "(function () { matchMedia('(min-width: 800px)').addListener(function () { %s }); })();" % G,
+              "'x'.repeat(-window.name.length); %s" % G,
+              "zzPageGlobal.zz; %s" % G,
+              "document.documentElement.remove();",
+              "window.stop();",
+              "new Audio('//a.com/p');",
+              "if (matchMedia('(resolution: 128dpi)').matches) { var q = 1; }",
+              "if (matchMedia('(any-pointer: fine) and (any-pointer: coarse)').matches) { var q = 1; }",
+              "if (matchMedia('(min-width: 1..5px)').matches) { var q = 1; }",
+              "getter(%s, 'zzReal', function () { return realCores; });" % P,
+              "getter(hiddenExt.Navigator.prototype, 'zzNew', %s);" % F):
+        assert after(x), x
+    for x in ("wrap(%s, 'freshName', function (orig) { return function () { return RAPPLY(orig, this, arguments); }; "
+              "});" % P,
+              "wrap(%s, 'freshName', function (orig) { return function () { return orig.apply(this, arguments); }; "
+              "});" % P,
+              "var I = window.Navigator.prototype; getter(I, 'freshName', function () { return 0; });",
+              "if (Intl.DateTimeFormat().resolvedOptions().timeZone === 'Europe/Berlin') { var q = 1; }",
+              "if (new Intl.DateTimeFormat().resolvedOptions().timeZone === 'Europe/Rome') { var q = 1; }",
+              "if (matchMedia('(pointer: coarse)').matches) { var q = 1; }",
+              "var h = {a: 1}; h.a = 2; delete h.a; var m = new Map(); m.set(1, 2);",
+              "getter(%s, 'freshName', function () { return hash(host) %% 97; });" % P,
+              "function addOne() { getter(%s, 'zzNew', %s); } addOne();" % (P, F),
+              "function clamp(v) { return Math.max(v, 0); }"):
+        assert after(x) == [], (x, after(x))
 
 
 # the weakened copies measured in round 7 and 8 (docs/MAINTENANCE.md, the PR's table): every one refused

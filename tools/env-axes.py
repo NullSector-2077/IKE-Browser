@@ -130,14 +130,20 @@ def derive(literals):
                 if feat in MEDIA_AXIS:
                     add(MEDIA_AXIS[feat], set(BOOLEAN_KINDS[MEDIA_AXIS[feat]]))
             for m in MEDIA_NUMBER.finditer(str(item["media"])):
-                feat, v, unit = m.group(2), float(m.group(3)), m.group(4) or ""
+                try:
+                    feat, v, unit = m.group(2), float(m.group(3)), m.group(4) or ""
+                except ValueError:
+                    continue
                 if "pixel-ratio" in feat or feat == "resolution":
                     v = v / 96 if unit == "dpi" else v * 2.54 / 96 if unit == "dpcm" else v
                     add("dpr", _beside(v, 0.05))
+                    raw.setdefault("dpr", []).append(round(v, 3))
                 elif feat in ("width", "height"):
                     add("viewport-" + feat, _beside(v, 1))
+                    raw.setdefault("viewport-" + feat, []).append(v)
                 else:
                     add("screen-" + feat.split("-")[1], _beside(v, 1))
+                    raw.setdefault("screen-" + feat.split("-")[1], []).append(v)
             continue
         kind, v = READ_AXIS.get(item.get("read")), item.get("value")
         if kind is None:
@@ -155,7 +161,7 @@ def derive(literals):
     for kind, nums in raw.items():
         nums = sorted(set(nums))
         for a, b in zip(nums, nums[1:]):
-            mid = round((a + b) / 2, 3) if kind == "dpr" else (a + b) // 2
+            mid = round((a + b) / 2, 3) if kind == "dpr" else int((a + b) // 2)
             if a < mid < b:
                 out[kind].add(mid)
     return {k: sorted(v, key=str) for k, v in out.items()}
@@ -179,7 +185,21 @@ def media_measured(query):
             "only", "").replace("screen", "").replace("all", "").strip(" ,"):
         return False
     for g in groups:
-        if MEDIA_NUMBER.fullmatch("(" + g + ")"):
+        m = MEDIA_NUMBER.fullmatch("(" + g + ")")
+        if m:
+            # round 10 (Fable's review of round 9): the precision the sessions set (3 decimals of a ratio,
+            # whole pixels), as read_measured asks of a read; round 11: a ratio in dpi or dpcm too
+            try:
+                v = float(m.group(3))
+            except ValueError:
+                return False
+            unit = m.group(4) or ""
+            if "pixel-ratio" in m.group(2) or m.group(2) == "resolution":
+                r = v / 96 if unit == "dpi" else v * 2.54 / 96 if unit == "dpcm" else v
+                if round(r, 3) != r:
+                    return False
+            elif v != int(v):
+                return False
             continue
         feat, _, val = g.partition(":")
         feat, val = feat.strip().lower(), val.strip().lower()

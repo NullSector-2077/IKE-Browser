@@ -293,6 +293,57 @@ covers. Where an older paragraph below still says "waits for a person" or
      A change whose values make more sessions than a run measures
      (`MAX_DERIVED`, `MAX_JOINT`) is refused by the guard too.
 
+   **Round 10** (Fable's review of round 9, by fragments) added:
+   - *Only a known new object is the change's own.* A parameter, a name taken
+     from a pattern, `new Proxy(old, {})` (its writes reach the old object)
+     and a name given an old object in a nested function counted as new;
+     `function h(o) { delete o.x; } h(Navigator.prototype)` removed a
+     protection. Now a name is the change's own only when every value it is
+     given anywhere is a literal object or list, a function, a class or a
+     plain container (`new Map()`, `Set`, `WeakMap`, `WeakSet`, `Array`).
+   - *No branch without a condition outside a new function.* There new code
+     runs once, in the protection's own flow: it reads no old state (the
+     site, I.K.E.'s settings, the old tables) and uses a configuration only
+     compared with a literal (`[0].slice(cores - 6)` or `'x'.repeat(-x)`
+     chose a way with no `if`). Inside a new function both are allowed.
+   - *Each configuration name on its own holder.* `navigator.language`, never
+     `window.language` or a bare `language` (globals a page can set).
+     `new Intl.DateTimeFormat()` counts like the call without `new`.
+   - *What the sessions set together.* The touch points are only told apart
+     from none (a touch laptop's 1, 2 or 10 points are in no session), and a
+     change reads one kind of pointer or touch at most (a fine pointer with
+     touch points is a touch laptop, in no session). The outer window counts
+     apart from the window and the screen. A media query's ratio has three
+     decimals at most and its widths are whole pixels, as the sessions set
+     them.
+
+   **Round 11** (Fable's review of round 10): a list instead of exceptions.
+   Each review had found another object of the page or another method
+   through which new code ran later, branched on data or changed the old
+   state: a function called at once, an old object's own methods
+   (`hiddenExt.disconnect()`), observers, promises, media listeners, page
+   globals (`window.name`), page changes (`document.documentElement.remove()`,
+   `window.stop()`, `new Audio(...)`). New code in a page script now uses
+   only:
+   - the language's plain objects and functions (`GLOBALS_OK`,
+     `PURE_GLOBAL_CALLS`: `Math`, `Number`, `String`, `JSON.stringify`...),
+     the window only as the holder of a measured configuration or of an
+     interface's prototype, and a page interface only as `X.prototype`;
+   - the old script's pure helpers and property helpers, its own functions
+     (also called at once), and the originals handed to it (a wrap's
+     parameter, called directly, by `.call`/`.apply` or by `Reflect.apply`
+     and its old alias `RAPPLY`);
+   - harmless methods of its own values (`SAFE_METHODS`: `slice`, `indexOf`,
+     `push`, `map`, `get`, `set`...), never of an old or a page object;
+   - `new` of a plain container (`Map`, `Set`, `Array`...) and of
+     `Intl.DateTimeFormat`;
+   - no old state at all, but the site's name (`host`) inside its own
+     functions: a getter returning `realCores` under a new name exposed the
+     real value the protection hides;
+   - the configurations as before, also inside its own functions only
+     compared with a literal; a ratio in dpi or dpcm at the sessions'
+     precision, and one value of one pointer or touch feature per change.
+
    *What it accepts and refuses*, measured on 2026-11-25:
    - **Weakened copies:** all 46 made in the reviews are refused. These
      include Fable's twelve forms of round 7 and the gated re-wraps.

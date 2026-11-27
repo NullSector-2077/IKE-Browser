@@ -889,6 +889,15 @@ def page_script_problems(name, run, had, known=(), structural=True):
 #      __defineGetter__ and its kin; read a covered name on another object than the configuration's own
 #      (_covered_object); compare with a value the sessions do not really set (read_measured); compare both the
 #      window's size and the screen's; compare with more values than a run measures (too_many).
+#  (j) round 10 (Fable's review of round 9): treat as its own a name whose values are not all known new objects
+#      (a parameter, a pattern, a Proxy, an assignment in a closure: FRESH_CTORS); outside a new function, read
+#      the old state or use a configuration otherwise than compared with a literal; read a configuration name
+#      off its own holder (HOLDER_PROPS); compare the touch points with anything but none, or more than one kind
+#      of pointer or touch; the outer window with the window or the screen.
+#  (k) round 11 (Fable's review of round 10): use anything not listed. Globals: GLOBALS_OK, configurations
+#      measured, `X.prototype` of a page interface; calls: definers, old pure helpers, its own functions, the
+#      originals handed to it, PURE_GLOBAL_CALLS, SAFE_METHODS of its own values; `new`: FRESH_CTORS; old state:
+#      OLD_STATE_OK inside its own functions only (callee_problem, the checks at the top of visit).
 # A text that does not parse is refused (and the rules on lines say what they see).
 
 ENV_NAMES = frozenset("""
@@ -1034,8 +1043,19 @@ def _covered(node, scopes, axes):
     key = _env_key(node, scopes)
     if not key or key not in axes.COVERED_READS:
         return False
-    if node["type"] == "MemberExpression" and not _covered_object(node["object"], scopes):
-        return False                     # round 9: `document.body.dataset.language` is no configuration
+    if node["type"] == "MemberExpression":
+        # round 9: `document.body.dataset.language` is no configuration; round 10: each name on its own holder
+        # (`window.language` is the page's)
+        holder = _holder(node["object"], scopes)
+        if holder is None or _prop_name(node) not in HOLDER_PROPS.get(holder, ()):
+            return False
+    elif node["name"] not in HOLDER_PROPS["window"]:
+        return False                     # round 10: a bare `language` is a global the page may set
+    else:
+        member = key.partition(".")[2]
+        if member and node["name"] in HOLDER_PROPS and member not in HOLDER_PROPS[node["name"]] and \
+                node["name"] != "window":
+            return False
     name = node.get("name") if node["type"] == "Identifier" else _prop_name(node)
     if name == "matchMedia":
         par = scopes.parent.get(id(node))
@@ -1052,27 +1072,43 @@ def _covered(node, scopes, axes):
 COVERED_HOLDERS = frozenset(("navigator", "screen", "window", "self", "globalThis", "visualViewport"))
 
 
-def _covered_object(obj, scopes):
-    """What a covered property is read on (round 9, Fable's review of round 8: a read was recognised by its
-    name on any object): the global navigator, screen, window..., or `Intl.DateTimeFormat().resolvedOptions()`
-    and `Intl.DateTimeFormat`'s own `Intl`."""
+# round 10 (Fable's review of round 9): which configuration names each holder has. A covered name counts only
+# on its own holder (navigator.language, never window.language, a page's global)
+HOLDER_PROPS = {
+    "window": frozenset("""devicePixelRatio innerWidth innerHeight outerWidth outerHeight visualViewport matchMedia
+ontouchstart orientation screen navigator Intl""".split()),
+    "navigator": frozenset("language languages hardwareConcurrency deviceMemory maxTouchPoints".split()),
+    "screen": frozenset("width height availWidth availHeight orientation".split()),
+    "visualViewport": frozenset(("width", "height")),
+    "Intl": frozenset(("DateTimeFormat",)),
+    "DateTimeFormat()": frozenset(("resolvedOptions",)),
+    "resolvedOptions()": frozenset(("timeZone",)),
+}
+WINDOW_NAMES = frozenset(("window", "self", "globalThis"))
+
+
+def _holder(obj, scopes):
+    """The configuration object a property is read on (HOLDER_PROPS' keys), or None."""
     obj = _strip(obj)
     if obj["type"] == "Identifier":
-        return obj["name"] in COVERED_HOLDERS | {"Intl"} and scopes.refs.get(id(obj), 0) is None
+        if scopes.refs.get(id(obj), 0) is not None:
+            return None
+        if obj["name"] in WINDOW_NAMES:
+            return "window"
+        return obj["name"] if obj["name"] in HOLDER_PROPS["window"] and obj["name"] in HOLDER_PROPS else None
     if obj["type"] == "MemberExpression":
-        return _prop_name(obj) in COVERED_HOLDERS and _covered_object(obj["object"], scopes) or \
-            _prop_name(obj) == "DateTimeFormat" and _covered_object(obj["object"], scopes)
-    if obj["type"] == "CallExpression" and not obj["arguments"]:
+        h = _holder(obj["object"], scopes)
+        p = _prop_name(obj)
+        if h is not None and p in HOLDER_PROPS.get(h, ()):
+            return "window" if p in WINDOW_NAMES else p if p in HOLDER_PROPS else None
+        return None
+    if obj["type"] in ("CallExpression", "NewExpression") and not obj["arguments"]:
         c = _strip(obj["callee"])
-        if c["type"] == "MemberExpression" and _prop_name(c) == "DateTimeFormat":
-            return _covered_object(c["object"], scopes)
-        if c["type"] == "MemberExpression" and _prop_name(c) == "resolvedOptions":
-            inner = _strip(c["object"])
-            return inner["type"] == "CallExpression" and not inner["arguments"] and \
-                _strip(inner["callee"])["type"] == "MemberExpression" and \
-                _prop_name(_strip(inner["callee"])) == "DateTimeFormat" and \
-                _covered_object(_strip(inner["callee"])["object"], scopes)
-    return False
+        if c["type"] == "MemberExpression" and _prop_name(c) in ("DateTimeFormat", "resolvedOptions") and \
+                _holder(c["object"], scopes) == ("Intl" if _prop_name(c) == "DateTimeFormat" else "DateTimeFormat()") \
+                and (obj["type"] == "CallExpression" or _prop_name(c) == "DateTimeFormat"):
+            return _prop_name(c) + "()"
+    return None
 
 
 PURE_CALLS = {("Math",), ("parseInt",), ("parseFloat",), ("Number",), ("String",), ("Boolean",), ("isNaN",),
@@ -1225,8 +1261,12 @@ def _measured_use(node, scopes):
         if v is None:
             return False
         if key in TOUCH_READS:
-            return isinstance(v, (int, float)) and (v in (0, 5) if par["operator"] in ("==", "===", "!=", "!==")
-                                                     else 0 <= v <= 4)
+            # round 10 (Fable's review of round 9): a touch laptop (1, 2 or 10 points) is in no session, so the
+            # touch points are only told apart from none
+            op = par["operator"] if par["left"] is node else {"<": ">", ">": "<", "<=": ">=", ">=": "<="}.get(
+                par["operator"], par["operator"])
+            return isinstance(v, (int, float)) and not isinstance(v, bool) and (
+                v == 0 and op in ("==", "===", "!=", "!==", ">", "<=") or v == 1 and op in (">=", "<"))
         # round 8 (Fable's fourth review): only a value the probe can set (a text such as 'pt_BR.UTF-8',
         # a read with no axis such as the orientation was accepted and never measured)
         axes = _env_axes()
@@ -1786,16 +1826,36 @@ def _function_info(tree, scopes):
 
 def _fresh(value, scopes):
     """A value that is a new object of the change's own: a literal object or list, a function, a class,
-    `new` of a global constructor."""
+    `new` of one of the language's plain containers (FRESH_CTORS). Round 10 (Fable's review of round 9): an
+    unknown value (a parameter, a name taken from a pattern) is not, nor `new Proxy(old, {})`, whose writes
+    reach the old object."""
     if value is None:
-        return True
+        return False
     t = value["type"]
     if t in ("ObjectExpression", "ArrayExpression", "ClassExpression") or t in FUNCTIONS:
         return True
     if t == "NewExpression" and value["callee"]["type"] == "Identifier" and \
-            scopes.refs.get(id(value["callee"]), 0) is None:
+            scopes.refs.get(id(value["callee"]), 0) is None and value["callee"]["name"] in FRESH_CTORS:
         return True
     return False
+
+
+# round 11 (Fable's review of round 10): what new code in a page script may use at all. A list, not a list of
+# exceptions: each review found another object or method of the page (an observer, a node, a promise, an old
+# object's own methods) through which new code ran later, branched on data or changed what the old code holds
+GLOBALS_OK = frozenset("""Math Number String Boolean Array Object Reflect JSON Symbol Map Set WeakMap WeakSet Error
+TypeError RangeError undefined NaN Infinity parseInt parseFloat isNaN isFinite window self globalThis
+arguments""".split())
+SAFE_METHODS = frozenset("""slice substring indexOf lastIndexOf includes startsWith endsWith charCodeAt charAt
+codePointAt toLowerCase toUpperCase trim split join concat push pop shift map filter forEach some every find
+findIndex get set has add keys values entries toString call apply""".split())
+PURE_GLOBAL_CALLS = frozenset(("Math", "Number", "String", "Boolean", "parseInt", "parseFloat", "isNaN", "isFinite",
+                               "Array.isArray", "Object.keys", "Object.freeze", "JSON.stringify", "Symbol",
+                               "Intl.DateTimeFormat"))
+# old state new code may read inside its own functions (the site's name and the level; never a real value
+# the protection hides, such as the real cores, nor the noise's key)
+OLD_STATE_OK = frozenset(("host",))
+FRESH_CTORS = frozenset(("Map", "Set", "WeakMap", "WeakSet", "Array", "Error", "TypeError", "RangeError"))
 
 
 def _prototype_like(value, scopes, seen=()):
@@ -1871,6 +1931,20 @@ def page_tree_problems(name, old, new):
     def clean(e):
         return _clean(e, sn, clean_keys, axes)
 
+    # every value given to a name anywhere (round 10: an assignment in a nested function was not among its values)
+    assigned = {}
+    for q in _walk(t_new):
+        if q["type"] == "AssignmentExpression":
+            for tg in _js_target_names(q["left"]) if q["left"]["type"] != "MemberExpression" else ():
+                k = sn.refs.get(id(tg))
+                if k is not None:
+                    assigned.setdefault(k, []).append(q["right"] if q["operator"] == "=" and
+                                                       q["left"]["type"] == "Identifier" else None)
+        elif q["type"] == "UpdateExpression" and q["argument"]["type"] == "Identifier":
+            k = sn.refs.get(id(q["argument"]))
+            if k is not None:
+                assigned.setdefault(k, []).append(None)
+
     def fresh_obj(node):
         """An object the change made itself, named directly (round 9, Fable's review of round 8: `h.a` of a new
         `h` may hold an old object, `{a: Navigator.prototype}`, so only the new name itself counts)."""
@@ -1880,7 +1954,8 @@ def page_tree_problems(name, old, new):
         key = sn.refs.get(id(node))
         if key is None or old_binding(key):
             return False
-        return all(_fresh(v, sn) for v in sn.values.get(key, [None]))
+        return all(_fresh(v, sn) for v in sn.values.get(key, [None])) and \
+            all(v is not None and _fresh(v, sn) for v in assigned.get(key, []))
 
     def root_ok(target):
         """A target new code writes: a new name, or a member of an object the change made, one level deep."""
@@ -2082,6 +2157,89 @@ def page_tree_problems(name, old, new):
             return True
         return any(isinstance(v, dict) and v.get("type") in FUNCTIONS for v in sn.values.get(key, []))
 
+    def apply_alias(key):
+        """An old name for Reflect.apply (RAPPLY): new code calls an original through it."""
+        vals = sn.values.get(key) or []
+        return bool(vals) and all(isinstance(v, dict) and v["type"] == "MemberExpression" and
+                                  _chain(v) == ["Reflect", "apply"] for v in vals)
+
+    def new_param(node):
+        """A parameter of a function the change adds (an original a wrap hands it)."""
+        node = _strip(node)
+        if node["type"] != "Identifier":
+            return False
+        key = sn.refs.get(id(node))
+        return key is not None and not old_binding(key) and binding_kind(key) == "param"
+
+    def interface_root(node):
+        """A page interface named as the root of `X.prototype`."""
+        par = sn.parent.get(id(node))
+        return re.fullmatch(r"[A-Z][A-Za-z0-9]*", node["name"]) is not None and par is not None and \
+            par["type"] == "MemberExpression" and par["object"] is node and _prop_name(par) == "prototype"
+
+    def callee_problem(call, in_new_fn):
+        """Round 11 (Fable's review of round 10): what new code may call. A definer (judged by rule (f)), a pure
+        helper of the old script, a function of the change's own, an original handed to it (a parameter, also
+        through Reflect.apply or .call/.apply), the language's pure functions, a harmless method of a value of
+        its own; `new` of a plain container. Nothing of the page (observers, nodes, promises, timers) and no
+        old object's own methods: each ran new code later, branched on data or changed the old state."""
+        c = _strip(call["callee"])
+        if c["type"] in FUNCTIONS:
+            return None                  # a function of the change's own, called at once (its body is judged)
+        if c["type"] in ("Identifier", "MemberExpression") and _covered(c, sn, axes):
+            return None                  # a configuration read (matchMedia, Intl), judged as such
+        if call["type"] == "NewExpression":
+            if c["type"] == "Identifier" and sn.refs.get(id(c), 0) is None and c["name"] in FRESH_CTORS:
+                return None
+            if c["type"] == "MemberExpression" and _chain(c) == ["Intl", "DateTimeFormat"] and \
+                    sn.refs.get(id(_root(c)), 0) is None and not call["arguments"]:
+                return None
+            return "a new `new` of something other than a plain container (Map, Set, Array...)"
+        if c["type"] == "Identifier":
+            key = sn.refs.get(id(c), 0)
+            if key is None:
+                return None if c["name"] in PURE_GLOBAL_CALLS else \
+                    "a new call of the global %s: only the language's pure functions" % c["name"]
+            if key in definers or old_function(key) or apply_alias(key) and call["arguments"] and \
+                    new_param(call["arguments"][0]):
+                return None
+            if not old_binding(key) and (binding_kind(key) in ("function", "param") or
+                                         all(isinstance(v, dict) and v["type"] in FUNCTIONS
+                                             for v in sn.values.get(key) or [None])):
+                return None
+            return "a new call of %s, which is no function of the change's own nor a helper of the old script" % \
+                c["name"]
+        if c["type"] == "MemberExpression":
+            ch = _chain(c)
+            if ch and sn.refs.get(id(_root(c)), 0) is None and (".".join(ch) in PURE_GLOBAL_CALLS or
+                                                                ch[0] == "Math" and len(ch) == 2 or
+                                                                tuple(ch[-2:]) in OBJECT_MUTATORS):
+                return None
+            m = _prop_name(c)
+            if ch and ch[:2] == ["Reflect", "apply"] and call["arguments"] and new_param(call["arguments"][0]):
+                return None
+            if m in ("call", "apply"):
+                return None if new_param(c["object"]) else \
+                    "a new .%s of something that is no original handed to the change" % m
+            if m in SAFE_METHODS:
+                obj = _strip(c["object"])
+                if obj["type"] in ("Literal", "TemplateLiteral", "ArrayExpression", "ObjectExpression", "ThisExpression"):
+                    return None
+                if obj["type"] == "Identifier":
+                    key = sn.refs.get(id(obj), 0)
+                    if key is not None and key != 0 and not old_binding(key):
+                        return None
+                if obj["type"] in ("CallExpression", "MemberExpression", "BinaryExpression") and \
+                        not any(q["type"] == "Identifier" and sn.refs.get(id(q)) is not None and
+                                old_binding(sn.refs.get(id(q))) and not old_function(sn.refs.get(id(q)))
+                                for q in _walk(obj)):
+                    return None
+            if ch and ch[-1] == "matches" or m == "matchMedia":
+                return None
+            return "a new call of .%s on something not of the change's own (only harmless methods of its own " \
+                   "values: an old or a page object's methods change it or run code later)" % m
+        return "a new call of a computed function"
+
     def direct_callee(node):
         par = sn.parent.get(id(node))
         return par is not None and par["type"] == "CallExpression" and par["callee"] is node
@@ -2127,6 +2285,52 @@ def page_tree_problems(name, old, new):
             if key is not None and old_function(key) and node["name"] not in helpers:
                 say(node, "a new use of the old function %s (it runs old code again, or keeps new code in old "
                           "state): new code calls only the pure helpers and wrap, getter, setter" % node["name"])
+        # round 10 (Fable's review of round 9): outside a new function, new code runs once, in the protection's
+        # own flow, and reads no old state (the site, I.K.E.'s settings, the old tables): `[0].slice(x)`,
+        # `'x'.repeat(-x)` or `JSON.parse(x)` branched on it without a condition. Round 11: inside a new
+        # function too (a function called at once ran the same), but for OLD_STATE_OK
+        if t == "Identifier" and id(node) in sn.refs:
+            key = sn.refs[id(node)]
+            par = sn.parent.get(id(node))
+            gpar = sn.parent.get(id(par)) if par is not None else None
+            on_chain = par is not None and par["type"] == "MemberExpression" and par["object"] is node and \
+                gpar is not None and gpar["type"] == "MemberExpression" and gpar["object"] is par and \
+                _prop_name(gpar) == "prototype" and binding_kind(key) == "param"   # install's w.X.prototype
+            if key is not None and old_binding(key) and not old_function(key) and not on_chain and \
+                    not apply_alias(key) and \
+                    not (axes is not None and node["name"] in axes.PROTECTION_STATE):
+                if not in_new_fn or node["name"] not in OLD_STATE_OK:
+                    say(node, "a new line reads the old state %s (what it holds can make new code take another way "
+                              "with no condition, and it may be a real value the protection hides)%s" %
+                        (node["name"], "" if in_new_fn else ": read it inside a new function"))
+        if t == "Identifier" and sn.refs.get(id(node), 0) is None and _covered(node, sn, axes):
+            top = node
+            while True:
+                par = sn.parent.get(id(top))
+                if par is not None and (par["type"] == "MemberExpression" and par["object"] is top or
+                                        par["type"] in ("CallExpression", "NewExpression") and par["callee"] is top):
+                    top = par
+                    continue
+                break
+            is_matches = top["type"] == "MemberExpression" and _prop_name(top) == "matches" and \
+                top["object"]["type"] == "CallExpression"
+            if not (is_matches or _measured_use(node, sn) or _covered(top, sn, axes) and _measured_use(top, sn)):
+                say(node, "a new line uses a configuration otherwise than compared with a literal (in arithmetic "
+                          "or as an argument it can make new code take another way that no session sets)")
+        # round 11: the globals new code may name (the language's plain objects, the window as the holder of
+        # what is measured or of an interface's prototype, a page interface as `X.prototype`)
+        if t == "Identifier" and sn.refs.get(id(node), 0) is None and node["name"] not in GLOBALS_OK and \
+                not _covered(node, sn, axes) and not interface_root(node):
+            par = sn.parent.get(id(node))
+            if not (par is not None and par["type"] in ("Property", "MemberExpression") and
+                    (par.get("key") is node and not par.get("computed") or
+                     par.get("property") is node and not par.get("computed"))):
+                say(node, "a new use of the global %s: new code uses the language's plain objects, the "
+                          "configurations measured and page interfaces' prototypes only" % node["name"])
+        if t in ("CallExpression", "NewExpression"):
+            why = callee_problem(node, in_new_fn)
+            if why:
+                say(node, why)
         if t in ("FunctionDeclaration", "ClassDeclaration") and node.get("id"):
             key = sn.decl_of.get(id(node["id"]))
             if key is not None and old_binding(key):
@@ -2247,8 +2451,8 @@ def page_tree_problems(name, old, new):
                     defining_call(node, "native")
                 elif not (node["arguments"] and fresh_obj(node["arguments"][0])):
                     say(node, "a new call of %s.%s changes an object the change did not make" % kind)
-            elif key is not None and key in definers:
-                defining_call(node, "helper")
+            elif key is not None and key in definers and old_binding(key):
+                defining_call(node, "helper")    # a new function that defines is judged at its own calls
             if callee["type"] == "MemberExpression":
                 m = _prop_name(callee)
                 if m in MUTATING_METHODS and not fresh_obj(callee["object"]):
@@ -2338,7 +2542,7 @@ def page_tree_problems(name, old, new):
             return None
         if par["type"] == "VariableDeclarator":
             return (sn.parent.get(id(par)) or {}).get("kind")
-        if par["type"] == "FunctionDeclaration":
+        if par["type"] == "FunctionDeclaration" and par.get("id") is decl:
             return "function"
         if par["type"] in FUNCTIONS:
             return "param"
@@ -2382,11 +2586,31 @@ def page_tree_problems(name, old, new):
     # screen's in one change (a half-width window on a wide screen: the sessions have the window at the
     # screen's size); more values or combinations than a run measures
     if axes is not None and added:
-        kinds = set(axes.derive(_literals_of(added, sn, axes)))
+        lits = _literals_of(added, sn, axes)
+        reads = {x.get("read") for x in lits}
         for dim in ("width", "height"):
-            if {"viewport-" + dim, "screen-" + dim} <= kinds:
-                say(added[0], "a new condition on both the window's %s and the screen's: the measurement sets "
-                              "the window at the screen's size, so no session could tell them apart" % dim)
+            groups = [bool(reads & {"inner" + dim.title(), "visualViewport"}) or
+                      any("(min-%s" % dim in str(x.get("media")) or "(max-%s" % dim in str(x.get("media")) or
+                          "(%s" % dim in str(x.get("media")) for x in lits),
+                      bool(reads & {"screen." + dim, "screen.avail" + dim.title()}) or
+                      any("device-%s" % dim in str(x.get("media")) for x in lits),
+                      bool(reads & {"outer" + dim.title()})]
+            if sum(groups) > 1:
+                say(added[0], "a new condition on more than one of the window's, the screen's and the outer "
+                              "window's %s: the measurement sets them together, so no session could tell them "
+                              "apart" % dim)
+        # round 10: one kind of touch read per change (the sessions have a touch screen with no hover and 5
+        # points, or none: a touch laptop's mix of a fine pointer and touch points is in none)
+        touch = set()
+        for x in lits:
+            if x.get("read") in TOUCH_READS or x.get("axis") == "touch":
+                touch.add("points")
+            for g, v in re.findall(r"\(\s*([a-z-]+)\s*:\s*([a-z-]*)", str(x.get("media") or "")):
+                if g in ("pointer", "any-pointer", "hover", "any-hover"):
+                    touch.add(g + ": " + v)       # round 11: one feature with two values is a touch laptop too
+        if len(touch) > 1:
+            say(added[0], "a new condition on more than one kind of pointer or touch read (%s): a touch laptop "
+                          "mixes them, and no session does" % ", ".join(sorted(touch)))
         if axes.too_many(_literals_of(added, sn, axes)):
             say(added[0], "a new condition compares the configurations with more values than a run of the "
                           "measurement sets (tools/env-axes.py MAX_DERIVED, MAX_JOINT)")
