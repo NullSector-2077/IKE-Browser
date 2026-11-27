@@ -1,23 +1,31 @@
 #!/bin/sh
-# Which part of the Dark Engine keeps a page busy: the same page with the engine
-# as it is ("proto"), without its look at whether the page is dark already
-# ("nolook") and without its analysis of pictures ("nopic"), each next to the page
-# without dark mode ("off"). Read-only, as owner-check.sh (a private profile).
-#   sh tests/dark_engine/busy-check.sh ADDRESS [--click "I'm Over 18"]
+# Which part of the Dark Engine keeps a page busy: copies of the engine with one
+# part changed (tests/dark_engine/variants.py), each next to the page without
+# dark mode ("off"). Read-only, as owner-check.sh (a private profile).
+#   sh tests/dark_engine/busy-check.sh ADDRESS [--click "I'm Over 18"] [--modes off,protolog,...]
+# Modes: proto (as it is), protonopic, protonolook, protolog (every picture
+# written to run.log), protonosvg, protonofrag.
 here=$(cd "$(dirname "$0")" && pwd)
 url="$1"; shift
-[ -n "$url" ] || { echo "usage: $0 ADDRESS [--click TEXT]"; exit 2; }
+[ -n "$url" ] || { echo "usage: $0 ADDRESS [--click TEXT] [--modes ...]"; exit 2; }
+modes="off,protolog,protonosvg,protonofrag"
+case "$1" in --modes) modes="$2"; shift 2;; esac
+case "$3" in --modes) modes="$4"; set -- "$1" "$2";; esac
 tmp=$(mktemp -d)
-js="$here/../../ike/darkengine.js"
-sed 's/^  function looksDarkNow() {$/  function looksDarkNow() { return false;/' "$js" > "$tmp/nolook.js"
-sed "s/^  function picture(url, done) {\$/  function picture(url, done) { return { state: 'keep', data: null, waiting: [] };/" "$js" > "$tmp/nopic.js"
-grep -q "looksDarkNow() { return false;" "$tmp/nolook.js" && grep -q "picture(url, done) { return" "$tmp/nopic.js" ||
-    { echo "the engine changed: this check needs updating"; exit 1; }
+python3 "$here/variants.py" "$tmp" || exit 1
 out="$HOME/ike-dark-busy-$(date +%F)"
 rm -rf "$out"
-DE_JS_protonolook="$tmp/nolook.js" DE_JS_protonopic="$tmp/nopic.js" \
-    sh "$here/owner-check.sh" --modes off,proto,protonolook,protonopic --url "$url" "$@" "$out"
+DE_JS_protonopic="$tmp/nopic.js" DE_JS_protonolook="$tmp/nolook.js" DE_JS_protolog="$tmp/log.js" \
+DE_JS_protonosvg="$tmp/nosvg.js" DE_JS_protonofrag="$tmp/nofrag.js" \
+    sh "$here/owner-check.sh" --modes "$modes" --url "$url" "$@" "$out"
 echo
 echo "== what happened (send this):"
 grep -E "clicked|shot|still|answered|busy|error|Trace" "$out/run.log"
+if grep -q "\[ike-de\]" "$out/run.log"; then
+    echo "== the last pictures before it stopped:"
+    grep "\[ike-de\]" "$out/run.log" | tail -15
+    echo "== the slowest:"
+    grep "drawn in" "$out/run.log" | sort -t' ' -k5 -n | tail -5
+    echo "pictures asked: $(grep -c 'ike-de. asked' "$out/run.log")"
+fi
 rm -rf "$tmp"

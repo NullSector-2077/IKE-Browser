@@ -236,7 +236,7 @@ def main():
 
     class Page(QWebEnginePage):
         def javaScriptConsoleMessage(self, level, msg, line, src):
-            if os.environ.get("DE_DEBUG"):
+            if os.environ.get("DE_DEBUG") or msg.startswith("[ike-de]"):
                 print("console:", msg, line, src[-40:], flush=True)
 
     class Guard(QWebEngineUrlRequestInterceptor):
