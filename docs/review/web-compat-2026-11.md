@@ -276,8 +276,14 @@ from a home connection.
 
 At Kontrol and Maximum the Turnstile frame of Vimeo's and Claude's checks
 logged "Refused to create a worker from 'https://challenges.cloudflare.com/
-...turnstile...'": probably the same R3 mechanism (4.1). Passed to the
-Cloudflare session as data; not analysed further here.
+...turnstile...'". The Cloudflare session found the cause, and it is not R3:
+Turnstile starts `blob:` workers in a frame that allows only its own Trusted
+Types policies; I.K.E.'s policy is refused, the bare protected address goes
+through Turnstile's default policy, which turns it into an address the
+frame's `worker-src` refuses. Fixed there in `fingerprint.js` only (branch
+`claude/trusting-tesla-k117lz`, verified at Balanced, Kontrol and Maximum).
+S1 touches the same part of `fingerprint.js` (the Worker proxy, `fromFile`,
+`asTrusted`): it must be built on top of that fix.
 
 ## 5. Web technologies (local test page, `tests/compat/webtech/`)
 
@@ -352,7 +358,9 @@ Work:
    protection listens for its `securitypolicyviolation`, starts the real
    worker, sends it the messages the page posted meanwhile and passes its
    messages and errors on, and hides the engine's error about the refused
-   copy (`sameErrors` already does this for other errors). After the first
+   copy (`sameErrors` already does this for other errors), on top of the
+   Cloudflare session's Trusted Types fix of the same Worker proxy (4.7).
+   After the first
    refusal the document starts file workers directly. Only pages that both
    forbid `blob:` workers and start workers pay anything; no page pays at
    start. Tests: WhatsApp-like and Telegram-like local pages with the same
