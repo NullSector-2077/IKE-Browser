@@ -11,7 +11,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.29** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.30** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -19,7 +19,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.29-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.30-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -134,7 +134,7 @@ profiles: `ike-browser --profile NAME`.
   Mail, Yahoo Mail) or with the computer's mail program; I.K.E. can also take
   the email links of other programs.
 - Page dark mode with the I.K.E. Dark Engine (I.K.E.'s own, since 1.1.28; the
-  only one since 1.1.29: Dark Reader's colours at about half its cost, sites
+  only one since 1.1.30: Dark Reader's colours at about half its cost, sites
   that are dark already left alone, Dark Reader's lists for single sites), or
   with the engine's own dark mode, which is much lighter
   ([docs/review/tests-and-performance.md](docs/review/tests-and-performance.md)).

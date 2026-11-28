@@ -1,6 +1,9 @@
 # Changelog
 
-## 1.1.29
+## 1.1.30
+
+1.1.29 was never published on its own: everything prepared for it is in
+this release.
 
 - **Strict is now called Kontrol** (the owner's choice, the K of I.K.E.): the
   shield's fourth level keeps its protections and its place, and every
