@@ -100,6 +100,15 @@ function lum(c){function f(v){v/=255;return v<=0.04045?v/12.92:Math.pow((v+0.055
 function label(e){return e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(typeof e.className==='string'&&e.className?'.'+e.className.trim().split(/\s+/).slice(0,3).join('.'):'');}
 var sheets=[],unreadable=[];
 for(var i=0;i<document.styleSheets.length;i++){var sh=document.styleSheets[i];try{sh.cssRules;sheets.push(sh);}catch(e){unreadable.push(sh.href||'(inline)');}}
+(document.adoptedStyleSheets||[]).forEach(function(sh){sheets.push(sh);});
+// every rule that gives this element a background picture or gradient, as the page has it now
+function bgRules(el){var found=[];function walk(list,href){for(var j=0;j<list.length&&found.length<6;j++){var r=list[j];
+ try{if(r.selectorText&&r.style&&(r.style.getPropertyValue('background-image')||r.style.getPropertyValue('background'))&&el.matches(r.selectorText))
+  found.push((href||'inline/adopted')+' :: '+r.selectorText.slice(0,80)+' { background: '+(r.style.getPropertyValue('background')||'')+' ; background-image: '+r.style.getPropertyValue('background-image')+(r.style.getPropertyPriority('background-image')?' !important':'')+' }');
+  else if(r.cssRules)walk(r.cssRules,href);}catch(e){}}}
+ for(var k=0;k<sheets.length;k++)walk(sheets[k].cssRules,(sheets[k].href||'').slice(-60));
+ var at=el.getAttribute('style');if(at&&/background/.test(at))found.push('style attribute: '+at.slice(0,200));
+ return found;}
 function rulesFor(el){var found=[];function walk(list,href){for(var j=0;j<list.length&&found.length<4;j++){var r=list[j];
  try{if(r.selectorText&&r.style&&(r.style.backgroundColor||r.style.background)&&el.matches(r.selectorText))found.push((href||'inline')+' :: '+r.selectorText.slice(0,80)+' { background: '+(r.style.backgroundColor||r.style.background).slice(0,60)+' }');
  else if(r.cssRules)walk(r.cssRules,href);}catch(e){}}}
@@ -168,7 +177,7 @@ for(var t2=tw2.nextNode();t2&&lowc.length<20;t2=tw2.nextNode()){
    else if(/gradient|url\(/.test(L.image||'')||L.kind==='inset shadow'){
     var gc=(L.image||L.color||'').match(/rgba?\([^)]*\)|#[0-9a-f]{3,8}\b|\bwhite\b/gi)||[];
     if(gc.some(function(c){var q=rgba(c)||(/white|#fff/i.test(c)?[255,255,255,1]:null);return q&&q[3]>0.3&&lum(q)>0.5;})||/url\(/.test(L.image||''))
-     found={layer:label(x2),kind:L.kind,value:(L.image||L.color),inline:(x2.getAttribute('style')||'').slice(0,120)};}}}
+     found={layer:label(x2),kind:L.kind,value:(L.image||L.color),inline:(x2.getAttribute('style')||'').slice(0,120),rules:bgRules(x2)};}}}
  if(found&&found!=='dark')lowc.push({text:t2.data.trim().slice(0,40),el:label(e2),rect:[Math.round(r2.left),Math.round(r2.top),Math.round(r2.width),Math.round(r2.height)],
   color:getComputedStyle(e2).color,under:found,path:chain.slice(0,6)});}
 return JSON.stringify({light:out,onpicture:onpic,lowcontrast:lowc,unreadable:unreadable.slice(0,20),sheets:document.styleSheets.length,
