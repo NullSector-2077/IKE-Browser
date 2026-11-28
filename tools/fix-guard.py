@@ -126,7 +126,8 @@ PROTECTED_PY = ("ike/blocker.py", "ike/scriptlets.py", "vendor/adblock/__init__.
                 "ike/shields.py", "ike/doh.py", "ike/sitedata.py", "ike/drm.py", "ike/chromever.py",
                 "ike/debounce.py")
 # I.K.E.'s own page scripts (the others under ike/resources/ come from upstream or are YouTube's)
-PROTECTED_JS = ("ike/resources/fingerprint.js", "ike/resources/consent.js", "ike/resources/darkmode.js",
+# (ike/resources/darkmode.js, unused since 1.1.30, removed by a person on the owner's order of 2026-11-28)
+PROTECTED_JS = ("ike/resources/fingerprint.js", "ike/resources/consent.js",
                 "ike/resources/passwords.js", "ike/resources/reader.js", "ike/resources/userscript.js")
 PROTECTED_JSON = ("ike/resources/lookalike.json",)
 PROTECTED_RS = re.compile(r"^ike-adblock/src/[A-Za-z0-9_/]+\.rs$")

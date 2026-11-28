@@ -187,8 +187,9 @@ are agreed with the project owner; do not reopen them without asking.
   blocked in the ledger. ChatGPT's and people's PRs keep waiting for the
   owner's order. The owner's standing order to Claude: Claude merges the PRs
   the owner asked for when all checks are green.
-- 2026-11-21, for 1.1.21: I.K.E.'s changes to Dark Reader
-  (`tools/build-darkreader.py`) stay only when their speed gain was
+- 2026-11-21, for 1.1.21 (obsolete since 1.1.30: Dark Reader's engine left
+  I.K.E., only its lists remain, `tools/build-darkreader-lists.py`): I.K.E.'s
+  changes to Dark Reader (then `tools/build-darkreader.py`) stay only when their speed gain was
   measured (larger than the spread in two runs). Kept, 9 families:
   color-variables, style-groups, shadow-texts, shadow-host-walk (measured
   against all of 1.1.20's changes); dark-copy with shadow-styles-once,
@@ -212,7 +213,7 @@ are agreed with the project owner; do not reopen them without asking.
   `linux/packages`, `linux/distro-checks`, `automation/audit`,
   `docs/multiplatform-plan`. Their Arch container check now runs weekly on
   `main` (`.github/workflows/arch.yml`).
-- One change at a time, each tried by the owner on CachyOS. Menus, settings
+- One change at a time, each tried by the owner before release. Menus, settings
   and navigation are not reorganised, and YouTube ad blocking is not changed,
   without asking.
 - I.K.E. runs on old computers (e.g. an Ivy Bridge i5-3570K) and any graphics
@@ -235,49 +236,27 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Status
 
-- AUTOMAT, 2026-11-27 (the AUTOMAT/maintenance session). Merged: the AI stall
-  (#179: stale "spent today" marks re-checked after 3 hours, a busy free model
-  hands over at once, the providers' own words in the log, Gemini's real quota
-  learned from its 429), little reasoning asked of every free model (#187),
-  the providers' new free models found and used each week (#189), AUTOMAT's
-  playbook given to the AIs and engine limits no longer given to them (#190,
-  #202; PR #111 closed at the owner's order), Arch's archive asked gently
-  (#186), the weekly scoreboard issue (#191), the low-risk candidates once a
-  week (#192), Arch's [testing] every day (#194), PyQt's API compared from its
-  wheels (#195), the Chromium features I.K.E. sets checked weekly (#196, #200),
-  GitHub's "Update branch" accepted by the verified merge (#203). Open: #205
-  (learned limits kept for the next days), and the automation side of 1.1.30
-  (Dark Reader's engine removed, its lists kept: in the Dark Engine session's
-  PR #204). Next: the drill as the AIs' field test after 1.1.30; then one AI
-  caller in place of five (simplification D). Waiting for the owner: the
-  weekly Claude session for tier B, the start-up rescue path in ike_boot.py;
-  `ike/resources/darkmode.js` (unused since 1.1.30) leaves only when a person
-  removes it from tools/fix-guard.py PROTECTED_JS.
-- AUTOMAT block 1 (2026-11-24, branch `automation/block1-priority`): real
-  updates may use all of the free quota, background work (the drill, the
-  CI's updates) only the day's leftovers and never while a real update is
-  pending, OpenRouter's free models as one budget, the merged candidate
+- **1.1.30** (1.1.29 included, never published on its own) is merged into
+  `main` and waits for the owner's signature (`python3 tools/publish.py`).
+  Its work: the I.K.E. Dark Engine as the only page dark mode (Dark Reader's
+  engine removed, its lists kept), the menus and Settings reorganised, the
+  level Strict shown as Kontrol, Brave's debounce list (skip the tracker's
+  stop), the shield's figures in the logo's typeface, the privacy package
+  (common English, the broom's panel, Cover Your Tracks' "randomized").
+- **AUTOMAT** (the maintenance session), 2026-11-28. Open: #205 (learned
+  limits kept for the next days), #212, #215. Next: the drill as the AIs'
+  field test after 1.1.30 (#208); then one AI caller in place of five
+  (simplification D). Waiting for the owner: the weekly Claude session for
+  tier B; the start-up rescue path in ike_boot.py.
+- AUTOMAT block 1 (2026-11-24, branch `automation/block1-priority`, merged):
+  real updates may use all of the free quota, background work (the drill,
+  the CI's updates) only the day's leftovers and never while a real update
+  is pending, OpenRouter's free models as one budget, the merged candidate
   branches deleted and a weekly branch sweep (two independent reviews'
-  findings fixed). Pushed without a pull request while the owner signs
-  1.1.24; the providers' reset times are not verified.
-- 1.1.24 privacy package A2b (branch `feature/1.1.24-privacy`, approved by
-  the owner item by item): bounce tracking cleaned (on), the protected time
-  zone in the shield (off), quiet permission questions in the address bar
-  (on), the password breach check (off), "Update the system" from a signed
-  engine advisory (shown only once the owner writes
-  `data/engine-advisory.json` before signing a release) and the battery
-  saver (off). To be tried by the owner on KDE Plasma: the sign in the
-  address bar and the battery saver on a laptop (UPower).
-- 1.1.18 was not published (the last tag is v1.1.17); 1.1.19 carries it and
-  its own work (the engine's home-network protection, a faster Dark Reader,
-  the vertical tabs' separator, Startpage by default) and waits for the
-  owner's signature (`python3 tools/publish.py`).
-- The owner checks the YouTube anti-adblock notice on CachyOS with 1.1.18.
-- 1.1.21 interface polish (branch `ui/1.1.21-polish`, on top of 1.1.20): an
-  ⓘ after each option in place of the grey line under it, texts that never
-  touch or cross a border (tests/test_text_fit.py, every language pack),
-  About and the other windows that fit the screen, menus that scroll. To be
-  tried by the owner on KDE Plasma (Breeze), which the tests cannot start.
+  findings fixed); the providers' reset times are not verified.
+- **Kept for the owner's decision**: `experiment/file-workers` (workers
+  started from a file) and `feature/engine-identity-check` (a weekly check of
+  the engine's identity in the signing notice), never merged.
 
 ## Open work
 
@@ -295,25 +274,15 @@ are agreed with the project owner; do not reopen them without asking.
 - **Smooth page loading (1.1.19, owner's request)**: measured with
   `tests/measure_smooth.py` (docs/review/tests-and-performance.md):
   pictures, big photos, lazy pictures, growing feeds and slow pages show no
-  cost of I.K.E.; the cost is Dark Reader on heavy pages (made faster in
-  1.1.19). Scrolling with a real graphics card is measured on the owner's
-  computer. Left as it is, a choice for the owner: the check "does this site
-  have a dark theme of its own?" lays the page out once before Dark Reader
-  starts (about 50 ms on a long article), as Dark Reader's own extension
-  does; a lighter check would darken some sites that are dark already.
+  cost of I.K.E. beyond the page dark mode, whose lighter choice is
+  Chromium's own. Scrolling with a real graphics card is still to be
+  measured on real hardware.
 - **Workers started from a file**: `experiment/file-workers` (see Known
   limits); merged only if the owner wants it, probably as an option.
-- **Dark Reader**: the early cover now leaves from inside `<head>` as an
-  image (1.1.20). Proposed by the independent review and left for the
-  owner: write Dark Reader's `::selection` colours as plain colours (about
-  20 ms less on Lit pages; same colours, but one rule's text differs from
-  Dark Reader's own). Tried in 1.1.19 and left out: a cache of each rule's
-  text (about 7 % less work, but a rule a site changes later could keep old
-  colours).
 - **Fingerprinting, done for 1.1.21** (docs/SECURITY.md): the font
-  allowlist at the global levels Strict and Maximum (owner's decision of
-  2026-11-21; to be tried on the owner's KDE desktop: the interface font
-  follows it), cores 4 or 8, `matchMedia` and the shown screen size (M-2,
+  allowlist at the global levels Kontrol (then called Strict) and Maximum
+  (owner's decision of 2026-11-21; the interface font follows it on KDE
+  Plasma), cores 4 or 8, `matchMedia` and the shown screen size (M-2,
   partial: style sheets remain the engine's), the Public Suffix List for the
   noise's site (L-2), `window.name` across sites (L-3). The GPU name at
   Strict stays hidden (evaluated: rarer than "not available").
@@ -365,12 +334,11 @@ docs/MAINTENANCE.md when the task touches them.
   one's messages (scripts are installed by the user).
 - The graphics card presented to sites at Balanced is a common Intel or NVIDIA
   model; a script comparing rendering with the model could notice the
-  mismatch. At Strict and Maximum no model is named (1.1.25: with one shared
+  mismatch. At Kontrol and Maximum no model is named (1.1.25: with one shared
   set of extensions and a floor of limits for everyone).
-- Page dark mode with Dark Reader costs more than the engine's own dark mode
-  (it rewrites the page's style sheets): measured in
-  docs/review/tests-and-performance.md; the engine's dark mode is the lighter
-  choice.
+- The I.K.E. Dark Engine costs more than Chromium's own dark mode (it
+  rewrites the page's style sheets): measured in
+  docs/review/tests-and-performance.md; Chromium's is the lighter choice.
 - A worker a site starts from a file of its own (`new Worker("/w.js")`) sees
   the real values (graphics card, cores): Qt WebEngine gives no way to add a
   script to it. A partial way around it is on the branch

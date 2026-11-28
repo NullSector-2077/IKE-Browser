@@ -7,7 +7,7 @@ the automatic tests; to compare two versions on the same computer.
 The page adds 12,000 elements, removes them and sets innerHTML 300 times, seven
 times; the median of the seven is one round. Prints the median of the rounds
 (ms). LISTS_DIR as for measure_perf.py --lists. IKE_MEASURE_SETTINGS (JSON) adds
-settings, e.g. '{"dark_mode": "on", "dark_engine": "reader"}'.
+settings, e.g. '{"dark_mode": "on", "dark_engine": "ike"}'.
 """
 import json
 import os

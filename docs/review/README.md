@@ -2,7 +2,9 @@
 
 > A snapshot of 1.0.x, kept as written then: much of what it lists as open was
 > done in later versions (CHANGELOG.md). `tests-and-performance.md` also holds
-> the measurements of later versions. Current open work and decisions:
+> the measurements of later versions, up to 1.1.28: Dark Reader, measured there,
+> left I.K.E. in 1.1.30, the level Strict is now called Kontrol, and some files
+> it names no longer exist. Current open work and decisions:
 > [ROADMAP.md](../../ROADMAP.md).
 
 This folder is the report of the work planned in [ROADMAP.md](../../ROADMAP.md)

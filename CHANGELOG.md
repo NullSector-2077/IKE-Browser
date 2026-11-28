@@ -35,12 +35,12 @@ this release.
   "randomized" on both of its sites, took that for the same value and counted
   nothing. Now every export is the site's own picture (another on every site
   and in every session, as Brave does), the plugins differ at every level
-  (Strict and Maximum: Chrome's five PDF viewers in an order of the site's own)
+  (Kontrol and Maximum: Chrome's five PDF viewers in an order of the site's own)
   and the cores are 4 or 8 per site at every level where the computer has 8:
-  four or five of five, at Balanced, Strict and Maximum
+  four or five of five, at Balanced, Kontrol and Maximum
   (tests/test_cover_your_tracks.py runs Cover Your Tracks' comparison on two
-  sites). The common graphics card tried for 1.1.30 is gone again: on the
-  owner's computer Cover Your Tracks counted its Linux name as 1 browser in
+  sites). The common graphics card tried while preparing this release is gone
+  again: in a real test Cover Your Tracks counted its Linux name as 1 browser in
   58,876 (15.85 bits), against 1 in 183 for "None".
 - **Strict is now called Kontrol** (the owner's choice, the K of I.K.E.): the
   shield's fourth level keeps its protections and its place, and every
@@ -76,7 +76,7 @@ this release.
   so a band of a shop's home page stayed white under text made light. The
   engine now sets the mapped value with no specificity (at the root, or on
   every element when the property is not inherited), so a value the page sets
-  itself still wins (tests/test_dark_engine_hard.py). The owner's check also
+  itself still wins (tests/test_dark_engine_hard.py). The live check also
   says where a light area's variables get their value.
 - **A variable's fallback colour is darkened too**: a page that defines a
   colour as another variable with a fallback (`--band-bg: var(--theme-bg,
@@ -96,8 +96,8 @@ this release.
   only pictures that hold data are let go for their size, and a sheet, rule
   or element is written again for a returning picture at most 40 times in
   10 s.
-- The owner's check can click a site's age or cookie question first
-  (`--click "I'm Over 18"`) and takes a page that never stops loading (live
+- The live check can click a site's age or cookie question first
+  (`--click "Accept"`) and takes a page that never stops loading (live
   video) as it is after 20 s instead of giving up.
 - **A gradient next to a variable is darkened too**: a background written as a
   gradient beside a variable in one value (`linear-gradient(#fff, #fff),
@@ -108,15 +108,15 @@ this release.
   page's text is made light, so a caption drawn dark over a light photo (a
   shop's banner or card) became light on light; text laid over a large picture
   now gets a dark halo (tests/test_dark_engine_hard.py).
-- The owner's check also runs inside the owner's own I.K.E., on the page as
-  it is seen (`tests/dark_engine/live-diag.py`, signed in and scrolled), and
+- The live check also runs inside a running I.K.E., on the page as it is
+  seen (`tests/dark_engine/live-diag.py`, signed in and scrolled), and
   lists light text on a light layer or picture with the site's own rules.
 - **AUTOMAT follows Dark Reader's lists only**: the engine, its builder and its
   re-anchoring are gone (`tools/build-darkreader-lists.py` rebuilds the
   shipped lists byte for byte with `ike/darklists.py`'s own functions); the
   lists are checked every day and fetched by the browser itself (no
   candidate).
-- The Dark Engine's check on the owner's computer also writes `diagnose.txt`:
+- The Dark Engine's live check also writes `diagnose.txt`:
   the large light areas the engine left and where their colour comes from (a
   rule of a sheet, an inline style, a sheet the page cannot read, a frame, a
   picture).
@@ -166,12 +166,12 @@ this release.
   (4 px), rising a few pixels as they fade in. They were a flat grey box.
 - **Sites see a more ordinary Chromium** (the Engine Privacy Layer study,
   measured against Arch's own Chromium of the engine's version, Chrome and
-  Brave: docs/review/engine-privacy-study.md on the study's branch). At
+  Brave: docs/review/engine-privacy-study.md). At
   Balanced and above `window.chrome` is the one Chromium 140 has (`loadTimes`,
   `csi`, `app`, measured shape: no difference left), `permissions.query`
   answers as Chromium where Qt WebEngine said "denied" for everything it has
   no prompt for, and the network a page reads (rtt, downlink) and the network
-  hints are the common ones Strict already showed (Qt said rtt 0). CreepJS
+  hints are the common ones Kontrol already showed (Qt said rtt 0). CreepJS
   already saw I.K.E. as "like headless" no more than Chrome and Brave.
 - **No advertising measurement**: Attribution Reporting and Topics are off in
   the engine (`ConversionMeasurement`, `BrowsingTopics`; their APIs taken from
@@ -182,7 +182,7 @@ this release.
   workers, dates and numbers say what the page says (they said "en" where
   the page said "en-US"). The language header is written as Chrome writes it
   (`de-DE,de;q=0.9,en-US;q=0.8`; Qt sent the list without weights, which no
-  Chromium does), and at Strict and Maximum it keeps the engine's own place
+  Chromium does), and at Kontrol and Maximum it keeps the engine's own place
   among the headers.
 - **HTTP/3**, as Chrome, Chromium and Brave use it (Qt WebEngine leaves it
   off): faster on weak or changing networks, never through a proxy; a
@@ -276,7 +276,7 @@ this release.
   element, keeps what the user writes in editors and mails as written, prints
   the page's own colours, and a page cannot stop it. Measured against Dark
   Reader's own test scenarios (122 of 125 alike, the 3 others deliberate) and
-  page by page (docs/DARK-ENGINE-EXPERIMENT.md).
+  page by page (docs/DARK-ENGINE.md).
 - **Its own panel** under the toolbar's Dark mode button (a moon when the page
   is dark, a sun when it is not), in I.K.E.'s Plasma look: "I.K.E. Dark
   Engine", on everywhere and on this site, four styles drawn in their own

@@ -13,9 +13,10 @@ ike-browser (C launcher, /usr/bin)
 
 The browser process is Python. Web content never runs in it: pages run in
 Chromium's renderer processes, inside Chromium's sandbox (kernel namespaces
-and seccomp-bpf). I.K.E. does not switch the sandbox off; the two exceptions
-are a start as administrator, where Chromium cannot use it, and the GitHub
-runner. Help → About says when it is off.
+and seccomp-bpf). I.K.E. does not switch the sandbox off: since 1.1.18 it refuses to start as
+administrator (root), where Chromium cannot use it, unless the user asks for
+that at their own risk; the GitHub runner is the other exception. Help → About
+says when it is off.
 
 ## Layers
 

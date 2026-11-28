@@ -763,7 +763,11 @@ def decide(run, failed_jobs, open_fix_pr, open_issues=(), now=None):
         again = RERUN_STEPS if name == "Tests" else ARCH_RERUN_STEPS
         reporting = REPORTING_JOBS.get(name, ())
         steps = [st for j in failed_jobs if j["name"] not in reporting for st in failed_steps(j)]
-        if tested and attempt == 1 and steps and all(st in again for st in steps):
+        # 2026-11-27 (the drill): a commit the automatic fix itself wrote ("autofix: attempt n ...") fails because
+        # what is left of the breaks is still there, not by chance: the next attempt at once, not a run again
+        # (each such re-run cost a round of 40 minutes of the tests)
+        own_attempt = str(((run.get("head_commit") or {}).get("message") or "")).startswith("autofix:")
+        if tested and attempt == 1 and steps and all(st in again for st in steps) and not own_attempt:
             plan.update(action="rerun", reason="the tests failed once (step: %s): they run once more before any "
                         "automatic fix, a test that fails only sometimes is no matter for an AI" % ", ".join(steps))
             return plan

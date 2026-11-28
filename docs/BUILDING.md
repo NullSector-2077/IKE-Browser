@@ -71,6 +71,25 @@ The file records the uBlock Origin commit it was built from;
 `licenses/NOTICE.ubo-scriptlets`, installed with the package, says where its
 corresponding source is.
 
+## The other components from upstream
+
+Every component that comes from another project is declared in
+`components.json` (docs/MAINTENANCE.md, "The component manifest"), and
+`tools/check-components.py` checks each one for a newer version every day.
+
+- **Dark Reader's lists** (`ike/resources/darkreader-data.json`, the I.K.E.
+  Dark Engine's fixes for single sites): `python3 tools/build-darkreader-lists.py
+  --src <a clone of darkreader/darkreader>`; the browser also fetches them
+  itself once a day (`ike/darklists.py`).
+- **KDE's Breeze icons** (`ike/resources/icons/sets/breeze/`, only the icons
+  I.K.E. uses): `python3 tools/build-breeze-icons.py --src <a clone of
+  KDE/breeze-icons> --tag vX.Y.Z`.
+- **Brave's debounce list** (`ike/resources/brave-debounce.json`): a plain
+  download of `brave-lists/debounce.json` at the commit recorded in
+  `components.json`, checked by its sha256; nothing is built.
+- **The Orbitron typeface** (`ike/resources/fonts/orbitron.ttf`): a fixed copy
+  of Google Fonts' file, not followed upstream.
+
 ## Licences
 
 The package installs in `/usr/share/licenses/ike-browser/` the full GPL v3 text

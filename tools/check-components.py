@@ -14,8 +14,8 @@ Components and where the version in use is written:
   hints of a site's own dark theme): ``ike/resources/darkreader-data.json``
   (rebuilt with tools/build-darkreader-lists.py from the newest commit of Dark
   Reader's repository). Its engine left I.K.E. in 1.1.30. The browser fetches
-  the lists itself once a day (ike/darklists.py), so a change of them is a
-  weekly candidate only (tools/update-candidates.py, WEEKLY);
+  the lists itself once a day (ike/darklists.py), so a change of them makes
+  no candidate ("update": False, check_darkreader);
 - KDE's Breeze icons, the shipped icon set "breeze" (1.1.24):
   ``ike/resources/icons/sets/breeze/`` (rebuilt with tools/build-breeze-icons.py
   from the newest release tag of breeze-icons, only the icons I.K.E. uses;

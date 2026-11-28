@@ -2,7 +2,7 @@
 # Which part of the Dark Engine keeps a page busy: copies of the engine with one
 # part changed (tests/dark_engine/variants.py), each next to the page without
 # dark mode ("off"). Read-only, as owner-check.sh (a private profile).
-#   sh tests/dark_engine/busy-check.sh ADDRESS [--click "I'm Over 18"] [--modes off,protolog,...]
+#   sh tests/dark_engine/busy-check.sh ADDRESS [--click "Accept"] [--modes off,protolog,...]
 # Modes: proto (as it is), protonopic, protonolook, protolog (every picture
 # written to run.log), protonosvg, protonofrag.
 here=$(cd "$(dirname "$0")" && pwd)

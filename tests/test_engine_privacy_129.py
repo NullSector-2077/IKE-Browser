@@ -1,5 +1,5 @@
 """1.1.30: the engine privacy layer (Engine Privacy Layer study, 2026-11-27,
-docs/review/engine-privacy-study.md on the study branch).
+docs/review/engine-privacy-study.md).
 
 - Attribution Reporting and Topics off in the engine: Qt WebEngine kept an
   advertiser's attribution source in the profile (Chromium 140 keeps none)
@@ -182,7 +182,7 @@ def test_window_chrome_permissions_and_network_as_chromium(run_ike, page_site, l
     port, seen = page_site
     out = run_ike(SHAPE % port, settings={"shield_level": level, "accept_language": "en-US,en"}, timeout=120)
     r = json.loads(out["r"])
-    # the shape measured on Chromium 140 (tools/engine-probe/chrome-shape.html on the study branch)
+    # the shape measured on Chromium 140 (the study's probe page, not kept)
     assert r["configurable"] is False and r["keys"] == ["loadTimes", "csi", "app"], r
     assert r["app"] == ["isInstalled", "getDetails", "getIsInstalled", "installState", "runningState",
                         "InstallState", "RunningState"], r

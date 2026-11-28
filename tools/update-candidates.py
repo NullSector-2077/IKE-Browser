@@ -35,7 +35,8 @@ Rules (the plan below; the workflow follows them):
   path instead (``automation/builder/<id>``, WP11: an AI may only re-anchor
   I.K.E.'s existing changes, tools/builder-anchor.py; uBlock Origin's
   scriptlets only since 1.1.30), or, for a builder with nothing to re-anchor
-  (Dark Reader's lists, KDE's Breeze icons), waits for a person;
+  (KDE's Breeze icons), stays at the version in use: the daily report says
+  why and the daily check tries every new release again;
 - a source unreachable today makes nothing (the next run tries again).
 
 Each candidate's own commit is ``update: <id> <from> -> <to> (no AI)`` and may
@@ -110,8 +111,10 @@ PRIORITY = ("adblock", "pyo3", "crates", "crate-major-", "test-qt", "test-tools"
 # are their own branches (automation/update/security-*) and never wait. An open weekly candidate is left as it
 # is between Mondays: it still merges by itself when verified.
 # 1.1.30: Dark Reader's engine left I.K.E.; its lists are fetched by the browser itself once a day
-# (ike/darklists.py, 1.1.27: no new version every day for simple lists), so the copy I.K.E. comes with (for a
-# new profile, or one that could not fetch them) is refreshed weekly: never more than a week old in a release.
+# (ike/darklists.py, 1.1.27: no new version for simple lists), so a change of them makes no candidate at all,
+# daily or weekly (tools/check-components.py check_darkreader: "update" is always False, the change only
+# noted). The copy I.K.E. comes with (for a new profile, or one that could not fetch them) is only the first
+# start's fallback.
 WEEKLY = ("crates", "test-tools", "test-libs", "ci-")
 WEEKLY_DAY = 0                  # Monday
 UPDATE_COMMIT = re.compile(r"^update: ([a-z0-9_-]+) (.{1,300}) -> (.{1,300}) \(no AI\)$")

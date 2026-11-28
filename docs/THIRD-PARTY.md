@@ -1,7 +1,7 @@
 # Third-party components
 
 What I.K.E. ships, what it only downloads or uses, and under which licence.
-Checked against the sources on 2026-11-20 (1.1.18); what could not be checked
+Checked against the sources of 1.1.30 (2026-11-28); what could not be checked
 from there is marked **not verified**.
 
 Every component falls in one of four categories:
@@ -40,20 +40,21 @@ release (`v<version>`).
 | Brave's debounce list (Brave Software; the rules that let I.K.E. skip a tracker's stop and Google's AMP copies) | `ike/resources/brave-debounce.json`: `brave-lists/debounce.json` of https://github.com/brave/adblock-lists, unchanged, at the commit recorded in `components.json` (entry `brave-debounce`, which the daily maintenance follows) | MPL-2.0 | `LICENSE.brave-adblock-lists` (the repository's LICENSE at that commit) | licence text; the file is its own source form, shipped unmodified, and its exact upstream address and commit are in `components.json` |
 | Lucide icons | `ike/resources/icons/sets/lucide` | ISC (parts from Feather, MIT, as its licence file says) | `LICENSE.lucide` (identical to https://github.com/lucide-icons/lucide) | copyright notices and licence text |
 | Phosphor Icons (fill and bold weights, @phosphor-icons/core 2.1.1) | `ike/resources/icons/sets/phosphor`, `ike/resources/icons/sets/phosphor-bold` | MIT | `LICENSE.phosphor` (the LICENSE of @phosphor-icons/core 2.1.1; line endings differ) | copyright notice and licence text |
-| Breeze icons (KDE; Copyright (C) 2014 Uri Herrera and others), only the icons I.K.E. uses (about a hundred, under 100 KB) | `ike/resources/icons/sets/breeze`, built by `tools/build-breeze-icons.py` from the release of https://github.com/KDE/breeze-icons (KDE's own: https://invent.kde.org/frameworks/breeze-icons) recorded with its commit in `breeze-icons.json` next to the icons; the daily maintenance follows new releases (`components.json`, entry `breeze-icons`) | LGPL-3.0-or-later (Breeze's `COPYING-ICONS`) | `LICENSE.breeze-icons` (Breeze's notice and clarification, then the complete GNU LGPL v3; the GNU GPL v3 it builds on is `LICENSE`) | licence text and notice; the source is the SVG files themselves (Breeze's clarification); the change is stated where the icons are (`breeze-icons.json`: the colour-scheme style removed so they draw in the interface's text colour, the Breeze file of each one) and in `LICENSE.breeze-icons`; I.K.E. only uses them (LGPL v3, section 4, and Breeze's note on section 5) |
+| Breeze icons (KDE; Copyright (C) 2014 Uri Herrera and others), only the icons I.K.E. uses (132 icons, about 140 KB) | `ike/resources/icons/sets/breeze`, built by `tools/build-breeze-icons.py` from the release of https://github.com/KDE/breeze-icons (KDE's own: https://invent.kde.org/frameworks/breeze-icons) recorded with its commit in `breeze-icons.json` next to the icons; the daily maintenance follows new releases (`components.json`, entry `breeze-icons`) | LGPL-3.0-or-later (Breeze's `COPYING-ICONS`) | `LICENSE.breeze-icons` (Breeze's notice and clarification, then the complete GNU LGPL v3; the GNU GPL v3 it builds on is `LICENSE`) | licence text and notice; the source is the SVG files themselves (Breeze's clarification); the change is stated where the icons are (`breeze-icons.json`: the colour-scheme style removed so they draw in the interface's text colour, the Breeze file of each one) and in `LICENSE.breeze-icons`; I.K.E. only uses them (LGPL v3, section 4, and Breeze's note on section 5) |
 | Orbitron 2.001 (typeface, The Orbitron Project Authors) | only the lettering of the logo and of the full name, drawn as paths in `ike/resources/ike.svg`, `ike/resources/wordmark.svg` and the icons of `data/icons` (approved artwork, with dedicated drawings for sizes up to 64 px); since 1.1.30 also the font file itself, `ike/resources/fonts/orbitron.ttf` (`ofl/orbitron/Orbitron[wght].ttf` of https://github.com/google/fonts at commit 5026800714d07231937d92eb4cceabf06e05d74e, unchanged, sha256 f42db2dd16e642258e35782916eceb1dcdbea06fb958d77ad71dc5963587e8fd), for the shield's numbers and the new tab page's figures (`ike/cyberfont.py`); a fixed copy chosen by the owner, not followed upstream | SIL Open Font License 1.1 | `LICENSE.orbitron` (identical to `ofl/orbitron/OFL.txt` of https://github.com/google/fonts) | the font file is shipped unmodified with its copyright notice and licence (OFL 1.1, conditions 1-2; its Reserved Font Name is not used by any modified version, as nothing is modified); it is bundled with the software, never sold by itself |
 | New tab picture (the Earth with its network of lights) | `ike/resources/newtab-background.webp`; the approved PNG reference at `ike/resources/newtab-preview.png` supplies the preview if Qt lacks a WebP plugin | made for I.K.E. by the project's owner with an AI image generator (ChatGPT or Gemini); no third-party rights are known; shipped under I.K.E.'s licence | `LICENSE` | — |
 | Fallback icons | `ike/resources/icons/fallback` | simple outline icons drawn for I.K.E. (in the repository since 1.0.0; no outside source is known); I.K.E.'s licence | `LICENSE` | — |
 
 Nothing else of other projects is in the package: the other files of
-`ike/resources/` (page scripts, the new tab page, the language files, the logo,
-`lookalike.json`) and of `data/` are I.K.E.'s own.
+`ike/resources/` (page scripts, the new tab page and its greeting
+(`greeting.js`, `holidays.json`), the language files, the logo, `lookalike.json`)
+and of `data/` are I.K.E.'s own.
 
 ## Filter lists (category 2)
 
 The filter lists are **not shipped** with I.K.E.: each user's browser downloads
 them from their maintainers' own servers and keeps them in its cache. I.K.E.
-uses them unchanged and only reads them. Defaults (Settings -> Privacy):
+uses them unchanged and only reads them. Defaults (Settings → Ads and trackers):
 
 | List | Maintainer, address | Licence | Checked on 2026-11-20 | Default |
 |---|---|---|---|---|
