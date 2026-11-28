@@ -2,6 +2,41 @@
 
 ## 1.1.31
 
+- **Cloudflare's checks pass again at Balanced, Kontrol and Maximum** (the
+  owner saw Turnstile fail at every level but Compatibility; Brave at its
+  highest protection passed). Found by switching I.K.E.'s protections off one
+  at a time in the real engine on Cloudflare's own Turnstile demo: not the
+  cookies, the ad blocking, the headers or the noise, but the workers.
+  Cloudflare's challenge frame allows only its own Trusted Types policies by
+  name; I.K.E. starts a page's worker from an address with its protection in
+  it, made trusted by a policy of its own, which that frame refuses. The bare
+  address went on, the frame's own default policy turned it into an address
+  its worker-src refuses, and Turnstile's workers never started. Now, where
+  the site refuses I.K.E.'s policy and has a default policy of its own, the
+  worker starts as the page asked (its values are the engine's there; the
+  page itself stays protected); everywhere else workers keep the protection
+  as before. Verified on turnstile.pages.dev: Off, Compatibility, Balanced,
+  Kontrol and Maximum all pass (`ike/resources/fingerprint.js`,
+  tests/test_trusted_types_workers.py).
+- **A page's script cannot take the protection out of its workers** (found by
+  the two independent reviews of the change above): I.K.E.'s policy is made
+  as a document from the network starts, before any script of the page, so
+  only the policy the site's server sent can refuse it, not a `<meta>` a
+  script adds later; empty frames, srcdoc and blob: documents, which take
+  such a `<meta>` from the page, never start a worker without the protection
+  (it keeps it, or does not start); a page that used up the stack, or gave a
+  `data:` worker an address with a character beyond Latin-1, got a worker
+  without the protection until now and gets an error or a protected worker;
+  and the page no longer sees the protection's own refusals (in an empty
+  frame it always saw one, from "userscript"), while its own Trusted Types
+  errors and events still reach it. Two older ways to an unprotected inline
+  worker found by the review are still open (docs/SECURITY.md, "Known
+  limits of the noise").
+- **The noise's seed is no longer handed to such a page**: the protection's
+  policy was named 'p' + the site's seed, and a site that refuses it reads the
+  name in the refusal (`securitypolicyviolation`'s `sample`, and the report its
+  server receives); with the seed the noise can be taken off. The name is now
+  random, another in every document.
 - **Pages that steal passwords are stopped** (the owner's choice after the
   comparison with the best-known browsers): the Phishing URL Blocklist
   (curben's malware-filter, from OpenPhish, IPThreat and PhishTank, updated

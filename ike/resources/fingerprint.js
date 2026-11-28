@@ -76,10 +76,12 @@
   }
   // strings and arrays the same way (fingerprinting audit, H-A)
   var S_SLICE = String.prototype.slice, S_INDEX = String.prototype.indexOf, S_LOWER = String.prototype.toLowerCase;
+  var S_CODE = String.prototype.charCodeAt;
   function sslice(s, a, b) { return RAPPLY(S_SLICE, s, b === undefined ? [a] : [a, b]); }
   function sindex(s, x, from) { return RAPPLY(S_INDEX, s, from === undefined ? [x] : [x, from]); }
   function lower(s) { return RAPPLY(S_LOWER, s, []); }
   var HASOWN = Object.prototype.hasOwnProperty, RE_EXEC = RegExp.prototype.exec, RE_TEST = RegExp.prototype.test;
+  var IS_PROTO = Object.prototype.isPrototypeOf, RANGE_PROTO = RangeError.prototype, NUM_STR = Number.prototype.toString;
   function own(o, k) { return RAPPLY(HASOWN, o, [k]); }
   var M_ = Map, M_GET = Map.prototype.get, M_SET = Map.prototype.set, M_DEL = Map.prototype['delete'];
   function hardStrongMap() {
@@ -164,6 +166,13 @@
   // The site the user is visiting (not the frame's own), so every frame of a
   // page shares the same protection level and the same noise.
   var host = location.hostname;
+  // the scheme of this script's own document, read before any script of the
+  // page: only a document from the network has a policy its server alone sent
+  var DOC_PROTO = location.protocol;
+  // a frame whose parent is of its own origin: the parent can give it a
+  // policy (<iframe csp="...">) without its server (the independent review)
+  var SAME_PARENT = false;
+  try { SAME_PARENT = window.parent !== window && !!window.parent.document; } catch (e) {}
   try {
     var ao = location.ancestorOrigins;
     if (ao && ao.length) host = new URL(ao[ao.length - 1]).hostname || host;
@@ -2167,10 +2176,22 @@
     'origin: R(OR, e, []), lastEventId: R(LI, e, []), source: R(SO, e, []), ports: pl })]); }\n'];
   var RND = new Uint32Array(1), RND_GET = crypto.getRandomValues, CRYPTO = crypto;
   // run: a classic worker from a file, whose prelude then runs the file
+  // JSON text in ASCII only (1.1.31, the independent review): a data:
+  // address, or an installed font's name, with a character beyond Latin-1
+  // made btoa() throw, and the worker started as the page asked, without the
+  // protection; the same characters as \uXXXX escapes, as JSON allows
+  function ascii(json) {
+    var out = '';
+    for (var i = 0; i < json.length; i++) {
+      var ch = RAPPLY(S_CODE, json, [i]);
+      out += ch < 127 ? json[i] : '\\u' + sslice('000' + RAPPLY(NUM_STR, ch, [16]), -4);
+    }
+    return out;
+  }
   function preludeFor(address, ownSeed, run) {
     var sd = seed;
     if (ownSeed) { RAPPLY(RND_GET, CRYPTO, [RND]); sd = RND[0] || 1; }
-    var at = RAPPLY(JSON_STR, JSON, [address]);
+    var at = ascii(RAPPLY(JSON_STR, JSON, [address]));
     var p = WP_HEAD + WCFG + WP_TAIL + sd + ',' + at + (run ? ')(' + at + ');\n' : ');\n');
     while (p.length % 3) p += ' ';               // so it can be joined to base64 data
     return p;
@@ -2216,10 +2237,10 @@
   // the workers' configuration, made before any page script (its arrays
   // could otherwise be turned into something else by the page's toJSON);
   // at Strict and above it carries the masks for the workers' own fonts
-  WCFG = JSON_STR({ cores: cores, mem: strict ? 8 : 0, langs: workerLangs, strict: strict, maximum: maximum,
+  WCFG = ascii(JSON_STR({ cores: cores, mem: strict ? 8 : 0, langs: workerLangs, strict: strict, maximum: maximum,
     gpus: GPUS, pick: PICK, hidden: hiddenExt, lines: PRELUDE_LINES, glx: GLX, net: NET,
     mtop: MODULE_TOP,
-    fonts: strict ? MASKED : null, blank: strict ? BLANK_FONT : null });
+    fonts: strict ? MASKED : null, blank: strict ? BLANK_FONT : null }));
   // A FontFace source written by the page at Strict and above: every local()
   // entry taken out, so no installed font can be asked for by name, however
   // it is spelt (fingerprinting audit H-D; verification V-7: tabs, CSS
@@ -2355,6 +2376,9 @@
     h: getterOf(window.ImageData && ImageData.prototype, 'height') });
 
   // ---- one realm ---------------------------------------------------------------
+  // the site's server refused the protection's policy in this script's own
+  // document (see makePolicy): its empty frames may refuse it too
+  var MAIN_REFUSED = false;
   function install(w) {
     var WPr = w.Promise;            // this realm's, for then()
     if (!w) return;
@@ -2950,19 +2974,71 @@
     var XP = NXHR && NXHR.prototype, xOpen = XP && XP.open, xSend = XP && XP.send;
     // Trusted Types (verification V-13): a TrustedScriptURL is read through
     // its own method and passed on as it is when nothing is added; an
-    // address with the prelude gets a policy of the protection's own
+    // address with the prelude gets a policy of the protection's own.
+    // 1.1.31 (Cloudflare's Turnstile failed at Balanced and above): that
+    // policy is made as the document starts, before any script of the page,
+    // so only the policy the site's server sent can refuse it (a policy a
+    // script adds later, in a <meta>, cannot: the independent review). Its
+    // name is random: it was 'p' + the site's seed, which a refusal's report
+    // hands to the page (securitypolicyviolation, `sample`), and the seed
+    // gives the noise away. Where the site allows only its own policies by
+    // name (Cloudflare's challenge frame: `trusted-types <name> default`) and
+    // has a default policy of its own, the worker starts with the page's own
+    // TrustedScriptURL, as the page asked: until 1.1.31 the bare address went
+    // on, the page's default policy turned it into an address its worker-src
+    // refuses, and the worker never started. With no default policy the bare
+    // address goes on as before (the engine takes it where Trusted Types are
+    // not required, and refuses it, with the worker the page asked for as
+    // the fallback below, where they are).
     var TTP = w.trustedTypes, TT_MAKE = TTP && TTP.createPolicy;
     var TT_URL = w.TrustedTypePolicy && w.TrustedTypePolicy.prototype.createScriptURL;
-    var TSU_STR = w.TrustedScriptURL && w.TrustedScriptURL.prototype.toString, ttPolicy = null, TT_NAME = 'p' + seed;
+    var TT_DEFAULT = getterOf(w.TrustedTypePolicyFactory && w.TrustedTypePolicyFactory.prototype, 'defaultPolicy');
+    var TT_TYPEERR = w.TypeError && w.TypeError.prototype, W_RANGE = w.RangeError && w.RangeError.prototype;
+    var outOfStack = function (e) {
+      try { return RAPPLY(IS_PROTO, RANGE_PROTO, [e]) || (!!W_RANGE && RAPPLY(IS_PROTO, W_RANGE, [e])); }
+      catch (x) { return false; }
+    };
+    var TSU_STR = w.TrustedScriptURL && w.TrustedScriptURL.prototype.toString, ttPolicy = null, ttRefused = false;
+    var ttName = '';
     var trustedText = function (v) {
       if (!TSU_STR || v === null || typeof v !== 'object') return null;
       try { return RAPPLY(TSU_STR, v, []); } catch (e) { return null; }
     };
-    var asTrusted = function (u) {
+    // only the engine's refusal of the policy (a TypeError) counts: another
+    // error (a page that used up the stack first, the review) leaves it to be
+    // asked for again
+    var makePolicy = function () {
+      if (ttPolicy || ttRefused || !TT_MAKE || !TT_URL) return;
       try {
-        if (!ttPolicy) ttPolicy = RAPPLY(TT_MAKE, TTP, [TT_NAME, { createScriptURL: function (x) { return x; } }]);
-        return RAPPLY(TT_URL, ttPolicy, [u]);
-      } catch (e) { return u; }
+        RAPPLY(RND_GET, CRYPTO, [RND]);
+        ttName = 'p' + RND[0];
+        ttPolicy = RAPPLY(TT_MAKE, TTP, [ttName, { createScriptURL: function (x) { return x; } }]);
+      } catch (e) {
+        try { if (TT_TYPEERR && RAPPLY(IS_PROTO, TT_TYPEERR, [e])) ttRefused = true; } catch (x) {}
+      }
+    };
+    // a document from the network, protected before any script of its own:
+    // a refusal now comes from the policy its server sent. Empty frames,
+    // srcdoc and blob: documents take the policy of the document that made
+    // them, a <meta> a script added included (the independent review): there
+    // a refusal counts only if the server's policy refused it in this
+    // script's own document as well.
+    var netDoc = w === window && !SAME_PARENT && (DOC_PROTO === 'https:' || DOC_PROTO === 'http:');
+    makePolicy();
+    if (netDoc && ttRefused) MAIN_REFUSED = true;
+    var serverRefused = ttRefused && (netDoc || (w !== window && MAIN_REFUSED));
+    // the site's server refused the policy and the page has a default policy
+    // of its own: its worker starts as it asked
+    var asAsked = function () {
+      if (!serverRefused) return false;
+      try { return !!(TT_DEFAULT && RAPPLY(TT_DEFAULT, TTP, [])); } catch (e) { return false; }
+    };
+    // the address as a TrustedScriptURL of the protection's policy, or the
+    // bare address when there is none
+    var asTrusted = function (u) {
+      makePolicy();
+      if (!ttPolicy) return u;
+      try { return RAPPLY(TT_URL, ttPolicy, [u]); } catch (e) { return u; }
     };
     var xStatus = getterOf(XP, 'status'), xText = getterOf(XP, 'responseText');
     // Strict and Maximum (1.1.25, independent review): a dedicated worker the
@@ -3035,16 +3111,30 @@
     }
     // a content security policy that refuses the blob address: its report of
     // the protection's own attempt is not the page's (review round 3, N-6);
-    // the worker the page asked for is then refused (see above)
+    // the worker the page asked for is then refused (see above). The same
+    // for a refusal of the protection's Trusted Types policy or of its
+    // address (1.1.31, the independent review: in an empty frame the page
+    // always saw it, named as coming from "userscript"), at every level. The
+    // report a server asked for (report-uri) cannot be held back.
     var SPV = w.SecurityPolicyViolationEvent && w.SecurityPolicyViolationEvent.prototype;
     var vBlocked = getterOf(SPV, 'blockedURI'), vSource = getterOf(SPV, 'sourceFile');
-    if (strict && vBlocked && vSource) {
+    var vDirective = getterOf(SPV, 'effectiveDirective'), vSample = getterOf(SPV, 'sample');
+    if (vBlocked && vSource) {
       try {
         RAPPLY(eAdd, w, ['securitypolicyviolation', function (e) {
           try {
-            if (RAPPLY(vBlocked, e, []) === 'blob' && sindex(`${RAPPLY(vSource, e, [])}`, 'userscript') === 0) {
-              RAPPLY(eStop, e, []);
-            }
+            // only the engine's own events (isTrusted cannot be changed by a
+            // page): an event a page makes is the page's (the review)
+            if (e.isTrusted !== true || sindex(`${RAPPLY(vSource, e, [])}`, 'userscript') !== 0) return;
+            // only what the protection caused: the refusal of its own policy,
+            // and of the bare address it gives where its policy was refused;
+            // a page's own Trusted Types errors through a replaced function
+            // (innerHTML, the Worker proxy) name "userscript" too and stay
+            // the page's (the review)
+            var d = vDirective ? `${RAPPLY(vDirective, e, [])}` : '';
+            if ((strict && RAPPLY(vBlocked, e, []) === 'blob') ||
+                (d === 'trusted-types' && ttName && vSample && RAPPLY(vSample, e, []) === ttName) ||
+                (d === 'require-trusted-types-for' && ttRefused)) RAPPLY(eStop, e, []);
           } catch (x) {}
         }, true]);
       } catch (e) {}
@@ -3083,8 +3173,12 @@
             var opt = workerOptions(args[1], args.length > 1);
             var send = function (u) { return opt.given ? [u, opt.value] : [u]; };
             var call = send(tt !== null ? first : url), asked = call;
+            var inline = sslice(url, 0, 5) === 'blob:' || lower(sslice(url, 0, 5)) === 'data:';
             try {
-              if (strict && name === 'Worker' && sslice(url, 0, 5) !== 'blob:' && lower(sslice(url, 0, 5)) !== 'data:') {
+              if (tt !== null && asAsked()) {
+                // nothing to add: the worker the page asked for (a file of the
+                // site's at Strict and above: refused by the request check)
+              } else if (strict && name === 'Worker' && sslice(url, 0, 5) !== 'blob:' && lower(sslice(url, 0, 5)) !== 'data:') {
                 file = fromFile(url, opt.module);
                 if (file) call = send(tt !== null ? asTrusted(file) : file);
               } else if (sslice(url, 0, 5) === 'blob:') {
@@ -3119,13 +3213,26 @@
                   PATCHED.set(made, url);
                 }
               }
-            } catch (e) {}
+            } catch (e) {
+              // a page that used up the stack first, or gave an address the
+              // protection could not be added to, got the worker it asked for
+              // without it (1.1.31, the independent review): the error
+              // instead, for an inline worker (a file's is refused anyway at
+              // these levels, by the request check)
+              if (outOfStack(e) || (!file && inline)) { clean(e); throw e; }
+            }
             // the engine's own errors (a policy of Trusted Types, say) without
-            // the protection's lines in their stack (M-5); a blob address a
-            // policy refuses: the worker the page asked for (see fromFile)
+            // the protection's lines in their stack (M-5). The worker the page
+            // asked for when the protection's address is refused: a file's
+            // (refused anyway at these levels, see fromFile), or in a document
+            // from the network, whose policy only its server sent. An inline
+            // worker anywhere else is not started without the protection: a
+            // script could have given an empty frame the policy that refuses it
             var made;
             try { made = nConstruct(target, call, nt); } catch (e) {
-              if (call !== asked) { try { return nConstruct(target, asked, nt); } catch (e2) { clean(e2); throw e2; } }
+              if (call !== asked && !outOfStack(e) && (file || netDoc || !inline)) {
+                try { return nConstruct(target, asked, nt); } catch (e2) { clean(e2); throw e2; }
+              }
               clean(e); throw e;
             }
             if (file) sameErrors(made, file);
