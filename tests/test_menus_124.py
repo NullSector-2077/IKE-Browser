@@ -4,11 +4,11 @@ criterio e logica, e con le scritte centrate bene").
 
 - Every entry of the menus of 1.1.23 is still there, in the menu bar and
   under the ☰ menu, and every keyboard shortcut still works.
-- The ☰ menu's "More" holds the menu bar's File, Edit, View and Tools, each
-  with its icon (in 1.1.23 they had none and their texts began left of the
-  other menus'), and no text touches the arrow of its submenu, in every
-  widget style (KDE's Breeze left 3 px or less: "View" and "Tools" touched
-  it); Help is in the ☰ menu itself.
+- The ☰ menu's submenus each have their icon (in 1.1.23 they had none and
+  their texts began left of the other menus'), and no text touches the arrow
+  of its submenu, in every widget style (KDE's Breeze left 3 px or less:
+  "View" and "Tools" touched it). (1.1.30: "More" gave way to the owner's
+  categories, tests/test_menus_reorg.py.)
 - The Settings' search field keeps the pages that have the words typed and
   marks the options, by their names, their ⓘ explanations and their choices,
   without accents and capitals; Esc empties it; nothing found says so.
@@ -32,7 +32,7 @@ ENTRIES_1123 = [
     "Copy", "Paste", "Select all", "Find in page…", "Vertical tabs", "Menu bar", "System title bar",
     "Customise toolbar…", "Split view", "Reader mode", "Workspaces", "Zoom in", "Zoom out", "Actual size",
     "Dark mode for pages", "On everywhere", "On for this site", "Full screen", "Page source",
-    "Developer tools", "Protection level for every site", "Off", "Compatibility", "Balanced", "Strict",
+    "Developer tools", "Protection level for every site", "Off", "Compatibility", "Balanced", "Kontrol",
     "Maximum", "Repair this site", "Site permissions…", "Update filter lists now", "Clear browsing data…",
     "Protection settings…", "User scripts", "Skip ads in videos", "Cookie banners", "Password manager",
     "Notify me when a page changes", "Video in a floating window", "Translate page", "Containers",
@@ -46,10 +46,12 @@ ENTRIES_1123 = [
     "Reopen closed tab", "Show all history", "Bookmark this page", "Manage bookmarks", "Manage containers…",
     "New profile…", "New workspace…", "Rename workspace…", "Delete workspace",
 ]
-# the ☰ menu of 1.1.23, its own entries
-BURGER_1123 = ["New tab", "New window", "New private window", "Protection", "I.K.E. extensions",
-               "Dark mode for pages", "Zoom", "History", "Bookmarks", "Downloads", "Print…", "Save as PDF…",
-               "Screenshot…", "More", "Settings…", "Check for I.K.E. updates", "About I.K.E.", "Quit"]
+# the ☰ menu of 1.1.23, its own entries (1.1.30: its submenus Protection, Zoom,
+# History, Bookmarks and More are the owner's categories now, and Screenshot's
+# entries are shown in place, under its name)
+BURGER_1123 = ["New tab", "New window", "New private window", "I.K.E. extensions",
+               "Dark mode for pages", "Downloads", "Print…", "Save as PDF…",
+               "Screenshot", "Settings…", "Check for I.K.E. updates", "About I.K.E.", "Quit"]
 KEYS_1123 = [
     "Alt+1", "Alt+2", "Alt+3", "Alt+4", "Alt+5", "Alt+6", "Alt+7", "Alt+8", "Alt+9", "Alt+D", "Alt+Home",
     "Alt+Left", "Alt+Right", "Ctrl++", "Ctrl+,", "Ctrl+-", "Ctrl+0", "Ctrl+=", "Ctrl+D", "Ctrl+F", "Ctrl+F5",
@@ -95,26 +97,22 @@ def steps(ike, qapp, out):
     out["burger"] = sorted(burger)
     out["top"] = [a.text() for a in win.burger.actions() if not a.isSeparator()]
     out["keys"] = sorted({k.toString() for a in win.actions() for k in a.shortcuts()})
-    # More: the menu bar's File, Edit, View and Tools, the same actions, an icon each; Help in ☰
+    # the ☰ menu's categories: an icon each; the same actions as the menu bar
+    subs = [a.menu() for a in win.burger.actions() if a.menu() is not None]
+    out["sub_icons"] = [not m.icon().isNull() for m in subs]
     bar_menus = {a.text(): a.menu() for a in win.menuBar().actions()}
-    more = win.m_more
-    copies = [a.menu() for a in more.actions() if a.menu() is not None]
-    out["more"] = [m.title() for m in copies]
-    out["more_icons"] = [not m.icon().isNull() for m in copies]
-    out["same"] = [[x.text() for x in m.actions()] == [x.text() for x in bar_menus[t].actions()]
-                   and all(x is y for x, y in zip(m.actions(), bar_menus[t].actions()) if not x.isSeparator())
-                   for m, t in zip(copies + [win.m_help_burger],
-                                   ["&File", "&Edit", "&View", "&Tools", "&Help"])]
+    win.m_help_burger.aboutToShow.emit()
+    out["same"] = all(x in bar_menus["&Help"].actions() for x in win.m_help_burger.actions())
     out["help"] = [win.m_help_burger.title(), not win.m_help_burger.icon().isNull()]
     out["menubar_icons"] = [a.text() for a in win.menuBar().actions() if not a.icon().isNull()]
 ''')
     missing_bar = [e for e in ENTRIES_1123 if e not in out["bar"]]
-    missing_burger = [e for e in ENTRIES_1123 + BURGER_1123 if e not in out["burger"]]
+    missing_burger = [e for e in ENTRIES_1123 + BURGER_1123 if e not in out["burger"]
+                      and not (e == "Screenshot…" and "Screenshot" in out["burger"])]
     assert not missing_bar and not missing_burger, (missing_bar, missing_burger)
     assert "Bookmarks bar" in out["bar"] and "Bookmarks bar" in out["burger"]
     assert [k for k in KEYS_1123 if k not in out["keys"]] == []
-    assert out["more"] == ["File", "Edit", "View", "Tools"], out["more"]
-    assert all(out["more_icons"]) and all(out["same"]), out
+    assert len(out["sub_icons"]) == 12 and all(out["sub_icons"]) and out["same"], out
     assert out["help"] == ["Help", True] and out["menubar_icons"] == []
     # the ☰ menu: no entry twice (1.1.23 had "Check for updates" and "About" also under More → Help)
     assert len(out["top"]) == len(set(out["top"]))
@@ -169,7 +167,7 @@ def steps(ike, qapp, out):
 @pytest.mark.parametrize("lang", ["it", "ar"])
 @pytest.mark.parametrize("style", STYLES)
 def test_no_text_touches_a_submenu_arrow(run_ike, tmp_path, style, lang):
-    """The ☰ menu and every menu under it, "More" first: each text at least
+    """The ☰ menu and every menu under it: each text at least
     ARROW_GAP px from its submenu's arrow, in every widget style installed,
     left to right and right to left."""
     import os
@@ -181,7 +179,7 @@ def test_no_text_touches_a_submenu_arrow(run_ike, tmp_path, style, lang):
     close = {k: v for k, v in out["gaps"].items() if v < out["arrow_gap"]}
     assert not close, close
     if not (style == "Oxygen" and lang == "ar"):      # Oxygen draws no submenu arrows right to left
-        assert any(k.startswith("☰ > ") and k.count(" > ") == 2 for k in out["gaps"]), out["gaps"]
+        assert any(k.startswith("☰ > ") and k.count(" > ") == 1 for k in out["gaps"]), out["gaps"]
 
 
 SEARCH = r'''
@@ -218,27 +216,28 @@ def steps(ike, qapp, out):
 
 
 def test_settings_search(run_ike, tmp_path):
-    words = ["zoom", "modalita lettura", "va-api", "dark reader", "DOWNLOAD", "qqqxxyy", "vertic", "estensioni"]
+    words = ["zoom", "modalita lettura", "va-api", "scura automatica", "DOWNLOAD", "qqqxxyy", "vertic", "estensioni"]
     out = run_ike(SEARCH.replace("WORDS", repr(words)), env=screen(tmp_path, 1366, 768),
                   settings={"language": "it"})
     res = out["res"]
     # by an option's name ("Zoom predefinito"), on its page
-    assert "appearance" in res["zoom"]["found"] and res["zoom"]["page"] == res["zoom"]["shown"][0]
+    assert "sites" in res["zoom"]["found"] and res["zoom"]["page"] == res["zoom"]["shown"][0]
     assert res["zoom"]["marks"] >= 1 and res["zoom"]["rects"] == res["zoom"]["marks"]
     assert "general" not in res["zoom"]["shown"]
     # by an explanation only (the ⓘ of the video decoding, page System)
     assert res["va-api"]["found"].get("system", 0) >= 1, res["va-api"]
-    # by a choice of a combo box ("Dark Reader", Appearance)
-    assert res["dark reader"]["found"].get("appearance", 0) >= 1
+    # by a choice of a combo box (Chromium's own dark mode, Web pages since 1.1.30;
+    # Dark Reader left in 1.1.30)
+    assert res["scura automatica"]["found"].get("sites", 0) >= 1
     # small or capital letters, accents: "DOWNLOAD", "modalita" for "modalità"
     assert "downloads" in res["DOWNLOAD"]["found"]
     assert res["modalita lettura"]["found"] or res["modalita lettura"]["none"] is False
     # a page by its name ("Estensioni di I.K.E.")
     assert "extensions" in res["estensioni"]["found"]
     # nothing: said, and every page stays in the list
-    assert res["qqqxxyy"]["none"] and res["qqqxxyy"]["found"] == {} and len(res["qqqxxyy"]["shown"]) == 11
+    assert res["qqqxxyy"]["none"] and res["qqqxxyy"]["found"] == {} and len(res["qqqxxyy"]["shown"]) == 14
     assert out["esc"][0] == "" and out["esc"][1] is True
-    assert out["esc"][2]["marks"] == 0 and len(out["esc"][2]["shown"]) == 11 and not out["esc"][2]["none"]
+    assert out["esc"][2]["marks"] == 0 and len(out["esc"][2]["shown"]) == 14 and not out["esc"][2]["none"]
     assert out["placeholder"] == "Cerca un'impostazione"
 
 
@@ -313,8 +312,9 @@ def steps(ike, qapp, out):
     btn = {k: win.nav.widgetForAction(a) for k, a, _x in win._nav_items}
     out["buttons"] = [btn[k] is not None and btn[k].isVisible() for k in NEW] if not win.toolbar_spilled else "spilled"
     # what each does
-    # 1.1.25: the Zoom button opens its panel (tests/test_zoom_panel.py); the ☰ menu keeps the submenu
-    out["zoom_menu"] = [a.text() for a in win.m_zoom.actions()]
+    # 1.1.25: the Zoom button opens its panel (tests/test_zoom_panel.py); the menus keep the
+    # three entries (1.1.30: ☰ → Web page, under "Zoom")
+    out["zoom_menu"] = [a.text() for a in (win.act_zoom_in, win.act_zoom_out, win.act_zoom_reset)]
     out["zoom_button"] = [win.act_tb_zoom.menu() is None]
     btn["zoom"].click()
     yield 300

@@ -35,7 +35,7 @@ from . import APP_LONG_NAME, APP_NAME, __version__, effects, polish
 from .config import LEVEL_NAMES, LEVELS
 from .features import WindowFeatures, tab_icon
 from .i18n import T
-from .shieldpanel import TOOLBAR_SHIELD_GROW, ShieldButton, ShieldPanel, shield_icon
+from .shieldpanel import TOOLBAR_LETTER, TOOLBAR_SHIELD_GROW, ShieldButton, ShieldPanel, shield_icon
 from .tabs import AUDIO_ROLE, TabBar, VTabDelegate, VTabList
 from .uistyle import Switch
 from .urlbar import _URLISH, UrlBar, is_not_secure
@@ -276,6 +276,34 @@ class _Gap(QWidget):
         return self.minimumSize()
 
 
+class _ArrowsButton(QToolButton):
+    """The bookmarks bar's "more" button (1.1.30, the owner): its two arrows
+    drawn at exactly the size of the navigation bar's Forward arrow, never
+    scaled down to the bar's small icon size, in the middle of the button."""
+
+    pair = None
+
+    def paintEvent(self, event):
+        from PyQt6.QtWidgets import QStyleOptionToolButton
+        option = QStyleOptionToolButton()
+        self.initStyleOption(option)
+        option.icon = QIcon()
+        option.text = ""
+        p = QPainter(self)
+        self.style().drawComplexControl(QStyle.ComplexControl.CC_ToolButton, option, p, self)
+        if self.pair is not None:
+            pm = self.pair
+            if not self.isEnabled():
+                pm = QIcon(pm).pixmap(pm.deviceIndependentSize().toSize(), self.devicePixelRatioF(),
+                                      QIcon.Mode.Disabled)
+            size = pm.deviceIndependentSize()
+            p.drawPixmap(QPointF(round((self.width() - size.width()) / 2 * self.devicePixelRatioF())
+                                 / self.devicePixelRatioF(),
+                                 round((self.height() - size.height()) / 2 * self.devicePixelRatioF())
+                                 / self.devicePixelRatioF()), pm)
+        p.end()
+
+
 class BookmarksBar(QToolBar):
     """The bookmarks in a row. Those that do not fit stay out of the row and are
     listed, one under the other, in the menu of a "more" button (a double arrow)
@@ -285,7 +313,7 @@ class BookmarksBar(QToolBar):
         super().__init__(title, parent)
         self._marks = []
         self._busy = False
-        self._more = QToolButton(self)
+        self._more = _ArrowsButton(self)
         self._more.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         self._more.setStyleSheet("QToolButton::menu-indicator { image: none; }")
         self._more.setToolTip(T("More bookmarks"))
@@ -302,34 +330,39 @@ class BookmarksBar(QToolBar):
         self._timer.timeout.connect(self._reflow)
 
     def refresh_arrows(self):
-        """Use two copies of the actual Forward glyph at its navigation size."""
-        nav = self.parentWidget().nav
-        forward = self.parentWidget().act_fwd.icon()
+        """The desktop's own double arrow (arrow-right-double, as Falkon shows
+        it: 1.1.30, the owner), drawn exactly as tall and with strokes as thick
+        as the navigation bar's Forward arrow: both at the navigation's icon
+        size, the double one scaled to the Forward glyph's height when its
+        theme draws it otherwise."""
+        win = self.parentWidget()
+        nav = win.nav
+        forward = win.act_fwd.icon()
+        # (GNOME's Adwaita and the like have no double arrow of that name: their seek-forward one)
+        double = icon(("arrow-right-double", "media-seek-forward-symbolic"))
         ratio = self.devicePixelRatioF()
-        key = (forward.cacheKey(), nav.iconSize(), ratio, self.palette().cacheKey())
+        key = (forward.cacheKey(), double.cacheKey(), nav.iconSize(), ratio, self.palette().cacheKey())
         if key == getattr(self, "_arrows_key", None):
             return
         self._arrows_key = key
-        arrow = forward.pixmap(nav.iconSize(), ratio)
-        bounds = QRegion(arrow.mask()).boundingRect()
-        if not bounds.isEmpty():
-            arrow = arrow.copy(bounds)
-        if "rtl" in forward.name().split("-"):
-            arrow = QPixmap.fromImage(arrow.toImage().flipped(Qt.Orientation.Horizontal))
-            arrow.setDevicePixelRatio(ratio)
-        gap = round(4 * ratio)
-        pair = QPixmap(2 * arrow.width() + gap, arrow.height())
+
+        def glyph(ic):
+            pm = ic.pixmap(nav.iconSize(), ratio)
+            bounds = QRegion(pm.mask()).boundingRect()
+            return pm.copy(bounds) if not bounds.isEmpty() else pm
+        arrow, pair = glyph(forward), glyph(double)
+        if pair.height() != arrow.height() and pair.height() > 0:
+            pair = pair.scaledToHeight(arrow.height(), Qt.TransformationMode.SmoothTransformation)
         pair.setDevicePixelRatio(ratio)
-        pair.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(pair)
-        painter.drawPixmap(QPointF(), arrow)
-        painter.drawPixmap(QPointF((arrow.width() + gap) / ratio, 0), arrow)
-        painter.end()
+        if self.isRightToLeft() or "rtl" in forward.name().split("-"):
+            pair = QPixmap.fromImage(pair.toImage().flipped(Qt.Orientation.Horizontal))
+            pair.setDevicePixelRatio(ratio)
         width = ceil(pair.deviceIndependentSize().width())
         height = ceil(pair.deviceIndependentSize().height())
         self._more.setIcon(QIcon(pair))
         self._more.setIconSize(QSize(width, height))
-        self._more.setFixedSize(max(MORE_SIDE, width + 10), MORE_SIDE)
+        self._more.pair = pair
+        self._more.setFixedSize(max(MORE_SIDE, width + 10), max(MORE_SIDE, height + 6))
         self._timer.start()
 
     def event(self, event):
@@ -559,6 +592,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         from .loadingline import LoadingLine
         self.chrome_edge = polish.ChromeEdge(self.content)       # a thin line between the bars and the page
         self.toast_pill = polish.Toast(self.content, self.app.config)  # short messages over the page
+        self.link_preview = polish.LinkPreview(self.content)     # the address of the link under the mouse
         self.loading_line = LoadingLine(self.content)
         self.loading_line.config = self.app.config
         self.loading_line.quiet = self._own_page_loading
@@ -599,6 +633,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         tb.setObjectName("nav")
         tb.setMovable(False)
         tb.setIconSize(QSize(24, 24))         # a little larger than Qt's usual 22: easier to see (1.1.6)
+        polish.slim_bar(tb)                    # a little lower (1.1.30)
         tb.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         tb.customContextMenuRequested.connect(self._toolbar_menu)
         self.addToolBar(tb)
@@ -728,7 +763,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_tb_split = A(T("Split view"), self.toggle_split, None,
                               icon(("view-split-left-right", "view-dual-symbolic")),
                               T("Show two tabs side by side"))
-        # 1.1.25: its click opens the dark mode panel under it (darkpanel.py), made at the first click
+        # 1.1.25: its click opens the dark mode panel under it (darkenginepanel.py), made at the first click
         self.dark_menu = None
         self.act_dark = A(T("Dark mode for pages"), self.show_dark_panel, None, icon("weather-clear-night"),
                           T("Dark mode: everywhere or only on this site"))
@@ -736,7 +771,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                 lambda: self.app.new_window(private=True), None,
                                 icon(("view-private", "security-high")),
                                 T("Open a window that keeps no history or cookies"))
-        self.act_tb_clean = A(T("Clear this site's data"), self.clear_site_data, None,
+        self.act_tb_clean = A(T("Clear this site's data"), self.show_clean_panel, None,
                               icon(("edit-clear-history", "edit-clear-all-symbolic", "edit-clear-all", "edit-clear")),
                               T("Delete the cookies and stored data of the site in this tab"))
         # 1.1.25: its click (and Ctrl+J) opens the downloads panel under it (downloadpanel.py);
@@ -815,6 +850,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.bookbar.setObjectName("bookmarks")
         self.bookbar.setMovable(False)
         self.bookbar.setIconSize(QSize(16, 16))
+        polish.slim_bar(self.bookbar)          # a little lower (1.1.30)
         self.bookbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBarBreak()
         self.addToolBar(self.bookbar)
@@ -867,7 +903,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         menu has its own copies of them, with icons, holding the same actions."""
         A = self._action
         WA = QWebEnginePage.WebAction
-        mb = self.menuBar()
         self._build_feature_actions()
 
         def menu(title, ico=None, tip=None, parent=None):
@@ -924,50 +959,29 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_zoom_reset = A(T("Actual size"), lambda: self.zoom(0), "Ctrl+0", "zoom-original",
                                 T("Reset the zoom level"))
 
-        # --- File
-        m_file = mb.addMenu(T("&File"))
-        for a in (self.act_new_tab, self.act_new_window, self.act_new_private):
-            m_file.addAction(a)
-        if not self.private:
-            m_file.addMenu(self.m_containers)
-        m_file.addMenu(self.m_profiles)
-        m_file.addSeparator()
-        m_file.addAction(A(T("Open file…"), self.open_file, "Ctrl+O", "document-open",
-                           T("Open a file from this computer")))
+        # --- the actions that had no name of their own before 1.1.30 (ike/menus.py
+        # places every entry by its name)
+        self.act_open_file = A(T("Open file…"), self.open_file, "Ctrl+O", "document-open",
+                               T("Open a file from this computer"))
         self.act_save_page = A(T("Save page as…"), lambda: self._web(WA.SavePage), "Ctrl+S",
                                "document-save", T("Save the page to disk"))
-        for a in (self.act_save_page, self.act_pdf, self.act_print, self.act_shot):
-            m_file.addAction(a)
-        m_file.addSeparator()
-        for a in (self.act_import, self.act_backup, self.act_restore):
-            m_file.addAction(a)
-        m_file.addSeparator()
-        m_file.addAction(A(T("Close tab"), lambda: self.close_tab(self.current_view()),
-                           "Ctrl+W", ("tab-close", "window-close-symbolic"), T("Close the current tab")))
-        m_file.addAction(A(T("Close window"), self.close, "Ctrl+Shift+W", "window-close",
-                           T("Close this window")))
-        m_file.addAction(self.act_quit)
-
-        # --- Edit
-        m_edit = mb.addMenu(T("&Edit"))
-        for text, wa, ico in ((T("Undo"), WA.Undo, "edit-undo"), (T("Redo"), WA.Redo, "edit-redo"),
-                              (None, None, None),
-                              (T("Cut"), WA.Cut, "edit-cut"), (T("Copy"), WA.Copy, "edit-copy"),
-                              (T("Paste"), WA.Paste, "edit-paste"),
-                              (T("Select all"), WA.SelectAll, "edit-select-all")):
-            if text is None:
-                m_edit.addSeparator()
-                continue
+        self.act_close_tab = A(T("Close tab"), lambda: self.close_tab(self.current_view()),
+                               "Ctrl+W", ("tab-close", "window-close-symbolic"), T("Close the current tab"))
+        self.act_close_window = A(T("Close window"), self.close, "Ctrl+Shift+W", "window-close",
+                                  T("Close this window"))
+        for name, text, wa, ico in (("act_undo", T("Undo"), WA.Undo, "edit-undo"),
+                                    ("act_redo", T("Redo"), WA.Redo, "edit-redo"),
+                                    ("act_cut", T("Cut"), WA.Cut, "edit-cut"),
+                                    ("act_copy", T("Copy"), WA.Copy, "edit-copy"),
+                                    ("act_paste", T("Paste"), WA.Paste, "edit-paste"),
+                                    ("act_select_all", T("Select all"), WA.SelectAll, "edit-select-all")):
             a = QAction(icon(ico), text, self)
             a.triggered.connect(lambda _c=False, w=wa: self._web(w))
-            m_edit.addAction(a)
-        m_edit.addSeparator()
+            setattr(self, name, a)
         self.act_find = A(T("Find in page…"), self.findbar.open_bar, "Ctrl+F", "edit-find",
                           T("Search for text in the current page"))
-        m_edit.addAction(self.act_find)
 
         # --- View
-        m_view = mb.addMenu(T("&View"))
         self.act_vertical = A(T("Vertical tabs"), self._toggle_vertical, "Ctrl+Shift+E",
                               ("view-sidetree", "sidebar-show-symbolic", "view-list-symbolic"),
                               T("Show tabs in a side panel instead of a top bar"),
@@ -995,31 +1009,17 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.m_dark.addAction(self.act_dark_site)
         self.m_dark.aboutToShow.connect(self._fill_dark_menu)
         # (the toolbar's Dark mode button opens its panel since 1.1.25: show_dark_panel;
-        # the View and ☰ menus keep this menu)
+        # the menus keep this menu)
         self.act_fullscreen = A(T("Full screen"), self.toggle_fullscreen, "F11", "view-fullscreen",
                                 T("Show the page on the whole screen"))
-        # 1.1.24: the page first (its size, how it is shown), then the tabs, then
-        # the window's bars, then the developer's tools
-        for group in ((self.act_zoom_in, self.act_zoom_out, self.act_zoom_reset),
-                      (self.act_fullscreen, self.act_reader, self.m_dark),
-                      (self.act_vertical, self.act_split, self.m_workspaces),
-                      (self.act_menubar, self.act_bookbar, self.act_titlebar, self.act_customise)):
-            for a in group:
-                if isinstance(a, QMenu):
-                    m_view.addMenu(a)
-                else:
-                    m_view.addAction(a)
-            m_view.addSeparator()
-        m_view.addAction(A(T("Page source"), self.view_source, "Ctrl+U",
-                           ("format-text-code", "text-html", "view-source"),
-                           T("Show the HTML source of the page")))
-        m_view.addAction(A(T("Developer tools"), lambda: self.open_devtools(), ["F12", "Ctrl+Shift+I"],
-                           ("tools-report-bug", "bug-symbolic", "utilities-terminal-symbolic"),
-                           T("Inspect the page, network and console")))
+        self.act_source = A(T("Page source"), self.view_source, "Ctrl+U",
+                            ("format-text-code", "text-html", "view-source"),
+                            T("Show the HTML source of the page"))
+        self.act_devtools = A(T("Developer tools"), lambda: self.open_devtools(), ["F12", "Ctrl+Shift+I"],
+                              ("tools-report-bug", "bug-symbolic", "utilities-terminal-symbolic"),
+                              T("Inspect the page, network and console"))
 
         # --- History
-        self.m_history = mb.addMenu(T("Hi&story"))
-        self.m_history.aboutToShow.connect(lambda: self._fill_history(self.m_history))
         self.act_reopen = A(T("Reopen closed tab"), lambda: self.reopen_tab(), "Ctrl+Shift+T", "edit-undo",
                             T("Restore the tab closed most recently"))
         self.m_closed = menu(T("Recently closed tabs"), ("tab-close", "edit-undo", "window-close-symbolic"),
@@ -1031,23 +1031,20 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                            ("edit-clear-history", "edit-clear-all-symbolic", "edit-clear-all"),
                            T("Delete history, cookies and cache"))
         # 1.1.25, the owner's choice: History's last entry clears only the pages visited
-        # (the last hour, today or all); "Clear browsing data…" stays under Protection
+        # (the last hour, today or all); "Clear browsing data…" stays under Privacy
         self.act_clear_recent = A(T("Clear recent history…"), self.app.show_clear_history, None,
                                   ("edit-clear-history", "edit-clear-all-symbolic", "edit-clear-all"),
                                   T("Delete the pages visited in the last hour, today or ever"))
 
         # --- Bookmarks
-        self.m_bookmarks = mb.addMenu(T("&Bookmarks"))
-        self.m_bookmarks.aboutToShow.connect(lambda: self._fill_bookmarks(self.m_bookmarks))
         self.act_bookmark = A(T("Bookmark this page"), self.toggle_bookmark, "Ctrl+D",
                               "bookmark-new", T("Add or remove this page from bookmarks"))
         self.act_bookmarks = A(T("Manage bookmarks"), self.app.show_bookmarks, "Ctrl+Shift+O",
                                ("bookmarks-organize", "document-edit-symbolic", "user-bookmarks-symbolic", "bookmarks"),
                                T("Edit, import and export bookmarks"))
 
-        # --- Protection: the level for every site and the tools of protection
+        # --- Privacy: the level for every site and the tools of protection
         self.level_group = QActionGroup(self)
-        levels = []
         for lv in LEVELS:
             a = QAction(shield_icon(lv, 16), T(LEVEL_NAMES[lv]), self, checkable=True)
             a.setData(lv)
@@ -1055,7 +1052,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             a.setToolTip(T(ShieldPanel.HINTS[lv]))
             a.triggered.connect(lambda _c=False, k=lv: self._set_global_level(k))
             self.level_group.addAction(a)
-            levels.append(a)
         self.act_repair = A(T("Repair this site"), self.repair_site, None,
                             ("tools-wizard", "tools-report-bug", "applications-engineering-symbolic"),
                             T("Find the protection that breaks this page and turn off only that one"))
@@ -1063,22 +1059,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                                   "view-refresh", T("Download the latest blocking rules"))
         self.act_protection_settings = A(T("Protection settings…"), lambda: self.open_settings("protection"),
                                          None, shield_icon("balanced", 16),
-                                         T("Every protection option, with what it does"))
-        protection = (*levels, None, self.act_repair, self.act_permissions, self.act_update_lists,
-                      self.act_clear, None, self.act_protection_settings)
-        m_protection = mb.addMenu(T("&Protection"))
-        # the ☰ menu's copy, with the shield of the current level as its icon
-        self.m_level = menu(T("Protection"), shield_icon("balanced", 16),
-                            T("How much I.K.E. blocks, and the tools to repair or clean a site"))
-        for m in (m_protection, self.m_level):
-            m.setToolTipsVisible(True)
-            # 1.1.25: a real section's name (drawn small and dimmed), not a greyed entry
-            m.addSection(T("Protection level for every site"))
-            for a in protection:
-                if a is None:
-                    m.addSeparator()
-                else:
-                    m.addAction(a)
+                                         T("How much I.K.E. protects you: the level, the connections and the warnings."))
 
         # --- Extensions: I.K.E.'s own, on and off (ikeextensions.py)
         from . import ikeextensions
@@ -1093,105 +1074,32 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_manage_ext = A(T("Manage extensions…"), lambda: self.open_settings("extensions"),
                                 "Ctrl+Shift+A", ("preferences-plugin", "application-x-addon"),
                                 T("Switch I.K.E.'s own extensions on and off and change their options"))
-        m_ext = mb.addMenu(T("E&xtensions"))
-        self.m_extensions = menu(T("I.K.E. extensions"), ("plugins", "preferences-plugin", "application-x-addon"),
-                                 T("Features of I.K.E. you can switch on and off"))
-        for m in (m_ext, self.m_extensions):
-            m.setToolTipsVisible(True)
-            for a in self.ext_actions.values():
-                m.addAction(a)
-            m.addSeparator()
-            m.addAction(self.act_manage_ext)
 
         # --- Tools
-        m_tools = mb.addMenu(T("&Tools"))
         self.act_command_bar = A(T("Command bar…"), self.open_command_bar, "F2", ("system-search", "edit-find"),
                                  T("Commands, open tabs, bookmarks, history and settings in one search"))
         self.act_mute = A(T("Mute tab"), self.toggle_mute, "Ctrl+Shift+M", "audio-volume-muted",
                           T("Mute or unmute the sound of the current tab"))
         self.act_engines = A(T("Search engines…"), lambda: self.open_settings("search"), None,
                              "edit-find", T("Choose and add search engines"))
-        # 1.1.24: finding, then what you keep (files, logins), then the page and its
-        # sound, then the work of the sites, then what I.K.E. searches with, then Settings
-        for group in ((self.act_command_bar, self.act_search_tabs),
-                      (self.act_downloads, self.act_passwords, self.act_fill_login),
-                      (self.act_translate, self.act_float, self.act_mute),
-                      (self.act_resources, self.act_suspend, self.act_watches),
-                      (self.act_engines, self.act_store),
-                      (self.act_settings,)):
-            if m_tools.actions():
-                m_tools.addSeparator()
-            for a in group:
-                m_tools.addAction(a)
 
         # --- Help
-        m_help = mb.addMenu(T("&Help"))
-        m_help.addAction(A(T("Keyboard shortcuts"), self.show_shortcuts, "F1",
-                           "preferences-desktop-keyboard", T("List the keyboard shortcuts")))
-        m_help.addAction(self.act_check_updates)
-        about_qt = QAction(icon(("help-about", "dialog-information")), T("About Qt"), self)
-        about_qt.triggered.connect(lambda: QMessageBox.aboutQt(self))
-        m_help.addAction(about_qt)
-        for m in (m_file, m_edit, m_view, self.m_history, self.m_bookmarks, m_protection, m_ext,
-                  m_tools, m_help):
-            m.setToolTipsVisible(True)
+        self.act_shortcuts = A(T("Keyboard shortcuts"), self.show_shortcuts, "F1",
+                               "preferences-desktop-keyboard", T("List the keyboard shortcuts"))
+        self.act_about_qt = QAction(icon(("help-about", "dialog-information")), T("About Qt"), self)
+        self.act_about_qt.triggered.connect(lambda: QMessageBox.aboutQt(self))
 
-        def mirror(src, ico, tip):
-            """The ☰ menu's copy of a menu of the menu bar: the same actions, with
-            an icon of its own and its name without the "&" of the menu bar."""
-            m = menu(plain_title(src.title()), ico, tip)
-            for a in src.actions():
-                if a.isSeparator() and a.text():
-                    m.addSection(a.text())
-                elif a.isSeparator():
-                    m.addSeparator()
-                elif a.menu() is not None and a is a.menu().menuAction():
-                    m.addMenu(a.menu())
-                else:
-                    m.addAction(a)
-            return m
-
-        # --- the ☰ menu (1.1.24, the owner's go-ahead: "with criterion and logic"):
-        # new tabs and windows; this page; keep or print it; your library; protection
-        # and extensions; Settings and help; Quit. Every other command is under "More",
-        # in the menus of the menu bar, each with its icon (the menu bar's own have none).
-        burger = QMenu(self)
-        burger.setToolTipsVisible(True)
-        self.m_zoom = menu(T("Zoom"), "zoom-in", T("Make the page larger or smaller"))
-        for a in (self.act_zoom_in, self.act_zoom_out, self.act_zoom_reset):
-            self.m_zoom.addAction(a)
-        # (the toolbar's Zoom button opens its panel since 1.1.25: show_zoom_panel)
-        history = menu(T("History"), ("view-history", "document-open-recent-symbolic"),
-                       T("Pages visited recently, and all the history"))
-        history.aboutToShow.connect(lambda: self._fill_history(history))
-        bookmarks = menu(T("Bookmarks"), ("bookmarks", "user-bookmarks-symbolic"),
-                         T("Your bookmarks, and the bookmarks bar"))
-        bookmarks.aboutToShow.connect(lambda: self._fill_bookmarks(bookmarks))
-        more = menu(T("More"), ("overflow-menu", "application-menu", "view-more-symbolic"),
-                    T("Every other command, as in the menu bar"))
-        self.m_more = more
-        for src, ico in ((m_file, ("document-multiple", "folder-documents", "document-open")),
-                         (m_edit, ("edit-copy", "document-edit", "edit-paste")),
-                         (m_view, ("view-visible", "view-reveal-symbolic", "view-fullscreen")),
-                         (m_tools, ("tools", "applications-utilities", "preferences-other",
-                                    "configure"))):
-            more.addMenu(mirror(src, ico, None))
-        self.m_help_burger = mirror(m_help, ("help-contents", "help-about", "system-help"),
-                                    T("Keyboard shortcuts, updates and the versions of I.K.E."))
-        for group in ((self.act_new_tab, self.act_new_window, self.act_new_private),
-                      (self.act_find, self.m_zoom, self.m_dark, self.act_reader, self.act_translate),
-                      (self.act_print, self.act_pdf, self.act_save_page, self.act_shot),
-                      (history, bookmarks, self.act_downloads),
-                      (self.m_level, self.m_extensions, more),
-                      (self.act_settings, self.m_help_burger),
-                      (self.act_about, self.act_quit)):
-            if burger.actions():
-                burger.addSeparator()
-            for a in group:
-                if isinstance(a, QMenu):
-                    burger.addMenu(a)
-                else:
-                    burger.addAction(a)
+        # --- the menu bar and the ☰ menu (1.1.30, the owner's reorganisation:
+        # ike/menus.py says where each entry goes; no "More" any longer)
+        from . import menus
+        self.menu_skip = {"m_containers"} if self.private else set()     # a private window has no containers
+        self.menubar_menus = menus.build_menubar(self, menu)
+        burger, cats = menus.build_burger(self, menu, shield_icon("balanced", 16))
+        self.burger_menus = cats
+        # the names earlier versions (and their tests) knew the ☰ menu's parts by
+        self.m_level = cats["privacy"]
+        self.m_extensions = cats["extensions"]
+        self.m_help_burger = cats["help"]
         self.burger = burger
         self.menu_btn.setMenu(effects.fading(burger, self.app.config))
 
@@ -1350,12 +1258,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if url is None:
             view = self.current_view()
             url = view.url() if view else QUrl()
-        cfg = self.app.config
         host = url.host().lower() if url.scheme() in ("http", "https") else ""
         dark = self.app.shields.dark_for(host)
-        if dark and cfg["dark_engine"] == "reader":
-            from . import darktheme
-            dark = darktheme.of(cfg, host)[0]["mode"] == 1
         glyph = (icon(("weather-clear-night", "weather-clear-night-symbolic")) if dark
                  else icon(("weather-clear", "weather-clear-symbolic")))
         if glyph.cacheKey() != self.act_dark.icon().cacheKey():
@@ -1380,6 +1284,10 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     # ------------------------------------------------------------------
     # tabs
     # ------------------------------------------------------------------
+    def _link_hovered(self, view, url):
+        """The address of the link under the mouse, over the page (1.1.30)."""
+        self.link_preview.show_url(url if view is self.current_view() else "")
+
     def current_view(self):
         if self.split is not None and self._split_active:
             return self.split
@@ -1450,6 +1358,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         view.loadProgress.connect(lambda pc, v=view: self._load_progress(v, pc))
         page.windowCloseRequested.connect(lambda v=view: self.close_tab(v))
         page.recentlyAudibleChanged.connect(lambda _a, v=view: self._tab_changed(v))
+        page.linkHovered.connect(lambda url, v=view: self._link_hovered(v, url))
         if not self.private:
             self.app.desktop.watch_view(view)       # media controls of the desktop
         first = len(self.views) == 1
@@ -1498,6 +1407,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             return
         i = self.views.index(view)
         view.last_active = time.time()
+        self.link_preview.hide()            # the link's address of the tab left
         self.app.resources.wake(view)       # a tab frozen for using too much CPU
         if view.pending_url and not self._restoring:
             url, view.pending_url = view.pending_url, None
@@ -1693,6 +1603,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             # with its title, for History → Recently closed tabs (1.1.24)
             self.closed_tabs.append((url, view.title() if view.title() not in ("", url) else ""))
             del self.closed_tabs[:-25]
+        self._autoclean_on_close(view)
         was_current = view is self.current_view()
         item = self.vtabs.item(i)
         if item is not None and self.vtabs.isVisible():
@@ -1720,6 +1631,24 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         else:
             self.set_current(self.current_view() or self.views[0])
         self._apply_groups()
+
+    def _autoclean_on_close(self, view):
+        """The broom's "clean when I close its last tab" (1.1.30, cleanpanel.py)."""
+        cfg = self.app.config
+        if self.private or not cfg["autoclean_sites"]:
+            return
+        host = view.url().host().lower() if view.url().scheme() in ("http", "https") else ""
+        if not host:
+            return
+        from .shields import site_of
+        site = site_of(host)
+        if site not in cfg["autoclean_sites"]:
+            return
+        for win in self.app.windows:
+            for v in win.all_views():
+                if v is not view and site_of(v.url().host().lower()) == site:
+                    return                      # another tab of the site is still open
+        self.app.shields.autoclean_closed(view.page().profile(), site)
 
     def _destroy_view(self, view):
         self.stack.removeWidget(view)
@@ -2451,6 +2380,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.app.push_weather(view)
         if ok and not self.private:
             self.app.storage.add_visit(view.url().toString(), view.title())
+            if self.app.config["autoclean_pending"] and view.url().scheme() in ("http", "https"):
+                from .shields import site_of
+                self.app.shields.autoclean_done(site_of(view.url().host().lower()))
         if ok:
             view.reader = False
             if self.app.config["dark_pdf"]:
@@ -2568,7 +2500,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             popups[key] = (menu, panel, scroll, wa)
         return popups[key]
 
-    PANEL_ACTIONS = {"dark": "act_dark", "zoom": "act_tb_zoom", "downloads": "act_downloads"}
+    PANEL_ACTIONS = {"dark": "act_dark", "zoom": "act_tb_zoom", "downloads": "act_downloads",
+                     "clean": "act_tb_clean"}
 
     def _panel_anchor(self, key):
         """The panel's button, or » when it did not fit in the toolbar, or the menu."""
@@ -2606,27 +2539,15 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         popup = self.__dict__.get("_panels", {}).get(key)
         return (popup[0], popup[1]) if popup is not None else (None, None)
 
-    # the dark mode panel: Dark Reader's (darkpanel.py) or the I.K.E. Dark Engine's
-    # (darkenginepanel.py, 1.1.28), as the dark mode method chosen
+    # the dark mode panel: the I.K.E. Dark Engine's (darkenginepanel.py, 1.1.28;
+    # since 1.1.30 the only one: with Chromium's own dark mode its look is greyed)
     @staticmethod
     def _dark_factory(win):
-        if win.app.config["dark_engine"] == "ike":
-            from .darkenginepanel import EnginePanel
-            return EnginePanel(win)
-        from .darkpanel import DarkPanel
-        return DarkPanel(win)
+        from .darkenginepanel import EnginePanel
+        return EnginePanel(win)
 
     def dark_popup(self):
-        """The popup of the Dark mode button, made the first time it opens (made again
-        when the dark mode method changed since: each has its own panel)."""
-        want_engine = self.app.config["dark_engine"] == "ike"
-        if self.dark_menu is not None and (type(self.dark_panel).__name__ == "EnginePanel") != want_engine:
-            popups = self.__dict__.get("_panels", {})
-            menu = popups.pop("dark", (None,))[0]
-            if menu is not None:
-                menu.hide()
-                menu.deleteLater()
-            self.dark_menu = self.dark_panel = self.dark_scroll = self.dark_wa = None
+        """The popup of the Dark mode button, made the first time it opens."""
         if self.dark_menu is None:
             menu, panel, scroll, wa = self._panel_popup("dark", self._dark_factory)
             self.dark_menu, self.dark_panel, self.dark_scroll, self.dark_wa = menu, panel, scroll, wa
@@ -2665,8 +2586,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         return self._show_panel("downloads", self._downloads_factory)
 
     def open_dark_settings(self):
-        """Settings → Appearance, at the dark mode of pages."""
-        dlg = self.open_settings("appearance")
+        """Settings → Web pages, at the dark mode of pages."""
+        dlg = self.open_settings("sites")
         target = getattr(dlg, "dark", None)
         if target is None:
             return dlg
@@ -2710,7 +2631,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         n = self.app.shields.total(host) if host else 0
         shown = getattr(self, "_shield_shown", None)
         if shown != level:
-            new = shield_icon(level, grow=TOOLBAR_SHIELD_GROW)
+            new = shield_icon(level, grow=TOOLBAR_SHIELD_GROW, letter=TOOLBAR_LETTER)
             if shown is None:
                 self.shield_btn.setIcon(new)
             else:
@@ -2815,6 +2736,45 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         m.addSeparator()
         for url, title, _folder in self.app.storage.bookmarks()[:40]:
             self._open_action(m, url, title)
+
+    # ☰ → Bookmarks and history (1.1.30): as many pages and closed tabs as the
+    # menu bar's History (the ☰ menu's History of before), and the first bookmarks
+    # (all of them: the menu bar's Bookmarks, the bookmarks bar, Manage bookmarks)
+    LIBRARY_PAGES = HISTORY_SHOWN
+    LIBRARY_MARKS = 20
+    LIBRARY_CLOSED = CLOSED_SHOWN
+
+    def _fill_library(self, m):
+        """☰ → Bookmarks and history (1.1.30, the owner's categories): what
+        History and Bookmarks of the menu bar hold, in one menu with no menu
+        inside it: the commands, then the pages visited last, the tabs
+        closed last and the first bookmarks, each under its name."""
+        for a in (self.act_back, self.act_fwd, self.act_home):
+            m.addAction(a)
+        m.addSeparator()
+        for a in (self.act_bookmark, self.act_bookmarks, self.act_bookbar):
+            m.addAction(a)
+        m.addSeparator()
+        for a in (self.act_history, self.act_clear_recent):        # (Reopen: ☰ → Tabs and windows)
+            m.addAction(a)
+        pages = self.app.storage.history(limit=self.LIBRARY_PAGES)
+        if pages:
+            m.addSection(T("Recently visited"))
+            for url, title, _last in pages:
+                self._open_action(m, url, title, site=True)
+        n = len(self.closed_tabs)
+        if n:
+            m.addSection(T("Recently closed tabs"))
+            for i in range(n - 1, max(-1, n - 1 - self.LIBRARY_CLOSED), -1):
+                url, title = self.closed_tabs[i]
+                a = self._open_action(m, url, title, site=True)
+                a.triggered.disconnect()
+                a.triggered.connect(lambda _c=False, u=url: self._reopen_url(u))
+        marks = self.app.storage.bookmarks()[:self.LIBRARY_MARKS]
+        if marks:
+            m.addSection(T("Bookmarks"))
+            for url, title, _folder in marks:
+                self._open_action(m, url, title)
 
     def _fill_bookbar(self):
         if self.app.config["bookmarks_bar"] == "never":
@@ -3271,7 +3231,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.app.refresh_toolbars()
 
     def clear_site_data(self):
-        """Delete cookies and stored data of the site in the current tab."""
+        """Delete cookies and stored data of the site in the current tab (Site
+        information's button; the toolbar's broom opens its panel, 1.1.30)."""
         v = self.current_view()
         host = self.current_host()
         if not v or not host or v.url().scheme() not in ("http", "https"):
@@ -3283,46 +3244,123 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 T("Delete the cookies and the data stored by %s? You will be signed out of "
                   "this site.") % site) != QMessageBox.StandardButton.Yes:
             return
+        kept = self.site_permissions()
+        self.clean_site(v, site, ("cookies", "storage", "cache"), lambda r: self.site_cleaned(
+            site, r["cookies"], r["storage"], r["cache"], kept))
+
+    CLEAN_COUNT_JS = (
+        "(async function(){var n={storage:0,cache:0,worker:0};"
+        "try{n.storage+=localStorage.length+sessionStorage.length;}catch(e){}"
+        "try{n.storage+=(await indexedDB.databases()).length;}catch(e){}"
+        "try{n.cache+=(await caches.keys()).length;}catch(e){}"
+        "try{n.worker+=(await navigator.serviceWorker.getRegistrations()).length;}catch(e){}"
+        "window.__ikeCounted=n;})();0")
+
+    def tracker_sites(self, site):
+        """Other sites the pages of `site` loaded, that the user never opened
+        himself (not in the history, not bookmarked): the page's trackers and
+        services, whose cookies the broom may delete (1.1.30). A site the user
+        uses (Google's sign-in, a video site) is never among them."""
+        out = []
+        for other in sorted(self.app.shields.page_sites.get(site, ())):
+            if other == site or self.app.storage.visited_before(other) or \
+                    other in (self.app.config.get("bounce_used") or {}):
+                continue
+            out.append(other)
+        return out
+
+    def site_contents(self, view, site, done):
+        """What the site keeps (the broom's panel, 1.1.30): done({"cookies",
+        "trackers", "tracker_cookies", "storage", "cache", "permissions"}), the
+        stored data counted in I.K.E.'s own script world (the page sees nothing)."""
+        profile = view.page().profile()
+        sh = self.app.shields
+        trackers = self.tracker_sites(site)
+        # the engine lists its cookies again: one a site set again was missing from I.K.E.'s list
+        profile.cookieStore().loadAllCookies()
+        out = {"trackers": trackers, "permissions": self.site_permissions(), "storage": None, "cache": None}
+        from PyQt6.QtWebEngineCore import QWebEngineScript
+        world = int(QWebEngineScript.ScriptWorldId.ApplicationWorld.value)
+        view.page().runJavaScript(self.CLEAN_COUNT_JS, world)
+        tries = [0]
+
+        def poll():
+            if view in self.all_views():
+                view.page().runJavaScript("window.__ikeCounted||null", world, got)
+            else:
+                got({})
+
+        def got(n):
+            if not isinstance(n, dict) and tries[0] < 20:
+                tries[0] += 1
+                QTimer.singleShot(50, poll)
+                return
+            n = n if isinstance(n, dict) else {}
+            out["cookies"] = len(sh.site_cookies(profile, site, ever=True))
+            out["tracker_cookies"] = sum(len(sh.site_cookies(profile, t, ever=True)) for t in trackers)
+            out["storage"] = int(n.get("storage") or 0) + int(n.get("worker") or 0)
+            out["cache"] = int(n.get("cache") or 0)
+            done(out)
+        QTimer.singleShot(250, poll)          # the store has listed its cookies by then
+
+    def clean_site(self, v, site, what, done):
+        """Delete what the user chose of a site's data (what: "cookies",
+        "storage", "cache", "trackers", "permissions"), then load the page
+        again; done({"cookies", "storage", "cache", "trackers", "permissions"})
+        with what went."""
         profile = v.page().profile()
         store = profile.cookieStore()
         # 1.1.24: every cookie of the site the engine may still have (a cookie
         # set again by the site was missing from I.K.E.'s list, shields.py);
         # what the store reports removed is what the summary counts
-        removed = set()
+        removed, gone_trackers = set(), set()
+        trackers = self.tracker_sites(site) if "trackers" in what else []
 
         def gone(c):
             d = c.domain().lstrip(".").lower()
             if d == site or d.endswith("." + site):
                 removed.add((c.domain(), c.path(), bytes(c.name())))
+            elif any(d == t or d.endswith("." + t) for t in trackers):
+                gone_trackers.add((c.domain(), c.path(), bytes(c.name())))
         store.cookieRemoved.connect(gone)
-        for cookie in self.app.shields.site_cookies(profile, site, ever=True):
-            store.deleteCookie(cookie)
-        kept = self.site_permissions()
+        if "cookies" in what:
+            for cookie in self.app.shields.site_cookies(profile, site, ever=True):
+                store.deleteCookie(cookie)
+        for t in trackers:
+            for cookie in self.app.shields.site_cookies(profile, t, ever=True):
+                store.deleteCookie(cookie)
+        for gone_site in ([site] if "cookies" in what else []) + trackers:
+            self.app.shields.forget_cookies(profile, gone_site)
+        perms = 0
+        if "permissions" in what:
+            perms = len(self.site_permissions())
+            self.site_permissions(reset=True)
         # 1.1.24: what goes is counted as it goes, in I.K.E.'s own script
         # world (the page sees nothing of it), and shown in a short summary
         from PyQt6.QtWebEngineCore import QWebEngineScript
         world = int(QWebEngineScript.ScriptWorldId.ApplicationWorld.value)
+        storage, cache = ("storage" in what), ("cache" in what)
         v.page().runJavaScript(
             "(async function(){var n={storage:0,cache:0};"
-            "try{n.storage+=localStorage.length+sessionStorage.length;localStorage.clear();sessionStorage.clear();}"
-            "catch(e){}"
-            "try{var d=await indexedDB.databases();n.storage+=d.length;"
-            "d.forEach(function(x){indexedDB.deleteDatabase(x.name);});}catch(e){}"
-            "try{var k=await caches.keys();n.cache+=k.length;"
-            "await Promise.all(k.map(function(x){return caches.delete(x);}));}catch(e){}"
-            "try{var r=await navigator.serviceWorker.getRegistrations();n.storage+=r.length;"
-            "r.forEach(function(x){x.unregister();});}catch(e){}"
-            "window.__ikeCleaned=n;})();0", world)
+            + ("try{n.storage+=localStorage.length+sessionStorage.length;localStorage.clear();sessionStorage.clear();}"
+               "catch(e){}"
+               "try{var d=await indexedDB.databases();n.storage+=d.length;"
+               "d.forEach(function(x){indexedDB.deleteDatabase(x.name);});}catch(e){}" if storage else "")
+            + ("try{var k=await caches.keys();n.cache+=k.length;"
+               "await Promise.all(k.map(function(x){return caches.delete(x);}));}catch(e){}" if cache else "")
+            + ("try{var r=await navigator.serviceWorker.getRegistrations();n.storage+=r.length;"
+               "r.forEach(function(x){x.unregister();});}catch(e){}" if storage else "")
+            + "window.__ikeCleaned=n;})();0", world)
         tries = [0]
 
         def poll():
-            if v in self.views:
-                v.page().runJavaScript("window.__ikeCleaned||null", world, done)
+            if v in self.all_views():
+                v.page().runJavaScript("window.__ikeCleaned||null", world, finished)
             else:
                 tries[0] = 30
-                done(None)                   # the tab was closed: the cookies still go
+                finished(None)               # the tab was closed: the cookies still go
 
-        def done(found):
+        def finished(found):
             if not isinstance(found, dict) and tries[0] < 30:
                 tries[0] += 1
                 QTimer.singleShot(100, poll)
@@ -3332,11 +3370,23 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 store.cookieRemoved.disconnect(gone)
             except (TypeError, RuntimeError):
                 pass
-            self.site_cleaned(site, len(removed), int(found.get("storage") or 0), int(found.get("cache") or 0),
-                              kept)
-            if v in self.views:
+            done({"cookies": len(removed), "storage": int(found.get("storage") or 0),
+                  "cache": int(found.get("cache") or 0), "trackers": len(gone_trackers),
+                  "tracker_sites": len(trackers), "permissions": perms})
+            if v in self.all_views():
                 QTimer.singleShot(300, v.reload)
         QTimer.singleShot(300, poll)         # the store has reported the deleted cookies by then
+
+    # the broom's panel (cleanpanel.py, 1.1.30)
+    @staticmethod
+    def _clean_factory(win):
+        from .cleanpanel import CleanPanel
+        return CleanPanel(win)
+
+    def show_clean_panel(self, *_):
+        """The broom's panel under its button: what the site keeps, what to
+        delete, and its automatic cleaning (1.1.30)."""
+        return self._show_panel("clean", self._clean_factory)
 
     def site_cleaned(self, site, cookies, storage, cache, kept):
         """The summary of "Clear this site's data" (1.1.24): what went, and the
@@ -3376,6 +3426,29 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             return
         self.act_downloads.setIcon(ring_icon(self._dl_icon, fraction, state == "done",
                                              bob=getattr(self, "_dl_bob", None) if state == "active" else None))
+
+    def download_fly(self, name):
+        """A file that starts downloading flies, as its type's icon, from the
+        pointer (or the page's middle) to the Downloads button (1.1.30)."""
+        if not polish.moving(self.app.config, "download_fly") or not self.isVisible():
+            return
+        btn = self.nav.widgetForAction(self.act_downloads)
+        if btn is None or not btn.isVisible():
+            btn = getattr(self, "more_btn", None)            # the button is in the "more" menu
+            if btn is None or not btn.isVisible():
+                return
+        from PyQt6.QtCore import QMimeDatabase
+        mime = QMimeDatabase().mimeTypeForFile(name, QMimeDatabase.MatchMode.MatchExtension)
+        kind = QIcon.fromTheme(mime.iconName(), QIcon.fromTheme(mime.genericIconName(),
+                                                                 icon(("text-x-generic", "document-new"))))
+        if kind.isNull():
+            kind = self._dl_icon
+        start = self.mapFromGlobal(QCursor.pos())
+        if not self.rect().contains(start):
+            v = self.current_view()
+            start = v.mapTo(self, v.rect().center()) if v is not None else self.rect().center()
+        end = btn.mapTo(self, btn.rect().center())
+        polish.FlyingIcon(self, kind, start, end)
 
     def _download_arrow(self, active):
         """While files arrive the arrow of the Downloads button moves gently (polish.py)."""

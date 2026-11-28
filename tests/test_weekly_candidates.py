@@ -26,7 +26,7 @@ def test_low_risk_candidates_wait_for_monday_and_the_rest_stays_daily():
            "test-qt", "pyo3")
     friday = {r["id"]: r["action"] for r in u.plan(report(*ids), {}, today=FRIDAY)}
     assert {i for i, a in friday.items() if a == "weekly"} == {"crates", "test-tools", "test-libs", "ci-cargo-deny"}
-    assert all(friday[i] in ("make", "queued") for i in ("adblock", "darkreader", "ubo-scriptlets", "test-qt", "pyo3"))
+    assert all(friday[i] in ("make", "queued") for i in ("adblock", "ubo-scriptlets", "test-qt", "pyo3"))
     monday = {r["id"]: r["action"] for r in u.plan(report(*ids), {}, today=MONDAY)}
     assert "weekly" not in monday.values()
     assert not [m for m in u.matrix(u.plan(report("crates"), {}, today=FRIDAY))]

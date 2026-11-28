@@ -107,13 +107,14 @@ PLAYBOOK = (
     {
         "id": "builder-anchor",
         "signs": (r"builder refused", r"anchor [^\n]{0,60}(?:not found|found \d+ times|more than once)"),
-        "meaning": "A new upstream version of Dark Reader or uBlock Origin moved the code one of I.K.E.'s existing "
-                   "patches is anchored to.",
-        "where": ("tools/build-darkreader.py", "tools/build-ubo-scriptlets.mjs"),
-        "how": "Only on the builder's branch, and only the anchor texts: find in the new upstream code the one "
-               "place equivalent to the old anchor and give it as the new anchor; the replacement texts stay "
-               "byte-identical, no patch is added or removed (tools/builder-anchor.py checks it).",
-        "never": "Never change a replacement, never change upstream code.",
+        "meaning": "A new upstream version of uBlock Origin moved the library I.K.E.'s builder of its scriptlets "
+                   "imports. (Dark Reader's engine, with its patches, left I.K.E. in 1.1.30; a refusal of its "
+                   "lists' builder is for a person.)",
+        "where": ("tools/build-ubo-scriptlets.mjs",),
+        "how": "Only on the builder's branch, and only the path of the library it imports: find in the new "
+               "upstream checkout the file that now holds the scriptlets' library and give its path; every other "
+               "line stays byte-identical (tools/builder-anchor.py checks it).",
+        "never": "Never change another line of the builder, never change upstream code.",
     },
     {
         "id": "qt-api-renamed",
@@ -165,7 +166,7 @@ PLAYBOOK = (
         "id": "nothing-gets-worse-fingerprint",
         "signs": (r"Nothing gets worse", r"things worse than on main"),
         "meaning": "The differential check measured the candidate worse than main. When the change does not "
-                   "touch what got worse (e.g. fingerprint rows on a Dark Reader update), the branch is usually "
+                   "touch what got worse (e.g. fingerprint rows on a scriptlets update), the branch is usually "
                    "behind main and measures main's older protection: that is not for an AI.",
         "where": (),
         "how": "If the rows that got worse belong to a file this change does not touch, answer \"fixable\": "

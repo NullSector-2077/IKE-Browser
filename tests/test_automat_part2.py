@@ -264,7 +264,7 @@ def test_off_tier_b_is_never_an_ais_and_on_only_a_few_files_open():
                  "tools/check-autofix-patch.py", "tools/tier-b.py", "tools/ai-quota.py", "tools/ai-quota.json",
                  "tools/automat-memory.py", "tools/autofix-plan.py", "tests/test_updater.py", "tests/conftest.py",
                  "tests/test_automat_part2.py", "ike/__init__.py", "ike/extensions.py", "PKGBUILD",
-                 "ike/resources/videoads.js", "ike/resources/darkreader.js", "ike-adblock/Cargo.lock",
+                 "ike/resources/videoads.js", "ike/resources/darkreader-data.json", "ike-adblock/Cargo.lock",
                  "ike-adblock/deny.toml", "launcher/ike-browser", ".github/dependabot.yml",
                  ".github/autofix/prompt.md", ".github/workflows/../../tools/x.yml"):
         assert not fg.tier_b_open(name) and not tb.allowed(name), name
@@ -1040,7 +1040,7 @@ def test_the_reviewers_respect_the_budget_too():
     ("FAILED tests/a.py::t1 - A: 1\nFAILED tests/a.py::t2 - B: 2\nFAILED tests/a.py::t3 - C: 3\n", {}, "multi-file"),
     ("FAILED tests/test_inventory_guard.py::test_every_file - add this entry to components.json\n", {}, "manifest"),
     ("FAILED tests/test_fingerprint.py::test_canvas\n  ike/resources/fingerprint.js\n", {}, "page-script"),
-    ("anything", {"mode": "lists"}, "lists"), ("anything", {"builder": "darkreader"}, "builder"),
+    ("anything", {"mode": "lists"}, "lists"), ("anything", {"builder": "ubo-scriptlets"}, "builder"),
 ])
 def test_the_kind_of_task_is_read_from_the_failure(failure, kw, task):
     assert route.task_type(failure, **kw) == task and task in memory.TASKS
@@ -1439,18 +1439,19 @@ def test_which_versions_changed_is_read_from_the_two_branches():
         ("pytest", "9.1.0", "9.1.1"), ("ruff", "0.16.8", "0.16.9")]
     files = {("origin/main", upstream.LOCK): OLD_LOCK, ("origin/automation/update/adblock", upstream.LOCK): NEW_LOCK,
              ("origin/automation/update/adblock", upstream.MANIFEST): MANIFEST,
-             ("origin/main", upstream.DARKREADER[0]): '{"version": "4.9.135"}',
-             ("origin/automation/update/darkreader", upstream.DARKREADER[0]): '{"version": "4.9.136"}',
+             ("origin/main", upstream.DARKREADER[0]): '{"version": "4.9.135", "lists_commit": "%s"}' % ("3" * 40),
+             ("origin/automation/update/darkreader", upstream.DARKREADER[0]):
+                 '{"version": "4.9.135", "lists_commit": "%s"}' % ("4" * 40),
              ("origin/main", upstream.UBO[0]): '{"commit": "%s"}' % ("1" * 40),
              ("origin/automation/update/ubo-scriptlets", upstream.UBO[0]): '{"commit": "%s"}' % ("2" * 40),
              ("origin/main", upstream.REQUIREMENTS): "pytest==9.1.0\n",
              ("origin/automation/update/test-tools", upstream.REQUIREMENTS): "pytest==9.1.1\n"}
     show = show_of(files)
     assert [c["name"] for c in upstream.changes_of("automation/update/adblock", show, RUST_FAILURE)][0] == "adblock"
+    # Dark Reader's lists (its engine left in 1.1.30): the two commits of the lists, compared exactly
     dr = upstream.changes_of("automation/update/darkreader", show)
-    assert (dr[0]["old"], dr[0]["new"], dr[0]["repo"]) == ("4.9.135", "4.9.136", "darkreader/darkreader")
-    refused = "- Component: Dark Reader (engine and lists), 4.9.135, lists 30e8 -> 4.9.137, lists 16a1\n"
-    assert upstream.changes_of("automation/builder/darkreader", show, refused)[0]["new"] == "4.9.137"
+    assert dr[0]["exact"] == ("3" * 40, "4" * 40) and dr[0]["repo"] == "darkreader/darkreader"
+    assert dr[0]["kind"] == "git" and dr[0]["prefer"] == ("src/config/",)
     ubo = upstream.changes_of("automation/update/ubo-scriptlets", show)[0]
     assert ubo["exact"] == ("1" * 40, "2" * 40) and ubo["repo"] == "gorhill/uBlock"
     assert upstream.changes_of("automation/update/test-tools", show)[0]["kind"] == "pypi"
@@ -1627,54 +1628,14 @@ def test_a_fix_that_solved_this_very_error_is_applied_again(tmp_path):
     assert len("x" * memory.PATCH_CHARS) <= memory.PATCH_CHARS and memory.PATCH_CHARS * memory.SOLVED_PER_SIG < memory.MAX_BYTES
 
 
-BUILDER = '''"""A builder."""
-PATCHES = [
-    ("color-variables",
-     "function getColor(v) {\\n"
-     "    return parse(v);\\n",
-     "function getColor(v) {\\n    return cached(v);\\n"),
-    ("style-groups", "const groups = new Map();\\n", "const groups = new FastMap();\\n"),
-]
-
-
-def apply_patches(engine):
-    return engine
-'''
-REFUSAL = ("# The builder refused a new upstream version\n\n- Component: Dark Reader (engine and lists), 4.9.135, lists a -> "
-           "4.9.136, lists b\n- Refused at: tools/build-darkreader.py, I.K.E.'s patch 'color-variables' (PATCHES)\n"
-           "- Reason: the builder stopped\n- Builder: `tools/build-darkreader.py`\n\n"
-           "## The new upstream version around the anchor\n\n```text\nfound near line 120:\n"
-           "   118  const cache = new Map();\n   119  \n   120  function getColor(value) {\n"
-           "   121      return parse(value);\n   122  }\n   123  function other(v) {\n   124      return v;\n```\n")
-
-
-def test_a_builders_patch_is_re_anchored_by_a_program_when_one_place_is_clear(tmp_path):
-    anchor = load("builder-anchor")
-    new, name = recipes.reanchor(REFUSAL, BUILDER)
-    assert name == "color-variables" and new is not None
-    assert anchor.problem("darkreader", BUILDER, new) == ""             # only the anchor changed
-    got = dict((p[0], p[1]) for p in anchor._patches(new)[0])
-    assert got["color-variables"] == "function getColor(value) {\n    return parse(value);\n"
-    assert got["style-groups"] == "const groups = new Map();\n"
-    # no clear place: nothing is made (two places as close, nothing close, the anchor still there, no refusal)
-    twice = REFUSAL.replace("   123  function other(v) {\n   124      return v;\n",
-                            "   123  function getColour(value) {\n   124      return parse(value);\n")
-    assert recipes.reanchor(twice, BUILDER)[0] is None and "as close" in recipes.reanchor(twice, BUILDER)[1]
-    far = REFUSAL.replace("function getColor(value) {", "class Palette extends Base {").replace("return parse(value);", "init();")
-    assert recipes.reanchor(far, BUILDER)[0] is None
-    assert recipes.reanchor(REFUSAL.replace("'color-variables'", "'no-such-patch'"), BUILDER)[0] is None
-    assert recipes.reanchor("FAILED tests/test_x.py::t\n", BUILDER)[0] is None
-    gap = REFUSAL.replace("   121      return parse(value);\n", "   131      return parse(value);\n")
-    assert recipes.reanchor(gap, BUILDER)[0] is None                    # the lines are not neighbours
-    # the whole recipe on a builder's branch: checked by the builders' own rule, then kept
-    files = {"tools/build-darkreader.py": BUILDER, "ike/__init__.py": '__version__ = "1.1.10"\n'}
-    out, repo = recipe_run(tmp_path, files, REFUSAL, ["--builder", "darkreader"], "tools/build-darkreader.py\n")
-    assert out["result"] == "ok" and out["recipe"] == "re-anchor"
-    assert anchor.problem("darkreader", BUILDER, (repo / "tools/build-darkreader.py").read_text()) == ""
-    # the recipes never run on a builder's branch for anything but the anchor, and never for the lists' analysis
+def test_the_recipes_never_run_on_a_builders_branch(tmp_path):
+    """The recipe that re-anchored a patch of Dark Reader's engine left with the engine (1.1.30): on a
+    builder's branch (uBlock Origin's scriptlets) no recipe runs, a renamed symbol included."""
+    files = {"ike/__init__.py": '__version__ = "1.1.10"\n'}
     out, repo = recipe_run(tmp_path / "b", dict(WRAPPER, **files), PY_FAILURE, ["--builder", "ubo-scriptlets"],
                            "vendor/adblock/__init__.py\n", up=RENAMED)
     assert out["result"] == "none"
+    assert "re-anchor" not in recipes.RECIPES
 
 
 REAL_TOOLS = ("autofix-agent.py", "autofix-context.py", "autofix-reserve.py", "check-autofix-patch.py", "ai-providers.py",

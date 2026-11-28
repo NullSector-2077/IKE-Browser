@@ -1,7 +1,9 @@
 """The I.K.E. Dark Engine on the hard cases of modern sites (an independent review
 of round 3): Tailwind's colours with a variable alpha, colour channels in
 variables (design systems, shadcn/ui), editors whose text must stay the user's,
-gradient text, charts, shadow roots on plain elements, pages that name their
+gradient text, charts, shadow roots on plain elements, registered custom
+properties (@property's initial value), a variable's fallback colour, rules added
+later without a node changing, pages that name their
 elements like the document's own methods, logical borders, animations, a dark
 hero over a light page, and a frame filled by script. Real engine, local pages.
 """
@@ -52,6 +54,41 @@ PAGES = {
     "hero": """<!doctype html><style>body{background:#fff;color:#222;margin:0}
       .hero{background:#111;color:#fff;height:100vh}</style><div class="hero">Welcome</div>""" + LONG,
     "print": """<!doctype html><style>body{background:#ffffff;color:#222}</style><p>Printed page</p>""",
+    "registered": """<!doctype html><style>body{background:#fff;color:#111;margin:0}
+      @property --band-bg { syntax: '<color>'; inherits: true; initial-value: #ffffff; }
+      @property --card-bg { syntax: '<color>'; inherits: false; initial-value: rgb(250, 250, 250); }
+      @property --ink { syntax: '<color>'; inherits: true; initial-value: #222222; }
+      .band .inner{background:var(--band-bg);color:var(--ink);height:120px}
+      .card{background-color:var(--card-bg);height:60px}
+      .own{--band-bg:#fffbe6}</style>
+      <div class="band"><div id="band" class="inner">A band of the home page</div></div>
+      <div id="card" class="card">Card</div>
+      <div class="band own"><div id="own" class="inner">Its own colour</div></div>""",
+    "fallback": """<!doctype html><style>body{background:#fff;color:#111;margin:0}
+      .band{--band-bg:var(--theme-undefined-bg, #fff)} .band .inner{background:var(--band-bg);height:80px}
+      .tile{background:var(--theme-undefined-tile,#f7f7f7);height:40px}</style>
+      <div class="band"><div id="band" class="inner">Band</div></div>
+      <div class="band" style="--band-bg: var(--theme-undefined-x, #fff)"><div id="band2" class="inner">Band 2</div></div>
+      <div id="tile" class="tile">Tile</div>""",
+    "gradvar": """<!doctype html><style>body{background:#fff;color:#111;margin:0}
+      .p1{background-image:linear-gradient(0deg,#fff,#fff),var(--panel-picture,none);height:60px}
+      .p2{background-image:linear-gradient(0deg,var(--u-panel,#fff),var(--u-panel,#fff)),var(--other-picture,none);height:60px}
+      </style><div id="p1" class="p1">Panel one</div><div id="p2" class="p2">Panel two</div>""",
+    "halo": """<!doctype html><style>body{background:#fff;color:#111;margin:0}
+      .card{position:relative;width:400px;height:300px}.card img{position:absolute;inset:0;width:400px;height:300px}
+      .card h2{position:absolute;top:20px;left:20px;margin:0;color:#333}</style>
+      <div class="card"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect width='400' height='300' fill='%23eeeeee'/%3E%3C/svg%3E">
+      <h2 id="over">Ecco la nuova gamma</h2></div><p id="below">A caption under the picture</p>""",
+    "late": """<!doctype html><style>body{background:#fff;color:#111;margin:0}</style><style id="js"></style>
+      <div id="a" class="a" style="height:40px">a</div><div id="b" class="b" style="height:40px">b</div>
+      <div id="c" class="c" style="height:40px">c</div>
+      <script>
+      setTimeout(function(){ document.getElementById('js').sheet.insertRule('.a{background:var(--u1,#fff)}',0); },800);
+      setTimeout(function(){ var s=document.createElement('style'); document.head.appendChild(s);
+        setTimeout(function(){ s.sheet.insertRule('.b{background:#fafafa}',0); },50); },300);
+      var s3=document.createElement('style'); s3.textContent='.c{background:#000}'; document.head.appendChild(s3);
+      setTimeout(function(){ s3.firstChild.data='.c{background:#ffffff}'; },500);
+      </script>""",
     "frame": """<!doctype html><style>body{background:#fff;color:#222}</style><iframe id="fr" width="300" height="120"></iframe>
       <script>var d=document.getElementById('fr').contentDocument;
       d.body.innerHTML='<p id="x" style="background:#ffffff;color:#222222">Message in a frame</p>';</script>""",
@@ -107,6 +144,17 @@ READS = {
     "print": "dispatchEvent(new Event('beforeprint'));var a=getComputedStyle(document.body).backgroundColor;"
              "dispatchEvent(new Event('afterprint'));var b=getComputedStyle(document.body).backgroundColor;"
              "return {printed:a,after:b}",
+    "registered": "function s(i){return getComputedStyle(document.getElementById(i));}"
+                  "return {band:s('band').backgroundColor,ink:s('band').color,card:s('card').backgroundColor,"
+                  "own:s('own').backgroundColor}",
+    "fallback": "function s(i){return getComputedStyle(document.getElementById(i)).backgroundColor;}"
+                "return {band:s('band'),band2:s('band2'),tile:s('tile')}",
+    "gradvar": "function s(i){return getComputedStyle(document.getElementById(i)).backgroundImage;}"
+               "return {p1:s('p1'),p2:s('p2')}",
+    "halo": "function s(i){return getComputedStyle(document.getElementById(i)).textShadow;}"
+            "return {over:s('over'),below:s('below')}",
+    "late": "function s(i){return getComputedStyle(document.getElementById(i)).backgroundColor;}"
+            "return {a:s('a'),b:s('b'),c:s('c')}",
     "frame": "var p=document.getElementById('fr').contentDocument.getElementById('x');"
              "return {bg:getComputedStyle(p).backgroundColor,color:getComputedStyle(p).color}",
 }
@@ -166,5 +214,18 @@ def test_hard_cases(run_ike, site):
     assert light(p["body"]) < 0.3, p                                            # darkened, not left as it is
     p = out["print"]
     assert p["printed"] == "rgb(255, 255, 255)" and light(p["after"]) < 0.3, p    # paper gets the page's colours
+    p = out["registered"]                                                       # @property's initial values
+    assert light(p["band"]) < 0.3 and light(p["card"]) < 0.3 and light(p["ink"]) > 0.6, p
+    assert light(p["own"]) < 0.3 and p["own"] != p["band"], p                  # the page's own value still wins
+    p = out["fallback"]                                                         # var(--undefined, #fff)
+    assert light(p["band"]) < 0.3 and light(p["band2"]) < 0.3 and light(p["tile"]) < 0.3, p
+    p = out["gradvar"]                                    # a gradient next to a variable in the same value
+    for k in ("p1", "p2"):
+        first = re.search(r"rgba?\([^)]*\)", p[k]).group(0)
+        assert light(first) < 0.3, p
+    p = out["halo"]                                           # light text over a photo: a dark halo
+    assert "rgba(0, 0, 0" in p["over"] and p["below"] == "none", p
+    p = out["late"]                                    # insertRule with no node changed, a style's text changed
+    assert light(p["a"]) < 0.3 and light(p["b"]) < 0.3 and light(p["c"]) < 0.3, p
     p = out["frame"]
     assert light(p["bg"]) < 0.3 and light(p["color"]) > 0.6, p

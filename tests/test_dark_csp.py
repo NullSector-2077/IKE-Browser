@@ -1,4 +1,6 @@
-"""Page dark mode under a strict Content-Security-Policy (1.1.26).
+"""Page dark mode under a strict Content-Security-Policy (1.1.26; since 1.1.30
+with the I.K.E. Dark Engine, which writes into the page's own rules and needs no
+<style> of its own there, so the policy does not stop it).
 
 A site whose policy allows style sheets from itself only (archlinux.org:
 "default-src 'self'", others "style-src 'self'") blocks every <style> element
@@ -132,7 +134,7 @@ def lightness(css):
 
 
 def test_dark_mode_under_a_strict_policy(run_ike, site):
-    out = run_ike(STEPS.replace("__SITE__", site), settings={"dark_mode": "on", "dark_engine": "reader"},
+    out = run_ike(STEPS.replace("__SITE__", site), settings={"dark_mode": "on", "dark_engine": "ike"},
                   timeout=150)
     for name in ("default", "style", "open"):
         p = out[name]
@@ -146,28 +148,25 @@ def test_dark_mode_under_a_strict_policy(run_ike, site):
         p = out[name]
         # the page's own protection holds: its inline style stays blocked
         assert p["inline"] == "rgba(0, 0, 0, 0)", (name, p)
-        # the styles reached the page as constructed sheets
-        assert p["adopted"] > 0, (name, p)
-    # without a policy, Dark Reader's own <style> elements, as before
+    # without a policy, the engine's own <style> element, nothing adopted
     assert out["open"]["styles"] > 0 and out["open"]["adopted"] == 0, out["open"]
     assert out["open"]["inline"] != "rgba(0, 0, 0, 0)", out["open"]
-    # the page's own constructed sheet came later: darkened, and the copies are still there
+    # the page's own constructed sheet came later: darkened
     later = out["later"]
-    assert later["title"] == "later set" and later["adopted"] > 1, later
+    assert later["title"] == "later set" and later["adopted"] >= 1, later
     assert lightness(later["a"]) < 0.3 and lightness(later["body"]) < 0.3, later
     assert lightness(later["text"]) > 0.6, later
-    # a shadow root under the policy: dark inside too, through its own copy
+    # a shadow root under the policy: dark inside too
     sh = out["shadow"]
     assert lightness(sh["body"]) < 0.3 and sh["shadow"], sh
     assert lightness(sh["shadow"]["bg"]) < 0.3 and lightness(sh["shadow"]["color"]) > 0.6, sh
-    assert sh["shadow"]["adopted"] > 0, sh
-    # an own dark theme under the policy: left as it is (the copies were not taken for it)
+    # an own dark theme under the policy: left as it is
     own = out["own"]
-    assert own["body"] == "rgb(18, 18, 18)" and own["adopted"] == 0, own
+    assert own["body"] == "rgb(18, 18, 18)", own
 
 
 def test_dark_mode_off_leaves_a_strict_page_as_it_is(run_ike, site):
-    out = run_ike(STEPS.replace("__SITE__", site), settings={"dark_mode": "off", "dark_engine": "reader"},
+    out = run_ike(STEPS.replace("__SITE__", site), settings={"dark_mode": "off", "dark_engine": "ike"},
                   timeout=150)
     for name in ("default", "style", "open"):
         p = out[name]

@@ -215,8 +215,9 @@ def test_every_place_gives_the_same_identity(run_ike, site, level):
         for name in ("page", "frame", "blob_shared"):
             assert places[name]["net"] == ["4g", 50, 10, False], (name, places[name])
         assert set(nets) == {("50", "10", "4g")}, nets
-        # Chrome's own five PDF viewers with their two types, nothing invented
-        assert [p[0] for p in page["plugins"]] == PDF_PLUGINS, page["plugins"]
+        # Chrome's own five PDF viewers with their two types, nothing invented (1.1.30:
+        # in an order of the site's own, for Cover Your Tracks, tests/test_cover_your_tracks.py)
+        assert sorted(p[0] for p in page["plugins"]) == sorted(PDF_PLUGINS), page["plugins"]
         assert all(p[1:] == ["internal-pdf-viewer", "Portable Document Format", 2, "application/pdf"]
                    for p in page["plugins"]), page["plugins"]
         assert page["mimes"] == ["application/pdf", "text/pdf"], page
@@ -501,9 +502,9 @@ def test_strict_canvas_noise_only_on_edges(run_ike, canvas_site):
         assert r["pixelMods"] == 0, r                       # CreepJS: "pixel data modified" no more
         assert r["flatUrl"] == off["flatUrl"] and r["flatWrong"] == 0, (r, off)     # exactly as drawn
         assert r["aloneSame"] is True, r
-        # 1.1.27: every export varies (Cover Your Tracks: "randomized"); the
-        # pixels read are the same at every read and in a frame of the site
-        assert len({r["textUrl"], r["textAgain"], r["frameText"]}) == 3, r
+        # 1.1.30: every export is the site's own picture, in a frame of the site
+        # too (1.1.27 to 1.1.28 varied it at every export); the pixels read too
+        assert len({r["textUrl"], r["textAgain"], r["frameText"]}) == 1, r
         assert r["textData"] == r["frameData"], r
         assert r["cleared"] == 0, r
     a, b = runs

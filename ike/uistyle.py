@@ -17,7 +17,8 @@ sliding switch by SwitchStyle); the entries of a list that are turned on and
 off are drawn the same way by SwitchDelegate (tests/test_switches.py).
 """
 
-from PyQt6.QtCore import QEvent, QPointF, QRect, QRectF, QSize, Qt
+from PyQt6 import sip
+from PyQt6.QtCore import QEvent, QObject, QPointF, QRect, QRectF, QSize, Qt
 from PyQt6.QtGui import QColor, QFontMetrics, QIcon, QPainter, QPalette, QPen, QPolygonF
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -26,6 +27,7 @@ from PyQt6.QtWidgets import (
     QStyle,
     QStyledItemDelegate,
     QStyleFactory,
+    QStyleOption,
     QStyleOptionMenuItem,
     QStyleOptionViewItem,
     QWidget,
@@ -119,7 +121,9 @@ def paint_switch(p, rect, on, palette, enabled=True, focus=False, rtl=False, sel
         line = palette.color(R.HighlightedText)
     else:
         track = palette.color(R.Highlight) if on else palette.color(R.Mid)
-        knob = palette.color(R.HighlightedText) if on else palette.color(R.Base)
+        # 1.1.30 (the owner): the knob keeps its colour, on and off; only the
+        # track turns to the theme's blue (it turned white when on)
+        knob = palette.color(R.Base)
         line = palette.color(R.Mid)
         if not on:
             # 1.1.24, the owner's report: a switch turned off hardly showed (its border was the colour
@@ -323,8 +327,89 @@ def _toggle(action):
     return action.isCheckable() and not (g is not None and g.isExclusive())
 
 
+def _real_widget(widget):
+    """The widget a style method is asked about, as a menu when it is one.
+    PyQt 6.12 can hand a style method the wrapper of a deleted object of
+    another kind found at the same address (see IkeStyle._button_text); a
+    menu taken for something else was measured by the desktop's style when it
+    opened and by I.K.E.'s afterwards, 20 to 40 px apart, and its entries
+    stuck out of it (1.1.30's test round, once in a while after windows had
+    been closed). A fresh wrapper of the menu is made for it."""
+    if widget is None or isinstance(widget, QMenu):
+        return widget
+    try:
+        menu = widget.inherits("QMenu")
+    except (AttributeError, RuntimeError, TypeError):
+        menu = None                      # not even the wrapper of an object
+    if menu is False:
+        return widget
+    try:
+        address = sip.unwrapinstance(widget)
+        if menu is None and not sip.wrapinstance(address, QObject).inherits("QMenu"):
+            return widget
+        real = sip.wrapinstance(address, QMenu)
+        return real if isinstance(real, QMenu) else widget
+    except Exception:            # noqa: BLE001 (a style method must never raise)
+        return widget
+
+
+def _menu_option(opt):
+    """The option of a menu entry as one (QStyleOptionMenuItem). PyQt 6.12
+    can hand a style method the wrapper of an option of another kind left at
+    the same address (Qt makes them on the stack): a menu entry's option then
+    did not look like one, the entry was measured by the desktop's style when
+    its menu opened and by I.K.E.'s afterwards (20 to 40 px apart: entries
+    stuck out of their menu, 1.1.30's test round), and reading it as the wrong
+    kind gave garbage. Only for what Qt asks with a menu entry's option."""
+    if opt is None or isinstance(opt, QStyleOptionMenuItem):
+        return opt
+    try:
+        return sip.cast(sip.cast(opt, QStyleOption), QStyleOptionMenuItem)
+    except Exception:            # noqa: BLE001 (a style method must never raise)
+        return opt
+
+
+def _is_menu(widget):
+    """Is widget a menu? Asked of the object itself, not of the type of its
+    Python wrapper: PyQt can hand a style method a wrapper left by a deleted
+    widget of another kind at the same address (see IkeStyle._button_text).
+    A menu then taken for something else was measured by the desktop's style
+    when it opened and by I.K.E.'s afterwards: its entries were 20 to 40 px
+    wider or narrower than it (1.1.30's test round, once in a while, after
+    windows had been closed)."""
+    try:
+        return widget is not None and widget.inherits("QMenu")
+    except (AttributeError, RuntimeError, TypeError):
+        return False
+
+
 def _menu_has_switches(menu):
     return any(_toggle(a) and a.isVisible() for a in menu.actions())
+
+
+def _menu_checkable(opt, menu):
+    """Can an entry of menu be ticked? Asked of the menu itself: QMenu sets
+    opt.menuHasCheckableItems while it measures its entries one by one (False
+    for those before the first that can be ticked), so a menu measured twice
+    came out about 30 px wider or narrower than its entries (1.1.30)."""
+    if _is_menu(menu):
+        return any(a.isCheckable() and a.isVisible() and not a.isSeparator() for a in menu.actions())
+    return bool(opt.menuHasCheckableItems)
+
+
+def _menu_has_icons(opt, menu):
+    """Has an entry of menu an icon (asked of the menu, as _menu_checkable)?"""
+    if _is_menu(menu):
+        return any(a.isVisible() and not a.isSeparator() and not a.icon().isNull() for a in menu.actions())
+    return opt.maxIconWidth > 0
+
+
+def _menu_has_shortcuts(menu):
+    """Has an entry of menu a shortcut (its own, or after a tab in its text)?"""
+    if not _is_menu(menu):
+        return False
+    return any(a.isVisible() and not a.isSeparator() and ("\t" in a.text() or not a.shortcut().isEmpty())
+               for a in menu.actions())
 
 
 # ----------------------------------------------------------------------
@@ -369,9 +454,9 @@ def menu_header_font(font):
 def menu_check_width(opt, menu):
     """The check column of a menu drawn by I.K.E.: none without an entry that
     can be ticked, a switch's width with one turned on and off, else a radio's."""
-    if not opt.menuHasCheckableItems:
+    if not _menu_checkable(opt, menu):
         return 0
-    if isinstance(menu, QMenu) and _menu_has_switches(menu):
+    if _is_menu(menu) and _menu_has_switches(menu):
         return menu_switch_size(opt.fontMetrics)[0]
     return MENU_ICON
 
@@ -403,7 +488,7 @@ class IkeStyle(QProxyStyle):
         return polish.POPUP_SHADOW if polish.translucent_popups() else 0
 
     def _own_menu(self, widget):
-        return isinstance(widget, QMenu) and self.own_menus()
+        return _is_menu(widget) and self.own_menus()
 
     def polish(self, target):
         if self._own_menu(target) and getattr(target, "_ike_round", None) is None:
@@ -415,7 +500,7 @@ class IkeStyle(QProxyStyle):
         return super().polish(target)
 
     def eventFilter(self, obj, event):
-        if event.type() == QEvent.Type.Resize and isinstance(obj, QMenu) and not self.menu_shadow():
+        if event.type() == QEvent.Type.Resize and _is_menu(obj) and not self.menu_shadow():
             from . import polish
             polish._rounded_mask(obj, 0)
         return False
@@ -549,21 +634,28 @@ class IkeStyle(QProxyStyle):
             return QSize(10, 9)
         fm = QFontMetrics(opt.font)
         width = menu_text_offset(opt, menu) + size.width()
-        # QMenu adds the column of the shortcuts itself (its widest): here the room before it
-        if "\t" in opt.text or opt.reservedShortcutWidth > 0:
+        # QMenu adds the column of the shortcuts itself (its widest): here the room before it.
+        # Asked of the menu, not of opt.reservedShortcutWidth: QMenu fills that in while it
+        # measures its entries one by one (0 for those before the first shortcut, and what
+        # its last measure left otherwise), so a menu measured twice came out wider or
+        # narrower than its entries and they stuck out of it (1.1.30's test round)
+        if "\t" in opt.text or _menu_has_shortcuts(menu):
             width += MENU_SHORT_GAP
         return QSize(width + MENU_SHORT_END, menu_row_height(fm))
 
     def _switch_room(self, opt, menu):
         """The room added before the entries of menu for their switches (0:
         the switch goes in the column of the tick: Fusion, and no icons)."""
-        if not isinstance(menu, QMenu) or not opt.menuHasCheckableItems or not _menu_has_switches(menu):
+        if not _is_menu(menu) or not _menu_checkable(opt, menu) or not _menu_has_switches(menu):
             return 0
-        if opt.maxIconWidth <= 0 and self.baseStyle().name().lower() == "fusion":
+        if not _menu_has_icons(opt, menu) and self.baseStyle().name().lower() == "fusion":
             return 0
         return menu_switch_size(opt.fontMetrics)[0] + 6
 
     def drawControl(self, element, opt, p, widget=None):
+        widget = _real_widget(widget)
+        if element == QStyle.ControlElement.CE_MenuItem:
+            opt = _menu_option(opt)
         if self._own_menu(widget):
             if element == QStyle.ControlElement.CE_MenuItem and isinstance(opt, QStyleOptionMenuItem) \
                     and opt.menuItemType in (QStyleOptionMenuItem.MenuItemType.Normal,
@@ -574,8 +666,8 @@ class IkeStyle(QProxyStyle):
                 return
             if element == QStyle.ControlElement.CE_MenuEmptyArea:
                 return                   # the panel is painted (PE_PanelMenu)
-        if element == QStyle.ControlElement.CE_MenuItem and isinstance(widget, QMenu) \
-                and isinstance(opt, QStyleOptionMenuItem) and opt.menuHasCheckableItems:
+        if element == QStyle.ControlElement.CE_MenuItem and _is_menu(widget) \
+                and isinstance(opt, QStyleOptionMenuItem) and _menu_checkable(opt, widget):
             T = QStyleOptionMenuItem.MenuItemType
             if opt.menuItemType in (T.Normal, T.DefaultItem, T.SubMenu):
                 room = self._switch_room(opt, widget)
@@ -623,6 +715,7 @@ class IkeStyle(QProxyStyle):
                          rtl=rtl, selected=selected)
 
     def drawPrimitive(self, element, opt, p, widget=None):
+        widget = _real_widget(widget)
         if self._own_menu(widget):
             PE = QStyle.PrimitiveElement
             if element == PE.PE_PanelMenu:
@@ -634,6 +727,7 @@ class IkeStyle(QProxyStyle):
         super().drawPrimitive(element, opt, p, widget)
 
     def pixelMetric(self, metric, opt=None, widget=None):
+        widget = _real_widget(widget)
         if self._own_menu(widget):
             PM = QStyle.PixelMetric
             if metric == PM.PM_MenuPanelWidth:
@@ -695,6 +789,9 @@ class IkeStyle(QProxyStyle):
         return getattr(opt, "text", ""), getattr(opt, "toolButtonStyle", None)
 
     def sizeFromContents(self, kind, opt, size, widget=None):
+        widget = _real_widget(widget)
+        if kind == QStyle.ContentsType.CT_MenuItem:
+            opt = _menu_option(opt)
         if kind == QStyle.ContentsType.CT_MenuItem and self._own_menu(widget) \
                 and isinstance(opt, QStyleOptionMenuItem) and opt.menuItemType in (
                     QStyleOptionMenuItem.MenuItemType.Normal, QStyleOptionMenuItem.MenuItemType.DefaultItem,
@@ -713,13 +810,13 @@ class IkeStyle(QProxyStyle):
             # and above and below the text (1.1.22: Kvantum's default theme left
             # one pixel for a line of Persian)
             s = self._tall_enough(s, opt, widget)
-        elif kind == CT.CT_MenuItem and isinstance(widget, QMenu) and isinstance(opt, QStyleOptionMenuItem) \
+        elif kind == CT.CT_MenuItem and _is_menu(widget) and isinstance(opt, QStyleOptionMenuItem) \
                 and opt.menuItemType != QStyleOptionMenuItem.MenuItemType.Separator:
             room = self._switch_room(opt, widget)
             if opt.menuItemType == QStyleOptionMenuItem.MenuItemType.SubMenu:
                 # 1.1.24: room between the text and the arrow of a submenu. KDE's
                 # Breeze leaves 3 px or less, so the longest name of a menu without
-                # shortcuts touched its arrow (☰ → More → View, Tools); half a line
+                # shortcuts touched its arrow (1.1.24's ☰ → More → View, Tools); half a line
                 # more, in every style: a menu is only wider when such a name is its longest
                 room += max(4, opt.fontMetrics.height() // 2)
             if room:

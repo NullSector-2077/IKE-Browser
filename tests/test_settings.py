@@ -48,7 +48,7 @@ def test_settings_dialog(run_ike, tmp_path, lang):
     # 1.1.0 added "New tab page"; 1.1.20: Language, Protection, Privacy, I.K.E. extensions,
     # Updates and System in place of "Privacy and protection", "Components and extensions"
     # and "User scripts"
-    assert out["sections"] == 11 and out["pages"] == 11
+    assert out["sections"] == 14 and out["pages"] == 14
     assert out["sideways"]["extensions"] == 0, out["sideways"]
     assert out["sideways"]["newtab"] == 0, out["sideways"]
     assert all(out["icons"])

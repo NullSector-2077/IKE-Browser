@@ -178,12 +178,14 @@ def main():
             and (not a.only or fx["id"] in a.only.split(","))]
     port = serve(fixtures)
 
+    from drcompare import darkpages as _drp
     from PyQt6.QtCore import QTimer, QUrl
     from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
     from PyQt6.QtWebEngineWidgets import QWebEngineView
     from PyQt6.QtWidgets import QApplication
 
-    from ike import darkengine, darkfixes, darkpages
+    from ike import darkengine, darkfixes
+    darkpages = _drp() if "dr" in a.modes.split(",") else None
     current = {"fix": None}
     orig_fix_for = darkfixes.fix_for
 

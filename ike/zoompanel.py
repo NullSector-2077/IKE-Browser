@@ -29,7 +29,7 @@ from PyQt6.QtWidgets import (
 from . import panelkit
 from .i18n import T
 
-DEFAULT_RANGE = (0.5, 3.0)          # Settings → Appearance → Default zoom takes these
+DEFAULT_RANGE = (0.5, 3.0)          # Settings → Web pages → Default zoom takes these
 
 
 def _icon(names):
@@ -160,7 +160,7 @@ class ZoomPanel(QWidget):
         sep.setFrameShape(QFrame.Shape.HLine)
         lay.addWidget(sep)
 
-        # 5. the default zoom (Settings → Appearance has the same)
+        # 5. the default zoom (Settings → Web pages has the same)
         default = QHBoxLayout()
         default.setSpacing(8)
         self.default_label = QLabel(T("Default zoom"), self)
