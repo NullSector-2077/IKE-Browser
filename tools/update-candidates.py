@@ -35,7 +35,8 @@ Rules (the plan below; the workflow follows them):
   path instead (``automation/builder/<id>``, WP11: an AI may only re-anchor
   I.K.E.'s existing changes, tools/builder-anchor.py; uBlock Origin's
   scriptlets only since 1.1.30), or, for a builder with nothing to re-anchor
-  (Dark Reader's lists, KDE's Breeze icons), waits for a person;
+  (KDE's Breeze icons), stays at the version in use: the daily report says
+  why and the daily check tries every new release again;
 - a source unreachable today makes nothing (the next run tries again).
 
 Each candidate's own commit is ``update: <id> <from> -> <to> (no AI)`` and may
