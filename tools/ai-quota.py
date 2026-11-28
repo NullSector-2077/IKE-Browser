@@ -670,7 +670,9 @@ def per_model(conf, body):
     return said((conf or {}).get("model_words") or (), body)
 # what a provider says of its limit per minute when a request is too large for it (Groq: "on tokens per minute
 # (TPM): Limit 6000, Requested 7678"): the limit is learned and the next request is fitted to it
-TPM_LIMIT = re.compile(r"(?:tokens per minute|\bTPM\b)\D{0,40}?\blimit\W{0,3}(\d{3,9})", re.I)
+# A limit of the answer's tokens is not one of the request (2026-11-28, Groq: "on output tokens per minute (OTPM):
+# Limit 1000" of one model, learned as Groq's whole limit, and no request fitted it any more)
+TPM_LIMIT = re.compile(r"(?<!output )(?:tokens per minute|\bTPM\b)\D{0,40}?\blimit\W{0,3}(\d{3,9})", re.I)
 
 
 def learned_minute_tokens(body):
@@ -819,12 +821,15 @@ class Budget:
         """The limit the provider itself said most recently (its headers, its 429's own numbers) in the days
         AUTOMAT's memory keeps, or None. 2026-11-27, the owner: what AUTOMAT learns of a provider's real quota
         replaces the estimate of tools/ai-quota.json for the next days too, not only for the day it was read."""
-        for day in sorted(self.state.get("days") or {}, reverse=True):
-            row = ((self.state["days"][day].get("providers") or {}).get(provider) or {})
-            obs = (row.get("observed") or {}).get(kind) or {}
-            if obs.get("window") == window and isinstance(obs.get("limit"), int) and not isinstance(
-                    obs.get("limit"), bool) and obs["limit"] > 0:
-                return obs["limit"]
+        # what its headers said comes first: a limit learned from an error's words is of the one model that was
+        # asked (2026-11-28), the headers' of every answer; a learned one only when no header said it
+        for learned in (False, True):
+            for day in sorted(self.state.get("days") or {}, reverse=True):
+                row = ((self.state["days"][day].get("providers") or {}).get(provider) or {})
+                obs = (row.get("observed") or {}).get(kind) or {}
+                if obs.get("window") == window and isinstance(obs.get("limit"), int) and not isinstance(
+                        obs.get("limit"), bool) and obs["limit"] > 0 and bool(obs.get("learned")) == learned:
+                    return obs["limit"]
         return None
 
     def day_limit(self, provider, kind):
