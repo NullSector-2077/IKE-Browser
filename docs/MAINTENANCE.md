@@ -1520,7 +1520,8 @@ does, once).
   An "unknown provider" stays for a person.
 - **The optional dependencies** (WP10 (e)). `arch.yml` installs those Arch
   ships (noto-fonts, noto-fonts-cjk,
-  plasma-integration, intel-media-driver, libva-nvidia-driver);
+  plasma-integration, intel-media-driver, libva-nvidia-driver, hunspell-en_us,
+  hunspell-it);
   `tests/test_optional_deps.py` has one case per optdepends entry of the
   PKGBUILD: where the package is installed, pacman finds all its files and
   what I.K.E. uses of it works (a Noto CJK font,

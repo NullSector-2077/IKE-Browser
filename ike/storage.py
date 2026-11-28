@@ -174,6 +174,19 @@ class Storage(Deferred):
         checkpoint(self.db)
         return urls
 
+    def expire_history(self, before):
+        """Delete the pages last seen before `before` (seconds) and the
+        downloads of that time: the history kept for a chosen time only
+        (Settings -> Privacy, "Keep the history"). Returns their addresses."""
+        before = int(before)
+        urls = [u for (u,) in self.db.execute("SELECT url FROM history WHERE last < ?", (before,))]
+        n = self.db.execute("SELECT COUNT(*) FROM downloads WHERE time < ?", (before,)).fetchone()[0]
+        if urls or n:
+            self.db.execute("DELETE FROM history WHERE last < ?", (before,))
+            self.db.execute("DELETE FROM downloads WHERE time < ?", (before,))
+            checkpoint(self.db)              # nothing of them left in the -wal file
+        return urls
+
     # --- the downloads list (1.1.25, downloadlist.py) ---------------------
     def downloads(self, limit=50):
         """[(name, path, url, size, state, time, host, note)], the newest first."""

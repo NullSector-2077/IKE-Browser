@@ -63,6 +63,7 @@ uses them unchanged and only reads them. Defaults (Settings → Ads and trackers
 | EasyList Cookie List | The EasyList authors (Fanboy), secure.fanboy.co.nz | CC BY 3.0, as recorded in 1.1.16 from the list's own header | **not verified**: the list's server could not be reached; its source template in https://github.com/easylist/easylist points to the EasyList licence page | on |
 | uBlock filters, Quick fixes, Privacy, Badware, Unbreak, Cookie notices | uBlock Origin contributors, https://github.com/uBlockOrigin/uAssets | GPL-3.0 | verified: the repository's LICENSE is the GNU GPL v3 | on |
 | Malicious URL Blocklist (since 1.1.17) | curben (malware-filter), https://gitlab.com/malware-filter/urlhaus-filter, from abuse.ch URLhaus | CC0 1.0 and MIT (the project's LICENSE and LICENSE-CC0.md; URLhaus data CC0) | verified in the project's repository | on |
+| Phishing URL Blocklist (since the release after 1.1.30) | curben (malware-filter), https://gitlab.com/malware-filter/phishing-filter, from OpenPhish, IPThreat and PhishTank, updated twice a day | the list CC BY-SA 4.0, the project's code CC0 1.0 and MIT (the project's README, LICENSE and LICENSE-CC0.md); its sources: OpenPhish and PhishTank "available free of charge", IPThreat CC BY-SA 4.0 | verified in the project's repository on 2026-11-28 | on |
 
 Lists a user adds keep their own terms. Widevine is **not** included: it is
 proprietary software by Google, which I.K.E. downloads from Google's server only
@@ -94,6 +95,7 @@ are **not verified**.
 | chromium-widevine (optional) | Widevine from the system | proprietary (Google) |
 | libva-nvidia-driver (optional) | video decoding, NVIDIA | MIT |
 | intel-media-driver (optional) | video decoding, Intel | MIT / BSD-3-Clause |
+| hunspell-en_us, hunspell-it (optional) | spell checking dictionaries | BSD-3-Clause-Modification / LGPL-2.1 (English); GPL-3.0 (Italian), as Arch records them |
 
 The optional packages' licences are recorded from their upstream projects and
 are **not verified** here.

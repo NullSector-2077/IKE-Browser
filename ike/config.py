@@ -186,6 +186,12 @@ DEFAULT_LISTS = [
     # has it on by default; CC0 / MIT (1.1.17, docs/THIRD-PARTY.md)
     {"name": "Malicious URL Blocklist", "group": "ads", "enabled": True,
      "url": "https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-online.txt"},
+    # pages that imitate a bank, a shop or a mail service to steal passwords,
+    # from OpenPhish, IPThreat and PhishTank, updated twice a day; the list
+    # CC BY-SA 4.0 (Unreleased, docs/THIRD-PARTY.md). A page it stops can still
+    # be opened with "Open anyway", as with every list
+    {"name": "Phishing URL Blocklist", "group": "ads", "enabled": True,
+     "url": "https://malware-filter.gitlab.io/malware-filter/phishing-filter.txt"},
     {"name": "uBlock filters - Unbreak", "group": "ads", "enabled": True,
      "url": "https://ublockorigin.github.io/uAssets/filters/unbreak.txt"},
     {"name": "EasyList Italy", "group": "ads", "enabled": True,
@@ -278,6 +284,7 @@ DEFAULTS = {
     "webrtc_hide_ip": True,
     "block_third_party_cookies": True,
     "clear_on_exit": False,
+    "history_keep_days": 0,             # history older than this goes (0 = kept always; app.expire_history)
     "doh": "off",                       # off | provider name | custom URL
     # built-in components (removable)
     "comp_adblock": True,
@@ -298,7 +305,7 @@ DEFAULTS = {
     "last_lists_update": 0,
     "last_fast_update": 0,              # urgent-fix lists (see blocker.FAST_INTERVAL)
     "last_darklists_update": 0,         # Dark Reader's lists fetched by the browser (darklists.py, 1.1.27)
-    "lists_version": 5,                 # bumped when the default lists change
+    "lists_version": 6,                 # bumped when the default lists change
     "auto_update": True,
     # downloads
     "download_dir": "",
@@ -397,6 +404,10 @@ DEFAULTS = {
     "autoclean_pending": [],
     "quiet_permissions": True,          # a sign in the address bar instead of a window
     "pw_breach_check": False,           # Have I Been Pwned, k-anonymity (opt-in)
+    "pw_lock_minutes": 15,              # the vault locks after I.K.E. is unused this long (0 = never; vaultlock.py)
+    "pw_lock_screen": True,             # ... and when the screen locks or the computer sleeps
+    "spellcheck": True,                 # underline misspelled words while typing (spelling.py)
+    "spellcheck_langs": [],             # dictionary names to use; empty: the interface's language
     "engine_advisory": {},              # the last verified advisory of the web engine
     "battery_saver": False,             # lighter work while on battery (opt-in)
 }
@@ -598,6 +609,16 @@ class Config:
                     except (OSError, TypeError, AttributeError):
                         pass
             d["lists_version"] = 5
+        if isinstance(stored, dict) and stored.get("lists_version", 1) < 6:
+            # the list of phishing pages, for everybody (once: whoever turns
+            # it off later keeps it off), next to the malware list
+            entry = next(e for e in DEFAULT_LISTS if "phishing-filter" in e["url"])
+            if not any(e.get("url") == entry["url"] for e in d["filter_lists"]):
+                at = next((i + 1 for i, e in enumerate(d["filter_lists"])
+                           if "urlhaus-filter" in (e.get("url") or "")), len(d["filter_lists"]))
+                d["filter_lists"].insert(at, dict(entry))
+                d["last_lists_update"] = 0      # fetch it at the next start
+            d["lists_version"] = 6
         d.pop("pgl_off_1116", None)             # the flag of 1.1.16, no longer used
         # older level names ("standard" became "balanced")
         d["shield_level"] = _LEVEL_ALIASES.get(d["shield_level"], d["shield_level"])

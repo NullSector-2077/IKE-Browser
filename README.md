@@ -46,7 +46,8 @@ profiles: `ike-browser --profile NAME`.
   trackers, scripts, third-party cookies, HTTPS upgrades and removed tracking
   parameters.
 - Content blocking with EasyList, EasyPrivacy, uBlock filters, the Malicious
-  URL Blocklist and EasyList Italy (any other list by its address), network
+  URL Blocklist, the Phishing URL Blocklist (pages that imitate a bank, a shop
+  or a mail service to steal passwords) and EasyList Italy (any other list by its address), network
   and cosmetic filters, your own filters. Lists update daily. YouTube video ads
   are removed by the lists' scriptlets; an ad that still starts is muted,
   hidden and skipped.
@@ -125,7 +126,13 @@ profiles: `ike-browser --profile NAME`.
 - Bookmarks bar; bookmarks that do not fit are listed under a » button.
 - Password vault (AES-256-GCM, scrypt key), offered in a menu when you click
   into a form of the page (not inside embedded frames), generator, CSV import
-  and export; passkeys on FIDO2 security keys.
+  and export; passkeys on FIDO2 security keys. The vault locks itself after
+  15 minutes without using I.K.E. (or 5, 30, 60, never) and when the screen
+  locks or the computer sleeps.
+- Spell checking while typing, with Hunspell's dictionaries on this computer
+  (install the `hunspell-*` package of your language, e.g. `hunspell-it`).
+- The history kept always (the default) or only for 1, 3, 6 months, 1 or 2
+  years (Settings → Privacy). Print preview before printing.
 - User scripts (Greasemonkey / Tampermonkey / Violentmonkey style), installed
   from a file, an address or by opening a `.user.js` link, updated daily. Each
   script gets only the functions its `@grant` lines ask for and reaches only
@@ -361,6 +368,7 @@ I.K.E. stands on the work of these projects, each under its own licence:
 | [EasyList, EasyPrivacy, EasyList Italy](https://easylist.to/) by The EasyList authors | filter lists | GPL-3.0 / CC BY-SA 3.0 |
 | EasyList Cookie List (Fanboy's Cookiemonster) | filter list | CC BY 3.0 |
 | [Malicious URL Blocklist](https://gitlab.com/malware-filter/urlhaus-filter) by curben, from abuse.ch URLhaus | filter list | CC0 1.0 / MIT |
+| [Phishing URL Blocklist](https://gitlab.com/malware-filter/phishing-filter) by curben, from OpenPhish, IPThreat and PhishTank | filter list | CC BY-SA 4.0 |
 | [Dark Reader](https://github.com/darkreader/darkreader) | its lists (fixes for single sites, sites dark already, dark theme hints), read by the I.K.E. Dark Engine | MIT |
 | Qt, Qt WebEngine (Chromium), PyQt6 | the window and the web engine, from the system | LGPL-3.0 / BSD / GPL-3.0 |
 | Lucide, Phosphor Icons | icon sets | ISC / MIT |

@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased
+
+- **Pages that steal passwords are stopped** (the owner's choice after the
+  comparison with the best-known browsers): the Phishing URL Blocklist
+  (curben's malware-filter, from OpenPhish, IPThreat and PhishTank, updated
+  twice a day, CC BY-SA 4.0) is on by default next to the malware list, and
+  every profile gets it once (whoever turns it off keeps it off). As with
+  every list, a page it stops can still be opened with "Open anyway"
+  (`ike/config.py`, tests/test_security.py).
+- **The password vault locks itself** (`ike/vaultlock.py`): after 15 minutes
+  in which I.K.E. was not used (no key, click, wheel turn or touch in its
+  windows; the Passwords window offers Never, 5, 15, 30 and 60 minutes), and
+  when the desktop locks the screen, the screen saver starts or the computer
+  goes to sleep (a switch, on). Its next use asks for the master password; the
+  Passwords window closes. Nothing runs while the vault is locked, and a
+  message on the bus can only lock it (tests/test_vault_lock.py, on a real
+  session bus too).
+- **Spell checking while typing** (`ike/spelling.py`, Settings → Language and
+  translation → Spelling, on): misspelled words in the page's text fields are
+  underlined and the right-click menu offers the corrections, in the
+  language of the system and of the interface (English when there is no
+  dictionary of it). Hunspell's dictionaries, on this computer: nothing typed
+  is sent anywhere. On Arch Linux and CachyOS each `hunspell-*` package
+  brings them (`hunspell-it`, `hunspell-en_us`: new optional dependencies);
+  Settings say which are in use, or which package to install
+  (tests/test_spelling.py; the Arch Linux check installs both).
+- **The history kept for a chosen time** (Settings → Privacy → Browsing data,
+  "Keep the history"): Always (the default: nothing changes), 1, 3 or 6
+  months, 1 or 2 years. Older pages and downloads are deleted by themselves at
+  the start, every hour and when the choice is applied; bookmarks, passwords,
+  cookies and settings stay (tests/test_history_keep.py).
+- **Print preview**: Print… (Ctrl+P, the menus, the page's menu) shows the
+  pages as they will be printed first, then the system's print window from
+  its Print button (tests/test_print_preview.py).
+
 ## 1.1.30
 
 1.1.29 was never published on its own: everything prepared for it is in

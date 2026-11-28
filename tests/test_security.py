@@ -1622,6 +1622,50 @@ def test_the_malware_list_reaches_new_and_existing_users(tmp_path, monkeypatch):
     assert "Malicious URL Blocklist" in text and "CC0" in text
 
 
+def test_the_phishing_list_reaches_new_and_existing_users(tmp_path, monkeypatch):
+    """The Phishing URL Blocklist is on by default; settings of an older
+    version get it once, right after the malware list, and it is fetched at
+    the next start; a user who turns it off later keeps it off, and a profile
+    that already has it keeps its own entry."""
+    import importlib
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    sys.path.insert(0, str(APP))
+    try:
+        from ike import config as C
+        importlib.reload(C)
+        url = "https://malware-filter.gitlab.io/malware-filter/phishing-filter.txt"
+        malware = "https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-online.txt"
+        assert any(e["url"] == url and e["enabled"] for e in C.DEFAULT_LISTS)
+        old = [e for e in C.DEFAULT_LISTS if e["url"] != url]
+        path = Path(C.CONFIG_DIR) / "settings.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"filter_lists": old, "lists_version": 5, "last_lists_update": 123}))
+        cfg = C.Config()
+        urls = [e["url"] for e in cfg["filter_lists"]]
+        assert urls.count(url) == 1 and urls.index(url) == urls.index(malware) + 1
+        assert [e["enabled"] for e in cfg["filter_lists"] if e["url"] == url] == [True]
+        assert cfg["lists_version"] >= 6 and cfg["last_lists_update"] == 0
+        for e in cfg["filter_lists"]:
+            if e["url"] == url:
+                e["enabled"] = False
+        cfg.save()
+        again = C.Config()
+        assert [e["enabled"] for e in again["filter_lists"] if e["url"] == url] == [False]
+        # a profile that has it already (a user who added it by hand): nothing fetched again
+        path.write_text(json.dumps({"filter_lists": [dict(e, enabled=False) if e["url"] == url else e
+                                                     for e in C.DEFAULT_LISTS],
+                                    "lists_version": 5, "last_lists_update": 123}))
+        mine = C.Config()
+        assert [e["enabled"] for e in mine["filter_lists"] if e["url"] == url] == [False]
+        assert mine["last_lists_update"] == 123
+    finally:
+        sys.path.remove(str(APP))
+    text = (ROOT / "docs" / "THIRD-PARTY.md").read_text()
+    assert "Phishing URL Blocklist" in text and "CC BY-SA 4.0" in text
+
+
 def test_an_engine_without_recent_security_fixes_is_reported(run_ike):
     """The system's web engine gets its security fixes from the system's
     updates: when they are months behind the current Chrome, I.K.E. says so

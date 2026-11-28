@@ -2807,11 +2807,52 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         except ImportError:
             self.save_pdf()
             return
+        try:
+            from PyQt6.QtPrintSupport import QPrintPreviewDialog
+        except ImportError:
+            QPrintPreviewDialog = None
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-        dlg = QPrintDialog(printer, self)
-        if dlg.exec():
-            self._printer = printer
-            v.print(printer)
+        if QPrintPreviewDialog is None:
+            dlg = QPrintDialog(printer, self)
+            if dlg.exec():
+                self._printer = printer
+                v.print(printer)
+            return
+        # the preview first: the pages as they will be printed, then the
+        # system's print window from its Print button (Qt's own example)
+        old = getattr(self, "_print_preview", None)
+        if old is not None:
+            try:
+                old.close()
+            except RuntimeError:
+                pass
+        dlg = QPrintPreviewDialog(printer, self)
+        dlg.setWindowTitle(T("Print preview") + " — " + (v.title() or v.url().toString()))
+        dlg.resize(980, 760)
+        dlg.paintRequested.connect(lambda pr, view=v: self._paint_for_print(view, pr))
+        dlg.finished.connect(lambda _r: setattr(self, "_print_preview", None))
+        self._printer = printer
+        self._print_preview = dlg
+        dlg.open()
+
+    def _paint_for_print(self, view, printer):
+        """The page drawn into the preview's or the printer's pages. The engine
+        draws them in the background: the preview waits for it, as in Qt's own
+        example; a tab closed meanwhile ends the wait."""
+        from PyQt6.QtCore import QEventLoop
+        loop = QEventLoop()
+        try:
+            view.printFinished.connect(loop.quit)
+            view.destroyed.connect(loop.quit)
+            QTimer.singleShot(60000, loop.quit)        # never stuck: at most a minute
+            view.print(printer)
+        except RuntimeError:
+            return
+        loop.exec()
+        try:
+            view.printFinished.disconnect(loop.quit)
+        except (RuntimeError, TypeError):
+            pass
 
     def screenshot(self, mode="visible"):
         """Screenshot… : "visible" (the toolbar's button and Ctrl+Shift+S), "page"
@@ -2995,6 +3036,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         ("EasyList, EasyPrivacy, EasyList Italy (The EasyList authors)", "GPL-3.0 / CC BY-SA 3.0"),
         ("EasyList Cookie List (The EasyList authors)", "CC BY 3.0"),
         ("Malicious URL Blocklist (curben, from abuse.ch URLhaus)", "CC0 1.0 / MIT"),
+        ("Phishing URL Blocklist (curben, from OpenPhish, IPThreat and PhishTank)", "CC BY-SA 4.0"),
         ("Dark Reader's lists (Dark Reader Ltd)", "MIT"),
         ("Brave's debounce list (Brave Software)", "MPL-2.0"),
         ("Qt, Qt WebEngine (The Qt Company), Chromium (The Chromium Authors)", "LGPL-3.0 / BSD"),

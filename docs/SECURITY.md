@@ -374,6 +374,23 @@ like the rest of the noise it cannot resist a script written against it
 - `IKE_ALLOW_UNSAFE_ENGINE=1` exists for tests and special cases: with it the
   user takes protections away on purpose, and the window says so.
 
+## After 1.1.30: phishing pages, the vault's lock, spelling
+
+- **Phishing pages** are stopped by the Phishing URL Blocklist (curben's
+  malware-filter, from OpenPhish, IPThreat and PhishTank, twice a day), on by
+  default beside the Malicious URL Blocklist. It is a list of known
+  addresses, checked on this computer like the other lists: a page not yet
+  reported passes; Sosia (lookalike.py) still warns about imitated names.
+- **The vault locks itself** (`ike/vaultlock.py`): after the chosen minutes
+  without input in I.K.E. (15 by default) and when the screen locks or the
+  computer sleeps. Locking forgets the entries and the key in I.K.E.'s
+  memory (Python cannot wipe the bytes themselves: they are freed). A message
+  on the bus can only lock, never open the vault. Not covered: a vault open
+  while someone else uses I.K.E. within the minutes chosen.
+- **Spell checking** runs in the engine with Hunspell's dictionaries on this
+  computer: nothing typed is sent anywhere, and a page cannot read which words
+  were underlined.
+
 ## The sandbox on Arch Linux and CachyOS
 
 Chromium's sandbox on Linux needs unprivileged user namespaces, which Arch's

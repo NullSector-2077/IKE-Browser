@@ -17,7 +17,9 @@ optdepends=('noto-fonts-cjk: Chinese, Japanese and Korean interface text'
             'plasma-integration: Plasma theme, colours and file dialogs'
             'chromium-widevine: system-wide Widevine instead of the copy I.K.E. downloads'
             'libva-nvidia-driver: video decoding with NVIDIA graphics cards (Settings, experimental)'
-            'intel-media-driver: video decoding with Intel graphics cards')
+            'intel-media-driver: video decoding with Intel graphics cards'
+            'hunspell-en_us: spell checking in English (other languages: their hunspell-* package)'
+            'hunspell-it: spell checking in Italian')
 install=ike-browser.install
 options=('!debug')
 source=()

@@ -241,7 +241,7 @@ jobs:
                 ffmpeg dbus glib2 noto-fonts ttf-dejavu
                 noto-fonts-cjk intel-media-driver libva-nvidia-driver
                 breeze oxygen kvantum plasma-integration breeze-icons
-                gtk3 xorg-server-xvfb lxqt-qtplugin
+                gtk3 xorg-server-xvfb lxqt-qtplugin hunspell-en_us hunspell-it
                 adwaita-icon-theme elementary-icon-theme mate-icon-theme papirus-icon-theme
           )
           # a mirror may already have dropped a file of the snapshot's version (2026-11-25:
