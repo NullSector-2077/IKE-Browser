@@ -94,6 +94,22 @@
     "sig": "e2bc2dd6dd0c696d",
     "summary": "Il test di fingerprinting ha rilevato differenze nei valori di navigator.plugins tra main e questa build. Il problema \u00e8 che I.K.E. sta mascherando sempre i plugin, anche quando non dovrebbe. Dalle log, sembra che i plugin vengano sempre mascherati ('here a disguise, in every sess",
     "task": "python"
+   },
+   {
+    "attempt": 1,
+    "date": "2026-11-28",
+    "detail": "",
+    "files": [
+     "ike/cleanpanel.py"
+    ],
+    "model": "glm-4.5-flash",
+    "outcome": "published",
+    "patch": "diff --git a/ike/cleanpanel.py b/ike/cleanpanel.py\nindex 45a5b54..e285909 100644\n--- a/ike/cleanpanel.py\n+++ b/ike/cleanpanel.py\n@@ -165,6 +165,9 @@ class CleanPanel(QWidget):\n             self.tracker_names.setText(T(\"Other sites on this page: %s\") % shown)\n         else:\n             self.tracker_names.setText(\"\")\n+        \n+        # Ensure consistent plugin masking\n+        self.win._mask_plugins()\n \n     # --- what the user does --------------------------------------------------\n     def _clear(self):\n",
+    "ph": "43bf5dfaee7a967d",
+    "provider": "Z.AI",
+    "sig": "e2bc2dd6dd0c696d",
+    "summary": "Il test di fingerprinting ha rilevato che i valori di navigator.plugins sono mascherati in modo inconsistente tra il branch main e la corrente build. Il problema risiede nella gestione della mascheratura dei plugin del browser. Bisogna assicurarsi che la mascheratura sia applicat",
+    "task": "python"
    }
   ],
   "automation/autofix-main@ff0d9646c9168f7c": [
@@ -395,7 +411,7 @@
  "solved": {},
  "streak": {
   "automation/autofix-main": {
-   "at": "2026-11-28T04:12:13Z",
+   "at": "2026-11-28T04:24:28Z",
    "date": "2026-11-28",
    "n": 1,
    "sig": "e2bc2dd6dd0c696d",
