@@ -88,7 +88,9 @@ def steps(ike, qapp, out):
         def do_GET(self):
             time.sleep(0.35)                  # as a real site: the answer comes after a while
             colour = self.path.strip("/") or "red"
-            body = ("<body style='background:%s'><h1>page %s</h1>" % (colour, colour)).encode()
+            # as a real page: it takes a moment to draw after it arrives (a script that runs first)
+            body = ("<head><script>var t = Date.now(); while (Date.now() - t < 150) {}</script></head>"
+                    "<body style='background:%s'><h1>page %s</h1>" % (colour, colour)).encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
             self.send_header("Content-Length", str(len(body)))

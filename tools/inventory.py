@@ -173,6 +173,8 @@ OWN_RESOURCES = (
     # 1.1.24: the new tab page's greeting, and its table of holiday dates (checked by hand on
     # 2026-11-23; its yearly refresh by AUTOMAT is planned with the other ageing data)
     "ike/resources/greeting.js", "ike/resources/holidays.json",
+    # 1.1.31: ike:kontrol, what I.K.E. blocked (shields.kontrol_html)
+    "ike/resources/kontrol.html",
 )
 # folders of I.K.E.'s own resources: its language packs, the icon sets (Lucide, Phosphor) and the
 # Orbitron font (ike/resources/fonts/, 1.1.30): fixed copies with their licences in licenses/, chosen

@@ -823,6 +823,11 @@ class WebView(QWebEngineView):
         if fade is not None:
             fade.resized()
 
+    def reload(self):
+        # 1.1.31: the page fade knows the same page is coming again (pagefade.py)
+        self.ike_reloading = True
+        super().reload()
+
     def load(self, url):
         # an address the browser opens (address bar, bookmarks, links of its
         # own menus) is the user's act, as a click on the page is

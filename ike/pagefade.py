@@ -50,7 +50,7 @@ class PageFade(QObject):
         self.origin = None        # the old document's timeOrigin
         self.started = 0.0
         self.committed = 0.0
-        self.same = False         # the same address again (a reload)
+        self.same = False         # the same page loaded again (a reload)
         self.cover = None
         self.anim = None
         self.timer = QTimer(self)
@@ -82,6 +82,12 @@ class PageFade(QObject):
         self.origin, self.committed = None, 0.0
         self.started = time.monotonic()
         self.from_url = _plain(self.view.url())
+        # the same page loaded again (dark mode on or off, Reload): its picture goes over it at once,
+        # the page underneath is the same until the new one draws (nothing to keep live meanwhile)
+        self.same = bool(getattr(self.view, "ike_reloading", False))
+        self.view.ike_reloading = False
+        if self.same:
+            self._cover()
         self.view.page().runJavaScript(ASK, WORLD, self._first_answer)
 
     def _first_answer(self, r):
@@ -116,7 +122,7 @@ class PageFade(QObject):
         if not self.committed:
             if r[0] == self.origin:
                 return                               # still the old page
-            if r[1]:
+            if r[1] and self.cover is None:
                 # the new page has drawn already (a very quick one): the old picture is not put
                 # back over it (it would jump back for a moment); it simply stays as it came
                 self._drop()
@@ -128,7 +134,10 @@ class PageFade(QObject):
     def _commit(self):
         """The new page took the old one's place: the old picture lies over it."""
         self.committed = time.monotonic()
-        self.same = _plain(self.view.url()) == self.from_url
+        if self.cover is None:
+            self._cover()
+
+    def _cover(self):
         if not self.view.isVisible():
             self._drop()
             return
