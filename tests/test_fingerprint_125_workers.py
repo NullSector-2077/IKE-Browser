@@ -26,7 +26,6 @@ import time
 from pathlib import Path
 
 import pytest
-from conftest import steam_card
 
 DATA = Path(__file__).resolve().parent / "data" / "fingerprint-125"
 GL_FLAGS = "--no-sandbox --enable-unsafe-swiftshader --use-angle=swiftshader --ignore-gpu-blocklist"
@@ -143,9 +142,7 @@ def test_workers_from_files_are_protected(run_ike, site, level):
     r = run(run_ike, site, [("p", "http://%s:%%d/p.html" % host)], level, sites)["p"]
     page = r["window"]
     assert page["he"]["uaFullVersion"].endswith(".0.0.0") and page["net"][:3] == ["4g", 50, 10], page
-    # a common card's name (1.1.30, the owner's choice; until 1.1.28 none)
-    card = page["gl"]["webgl"]["id"][4:]
-    assert card[0] == "Google Inc. (NVIDIA Corporation)" and steam_card(card[1]), page["gl"]["webgl"]["id"]
+    assert page["gl"]["webgl"]["id"][4:] == [None, None], page["gl"]["webgl"]["id"]     # no card name
     places = {"file": r["workers"]["file"], "fileModule": r["workers"]["fileModule"],
               "fileNestedBlob": r["workers"]["fileNestedBlob"], "blobNestedFile": r["workers"]["blobNestedFile"],
               "crossSiteFrame.file": r["frames"]["crossSite"]["fileWorker"],

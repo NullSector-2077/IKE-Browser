@@ -5,6 +5,20 @@
 1.1.29 was never published on its own: everything prepared for it is in
 this release.
 
+- **Cover Your Tracks says "randomized fingerprint"** (the owner: "I want to
+  be randomized"). Its code counts five values that differ between two sites
+  (the audio, the canvas and WebGL pictures, the plugins, the cores) and needs
+  four. The canvas and WebGL pictures varied at every export (1.1.27): it read
+  "randomized" on both of its sites, took that for the same value and counted
+  nothing. Now every export is the site's own picture (another on every site
+  and in every session, as Brave does), the plugins differ at every level
+  (Strict and Maximum: Chrome's five PDF viewers in an order of the site's own)
+  and the cores are 4 or 8 per site at every level where the computer has 8:
+  four or five of five, at Balanced, Strict and Maximum
+  (tests/test_cover_your_tracks.py runs Cover Your Tracks' comparison on two
+  sites). The common graphics card tried for 1.1.30 is gone again: on the
+  owner's computer Cover Your Tracks counted its Linux name as 1 browser in
+  58,876 (15.85 bits), against 1 in 183 for "None".
 - **Strict is now called Kontrol** (the owner's choice, the K of I.K.E.): the
   shield's fourth level keeps its protections and its place, and every
   setting already saved keeps its level (inside, the level is still
@@ -127,14 +141,6 @@ this release.
 - **Short messages in Plasma's style** (zoom, notes; the owner): the window's
   colour with a thin line and a soft shadow, the corners slightly rounded
   (4 px), rising a few pixels as they fade in. They were a flat grey box.
-- **A common graphics card at Strict and Maximum** (the owner's choice, after
-  Cover Your Tracks on his computer: canvas, WebGL and audio "randomized",
-  yet "unique" in the summary, the card's name "None" counting 1 browser in
-  183, 7.52 bits). Sites are now told one of the cards most used in Steam's
-  hardware survey of October 2026 (RTX 3060, RTX 5070, RTX 4060 Laptop GPU,
-  RTX 4060, RTX 3050), as Chrome on Linux names an NVIDIA card, the same in
-  every frame and worker of a site, another on another site and in another
-  session. The limits and extensions stay the shared ones of 1.1.25.
 - **Sites see a more ordinary Chromium** (the Engine Privacy Layer study,
   measured against Arch's own Chromium of the engine's version, Chrome and
   Brave: docs/review/engine-privacy-study.md on the study's branch). At
