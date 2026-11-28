@@ -59,6 +59,14 @@
 - The owner's check can click a site's age or cookie question first
   (`--click "I'm Over 18"`) and takes a page that never stops loading (live
   video) as it is after 20 s instead of giving up.
+- **A gradient next to a variable is darkened too**: a background written as a
+  gradient beside a variable in one value (`linear-gradient(#fff, #fff),
+  var(--picture)`) was left as written, so a panel of a site stayed white
+  under text made light; its gradients are now mapped, the variable left to
+  its own definition (tests/test_dark_engine_hard.py).
+- The owner's check also runs inside the owner's own I.K.E., on the page as
+  it is seen (`tests/dark_engine/live-diag.py`, signed in and scrolled), and
+  lists light text on a light layer or picture with the site's own rules.
 - **AUTOMAT follows Dark Reader's lists only**: the engine, its builder and its
   re-anchoring are gone (`tools/build-darkreader-lists.py` rebuilds the
   shipped lists byte for byte with `ike/darklists.py`'s own functions); the

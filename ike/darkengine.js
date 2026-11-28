@@ -507,9 +507,29 @@
   function clipsText(st) {
     return st.getPropertyValue('background-clip') === 'text' || st.getPropertyValue('-webkit-background-clip') === 'text';
   }
+  // the gradients of a value, each mapped with its variables per use (the rest,
+  // pictures and the variables between the layers, left as written)
+  function mapGradients(v, kind) {
+    var out = '', i = 0;
+    for (;;) {
+      var j = v.indexOf('gradient(', i);
+      if (j < 0) return out + v.slice(i);
+      var depth = 0, e = j + 8;
+      for (; e < v.length; e++) { if (v[e] === '(') depth++; else if (v[e] === ')' && !--depth) break; }
+      out += v.slice(i, j) + useVars(v.slice(j, e + 1), kind);
+      i = e + 1;
+    }
+  }
   function background(st, value, mine, base, again, skipPicture) {
     var ours = mine && mine['background-image'] === value;
     var source = ours ? imageSources.get(st) : value;
+    if (source && source.indexOf('var(') >= 0 && source.indexOf('gradient(') >= 0) {
+      // a gradient next to a variable (linear-gradient(#fff, #fff), var(--picture)):
+      // its colours are mapped, the variable left to its own definition
+      imageSources.delete(st);
+      var g = mapGradients(source, clipsText(st) ? 'fg' : 'bg');
+      return g !== value ? g : null;
+    }
     if (!source || source === 'none' || source.indexOf('var(') >= 0) {
       imageSources.delete(st);
       return null;
