@@ -258,6 +258,13 @@ class ShieldButton(QToolButton):
         pal = field.palette()
         return cyberfont.k_colour(pal.color(QPalette.ColorRole.Base), pal.color(QPalette.ColorRole.Text))
 
+    def _count_area(self, x, side, rtl):
+        """Where the count is drawn: beside the octagon, the whole height."""
+        from PyQt6.QtCore import QRect
+        gap = self.GAP
+        return (QRect(0, 0, max(0, int(x - gap)), self.height()) if rtl
+                else QRect(int(x + side + gap), 0, self.width(), self.height()))
+
     def sizeHint(self):
         side = self.iconSize().height()
         text = self.text()
@@ -282,6 +289,8 @@ class ShieldButton(QToolButton):
             polygon, _side, stroke = octagon(self.icon_rect(), TOOLBAR_SHIELD_GROW)
             anim.paint(p, polygon, stroke)
         text = self.text()
+        if text and not event.rect().intersects(self._count_area(x, side, rtl)):
+            text = ""                  # only the octagon is painted again (its animation)
         from . import cyberfont
         if text and cyberfont.usable(text, self.count_pixels()):
             w = self.count_width(text)

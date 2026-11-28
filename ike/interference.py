@@ -47,6 +47,11 @@ FADE_MS = 400                    # the end
 
 ATTENTION, SERIOUS, DANGER = "attention", "serious", "danger"
 
+# Qt's enumerations looked up once (each lookup costs a call at every picture)
+_SOLID, _ROUND_CAP, _ROUND_JOIN = Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin
+_NO_PEN, _NO_BRUSH = Qt.PenStyle.NoPen, Qt.BrushStyle.NoBrush
+_ANTIALIAS = QPainter.RenderHint.Antialiasing
+
 
 class Style:
     """The numbers of one style; blend() mixes two of them."""
@@ -118,6 +123,7 @@ class Interference(QObject):
         self._anim = None            # the blend or the fade
         self._path_key = None
         self._path = None
+        self._pens = (None, None)    # (key, trail pens) for the style and strength drawn
         self.frames = 0              # pictures drawn (the tests measure the cost)
         button.installEventFilter(self)
         self._watched = None
@@ -188,7 +194,7 @@ class Interference(QObject):
 
     def _faded(self, v):
         self.strength = float(v)
-        self.button.update()
+        self._update()
 
     def _fade_done(self):
         self._stop_anim()
@@ -236,7 +242,21 @@ class Interference(QObject):
         if self._last is not None and self.style is not None:
             self.phase = (self.phase + (now - self._last) / max(0.5, self.style.cycle)) % 1.0
         self._last = now
-        self.button.update()
+        self._update()
+
+    def _update(self):
+        """Only the octagon and its glow are painted again (not the count beside it)."""
+        b = self.button
+        r = b.icon_rect() if hasattr(b, "icon_rect") else None
+        if r is None:
+            b.update()
+            return
+        # everything the painter can reach: the glow of a head on the rim
+        from .shieldpanel import TOOLBAR_SHIELD_GROW, octagon
+        poly, side, stroke = octagon(r, TOOLBAR_SHIELD_GROW)
+        glow = stroke * (max(st.glow for st in STYLES.values()) + 0.6)
+        m = max(1.0, glow - (r.width() - side) / 2 - stroke / 2 + 1)
+        b.update(r.adjusted(-m, -m, m, m).toAlignedRect())
 
     # --- painting -----------------------------------------------------------
     def _rim(self, polygon):
@@ -264,12 +284,12 @@ class Interference(QObject):
             return
         self.frames += 1
         p.save()
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        round_pen = (Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        p.setRenderHint(_ANTIALIAS)
+        round_pen = (_SOLID, _ROUND_CAP, _ROUND_JOIN)
         if not self.moving():
             # effects off: a still rim over the octagon's own
             p.setPen(QPen(self._alpha(s.colour, 0.9 * k), stroke * 1.05, *round_pen))
-            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.setBrush(_NO_BRUSH)
             p.drawPolygon(polygon)
             p.restore()
             return
@@ -282,7 +302,7 @@ class Interference(QObject):
         a = k * (s.rim + s.meet * bump)
         if a > 0.01:
             p.setPen(QPen(self._alpha(s.colour, a), stroke * 0.95, *round_pen))
-            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.setBrush(_NO_BRUSH)
             p.drawPolygon(polygon)
         if bump > 0 and s.inner > 0:
             # the inside of the rim pulses; the middle, with the letter, untouched
@@ -290,13 +310,13 @@ class Interference(QObject):
             g.setColorAt(0.0, self._alpha(s.colour, 0))
             g.setColorAt(0.62, self._alpha(s.colour, 0))
             g.setColorAt(1.0, self._alpha(s.colour, k * s.inner * bump))
-            p.setPen(Qt.PenStyle.NoPen)
+            p.setPen(_NO_PEN)
             p.setBrush(g)
             p.drawPolygon(polygon)
         if bump > 0 and s.wave > 0:
             # the wave of energy: the contour opening a little, fading as it goes
             grow = 1.0 + 0.16 * (1 - bump)
-            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.setBrush(_NO_BRUSH)
             p.setPen(QPen(self._alpha(s.colour, k * s.wave * bump), max(0.8, stroke * 0.45)))
             p.save()
             p.translate(centre)
@@ -309,15 +329,28 @@ class Interference(QObject):
             self._pulse(p, path, (t * direction) % 1.0, direction, stroke, k, bump, s)
         p.restore()
 
+    def _trail_pens(self, s, k, stroke):
+        """The trail's pens, fainter and thinner behind the head: made once
+        per style, strength and size, not at every picture."""
+        key = (id(s), round(k, 3), round(stroke, 3))
+        if self._pens[0] != key:
+            n = SEGMENTS if stroke < 3 else SEGMENTS * 2       # a smooth trail on a big octagon too
+            pens = []
+            for i in range(1, n + 1):
+                fade = 1.0 - i / (n + 1)
+                pens.append(QPen(self._alpha(s.colour, k * s.trail_alpha * fade * fade), stroke * (0.55 + 0.75 * fade),
+                                 _SOLID, _ROUND_CAP))
+            self._pens = (key, pens)
+        return self._pens[1]
+
     def _pulse(self, p, path, head, direction, stroke, k, bump, s):
         # the trail: short pieces behind the head, fainter and thinner
         prev = path.pointAtPercent(head)
-        n = SEGMENTS if stroke < 3 else SEGMENTS * 2       # a smooth trail on a big octagon too
+        pens = self._trail_pens(s, k, stroke)
+        n = len(pens)
         for i in range(1, n + 1):
             pt = path.pointAtPercent((head - direction * s.trail * i / n) % 1.0)
-            fade = 1.0 - i / (n + 1)
-            p.setPen(QPen(self._alpha(s.colour, k * s.trail_alpha * fade * fade), stroke * (0.55 + 0.75 * fade),
-                          Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            p.setPen(pens[i - 1])
             p.drawLine(prev, pt)
             prev = pt
         pos = path.pointAtPercent(head)
@@ -326,7 +359,7 @@ class Interference(QObject):
         g = QRadialGradient(pos, r)
         g.setColorAt(0.0, self._alpha(s.colour, k * (s.glow_alpha + 0.2 * bump)))
         g.setColorAt(1.0, self._alpha(s.colour, 0))
-        p.setPen(Qt.PenStyle.NoPen)
+        p.setPen(_NO_PEN)
         p.setBrush(g)
         p.drawEllipse(QRectF(pos.x() - r, pos.y() - r, 2 * r, 2 * r))
         p.setBrush(self._alpha(s.core, k * 0.95))
