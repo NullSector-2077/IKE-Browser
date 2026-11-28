@@ -2167,7 +2167,10 @@
             args = send(u);
             var asked = args, nestedMade = null;
             // the address as the engine reads it (' blob:', 'BLOB:', 1.1.31)
-            try { u = RAW(hrefW, new URLC(u), []); } catch (e) {}
+            try {
+              var nu = RAW(hrefW, new URLC(u), []);
+              if (RAW(SSL, nu, [0, 5]) === 'blob:' || RAW(SSL, nu, [0, 5]) === 'data:') u = nu;
+            } catch (e) {}
             var nBlob = RAW(SSL, u, [0, 5]) === 'blob:', nData = RAW(SSL, u, [0, 5]) === 'data:';
             try {
               var b = made.get(u);
@@ -2488,6 +2491,10 @@
   // the site's server refused the protection's policy in this script's own
   // document (see makePolicy): its empty frames may refuse it too
   var MAIN_REFUSED = false;
+  // the blobs made in every realm this script protects (the page and its
+  // empty frames): a blob made in a frame and started in the page is read
+  // here, not through the network (1.1.32, the review)
+  var ALL_BLOBS = hardStrongMap();
   function install(w) {
     var WPr = w.Promise;            // this realm's, for then()
     if (!w) return;
@@ -3074,7 +3081,7 @@
     }
 
     // ---- inline workers get the same values ----
-    var U = w.URL, blobs = hardStrongMap();
+    var U = w.URL, blobs = ALL_BLOBS;
     var rawCreate = U && U.createObjectURL, rawRevoke = U && U.revokeObjectURL;
     // taken before the page's scripts: the prelude (with this site's seed)
     // is never handed to a function the page could have replaced since
@@ -3407,11 +3414,16 @@
             var url = tt !== null ? tt : `${first}`;
             var opt = workerOptions(args[1], args.length > 1);
             var send = function (u) { return opt.given ? [u, opt.value] : [u]; };
-            var call = send(tt !== null ? first : url), asked = call, hello = null;
+            var call = send(tt !== null ? first : url), asked = call, hello = null, loader = null;
             // the address as the engine reads it (1.1.31, the independent
             // review): ' blob:...' or 'BLOB:...', which the engine takes, were
             // no inline worker here and started without the protection
-            try { url = RAPPLY(uHref, nConstruct(U, [url]), []); } catch (e) {}
+            try {
+              // against the document's own base (the review: 'https:w.js' is
+              // relative to it, and a <base> may be a blob: address)
+              var nu = RAPPLY(uHref, nConstruct(U, [url, RAPPLY(baseOf, w.document, [])]), []);
+              if (sslice(nu, 0, 5) === 'blob:' || sslice(nu, 0, 5) === 'data:') url = nu;
+            } catch (e) {}
             var isBlob = sslice(url, 0, 5) === 'blob:', isData = sslice(url, 0, 5) === 'data:';
             var inline = isBlob || isData;
             try {
@@ -3453,7 +3465,7 @@
                   // connect-src, the independent review): the prelude, which
                   // then loads the address itself, as a site's file at Strict;
                   // never the worker as asked, without the protection
-                  var loader = blobLoader(url, opt.module);
+                  loader = blobLoader(url, opt.module);
                   call = send(tt !== null ? asTrusted(loader) : loader);
                 }
               } else if (isData) {
@@ -3491,6 +3503,7 @@
             }
             if (file && hello) adopt(made, hello, target, asked);
             if (file) sameErrors(made, file);
+            else if (loader) sameErrors(made, loader);
             return made;
           }
         });

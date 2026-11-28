@@ -45,11 +45,30 @@ window.__run = async function () {
   document.body.appendChild(f);
   var foreign = f.contentWindow.URL.createObjectURL(new f.contentWindow.Blob([WORKER], { type: 'text/javascript' }));
   out.foreign = await start(function () { return new Worker(foreign); });
+  // a blob address made in a worker: the page cannot read it under
+  // connect-src 'none'; the protection loads it in the new worker itself
+  var maker = new Worker(URL.createObjectURL(new Blob(['postMessage(URL.createObjectURL(new Blob([' +
+    JSON.stringify(WORKER) + '], { type: "text/javascript" })));'], { type: 'text/javascript' })));
+  var fromWorker = await new Promise(function (ok) { maker.onmessage = function (e) { ok(e.data); }; });
+  out.fromWorker = await start(function () { return new Worker(fromWorker); });
+  // a blob address that leads nowhere: the engine's own plain error event
+  out.dead = await new Promise(function (ok) {
+    var w = new Worker('blob:' + location.origin + '/00000000-0000-4000-8000-000000000000');
+    w.onerror = function (e) { ok(e.constructor.name + ':' + (e.message === undefined ? '-' : e.message)); };
+    setTimeout(function () { ok('timeout'); }, 4000);
+  });
+  // a worker from the site's file named relatively with the scheme
+  // ('http:w.js' is relative to the document), at Kontrol protected
+  out.schemeRelative = await start(function () { return new Worker(location.protocol + 'w.js'); });
   return out;
 };
 </script></body>"""
 
-PAGES = {"/nocsp.html": None, "/noconnect.html": "connect-src 'none'"}
+# the site's own worker file: the same picture as the page's workers draw
+W_JS = ("function hash" + COMMON.split("function hash", 1)[1].split("var WORKER", 1)[0] +
+        "postMessage({pic: draw(new OffscreenCanvas(96, 40))});")
+
+PAGES = {"/nocsp.html": None, "/noconnect.html": "connect-src 'none'", "/w.js": None}
 
 
 @pytest.fixture
@@ -62,9 +81,9 @@ def site():
                 self.send_header("Content-Length", "0")
                 self.end_headers()
                 return
-            body = PAGE.encode()
+            body = W_JS.encode() if path == "/w.js" else PAGE.encode()
             self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Type", "text/javascript" if path == "/w.js" else "text/html; charset=utf-8")
             if PAGES[path]:
                 self.send_header("Content-Security-Policy", PAGES[path])
             self.send_header("Content-Length", str(len(body)))
@@ -97,5 +116,15 @@ def test_inline_workers_keep_the_protection_whatever_their_address(run_ike, site
             assert r[w] == r["page"], (level, key, w, r)
         # a data: worker has a seed of its own: another noise, never none
         assert r["dataSpace"].startswith("pic:") and r["dataSpace"] != real, (level, key, r)
-        # a blob of a frame of the page: protected, read or not
+        # a blob of a frame of the page, and one made in a worker (unreadable
+        # by the page under connect-src 'none'): protected
         assert r["foreign"] == r["page"], (level, key, r)
+        assert r["fromWorker"] == r["page"], (level, key, r)
+        # a dead blob address: the engine's plain error event, no message
+        assert r["dead"] == "Event:-", (level, key, r)
+        # 'http:w.js', the site's own file, read relative to the document as
+        # the engine reads it: at Kontrol with the protection (on a page whose
+        # policy refuses the protected copy Kontrol runs the site's own file,
+        # the owner's rule of 1.1.32, tests/test_site_workers.py)
+        if level == "strict" and key == "nocsp":
+            assert r["schemeRelative"] == r["page"], (level, key, r)
