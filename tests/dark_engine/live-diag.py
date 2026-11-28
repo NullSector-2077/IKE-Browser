@@ -118,6 +118,47 @@ class Socket:
                 return m.get("result", {})
 
 
+def matched_rules(ws, layer):
+    """The rules that style the first element of this label (tag.class.class), with
+    the background ones in full and the variables they read, as the engine has them."""
+    out = []
+    sel = "." + ".".join(layer.split(".")[1:])
+    try:
+        ws.call("DOM.enable")
+        ws.call("CSS.enable")
+        root = ws.call("DOM.getDocument", depth=0)["root"]["nodeId"]
+        node = ws.call("DOM.querySelector", nodeId=root, selector=sel).get("nodeId")
+        if not node:
+            return ["   (%s not found again)" % sel]
+        m = ws.call("CSS.getMatchedStylesForNode", nodeId=node)
+    except SystemExit as e:
+        return ["   (the rules of %s could not be read: %s)" % (sel, e)]
+    import re
+    names = set()
+    out.append("   rules of %s, as the engine has them:" % sel)
+    for r in m.get("matchedCSSRules", []):
+        rule = r.get("rule", {})
+        props = [(p.get("name"), p.get("value"), p.get("important"))
+                 for p in rule.get("style", {}).get("cssProperties", []) if p.get("value")]
+        bg = [p for p in props if p[0].startswith("background") or p[0].startswith("--")]
+        if not bg:
+            continue
+        origin = rule.get("origin", "")
+        out.append("      %s [%s]: %s" % (rule.get("selectorList", {}).get("text", "")[:100], origin,
+                   "; ".join("%s: %s%s" % (n, v[:160], " !important" if imp else "") for n, v, imp in bg[:8])))
+        for n, v, imp in bg:
+            names.update(re.findall(r"var\(\s*(--[\w-]+)", v))
+    if names:
+        try:
+            comp = ws.call("CSS.getComputedStyleForNode", nodeId=node).get("computedStyle", [])
+            values = {c["name"]: c["value"] for c in comp}
+            for n in sorted(names)[:10]:
+                out.append("      variable %s = %s" % (n, values.get(n, "(not set)")[:120]))
+        except SystemExit:
+            pass
+    return out
+
+
 def main():
     want = sys.argv[1] if len(sys.argv) > 1 else ""
     try:
@@ -179,6 +220,15 @@ def main():
     classes = set()
     for e in d.get("lowcontrast", []):
         classes.update(c for c in e["under"]["layer"].split("::")[0].split(".")[1:] if c)
+    # the engine's own view of the rules (as its developer tools show them, the
+    # sheets of other sites included) for each light layer under light text
+    seen_layers = []
+    for e in d.get("lowcontrast", []):
+        layer = e["under"]["layer"].split("::")[0]
+        if layer in seen_layers or "." not in layer:
+            continue
+        seen_layers.append(layer)
+        lines.extend(matched_rules(ws, layer))
     lines.extend(owner_check._in_unreadable(d.get("unreadable", []), wanted))
     lines.extend(owner_check._sources(d.get("unreadable", []), classes))
     (out / "diagnose.txt").write_text("\n".join(lines) + "\n")
