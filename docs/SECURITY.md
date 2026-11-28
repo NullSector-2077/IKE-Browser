@@ -159,12 +159,14 @@ routes useless; it cannot stop a script written against it:
   `ReportingObserver` of `csp-violation` reports still sees them, and so
   does a listener after `document.open()`. Before 1.1.31 the same report was
   sent when the page started a worker.
-- **Inline workers that still start without the protection** (found by the
-  independent review of 1.1.31, older than it): a worker address the proxy
-  does not recognise as blob: or data: because of leading spaces or capital
-  letters (`' blob:…'`, `'BLOB:…'`), which the engine accepts; and a blob
-  address made in another frame or in a worker whose text cannot be read
-  (a `connect-src` that leaves out blob:). Both still to be fixed.
+- **Inline workers whose address looked different** (found by the
+  independent review of 1.1.31, older than it, closed in 1.1.31): an address
+  the engine takes but the protection did not see as blob: or data: (leading
+  spaces, capital letters), and a blob address made in another frame or in a
+  worker whose text could not be read (a `connect-src` that leaves out
+  blob:), started without the protection. The address is now read as the
+  engine reads it, and an unreadable blob is started from the protection,
+  which then loads it (tests/test_worker_addresses.py).
 - **A srcdoc frame of a site that refuses the policy** (1.1.31): its worker
   does not start (its own script cannot know that the server refused the
   policy in the page); an empty frame of the same page starts it as asked.

@@ -86,9 +86,14 @@
   without the protection until now and gets an error or a protected worker;
   and the page no longer sees the protection's own refusals (in an empty
   frame it always saw one, from "userscript"), while its own Trusted Types
-  errors and events still reach it. Two older ways to an unprotected inline
-  worker found by the review are still open (docs/SECURITY.md, "Known
-  limits of the noise").
+  errors and events still reach it.
+- **Two older ways to a worker without the protection are closed** (found by
+  the same review): an address the engine takes but I.K.E. did not recognise
+  (`' blob:…'`, `'BLOB:…'`, `' data:…'`), in a page or in a worker, and a
+  blob address made in another frame whose text the page cannot read (a
+  policy without blob: in connect-src). Such a worker now starts with the
+  protection, which loads the site's script itself
+  (tests/test_worker_addresses.py).
 - **The noise's seed is no longer handed to such a page**: the protection's
   policy was named 'p' + the site's seed, and a site that refuses it reads the
   name in the refusal (`securitypolicyviolation`'s `sample`, and the report its

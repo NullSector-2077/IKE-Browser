@@ -2166,10 +2166,12 @@
             u = absW(u);
             args = send(u);
             var asked = args, nestedMade = null;
+            // the address as the engine reads it (' blob:', 'BLOB:', 1.1.31)
+            try { u = RAW(hrefW, new URLC(u), []); } catch (e) {}
+            var nBlob = RAW(SSL, u, [0, 5]) === 'blob:', nData = RAW(SSL, u, [0, 5]) === 'data:';
             try {
               var b = made.get(u);
-              if (c.strict && name === 'Worker' && lower(RAW(SSL, u, [0, 5])) !== 'blob:' &&
-                  lower(RAW(SSL, u, [0, 5])) !== 'data:' && XR && NB) {
+              if (c.strict && name === 'Worker' && !nBlob && !nData && XR && NB) {
                 // a worker from a file of the site, as in the page (1.1.25)
                 var fx = new URLC(u, FILE || undefined), fp = fx.protocol;
                 if ((fp === 'http:' || fp === 'https:') && fx.origin === self.origin) {
@@ -2184,7 +2186,7 @@
                   args = send(nestedMade);
                 }
               }
-              if (!b && lower(RAW(SSL, u, [0, 5])) === 'blob:' && XR) {
+              if (!b && nBlob && XR) {
                 // an address made elsewhere (by the page, say): its text read
                 // here, once (verification V-4: such a worker had nothing)
                 try {
@@ -2199,16 +2201,31 @@
                 var pu = RA(mk, Ur, [new NB([preludeOf(u, module), b], { type: RAW(BTY, b, []) || 'text/javascript' })]);
                 args = send(pu);
                 RA(LT, self, [function () { RA(rv, Ur, [pu]); }, 30000]);
-              } else if (lower(RAW(SSL, u, [0, 5])) === 'data:' && RAW(SIX, u, [',']) > 0) {
+              } else if (nBlob && NB) {
+                // its text cannot be read: the prelude, which loads it (1.1.31)
+                var ljs = { type: 'text/javascript' };
+                if (module) {
+                  var lpre = RA(mk, Ur, [new NB([preludeOf(u, true)], ljs)]);
+                  nestedMade = RA(mk, Ur, [new NB([c.mtop[0] + RAW(JS, JSON, [lpre]) + c.mtop[1] +
+                    RAW(JS, JSON, [u]) + c.mtop[2]], ljs)]);
+                } else {
+                  nestedMade = RA(mk, Ur, [new NB([preludeOf(u, false, true)], ljs)]);
+                }
+                args = send(nestedMade);
+              } else if (nData && RAW(SIX, u, [',']) > 0) {
                 var k = RAW(SIX, u, [',']), b64 = lower(RAW(SSL, u, [k - 7 < 0 ? 0 : k - 7, k])) === ';base64';
                 var mine = preludeOf(u, true);
                 args = send(RAW(SSL, u, [0, k + 1]) + (b64 ? RA(b2a, self, [mine]) : RA(enc, self, [mine])) +
                   RAW(SSL, u, [k + 1]));
               }
-            } catch (e) {}
+            } catch (e) {
+              // an inline worker the protection could not be added to: the
+              // error, never the worker as asked without it (1.1.31)
+              if (nBlob || nData) throw e;
+            }
             var wk;
             try { wk = RC(t, args, nt); } catch (e) {
-              if (args !== asked) return RC(t, asked, nt);
+              if (args !== asked && !nBlob && !nData) return RC(t, asked, nt);
               throw e;
             }
             if (nestedMade) errorsAsAsked(wk, nestedMade);
@@ -3175,6 +3192,24 @@
       later(made);
       return made;
     }
+    // a worker started from a blob address whose text cannot be read: the
+    // prelude, then the address loaded by the worker itself (importScripts,
+    // or import() for a module), as for a site's file (1.1.31)
+    function blobLoader(address, module) {
+      var js = { type: 'text/javascript' };
+      if (module) {
+        var pre = RAPPLY(rawCreate, U, [new NBlob([preludeFor(address, true)], js)]);
+        var top = RAPPLY(rawCreate, U, [new NBlob([MODULE_TOP[0] + RAPPLY(JSON_STR, JSON, [pre]) + MODULE_TOP[1] +
+          RAPPLY(JSON_STR, JSON, [address]) + MODULE_TOP[2]], js)]);
+        PATCHED.set(top, address);
+        later(pre); later(top);
+        return top;
+      }
+      var made = RAPPLY(rawCreate, U, [new NBlob([preludeFor(address, false, true)], js)]);
+      PATCHED.set(made, address);
+      later(made);
+      return made;
+    }
     // What the engine reports when the site's script cannot be had or read,
     // as it reports it for the worker the page asked for: a plain "error"
     // event for a script that cannot be fetched or is no script (importScripts
@@ -3373,12 +3408,17 @@
             var opt = workerOptions(args[1], args.length > 1);
             var send = function (u) { return opt.given ? [u, opt.value] : [u]; };
             var call = send(tt !== null ? first : url), asked = call, hello = null;
-            var inline = sslice(url, 0, 5) === 'blob:' || lower(sslice(url, 0, 5)) === 'data:';
+            // the address as the engine reads it (1.1.31, the independent
+            // review): ' blob:...' or 'BLOB:...', which the engine takes, were
+            // no inline worker here and started without the protection
+            try { url = RAPPLY(uHref, nConstruct(U, [url]), []); } catch (e) {}
+            var isBlob = sslice(url, 0, 5) === 'blob:', isData = sslice(url, 0, 5) === 'data:';
+            var inline = isBlob || isData;
             try {
               if (tt !== null && asAsked()) {
                 // nothing to add: the worker the page asked for (a file of the
                 // site's at Strict and above: refused by the request check)
-              } else if (strict && name === 'Worker' && sslice(url, 0, 5) !== 'blob:' && lower(sslice(url, 0, 5)) !== 'data:') {
+              } else if (strict && name === 'Worker' && !inline) {
                 if (!keepWorkersOut && blobRefused) {
                   // Kontrol: this document's policy refuses the protected
                   // copy: the site's own file, as the page asked (see adopt)
@@ -3388,7 +3428,7 @@
                   if (file) call = send(tt !== null ? asTrusted(file) : file);
                   else hello = null;
                 }
-              } else if (sslice(url, 0, 5) === 'blob:') {
+              } else if (isBlob) {
                 var blob = blobs.get(url);
                 if (!blob) {
                   // a blob address made elsewhere (in a worker, another frame):
@@ -3408,8 +3448,15 @@
                   PATCHED.set(patched, url);
                   // the prelude revokes it at once; this is the fallback
                   RAPPLY(nLater, w, [function () { RAPPLY(rawRevoke, U, [patched]); }, 30000]);
+                } else {
+                  // its text cannot be read here (a policy without blob: in
+                  // connect-src, the independent review): the prelude, which
+                  // then loads the address itself, as a site's file at Strict;
+                  // never the worker as asked, without the protection
+                  var loader = blobLoader(url, opt.module);
+                  call = send(tt !== null ? asTrusted(loader) : loader);
                 }
-              } else if (lower(sslice(url, 0, 5)) === 'data:') {
+              } else if (isData) {
                 var comma = sindex(url, ',');
                 if (comma > 0) {
                   var b64 = lower(sslice(url, comma - 7 < 0 ? 0 : comma - 7, comma)) === ';base64';
