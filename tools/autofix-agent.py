@@ -290,7 +290,7 @@ SECURITY_RULES = (
     "change nothing and say so in the summary.\n")
 
 
-BUILDERS = {"darkreader": "tools/build-darkreader.py", "ubo-scriptlets": "tools/build-ubo-scriptlets.mjs"}
+BUILDERS = {"ubo-scriptlets": "tools/build-ubo-scriptlets.mjs"}
 
 
 def builder_note(builder):
@@ -300,8 +300,7 @@ def builder_note(builder):
         return ""
     return ("\n\n## This run: re-anchor I.K.E.'s builder\n\nA new upstream version moved the text one of "
             "I.K.E.'s patches is anchored to; the failure description shows the new upstream lines around it. "
-            "Change ONLY `%s`, and in it only the anchor texts of the existing patches (Dark Reader: the second "
-            "text of each `PATCHES` entry; uBlock Origin: only the path of the library it imports). Never a "
+            "Change ONLY `%s`, and in it only the path of the library it imports (uBlock Origin). Never a "
             "replacement text, never a new or removed patch, never other code, never upstream code or the "
             "generated files in `ike/resources/`. If that is not enough, change nothing and say so.\n"
             % BUILDERS[builder])

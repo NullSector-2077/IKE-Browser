@@ -69,10 +69,12 @@ def test_menu_bar_and_burger_menu(run_ike):
             out["settings_keys"] = win.act_settings.shortcut().toString()
             out["help"] = [a.text() for a in menus["&Help"].actions()]
             # its title is a section since 1.1.25: an entry with its name, still the first
-            out["protection"] = [a.text() for a in menus["&Protection"].actions() if not a.isSeparator() or a.text()]
-            out["extensions"] = [a.text() for a in menus["E&xtensions"].actions() if not a.isSeparator()]
+            out["protection"] = [a.text() for a in menus["P&rivacy"].actions() if not a.isSeparator() or a.text()]
+            out["extensions"] = [a.text() for a in menus["E&xtensions"].actions()
+                                 if not a.isSeparator() and a.isVisible()]
             # the same QActions in both places
             # (1.1.24: "Check for I.K.E. updates" is under ☰ → Help, the menu bar's Help with an icon)
+            win.m_help_burger.aboutToShow.emit()
             out["same"] = (win.act_settings in burger.actions() and win.act_settings in menus["&Tools"].actions()
                            and win.act_check_updates in menus["&Help"].actions()
                            and win.act_check_updates in win.m_help_burger.actions()
@@ -88,23 +90,22 @@ def test_menu_bar_and_burger_menu(run_ike):
             # Esc ends two modes that never meet (customising, full screen)
             out["twice"] = {k: v for k, v in keys.items() if len(v) > 1 and k != "Esc"}
     """)
-    assert out["bar"] == ["&File", "&Edit", "&View", "Hi&story", "&Bookmarks", "&Protection", "E&xtensions",
-                          "&Tools", "&Help"]
-    # 1.1.24 (the owner's go-ahead to regroup it): new tabs and windows; this page;
-    # keep or print it; the library; protection and extensions; Settings and Help; Quit
+    # 1.1.30 (the owner's reorganisation, ike/menus.py)
+    assert out["bar"] == ["&File", "&Edit", "T&abs", "&Page", "&View", "Hi&story", "&Bookmarks", "P&rivacy",
+                          "E&xtensions", "&Tools", "&Help"]
+    # new tabs and windows; the owner's categories; Settings and Help; About; Quit
     assert out["burger"] == ["New tab", "New window", "New private window",
-                             "Find in page…", "Zoom", "Dark mode for pages", "Reader mode", "Translate page…",
-                             "Print…", "Save as PDF…", "Save page as…", "Screenshot…",
-                             "History", "Bookmarks", "Downloads",
-                             "Protection", "I.K.E. extensions", "More",
+                             "Tabs and windows", "Web page", "Edit", "File and downloads", "Audio and video",
+                             "Bookmarks and history", "Privacy and security", "Browser appearance",
+                             "I.K.E. extensions", "Performance and tools", "Backup and restore",
                              "Settings…", "Help", "About I.K.E.", "Quit"]
     assert out["no_icon"] == [] and out["no_tip"] == [], out
     assert out["settings_in_tools"] and out["settings_keys"] == "Ctrl+,"
-    assert out["help"][:3] == ["Keyboard shortcuts", "Check for I.K.E. updates", "About Qt"]
-    assert out["protection"][1:6] == ["Off", "Compatibility", "Balanced", "Strict", "Maximum"]
+    assert out["help"] == ["Keyboard shortcuts", "Check for I.K.E. updates", "", "About I.K.E.", "About Qt"]
+    assert out["protection"][1:6] == ["Off", "Compatibility", "Balanced", "Kontrol", "Maximum"]
     assert {"Repair this site", "Site permissions…", "Update filter lists now",
             "Clear browsing data…"} <= set(out["protection"])
-    assert out["extensions"][0] == "User scripts" and out["extensions"][-1] == "Manage extensions…"
+    assert out["extensions"][0] == "Password manager" and out["extensions"][-1] == "Manage extensions…"
     assert len(out["extensions"]) == 17
     assert out["same"] and out["level_icon"] and out["menubar_icons"] == []
     for k in ("Ctrl+T", "Ctrl+N", "Ctrl+Shift+N", "Ctrl+,", "Ctrl+P", "Ctrl+Shift+S", "Ctrl+Q", "Ctrl+J",
@@ -156,7 +157,7 @@ def test_every_page_name_still_opens(run_ike):
             pages = {}
             for name in ("general", "appearance", "newtab", "search", "privacy", "components",
                          "userscripts", "downloads", "language", "protection", "extensions", "updates",
-                         "system", "nonsense", None):
+                         "system", "sites", "blocker", "permissions", "nonsense", None):
                 dlg = win.open_settings(name)
                 yield 150
                 pages[str(name)] = [dlg.isVisible(), dlg.PAGES[dlg.stack.currentIndex()],
@@ -193,10 +194,11 @@ def test_every_page_name_still_opens(run_ike):
                 "privacy": "privacy", "components": "extensions", "userscripts": "extensions",
                 "downloads": "downloads", "language": "language", "protection": "protection",
                 "extensions": "extensions", "updates": "updates", "system": "system",
+                "sites": "sites", "blocker": "blocker", "permissions": "permissions",
                 "nonsense": "general", "None": "general"}
     for name, page in expected.items():
         assert out["pages"][name][:2] == [True, page], (name, out["pages"][name])
-    assert all(out["abouts"]) and len(out["abouts"]) == 11
+    assert all(out["abouts"]) and len(out["abouts"]) == 14
     assert out["hints"] > 60 and out["hint_lines"] == 0 and out["infos_named"]
     assert out["options_page"] == "newtab" and out["userscripts_window"]
 

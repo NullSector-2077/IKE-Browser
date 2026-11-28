@@ -444,6 +444,17 @@ def one_language(cfg):
     return _one_language(engine_language(cfg))
 
 
+def _profile_language(cfg):
+    """The Accept-Language the profile itself sends (engine_language)."""
+    from .config import engine_language
+    return _ascii(engine_language(cfg))
+
+
+@functools.lru_cache(maxsize=16)
+def _ascii(text):
+    return text.encode("ascii", "replace")
+
+
 @functools.lru_cache(maxsize=16)
 def _one_language(header):
     from .config import one_language_header
@@ -528,6 +539,55 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         self._count(host, "https")
         s.redirected.add(https.toString())
         info.redirect(https)
+        return True
+
+    def _skip_tracker(self, info, url, host):
+        """A link that only passes through a tracker on its way, with the real
+        address written inside it (newsletters, affiliate links, Google's AMP
+        copies), opens that address at once (1.1.30, debounce.py); True when
+        it did. Balanced and above, with "Remove tracking parameters from
+        links" on; the site's own "params" option (what "Repair this site"
+        turns off) leaves it off, for the tracker's site and for the site
+        whose link was followed. The new address comes through here again,
+        so every protection judges it."""
+        cfg = self.s.config
+        if cfg.site_opt(host, "params") is False:
+            return False
+        try:
+            init = info.initiator()
+        except AttributeError:
+            init = QUrl()
+        if init.scheme() in ("http", "https") and cfg.site_opt(init.host().lower(), "params") is False:
+            return False
+        from . import debounce
+        from .userscripts import is_local_name
+        target = debounce.skip(bytes(url.toEncoded()).decode("ascii", "replace"))
+        if not target:
+            return False
+        new = QUrl(target)
+        if not new.isValid() or new.scheme() not in ("http", "https") or not new.host():
+            return False
+        if not new.path():
+            new.setPath("/")
+        new = new.adjusted(QUrl.UrlFormattingOption.NormalizePathSegments)
+        # judged again as the engine reads it: the host debounce.py checked must be the very
+        # host opened (no other reading of an escaped or Unicode name), and never a local one,
+        # a user name, or the tracker's own site
+        to_host = new.host(QUrl.ComponentFormattingOption.FullyEncoded).lower().rstrip(".")
+        try:
+            from urllib.parse import urlsplit
+            checked = (urlsplit(target).hostname or "").rstrip(".")
+        except ValueError:
+            return False
+        if (to_host != checked or is_local_name(to_host) or new.userName() or new.password()
+                or site_of(to_host) == site_of(host) or new == url):
+            return False
+        self._count(to_host, "params")
+        redirected = self.s.redirected
+        if len(redirected) > 200:
+            redirected.clear()
+        redirected.add(new.toString())
+        info.redirect(new)
         return True
 
     def _lan_refused(self, info, url, main):
@@ -643,6 +703,13 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             return
         host = url.host().lower()
         host_site = site_of(host)
+        if host_site != first_site and host_site and not self.quiet:
+            # the other sites a page of first_site loaded (cleanpanel.py), a few hundred at most
+            seen = s.page_sites.get(first_site)
+            if seen is None and len(s.page_sites) < 500:
+                seen = s.page_sites[first_site] = set()
+            if seen is not None and len(seen) < 200:
+                seen.add(host_site)
         method = bytes(info.requestMethod())
         get = method == b"GET"
         if cfg.sensitive_hands_off(first_host, host):
@@ -691,6 +758,8 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             elif not self.quiet:
                 s.reset_count(host)
         if main and get:
+            if lv >= 2 and cfg["strip_tracking_params"] and self._skip_tracker(info, url, host):
+                return
             if self._https_upgrade(info, url, host, scheme):
                 return
             if cfg["strip_tracking_params"] and cfg.site_opt(host, "params") is not False:
@@ -755,16 +824,19 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
 
         if cfg["send_gpc"]:
             info.setHttpHeader(b"Sec-GPC", b"1")
+        if lv >= 2 and cfg.site_opt(first_host, "fp") is not False:
+            # the common network of the page (Balanced too since 1.1.30)
+            _common_network(info)
         if lv >= 3 and cfg.site_opt(first_host, "fp") is not False:
             _reduce_full_version(info)
-            _common_network(info)
-            if lv >= 4:
-                info.setHttpHeader(b"Accept-Language", b"en-US,en;q=0.9")
-            else:
-                # Strict: the one language navigator.languages shows, as
-                # Chrome writes it; the full list in the header contradicted
-                # it (review of 1.1.19, M5)
-                info.setHttpHeader(b"Accept-Language", one_language(cfg))
+            # Maximum: en-US; Strict: the one language navigator.languages
+            # shows, as Chrome writes it; the full list in the header
+            # contradicted it (review of 1.1.19, M5). Written only when the
+            # profile's own differs (1.1.30): a header written here moves to
+            # the end of the request's headers, an order no Chromium has.
+            want = b"en-US,en;q=0.9" if lv >= 4 else one_language(cfg)
+            if want != _profile_language(cfg):
+                info.setHttpHeader(b"Accept-Language", want)
         if (lv >= 2 and cfg["trim_referrer"] and not main
                 and host_site != first_site
                 and cfg.site_opt(first_host, "params") is not False):
@@ -902,6 +974,7 @@ class Shields(QObject):
         self.action_key = secrets.token_hex(16)   # the new tab page's own links (IkeSchemeHandler)
         self.stats = {}
         self.requests = {}               # site -> requests made for it (see resources)
+        self.page_sites = {}             # site -> other sites its pages loaded (the broom's panel, 1.1.30)
         self.redirected = set()
         self.upgraded = set()
         self.http_allowed = set()
@@ -1041,8 +1114,14 @@ class Shields(QObject):
         bg, fg = colors["{{bg}}"], colors["{{fg}}"]
         colors["{{mute}}"] = readable(colors["{{mute}}"], bg, fg)
         colors["{{acc}}"] = readable(colors["{{acc}}"], bg, fg, 3.0)
+        # 1.1.30: the figures in the colour of the logo's K, readable as the accent (3:1)
+        from . import cyberfont
+        colors["{{k}}"] = cyberfont.k_colour(bg, fg)
         for k, c in colors.items():
             html = html.replace(k, c.name())
+        face = cyberfont.data_url()
+        html = html.replace("{{cyberfont}}", '@font-face{font-family:"IKE Cyber";src:url(%s) format("truetype");'
+                            'font-weight:400 900;font-display:block}' % face if face else "")
         import html as _html
         corner = ""
         if self.config["newtab_clock"]:
@@ -1348,6 +1427,7 @@ class Shields(QObject):
                 QWebEngineSettings.WebAttribute.WebRTCPublicInterfacesOnly,
                 bool(cfg["webrtc_hide_ip"]))
             self._identity(p)
+            self._autoclean_script(p)
             # site settings may have changed: scriptlets follow them again
             self._drop_site_scripts(p)
             self._video_scripts(p)
@@ -1513,6 +1593,48 @@ class Shields(QObject):
                 "ike-video-relay", self._videorelay_src.replace("__IKE_VIDEO_HOSTS__", json.dumps(bases)),
                 False, False))
 
+    # --- the broom's automatic cleaning (1.1.30, cleanpanel.py) ----------
+    AUTOCLEAN = "ike-autoclean"
+    AUTOCLEAN_JS = (
+        "(function(){try{localStorage.clear();sessionStorage.clear();}catch(e){}"
+        "try{indexedDB.databases().then(function(d){d.forEach(function(x){indexedDB.deleteDatabase(x.name);});});}"
+        "catch(e){}"
+        "try{caches.keys().then(function(k){k.forEach(function(x){caches.delete(x);});});}catch(e){}"
+        "try{navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(x){x.unregister();});});}"
+        "catch(e){}})();")
+
+    def _autoclean_script(self, profile):
+        """What a site whose last tab was closed had stored goes from its next
+        page's first instant, in I.K.E.'s own world (the page sees nothing of
+        it), before the page's own scripts can read it."""
+        scripts = profile.scripts()
+        for old in scripts.find(self.AUTOCLEAN):
+            scripts.remove(old)
+        pending = [x for x in self.config["autoclean_pending"] if x] if not profile.isOffTheRecord() else []
+        if pending:
+            include = [g for site in pending[:50] for g in host_globs(site, subdomains=True)]
+            scripts.insert(self._script(self.AUTOCLEAN, self.AUTOCLEAN_JS, False, subframes=False, include=include))
+
+    def autoclean_closed(self, profile, site):
+        """The last tab of an automatically cleaned site was closed: its cookies
+        go now, what it stored before its next page."""
+        for cookie in self.site_cookies(profile, site, ever=True):
+            profile.cookieStore().deleteCookie(cookie)
+        self.forget_cookies(profile, site)
+        if site not in self.config["autoclean_pending"]:
+            self.config["autoclean_pending"] = list(self.config["autoclean_pending"]) + [site]
+            self.config.save()
+            for p in list(self.profiles):
+                self._autoclean_script(p)
+
+    def autoclean_done(self, site):
+        """A page of the site has loaded with the cleaning script: done."""
+        if site in self.config["autoclean_pending"]:
+            self.config["autoclean_pending"] = [x for x in self.config["autoclean_pending"] if x != site]
+            self.config.save()
+            for p in list(self.profiles):
+                self._autoclean_script(p)
+
     def _drop_site_scripts(self, profile):
         scripts = profile.scripts()
         for host in self._site_lru.pop(id(profile), []):
@@ -1610,6 +1732,17 @@ class Shields(QObject):
             seen[k] = jar[k]
         store.cookieAdded.connect(added)
         store.cookieRemoved.connect(lambda c: jar.pop(key(c), None))
+
+    def forget_cookies(self, profile, site):
+        """I.K.E. deleted a site's cookies (the broom, 1.1.30): its lists forget
+        them, so a count after that is right."""
+        for name in ("cookie_jars", "cookies_seen"):
+            source = getattr(self, name, {}).get(profile)
+            if not source:
+                continue
+            for k in [k for k, c in source.items()
+                      if c.domain().lstrip(".").lower() == site or c.domain().lstrip(".").lower().endswith("." + site)]:
+                source.pop(k, None)
 
     def site_cookies(self, profile, site, ever=False):
         """Cookies of a registrable domain (and its subdomains) in a profile;

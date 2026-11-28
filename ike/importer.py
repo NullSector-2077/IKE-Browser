@@ -274,7 +274,7 @@ class PermissionsDialog(QDialog):
         row.addStretch(1)
         lay.addLayout(row)
         note = QLabel(T("A reset permission is asked again the next time the site needs it. "
-                        "Kinds that must always be refused are set in Settings → Privacy."))
+                        "Kinds that must always be refused are set in Settings → Site permissions."))
         note.setWordWrap(True)        # on one line it made the window wider than the screen (1.1.22)
         lay.addWidget(note)
         self.perms = []

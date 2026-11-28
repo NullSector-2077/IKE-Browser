@@ -88,6 +88,9 @@ PARTS = {
     "gestures": True,        # touchpad: swipe for back and forward, pinch to zoom
     "key_hints": True,       # Ctrl or Alt held for a second: the toolbar buttons show their keys
     "group_fold": True,      # a tab group folds and unfolds smoothly
+    # 1.1.30 (the owner)
+    "download_fly": True,    # a file that starts downloading flies to the Downloads button
+    "swipe_arrow": True,     # touchpad: an arrow at the edge shows the swipe back or forward coming
 }
 
 MARK_MS = 180
@@ -339,6 +342,103 @@ class FoldStrip(QWidget):
 
 # --- a bar that slides in from the bottom (1.1.24) -----------------------------
 SLIDE_IN_MS = 160
+
+
+class FlyingIcon(QWidget):
+    """A file's icon flying in an arc from start to end (points of parent),
+    smaller and fading as it lands: a download that starts goes to the
+    Downloads button (1.1.30, the owner). Under half a second, then gone."""
+
+    MS = 450
+    SIZE = 32
+
+    def __init__(self, parent, icon, start, end):
+        super().__init__(parent)
+        keep(self)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setObjectName("ike_download_fly")
+        self.pix = icon.pixmap(QSize(self.SIZE, self.SIZE), self.devicePixelRatioF())
+        self.a, self.b = QPointF(start), QPointF(end)
+        # the arc's top: above the higher of the two points
+        self.c = QPointF((self.a.x() + self.b.x()) / 2, min(self.a.y(), self.b.y()) - 80)
+        self.t = 0.0
+        self.setGeometry(parent.rect())
+        self.anim = QVariantAnimation(self)
+        self.anim.setDuration(self.MS)
+        self.anim.setStartValue(0.0)
+        self.anim.setEndValue(1.0)
+        self.anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+        self.anim.valueChanged.connect(self._step)
+        self.anim.finished.connect(self.deleteLater)
+        self.show()
+        self.raise_()
+        self.anim.start()
+
+    def _step(self, v):
+        self.t = float(v)
+        self.update()
+
+    def paintEvent(self, event):
+        t, u = self.t, 1 - self.t
+        pos = self.a * (u * u) + self.c * (2 * u * t) + self.b * (t * t)       # a quadratic arc
+        side = self.SIZE * (1 - 0.5 * t)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        p.setOpacity(1.0 if t < 0.7 else max(0.0, (1 - t) / 0.3))
+        p.drawPixmap(QRectF(pos.x() - side / 2, pos.y() - side / 2, side, side), self.pix,
+                     QRectF(self.pix.rect()))
+        p.end()
+
+
+class SwipeArrow(QWidget):
+    """A round arrow that comes in from the edge of the page while the fingers
+    swipe on the touchpad (1.1.30, the owner): back at the left, forward at the
+    right; it fills with the theme's colour when the swipe is far enough to
+    act. Drawn only while the fingers move, gone when they lift."""
+
+    D = 40                  # the circle's diameter
+
+    def __init__(self, view):
+        super().__init__(view.parentWidget())
+        keep(self)
+        self.view = view
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setObjectName("ike_swipe_arrow")
+        self.back, self.progress = True, 0.0
+        self.hide()
+
+    def show_progress(self, back, progress):
+        self.back, self.progress = back, max(0.0, min(1.0, progress))
+        r = self.view.geometry()
+        travel = self.D + 12
+        x = r.left() - self.D + int(travel * self.progress) if back else r.right() - int(travel * self.progress)
+        self.setGeometry(x, r.center().y() - self.D // 2, self.D, self.D)
+        self.show()
+        self.raise_()
+        self.update()
+
+    def paintEvent(self, event):
+        pal = self.palette()
+        full = self.progress >= 1.0
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setOpacity(0.35 + 0.65 * self.progress)
+        back = pal.color(QPalette.ColorRole.Highlight) if full else pal.color(QPalette.ColorRole.Window)
+        p.setPen(QPen(pal.color(QPalette.ColorRole.Mid), 1))
+        p.setBrush(back)
+        p.drawEllipse(QRectF(self.rect()).adjusted(1, 1, -1, -1))
+        ink = pal.color(QPalette.ColorRole.HighlightedText if full else QPalette.ColorRole.WindowText)
+        p.setPen(QPen(ink, 2.2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        c, a = QPointF(self.rect().center()), self.D * 0.16
+        sign = -1 if self.back else 1
+        path = QPainterPath(c + QPointF(-sign * a * 0.5, -a))
+        path.lineTo(c + QPointF(sign * a * 0.5, 0))
+        path.lineTo(c + QPointF(-sign * a * 0.5, a))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawPath(path)
+        p.end()
 
 
 class SlidingPicture(QWidget):
@@ -1196,10 +1296,18 @@ class VTabsEdge(QWidget):
 
 # --- short messages in a pill (1.1.7) ---------------------------------------------
 class Toast(QWidget):
-    """A short message in a rounded pill at the bottom of the page area, which
-    fades in and out (in place of the status bar line)."""
+    """A short message in a box at the bottom of the page area, which fades in
+    and out (in place of the status bar line).
+
+    1.1.30 (the owner: "KDE and I.K.E. style, coherent with Plasma, only the
+    corners slightly rounded"): drawn as Plasma draws its own small windows,
+    the window's colour with a thin line around it and a soft shadow under it,
+    its corners slightly rounded; it rises a few pixels as it comes in, as
+    Plasma's notifications do. (It was a flat grey box.)"""
 
     MARGIN = 26
+    SHADOW = 8               # px around the box for its shadow (1.1.30)
+    RISE = 6                 # px it rises while it fades in
 
     def __init__(self, anchor, config):
         super().__init__(anchor.parentWidget())
@@ -1225,6 +1333,8 @@ class Toast(QWidget):
 
     def _set_opacity(self, v):
         self._opacity = float(v)
+        if not getattr(self, "_fading_out", False):
+            self._place()                   # it rises as it comes in
         self.update()
 
     ICON = 22                # the OSD's icon (1.1.24)
@@ -1242,7 +1352,8 @@ class Toast(QWidget):
         fm = QFontMetrics(self.font())
         room = self.ICON + 10 if self.icon is not None else 0
         w = min(fm.horizontalAdvance(text) + 36 + room, max(120, self.anchor.width() - 40))
-        self.resize(w, max(fm.height(), self.ICON if self.icon is not None else 0) + 18)
+        S = self.SHADOW
+        self.resize(w + 2 * S, max(fm.height(), self.ICON if self.icon is not None else 0) + 18 + 2 * S)
         self._place()
         self._anim.stop()
         if moving(self.config, "toasts") and not self.isVisible():
@@ -1277,7 +1388,9 @@ class Toast(QWidget):
 
     def _place(self):
         g = self.anchor.geometry()
-        self.move(g.x() + (g.width() - self.width()) // 2, g.y() + g.height() - self.height() - self.MARGIN)
+        rise = 0 if getattr(self, "_fading_out", False) else round((1.0 - self._opacity) * self.RISE)
+        self.move(g.x() + (g.width() - self.width()) // 2,
+                  g.y() + g.height() - self.height() - self.MARGIN + self.SHADOW + rise)
 
     def eventFilter(self, obj, event):
         if obj is self.anchor and event.type() in self._events and self.isVisible():
@@ -1286,24 +1399,117 @@ class Toast(QWidget):
 
     def paintEvent(self, _event):
         pal = self.palette()
-        bg = effects.blend(pal.color(QPalette.ColorRole.Window), pal.color(QPalette.ColorRole.WindowText), 0.08)
-        bg.setAlphaF(0.96)
+        S = self.SHADOW
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setOpacity(self._opacity)
-        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        r = QRectF(self.rect()).adjusted(S + 0.5, S + 0.5, -S - 0.5, -S - 0.5)
+        # the shadow: layers that grow and fade, a little lower than the box (Breeze's)
+        p.setPen(Qt.PenStyle.NoPen)
+        dark = 0.10 if pal.color(QPalette.ColorRole.Window).lightnessF() > 0.5 else 0.22
+        for i in range(S, 0, -1):
+            shade = QColor(0, 0, 0)
+            shade.setAlphaF(dark * (1.0 - i / (S + 1)) ** 2)
+            p.setBrush(shade)
+            p.drawRoundedRect(r.adjusted(-i, -i + 2, i, i + 2), TOAST_RADIUS + i, TOAST_RADIUS + i)
+        # the box: the window's colour, a thin line around it
         p.setPen(QPen(separator(pal), 1.0))
-        p.setBrush(bg)
+        p.setBrush(pal.color(QPalette.ColorRole.Window))
         p.drawRoundedRect(r, TOAST_RADIUS, TOAST_RADIUS)
         p.setPen(pal.color(QPalette.ColorRole.WindowText))
         from PyQt6.QtGui import QFontMetrics
-        area = self.rect().adjusted(16, 0, -16, 0)
+        area = self.rect().adjusted(16 + S, S, -16 - S, -S)
         if self.icon is not None:
             box = QRect(area.left(), (self.height() - self.ICON) // 2, self.ICON, self.ICON)
             self.icon.paint(p, box, Qt.AlignmentFlag.AlignCenter)
             area.setLeft(box.right() + 11)
         p.drawText(area, int(Qt.AlignmentFlag.AlignCenter),
                    QFontMetrics(self.font()).elidedText(self.text, Qt.TextElideMode.ElideRight, area.width()))
+        p.end()
+
+
+# --- where a link goes (1.1.30, the owner) ----------------------------------------
+class LinkPreview(QWidget):
+    """The address of the link under the mouse, in a small box at the bottom
+    corner of the page, as other browsers show it (the owner, 1.1.30).
+
+    1.0 showed it in the window's status bar, which took room from the page
+    when it appeared: the whole page moved up and down ("it shook"). This box
+    lies over the page and takes no room from it: nothing moves. It never
+    takes the mouse nor the keyboard; when the mouse comes to its corner it
+    goes to the other one. Drawn as KDE's Breeze draws a tooltip: the
+    window's colours, a thin line around it, its corners slightly rounded."""
+
+    MARGIN = 0               # px from the page's edges (in the corner, as other browsers)
+    WAIT = 120               # ms before it goes: moving from a link to the next does not blink it
+
+    def __init__(self, anchor):
+        super().__init__(anchor.parentWidget())
+        from PyQt6.QtCore import QEvent, QTimer
+        self._events = QEvent.Type.Resize, QEvent.Type.Move
+        self.anchor = anchor
+        self.text = ""
+        self.right = False
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self._hide = QTimer(self)
+        self._hide.setSingleShot(True)
+        self._hide.timeout.connect(self.hide)
+        anchor.installEventFilter(self)
+        self.hide()
+
+    def show_url(self, url):
+        """The address (a QUrl or text) of the link under the mouse; empty: it goes."""
+        from PyQt6.QtCore import QUrl
+        text = url.toDisplayString() if isinstance(url, QUrl) else str(url or "")
+        if not text:
+            self._hide.start(self.WAIT)
+            return
+        self._hide.stop()
+        if text == self.text and self.isVisible():
+            return
+        self.text = text
+        from PyQt6.QtGui import QCursor, QFontMetrics
+        fm = QFontMetrics(self.font())
+        most = max(160, int(self.anchor.width() * 0.6))
+        self.resize(min(fm.horizontalAdvance(text) + 18, most), fm.height() + 8)
+        # the corner away from the mouse
+        local = self.anchor.mapFromGlobal(QCursor.pos())
+        g = self.anchor.rect()
+        self.right = local.y() > g.height() - self.height() - 30 and (
+            local.x() < self.width() + 30 if not self.isRightToLeft() else local.x() > g.width() - self.width() - 30)
+        self._place()
+        self.show()
+        self.raise_()
+        self.update()
+
+    def _place(self):
+        g = self.anchor.geometry()
+        left = (not self.right) != self.isRightToLeft()
+        x = g.x() + self.MARGIN if left else g.x() + g.width() - self.width() - self.MARGIN
+        self.move(x, g.y() + g.height() - self.height() - self.MARGIN)
+
+    def eventFilter(self, obj, event):
+        if obj is self.anchor and event.type() in self._events and self.isVisible():
+            self._place()
+        return False
+
+    def paintEvent(self, _event):
+        from PyQt6.QtGui import QFontMetrics
+        pal = self.palette()
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        p.setPen(QPen(separator(pal), 1.0))
+        p.setBrush(pal.color(QPalette.ColorRole.Window))
+        p.drawRoundedRect(r, LINK_RADIUS, LINK_RADIUS)
+        p.setPen(pal.color(QPalette.ColorRole.WindowText))
+        area = self.rect().adjusted(9, 0, -9, 0)
+        # the middle shortened: the site and the end of the address stay readable
+        p.drawText(area, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
+                   QFontMetrics(self.font()).elidedText(self.text, Qt.TextElideMode.ElideMiddle, area.width()))
         p.end()
 
 
@@ -1418,11 +1624,20 @@ class ShieldCount(QWidget):
         halo = QColor(self.button.palette().color(QPalette.ColorRole.Window))
         halo.setAlphaF(0.85)
         c = QColor(accent(self.button))
+        # 1.1.30: in the logo's typeface and the colour of its K, as the number it rises beside
+        from . import cyberfont
+        px = self.button.count_pixels() if hasattr(self.button, "count_pixels") else 0
+        cyber = px and cyberfont.usable(text, px)
+        if cyber:
+            c = QColor(self.button.count_colour())
         dpr = self.devicePixelRatioF()
-        key = (text, f.key(), halo.rgba(), c.rgba(), dpr)
+        key = (text, f.key(), halo.rgba(), c.rgba(), dpr, px)
         if getattr(self, "_pic_key", None) != key:
             path = QPainterPath()
-            path.addText(QPointF(0, 0), f, text)
+            if cyber:
+                path = cyberfont.outline(text, px)[0]
+            else:
+                path.addText(QPointF(0, 0), f, text)
             r = path.boundingRect().adjusted(-3, -3, 3, 3)
             ox, oy = math.floor(r.x()), math.floor(r.y())
             w, h = math.ceil(r.right()) - ox, math.ceil(r.bottom()) - oy
@@ -1590,7 +1805,8 @@ def ghost_out(view, rect, config, ms=170, name="vtab_close"):
 
 
 HOVER_RADIUS = RADIUS    # 1.1.16: flat on top and bottom, soft corners (1.1.23: Breeze's radius, was 6)
-TOAST_RADIUS = RADIUS    # 1.1.23: was 8
+TOAST_RADIUS = 4.0       # 1.1.23: was 8; 1.1.30: slightly rounded, as the owner asked
+LINK_RADIUS = 3.0        # 1.1.30: the link's address, slightly rounded as Breeze's tooltips
 
 
 def separator(palette):
@@ -1971,6 +2187,30 @@ class RoundHoverStyle(QProxyStyle):
             o.state &= ~QStyle.StateFlag.State_Sunken
             o.activeSubControls = QStyle.SubControl.SC_None
         super().drawComplexControl(cc, o, p, widget)
+
+
+class SlimBarStyle(QProxyStyle):
+    """The navigation and bookmarks bars a little lower (1.1.30, the owner:
+    "slightly, not too much"): one pixel less of the bar's own margin and
+    frame above and below; the buttons, the icons and the address field keep
+    their size. Set on the bar itself, never on its buttons."""
+
+    def pixelMetric(self, metric, opt=None, widget=None):
+        v = super().pixelMetric(metric, opt, widget)
+        if metric in (QStyle.PixelMetric.PM_ToolBarItemMargin, QStyle.PixelMetric.PM_ToolBarFrameWidth):
+            return max(0, v - 1)
+        return v
+
+
+_SLIM = None
+
+
+def slim_bar(bar):
+    """Give a toolbar SlimBarStyle (one shared object, Qt keeps no copy)."""
+    global _SLIM
+    if _SLIM is None:
+        _SLIM = SlimBarStyle()
+    bar.setStyle(_SLIM)
 
 
 class HoverGlides(QObject):

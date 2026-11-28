@@ -389,7 +389,8 @@ def check_menu(menu, where):
         if r.isEmpty():
             continue
         if r.left() < 0 or r.right() > menu.width() - 1:
-            out.append((where, "QMenu", plain(a.text()), "entry sticks out of the menu"))
+            out.append((where, "QMenu", plain(a.text()), "entry sticks out of the menu (%d px wide, the entry %d..%d)"
+                        % (menu.width(), r.left(), r.right())))
             continue
         if not a.text() or getattr(a, "defaultWidget", None) is not None and a.defaultWidget():
             continue

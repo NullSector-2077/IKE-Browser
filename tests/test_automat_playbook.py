@@ -32,7 +32,7 @@ SAMPLES = {
     "adblock-csp-with-content-type": "possible security regression (network filter error: csp with content type)",
     "adblock-unrecognised-option": "rule-dropped (network filter error: unrecognised option)",
     "scriptlet-unknown": "a scriptlet the bundled library does not know: unknown scriptlet set-cookie-reload",
-    "builder-anchor": "darkreader: builder refused 4.9.140: anchor 'createOrUpdateStyle' not found",
+    "builder-anchor": "ubo-scriptlets: builder refused 1.70.0: anchor '/src/js/resources/scriptlets.js' not found",
     "qt-api-renamed": "AttributeError: type object 'QWebEnginePage' has no attribute 'Feature'",
     "python-stdlib-removed": "ModuleNotFoundError: No module named 'imghdr'",
     "rust-wrapper-api": "error[E0599]: no method named `check_network_request` found\n --> ike-adblock/src/lib.rs:250",

@@ -1,6 +1,7 @@
 """Persistent settings (JSON) and standard paths."""
 
 import copy
+import functools
 import hashlib
 import json
 import os
@@ -8,7 +9,7 @@ import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from . import darktheme, osinfo
+from . import osinfo
 
 PROFILE = os.environ.get("IKE_PROFILE", "").strip() or "default"
 
@@ -40,7 +41,7 @@ RES_DIR = PKG_DIR / "resources"
 LEVELS = ("off", "compatibility", "balanced", "strict", "maximum")
 _RANK = {name: i for i, name in enumerate(LEVELS)}
 LEVEL_NAMES = {"off": "Off", "compatibility": "Compatibility", "balanced": "Balanced",
-               "strict": "Strict", "maximum": "Maximum"}
+               "strict": "Kontrol", "maximum": "Maximum"}
 _LEVEL_ALIASES = {"standard": "balanced"}
 
 
@@ -283,15 +284,12 @@ DEFAULTS = {
     "comp_consent": True,
     "comp_dark": True,
     "dark_mode": "off",                 # off | on
-    # reader: Dark Reader API; engine: Chromium Auto Dark Mode; ike: the I.K.E. Dark Engine (1.1.28). All support
-    # per-site include/exclude rules and are applied at page navigation.
-    "dark_engine": "reader",
+    # ike: the I.K.E. Dark Engine (1.1.28); engine: Chromium Auto Dark Mode. Both support
+    # per-site include/exclude rules and are applied at page navigation. (1.1.30: Dark
+    # Reader, "reader", is no longer part of I.K.E.; a profile that chose it gets the engine.)
+    "dark_engine": "ike",
     "dark_sites": [],                   # hosts that are dark while dark mode is off
     "dark_exclude": [],                 # hosts that stay light while dark mode is on
-    # Dark Reader's colours (1.1.25: every key of its theme, its own defaults; darktheme.py),
-    # and the sites with colours of their own ({host: theme}), set in the toolbar's panel
-    "dark_theme": dict(darktheme.DEFAULTS),
-    "dark_site_themes": {},
     # the I.K.E. Dark Engine's look (1.1.28; darkengine.LOOK), set in its panel and in Settings
     "dark_engine_look": None,
     "restore_once": False,              # reopen the last tabs at the next start (restart)
@@ -388,6 +386,15 @@ DEFAULTS = {
     "bounce_used": {},                  # site -> day the user last used it (bounce.py)
     "bounce_seeded": False,             # the sites of the history before it counted once
     "protect_timezone": False,          # pages see UTC (after a restart; opt-in)
+    # 1.1.30: sites are told the common American English (en-US) at every
+    # level instead of the user's languages (the Octagon; after a restart for
+    # workers and the engine's own texts). I.K.E.'s interface keeps its language.
+    "common_english": False,
+    # 1.1.30: the broom's panel (cleanpanel.py): sites whose data goes when
+    # their last tab is closed (cookies at once; what the site stored, before
+    # its next page can read it: autoclean_pending)
+    "autoclean_sites": [],
+    "autoclean_pending": [],
     "quiet_permissions": True,          # a sign in the address bar instead of a window
     "pw_breach_check": False,           # Have I Been Pwned, k-anonymity (opt-in)
     "engine_advisory": {},              # the last verified advisory of the web engine
@@ -598,16 +605,15 @@ class Config:
             d["shield_level"] = "balanced"
         d["site_levels"] = {h: _LEVEL_ALIASES.get(lv, lv) for h, lv in d["site_levels"].items()
                             if _LEVEL_ALIASES.get(lv, lv) in LEVELS}
-        # 1.1.25: the dark mode's theme complete and checked (earlier versions kept three of
-        # its values; anything out of range or of another kind becomes Dark Reader's default)
-        d["dark_theme"] = darktheme.clean(d.get("dark_theme"))
-        d["dark_site_themes"] = darktheme.clean_sites(d.get("dark_site_themes"))
+        # 1.1.30: Dark Reader's colours have no use any more: they go from the profile
+        d.pop("dark_theme", None)
+        d.pop("dark_site_themes", None)
         from . import darkengine
         d["dark_engine_look"] = darkengine.clean_look(d.get("dark_engine_look"))
         # the hidden switch of the experiment (1.1.26-27) becomes the choice in Settings (1.1.28)
-        if d.get("dark_engine_experiment") is True and d.get("dark_engine") == "reader":
-            d["dark_engine"] = "ike"
         d.pop("dark_engine_experiment", None)
+        if d.get("dark_engine") not in ("ike", "engine"):
+            d["dark_engine"] = "ike"          # Dark Reader (1.1.30: no longer in I.K.E.) or anything unknown
 
     def save(self):
         """Write the settings, unless the file already holds exactly them: the
@@ -751,11 +757,35 @@ def engine_language(config):
     global level Strict the one language Strict shows, as Chrome sends it
     ("it-IT,it;q=0.9"), so a worker started from a site's own file agrees
     with the page and the header (1.1.25); otherwise accept_language()."""
-    if config["shield_level"] == "maximum":
+    return _engine_language(config["shield_level"], bool(config["common_english"]), accept_language(config))
+
+
+@functools.lru_cache(maxsize=32)
+def _engine_language(level, common, accept):
+    if level == "maximum" or common:
         return "en-US,en;q=0.9"
-    if config["shield_level"] == "strict":
-        return one_language_header(accept_language(config))
-    return accept_language(config)
+    if level == "strict":
+        return one_language_header(accept)
+    return chrome_accept_language(accept)
+
+
+def chrome_accept_language(header):
+    """An Accept-Language list as Chrome writes it (1.1.30, Engine Privacy
+    Layer study): the first language bare, then q=0.9, 0.8 ... down to 0.1
+    ("de-DE,de,en-US,en" -> "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7"). Qt sends
+    the list exactly as given, and a list without q-values is one no
+    Chromium sends. Weights the user wrote are replaced, the order kept."""
+    tags = []
+    for part in (header or "").split(","):
+        tag = part.split(";")[0].strip()
+        if tag and re.fullmatch(r"[A-Za-z]{1,8}(-[A-Za-z0-9]{1,8})*|\*", tag) and tag not in tags:
+            tags.append(tag)
+    if not tags:
+        return "en-US,en;q=0.9"
+    out = [tags[0]]
+    for i, tag in enumerate(tags[1:], 1):
+        out.append("%s;q=%.1f" % (tag, max(0.1, 1 - i / 10)))
+    return ",".join(out)
 
 
 def one_language_header(header):

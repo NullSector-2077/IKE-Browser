@@ -238,7 +238,7 @@ def test_everything_else_waits_for_a_person():
         "docs link": decide(files=[f("docs/MAINTENANCE.md", "@@ -3,0 +4 @@\n+See https://evil.example/")]),
         "version jump": decide(files=CODE[:1] + [f("ike/__init__.py", '@@ -5 +5 @@\n-__version__ = "1.1.20"\n'
                                                                     '+__version__ = "99.0.0"')]),
-        "darkreader": decide(files=[f("ike/resources/darkreader.js")]),
+        "darkreader": decide(files=[f("ike/resources/darkreader-data.json")]),
         "tools": decide(files=[f("tools/check-components.py")]),
         "maintenance commit": decide(pr("chatgpt/fix-2"), commits=[{"commit": {"message": "maintenance: update"}}]),
         # M3: "only the version" carrying more
@@ -396,7 +396,7 @@ def test_the_maintenance_candidate_changes_only_update_files(tmp_path):
                               capture_output=True, text=True)
     version = {"ike/__init__.py": '__version__ = "1.1.21"\n__min_system__ = "1.0.1"\n',
                "PKGBUILD": "pkgname=ike-browser\npkgver=1.1.21\npkgrel=1\n"}
-    ok = candidate(dict(version, **{"ike-adblock/Cargo.lock": "x\n", "ike/resources/darkreader.js": "x\n"}))
+    ok = candidate(dict(version, **{"ike-adblock/Cargo.lock": "x\n", "ike/resources/darkreader-data.json": "x\n"}))
     assert ok.returncode == 0, ok.stdout + ok.stderr
     bad = candidate({"ike/resources/ubo-scriptlets.json": "x\n", "ike/updater.py": "evil\n"})
     assert bad.returncode == 1 and "ike/updater.py" in bad.stdout, bad.stdout
@@ -877,7 +877,7 @@ DARK = "automation/update/darkreader"
 DARK_COMMIT = {"sha": "d" * 40, "commit": {"message": "update: darkreader 4.9.135 -> 4.9.136 (no AI)\n\nMade by"},
                "files": ["ike/resources/darkreader-data.json", "ike/__init__.py", "PKGBUILD", "README.md",
                          "CHANGELOG.md"]}
-DARK_BULLET = "- Dark Reader (engine and lists): 4.9.135 -> 4.9.136"
+DARK_BULLET = "- Dark Reader (lists): 4.9.135 -> 4.9.136"
 DARK_DATA = f("ike/resources/darkreader-data.json", '@@ -1 +1 @@\n-{"a": 1}\n+{"a": 2}')
 
 

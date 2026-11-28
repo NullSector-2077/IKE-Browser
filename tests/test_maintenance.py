@@ -680,9 +680,9 @@ COMPONENTS = {"components": [
     {"name": "Rust crates of the AdBlock engine", "current": "pyo3 0.30.1, 88 crates",
      "latest": "pyo3 0.30.1, 88 crates", "update": True, "note": "serde_json 1.0.1 -> 1.0.2", "also": "",
      "error": "", "refused": None},
-    {"name": "Dark Reader (engine and lists)", "current": "4.9.135", "latest": "4.9.136", "update": False,
+    {"name": "Dark Reader (lists)", "current": "4.9.135", "latest": "4.9.136", "update": False,
      "note": "", "also": "", "error": "", "refused": {"current": "4.9.135", "latest": "4.9.136",
-                                                     "step": "tools/build-darkreader.py, patch 'x'"}},
+                                                     "step": "tools/build-darkreader-lists.py, the site fixes list"}},
     {"name": "uBlock Origin scriptlets", "current": "", "latest": "", "update": False, "note": "", "also": "",
      "error": "source unreachable: OSError: down", "refused": None}]}
 
@@ -882,9 +882,9 @@ OSV_VULNS = {
                             "affected": [{"package": {"ecosystem": "PyPI", "name": "pytest"},
                                           "ranges": [{"type": "ECOSYSTEM", "events": [
                                               {"introduced": "0"}, {"fixed": "9.0.1"}]}]}]},
-    "GHSA-dark-read-0001": {"id": "GHSA-dark-read-0001", "summary": "Dark Reader: a style can leak",
-                            "affected": [{"package": {"ecosystem": "npm", "name": "darkreader"},
-                                          "ranges": [{"type": "SEMVER", "events": [{"introduced": "0"}]}]}]},
+    "GHSA-ruff-0000-0001": {"id": "GHSA-ruff-0000-0001", "summary": "ruff: a cache file can leak",
+                            "affected": [{"package": {"ecosystem": "PyPI", "name": "ruff"},
+                                          "ranges": [{"type": "ECOSYSTEM", "events": [{"introduced": "0"}]}]}]},
     "GHSA-chec-kout-0001": {"id": "GHSA-chec-kout-0001", "summary": "checkout keeps a token",
                             "affected": [{"package": {"ecosystem": "GitHub Actions", "name": "actions/checkout"},
                                           "ranges": [{"type": "ECOSYSTEM", "events": [
@@ -901,7 +901,7 @@ ARCH_GROUPS = [
     {"name": "AVG-2803", "packages": ["breeze"], "status": "Not affected", "affected": "6.5.3-1", "fixed": None},
 ]
 OSV_DEFAULT = {("PyPI", "pytest", "9.0.0"): ["GHSA-pyte-st00-0001"] * 2,
-               ("npm", "darkreader", "4.9.135"): ["GHSA-dark-read-0001"],
+               ("PyPI", "ruff", "0.17.6"): ["GHSA-ruff-0000-0001"],
                ("GitHub Actions", "actions/checkout", "7.0.1"): ["GHSA-chec-kout-0001"]}
 
 
@@ -942,23 +942,26 @@ class Advisories(Upstream):
 
 
 def test_an_advisory_of_each_kind_is_found_and_recorded_once(fixture_repo):
-    """WP7: a Python, npm, GitHub Actions and Arch component with a known advisory is found, asked in one
-    batch, and becomes one ledger entry per advisory, the same on the next day."""
+    """WP7: a Python, GitHub Actions and Arch component with a known advisory is found, asked in one
+    batch, and becomes one ledger entry per advisory, the same on the next day (an npm module is asked
+    only with a version a lockfile pins: none here)."""
     up = Advisories()
     inv = take(fixture_repo, up, arch_tested=ARCH_TESTED)
     found = ids(inv)
     # one POST for every PyPI, npm and Action component (batched): names and versions only
     assert len(up.posts) == 1
     queries = {(q["package"]["ecosystem"], q["package"]["name"], q["version"]) for q in up.posts[0][1]["queries"]}
-    assert {("PyPI", "pytest", "9.0.0"), ("PyPI", "ruff", "0.17.6"), ("npm", "darkreader", "4.9.135"),
+    assert {("PyPI", "pytest", "9.0.0"), ("PyPI", "ruff", "0.17.6"),
             ("GitHub Actions", "actions/checkout", "7.0.1"), ("GitHub Actions", "actions/setup-python", "7.1.0")} \
         <= queries
+    # 1.1.30: Dark Reader's engine left I.K.E.; its lists are data, no advisory database is asked about them
+    assert not [q for q in queries if q[1] == "darkreader"]
     pytest_ = found["pypi-test:pytest"]
     assert [a["id"] for a in pytest_["advisories"]] == ["GHSA-pyte-st00-0001"]        # twice in the answer, once here
     assert pytest_["advisories"][0]["fixed"] == ["9.0.1"] and pytest_["advisories"][0]["aliases"] == ["CVE-2026-0001"]
     assert pytest_["vulnerabilities"].startswith("1 known (OSV, PyPI 9.0.0): GHSA-pyte-st00-0001 fixed in 9.0.1")
-    assert found["pypi-test:ruff"]["vulnerabilities"] == "none known (OSV, PyPI 0.17.6)"
-    assert found["integrated:Dark Reader"]["advisories"][0]["fixed"] == []
+    assert found["pypi-test:ruff"]["advisories"][0]["fixed"] == []                     # no fix upstream
+    assert found["github-action:actions/setup-python"]["vulnerabilities"].startswith("none known (OSV")
     assert found["github-action:actions/checkout"]["advisories"][0]["fixed"] == ["7.0.2"]
     # Arch: by the version the last green arch.yml run tested
     assert [a["id"] for a in found["arch-package:python"]["advisories"]] == ["AVG-2801"]
@@ -974,7 +977,7 @@ def test_an_advisory_of_each_kind_is_found_and_recorded_once(fixture_repo):
     told = []
     ledger = ledger_tool.update(None, inv, now=DAY1, notices=told)
     sec = {k: e for k, e in ledger["entries"].items() if e.get("security")}
-    assert set(sec) == {"pypi-test:pytest@GHSA-pyte-st00-0001", "integrated:Dark Reader@GHSA-dark-read-0001",
+    assert set(sec) == {"pypi-test:pytest@GHSA-pyte-st00-0001", "pypi-test:ruff@GHSA-ruff-0000-0001",
                         "github-action:actions/checkout@GHSA-chec-kout-0001", "arch-package:python@AVG-2801",
                         "arch-package:qt6-webengine@AVG-2802", "arch-package:qt6-base@AVG-2802"}   # one group, two packages
     assert sec["pypi-test:pytest@GHSA-pyte-st00-0001"]["state"] == "detected"
@@ -982,7 +985,7 @@ def test_an_advisory_of_each_kind_is_found_and_recorded_once(fixture_repo):
     assert sec["arch-package:python@AVG-2801"]["state"] == "detected"
     assert "pacman -Syu" in sec["arch-package:python@AVG-2801"]["reason"]
     assert sec["arch-package:qt6-webengine@AVG-2802"]["state"] == "blocked"
-    assert sec["integrated:Dark Reader@GHSA-dark-read-0001"]["state"] == "blocked"
+    assert sec["pypi-test:ruff@GHSA-ruff-0000-0001"]["state"] == "blocked"
     assert sec["github-action:actions/checkout@GHSA-chec-kout-0001"]["state"] == "detected"     # the pin's candidate
     assert len(told) == 3 and sum("AVG-2802" in n for n in told) == 2      # only what is blocked is told
     again = []
@@ -1003,7 +1006,7 @@ def test_an_unreachable_vulnerability_source_is_not_checked(fixture_repo):
     ledger = ledger_tool.update(None, take(fixture_repo, Advisories(), arch_tested=ARCH_TESTED), now=DAY1)
     inv = take(fixture_repo, Advisories(down={"api.osv.dev", "security.archlinux.org"}), arch_tested=ARCH_TESTED)
     found = ids(inv)
-    for rid in ("pypi-test:pytest", "pypi-test:ruff", "integrated:Dark Reader", "github-action:actions/checkout",
+    for rid in ("pypi-test:pytest", "pypi-test:ruff", "github-action:actions/checkout",
                 "arch-package:python", "arch-build:gcc"):
         assert found[rid]["vulnerabilities"] == "not checked", rid
         assert "unreachable" in found[rid]["vulnerability_note"], rid

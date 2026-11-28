@@ -11,7 +11,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is developed on and for
 KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
 
-**Version 1.1.28** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.30** - see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install (Arch Linux, CachyOS)
 
@@ -19,7 +19,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.28-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.30-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -42,7 +42,7 @@ profiles: `ike-browser --profile NAME`.
 
 **Protection**
 - A shield inside the address bar with five levels — Off, Compatibility,
-  Balanced, Strict, Maximum — set globally or per site, with counters for ads,
+  Balanced, Kontrol (called Strict until 1.1.28), Maximum — set globally or per site, with counters for ads,
   trackers, scripts, third-party cookies, HTTPS upgrades and removed tracking
   parameters.
 - Content blocking with EasyList, EasyPrivacy, uBlock filters, the Malicious
@@ -52,14 +52,14 @@ profiles: `ike-browser --profile NAME`.
   hidden and skipped.
 - **Same site, free way**: at Compatibility and Balanced (the default), a
   site's own requests are not checked against the filter lists: fewer broken sites, while other companies' ads and trackers
-  stay blocked; ads served from the site's own domain are only hidden. Strict
+  stay blocked; ads served from the site's own domain are only hidden. Kontrol
   and Maximum check every request; YouTube is always checked.
 - Cookie banners refused and hidden automatically.
 - Fingerprinting protection (from Balanced, the default): canvas, WebGL, audio
   and the number of CPU cores change from site to site and from session to
   session; at Balanced also the plugins, the WebGL extensions and the graphics
   card (a common model of the same maker chosen per site instead of the exact
-  one). Strict and Maximum give everyone the same values instead: one WebGL
+  one). Kontrol and Maximum give everyone the same values instead: one WebGL
   identity (no card name, a fixed list of extensions, fixed limits never
   above the real ones), Chrome's own PDF plugins, a common network speed,
   screen, fonts, memory, languages and voices; their canvas noise is only
@@ -70,13 +70,21 @@ profiles: `ike-browser --profile NAME`.
   time zone UTC, in pages, frames and every kind of worker alike; I.K.E.'s
   own menus and its new tab clock keep yours. Some sites will show wrong
   times; it applies after a restart.
+- **Skip the tracker's stop** (from Balanced, with "Remove tracking parameters from links" on): a link that only passes
+  through a tracker with the real address written inside it (newsletters, shops' affiliate links, some ad
+  networks) opens that address at once, so the tracker never sees the click; Google's AMP copies of
+  articles open on the publisher's own site. The links are those of Brave's public list (MPL-2.0, kept up to
+  date by the daily maintenance); only web addresses, never one of this computer or the home network,
+  never a sign-in or payment service, and never the stops that also check the destination for safety
+  (Facebook, Instagram, Steam, Google's and YouTube's own redirects). "Repair this site" turns it off for
+  a site together with its tracking parameter cleaning.
 - **Bounce tracking** (on by default): a site you only pass through, because
   a link redirected you there and on at once, loses its cookies and stored
   data half a minute later. Sites you used in the last 45 days, have open or
   bookmarked, sign-in and payment services and sites you allowed in the
   shield are never touched.
 - Sites see Chrome on Linux with the version of I.K.E.'s own engine: header,
-  client hints and JavaScript agree (at Strict and Maximum only its major
+  client hints and JavaScript agree (at Kontrol and Maximum only its major
   number, today 140.0.0.0, in pages, workers and request headers), with the
   engine's own brand list (Chromium) and no kernel version, the same in every
   kind of worker. One
@@ -125,18 +133,16 @@ profiles: `ike-browser --profile NAME`.
 - Email links written with the web mail you choose (Gmail, Outlook.com, Proton
   Mail, Yahoo Mail) or with the computer's mail program; I.K.E. can also take
   the email links of other programs.
-- Page dark mode with the I.K.E. Dark Engine (1.1.28, I.K.E.'s own: Dark
-  Reader's colours at about half its cost, its own panel with four styles,
-  background depth, text brightness and dimmed pictures; it uses Dark
-  Reader's lists only), or with Dark Reader as its extension works (its fixes for single
-  sites, sites that are dark already left alone, its detector of a site's own
-  dark theme; its lists come with each I.K.E. release), or with the engine's
-  own dark mode, which is much lighter
+- Page dark mode with the I.K.E. Dark Engine (I.K.E.'s own, since 1.1.28; the
+  only one since 1.1.30: Dark Reader's colours at about half its cost, sites
+  that are dark already left alone, Dark Reader's lists for single sites), or
+  with the engine's own dark mode, which is much lighter
   ([docs/review/tests-and-performance.md](docs/review/tests-and-performance.md)).
-  The toolbar's Dark mode button opens a panel: dark mode everywhere or on
-  this site, Dark or Light, brightness, contrast, sepia and grayscale (seen on
-  the page while the slider moves), and under "More" the font, text stroke,
-  colours, scroll bars and selection colour, for every site or for one.
+  The toolbar's Dark mode button (a moon when on, a sun when off) opens the
+  "I.K.E. Dark Engine" panel: on or off, on or off for this site, four styles
+  (Graphite, Midnight, Warm, Nordic), background depth, text brightness and
+  dimmed pictures (seen on the page while the slider moves), finding sites
+  that are dark already, and Reset.
 - The toolbar's Zoom button opens a panel (− and +, a slider, actual size,
   the default zoom); the Downloads button (Ctrl+J) a list of the downloads
   with pause and resume, speed and time left, retry, the downloads stopped
@@ -157,7 +163,7 @@ profiles: `ike-browser --profile NAME`.
   two that are off until you choose them: automatic scrolling with the middle
   button, and opening the selected text with the middle button.
 - I.K.E.'s own pages for sites that cannot be reached, with "Try again".
-- Quiet permission questions (on by default; Settings → Privacy): a site
+- Quiet permission questions (on by default; Settings → Site permissions): a site
   asking for notifications, the location, the camera or the microphone shows
   a small sign in the address bar; a click answers. Notifications asked for
   without a click on the page are refused at once (not remembered).
@@ -306,7 +312,7 @@ and never with anything about its users ([docs/MAINTENANCE.md](docs/MAINTENANCE.
   itself once a day, like the filter lists, and checked before use (1.1.27):
   a change of the lists no longer makes a new version of I.K.E.
 - The components inside I.K.E. — the AdBlock engine, the uBlock Origin
-  scriptlets and Dark Reader — are checked for new versions every day by
+  scriptlets and Dark Reader's lists — are checked for new versions every day by
   GitHub Actions (and the engine's Rust crates against known
   vulnerabilities), which
   prepares a tested candidate release; it is merged once its tests are green,
@@ -338,16 +344,17 @@ I.K.E. stands on the work of these projects, each under its own licence:
 | Project | What it does in I.K.E. | Licence |
 |---|---|---|
 | [adblock-rust](https://github.com/brave/adblock-rust) by Brave Software | the filter engine of the content blocker | MPL-2.0 |
+| [Brave's debounce list](https://github.com/brave/adblock-lists) by Brave Software | the links whose tracker's stop I.K.E. skips, and Google's AMP copies | MPL-2.0 |
 | Rust libraries of the AdBlock engine (listed in [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md)) | compiled into the engine | MIT / Apache-2.0 / MPL-2.0 / Unicode-3.0 / Unlicense |
 | [uBlock Origin](https://github.com/gorhill/uBlock) by Raymond Hill and contributors | scriptlets and filter lists | GPL-3.0 |
 | [EasyList, EasyPrivacy, EasyList Italy](https://easylist.to/) by The EasyList authors | filter lists | GPL-3.0 / CC BY-SA 3.0 |
 | EasyList Cookie List (Fanboy's Cookiemonster) | filter list | CC BY 3.0 |
 | [Malicious URL Blocklist](https://gitlab.com/malware-filter/urlhaus-filter) by curben, from abuse.ch URLhaus | filter list | CC0 1.0 / MIT |
-| [Dark Reader](https://github.com/darkreader/darkreader) | dark mode for pages | MIT |
+| [Dark Reader](https://github.com/darkreader/darkreader) | its lists (fixes for single sites, sites dark already, dark theme hints), read by the I.K.E. Dark Engine | MIT |
 | Qt, Qt WebEngine (Chromium), PyQt6 | the window and the web engine, from the system | LGPL-3.0 / BSD / GPL-3.0 |
 | Lucide, Phosphor Icons | icon sets | ISC / MIT |
 | [Breeze icons](https://invent.kde.org/frameworks/breeze-icons) by KDE | icon set (the icons I.K.E. uses) | LGPL-3.0 |
-| Orbitron | the lettering of the logo | SIL OFL 1.1 |
+| Orbitron | the lettering of the logo, the shield's numbers and the new tab page's figures | SIL OFL 1.1 |
 
 The filter lists are not shipped: the browser downloads them from their
 maintainers. The same list is in Help -> About; the complete one, with every
