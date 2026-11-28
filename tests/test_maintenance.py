@@ -954,7 +954,7 @@ def test_an_advisory_of_each_kind_is_found_and_recorded_once(fixture_repo):
     assert {("PyPI", "pytest", "9.0.0"), ("PyPI", "ruff", "0.17.6"),
             ("GitHub Actions", "actions/checkout", "7.0.1"), ("GitHub Actions", "actions/setup-python", "7.1.0")} \
         <= queries
-    # 1.1.29: Dark Reader's engine left I.K.E.; its lists are data, no advisory database is asked about them
+    # 1.1.30: Dark Reader's engine left I.K.E.; its lists are data, no advisory database is asked about them
     assert not [q for q in queries if q[1] == "darkreader"]
     pytest_ = found["pypi-test:pytest"]
     assert [a["id"] for a in pytest_["advisories"]] == ["GHSA-pyte-st00-0001"]        # twice in the answer, once here

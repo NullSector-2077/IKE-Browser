@@ -63,7 +63,7 @@ is marked "not verified" in the catalogue.
 - `test-qt` raised to priority class 2, to use the PyPI lead.
 - A weekly, non-blocking canary for the next Python.
 - Canaries on the main branches of adblock-rust and uBO. They only report and
-  are never merged. (Dark Reader's engine left I.K.E. in 1.1.29; its lists are
+  are never merged. (Dark Reader's engine left I.K.E. in 1.1.30; its lists are
   read from its main branch every day already, S10.)
 - `tools/engine-features.py`: checks every Chromium feature name I.K.E. turns on
   against the new Chromium's own definitions.

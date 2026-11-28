@@ -3,7 +3,7 @@ owner's decision: no new version every day for simple lists).
 
 - The browser and the builder of the bundled copy read and check the lists
   with the very same functions (tools/build-darkreader-lists.py imports
-  ike/darklists.py; 1.1.29: Dark Reader's engine left I.K.E., its lists stay).
+  ike/darklists.py; 1.1.30: Dark Reader's engine left I.K.E., its lists stay).
 - What is fetched is refused, and nothing changes, when it is not data for
   Dark Reader (anything that looks like a script), lacks the common fix, is
   much shorter than the copy I.K.E. came with, is too large, or was
@@ -14,7 +14,7 @@ owner's decision: no new version every day for simple lists).
   a failure is tried again a few hours later; the dark pages loaded next take
   the new lists; nothing with automatic updates off.
 - The daily maintenance makes no version for changed lists: the browser fetches
-  them itself (1.1.27; and since 1.1.29 they are the whole component).
+  them itself (1.1.27; and since 1.1.30 they are the whole component).
 
 SIMULATION: stand-ins for the network (no request leaves the computer).
 """
@@ -97,9 +97,10 @@ def test_the_browser_reads_the_lists_as_the_builder():
     spec = importlib.util.spec_from_file_location("bdl", ROOT / "tools" / "build-darkreader-lists.py")
     bdl = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(bdl)
-    # the builder has no reader of its own: it loads the browser's (the same file)
+    # the builder has no reader of its own: it loads the checkout's ike/darklists.py (the copy it builds for; in
+    # the installed package's shards the imported I.K.E. is the installed copy: tests/test_lessons.py, lesson 1)
     dl = bdl.darklists()
-    assert Path(dl.__file__).resolve() == Path(darklists.__file__).resolve()
+    assert Path(dl.__file__).resolve() == (ROOT / "ike" / "darklists.py").resolve()
     for name in ("parse", "parse_blocks", "parse_array", "fix_value", "hint_value", "data_problems", "check"):
         assert not hasattr(bdl, name), name
         assert getattr(dl, name).__code__.co_code == getattr(darklists, name).__code__.co_code, name
@@ -242,7 +243,7 @@ def test_the_browser_fetches_them_once_a_day(run_ike, mode):
 
 
 def test_the_maintenance_makes_no_version_for_lists_only(tmp_path, monkeypatch):
-    """1.1.27, kept in 1.1.29 (the lists are the whole component, its engine left): the browser fetches the
+    """1.1.27, kept in 1.1.30 (the lists are the whole component, its engine left): the browser fetches the
     lists itself every day, so a change of them is noted and never a candidate."""
     def load(name):
         spec = importlib.util.spec_from_file_location(name.replace("-", "_"), ROOT / "tools" / (name + ".py"))

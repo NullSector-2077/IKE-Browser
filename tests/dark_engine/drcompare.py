@@ -1,4 +1,4 @@
-"""Dark Reader for the comparisons of tests/dark_engine/ (mode "dr"), since 1.1.29
+"""Dark Reader for the comparisons of tests/dark_engine/ (mode "dr"), since 1.1.30
 when it left I.K.E.: its loader (ike/darkpages.py) and its files are taken from
 a checkout of I.K.E. 1.1.28 or older, given in DE_DR_ROOT, e.g.
 
@@ -23,7 +23,7 @@ def darkpages():
         pass
     root = os.environ.get("DE_DR_ROOT")
     if not root or not (Path(root) / "ike" / "darkpages.py").is_file():
-        sys.exit("Dark Reader is no longer part of I.K.E. (1.1.29): set DE_DR_ROOT to a checkout "
+        sys.exit("Dark Reader is no longer part of I.K.E. (1.1.30): set DE_DR_ROOT to a checkout "
                  "of I.K.E. 1.1.28 to compare with it")
     spec = importlib.util.spec_from_file_location("ike.darkpages", Path(root) / "ike" / "darkpages.py",
                                                   submodule_search_locations=None)

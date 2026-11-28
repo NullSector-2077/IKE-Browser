@@ -155,7 +155,7 @@ REPORTER = "github-actions[bot]"      # the author of the report job's comments
 # an upstream source cannot be reached (tools/check-components.py exits 1).
 # Since 1.1.20 a builder that refuses a new upstream version (uBlock Origin's
 # library laid out differently, Dark Reader's lists holding what could be a
-# script; Dark Reader's engine and its patches left in 1.1.29) does
+# script; Dark Reader's engine and its patches left in 1.1.30) does
 # not stop that step: the component stays at the version in use and the
 # "components" issue reports the incompatibility to a person. The
 # engine's build stops the job only when its crates cannot be downloaded or an

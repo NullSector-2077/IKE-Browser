@@ -176,7 +176,8 @@ def test_new_tab_shows_the_brand(run_ike):
                         logo: img.complete && img.naturalWidth && img.getAttribute("src"), alt: img.alt,
                         title: document.title, text: document.body.innerText,
                         template: document.documentElement.outerHTML.indexOf("{{") >= 0,
-                        fonts: Array.from(document.fonts || []).length};
+                        fonts: Array.from(document.fonts || []).map(function (f) {
+                            return f.family.replace(/["']/g, ""); })};
             })()''', out, "page")
             yield 500
             shots = os.environ.get("IKE_TEST_SHOTS")
@@ -208,7 +209,9 @@ def test_new_tab_shows_the_brand(run_ike):
     assert page["wordmark"] == "ike:wordmark"
     assert out["about_text"] == 1 and out["about_logos"] == [64]
     assert out["bg"] == [[3840, 2160], "image/webp"]
-    assert not page["template"] and page["fonts"] == 0
+    # 1.1.30: the one web font is the figures' typeface, the logo's Orbitron, from the page itself
+    # (ike/cyberfont.py); the name and the logo stay pictures, never text in a font
+    assert not page["template"] and page["fonts"] == ["IKE Cyber"], page["fonts"]
     assert out["names"] == ["I.K.E.", "I.K.E. - Internet Kontrol Experience", "I.K.E."]
 
 

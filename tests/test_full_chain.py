@@ -222,7 +222,7 @@ def test_the_crates_wait_one_change_of_cargo_lock_at_a_time():
     again = {r["id"]: r for r in uc.plan(report, {"automation/builder/ubo-scriptlets": {"pr": 3}}, today=MONDAY)}
     assert again["ubo-scriptlets"]["action"] == "skip"
     assert [m["id"] for m in uc.matrix(uc.plan(report, {}, today=MONDAY))] == ["ubo-scriptlets"]
-    # 1.1.29: Dark Reader's lists have no patches to re-anchor (its engine left): a refusal waits for a person
+    # 1.1.30: Dark Reader's lists have no patches to re-anchor (its engine left): a refusal waits for a person
     report = {"candidates": [{"id": "darkreader", "refused": True, "step": "the lists' content"}]}
     rows = {r["id"]: r for r in uc.plan(report, {}, today=MONDAY)}
     assert rows["darkreader"]["action"] == "skip" and "no patches an AI may re-anchor" in rows["darkreader"]["reason"]
@@ -454,7 +454,7 @@ def test_the_tools_pins_and_dependabot_are_decided_and_documented():
 
 # --- the builders' re-anchoring ---------------------------------------------------------------
 
-# 1.1.29: Dark Reader's engine (the builder with patches) left I.K.E.; uBlock Origin's builder of its
+# 1.1.30: Dark Reader's engine (the builder with patches) left I.K.E.; uBlock Origin's builder of its
 # scriptlets is the one an AI may re-anchor, and only the path of the library it imports
 UBO_BUILDER = "tools/build-ubo-scriptlets.mjs"
 UBO_PATH = "/src/src/js/resources/scriptlets.js"
@@ -558,7 +558,7 @@ def test_the_builders_path_is_planned_and_capped(tmp_path):
                                    today_of=lambda b: 0)
     assert again["action"] == "fix" and again["attempt"] == str(plan_tool.ISOLATED_ATTEMPTS + 1)
     assert plan_tool.plan_builder(REPO, "builder/../x", "77", tmp_path, api=api)["action"] == "skip"
-    # Dark Reader's builder path is gone with its engine (1.1.29)
+    # Dark Reader's builder path is gone with its engine (1.1.30)
     assert plan_tool.plan_builder(REPO, "builder/darkreader/2026-11-23", "77", tmp_path, api=api)["action"] == "skip"
 
 

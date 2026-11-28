@@ -276,7 +276,7 @@
   },
   {
    "id": "S10",
-   "component": "Dark Reader's lists (GitHub, src/config; its engine left I.K.E. in 1.1.29)",
+   "component": "Dark Reader's lists (GitHub, src/config; its engine left I.K.E. in 1.1.30)",
    "title": "Dark Reader changes the format of its lists (a new command, another file layout) or moves them; the engine part of this scenario (v5 / MV3 rewrite, npm layout, proxy, panel API) is gone with the engine",
    "likelihood": 2,
    "impact": 2,
@@ -312,7 +312,7 @@
    "signal": "security.yml / tools/vulnerabilities.py",
    "today": "blocked and the owner told (owner's rule); the automatic fix retries daily under the security rules",
    "gap": "no prepared mitigations",
-   "prepared_response": "mitigation playbook per component kind: crate -> drop the feature or [patch] to a fixed fork commit (Claude); test-only package -> pin to an older safe version (verified merge); (Dark Reader's engine left in 1.1.29: its lists are data, no advisory applies)",
+   "prepared_response": "mitigation playbook per component kind: crate -> drop the feature or [patch] to a fixed fork commit (Claude); test-only package -> pin to an older safe version (verified merge); (Dark Reader's engine left in 1.1.30: its lists are data, no advisory applies)",
    "tier": "owner + Claude",
    "drill": "none"
   },

@@ -55,19 +55,6 @@
   }
   var THEN = Promise.prototype.then, DEFPROP = Object.defineProperty, SPECIES = Symbol.species;
   var natives = hardMap();         // replacement -> source text of the original
-  // the variation of the next exported picture (1.1.27, jitter): a new value
-  // at every export, from the site's secret key and the number of exports so
-  // far, which a page cannot work out (the same sequence again only for the
-  // same key: the automatic checks compare runs with a fixed one)
-  var exportsMade = 0;
-  function freshSalt() {
-    exportsMade = (exportsMade + 1) | 0;
-    var h = (seed ^ mul32(exportsMade, 0x9E3779B1)) | 0;
-    h ^= h >>> 16; h = mul32(h, 0x85EBCA6B);
-    h ^= h >>> 13; h = mul32(h, 0xC2B2AE35);
-    h ^= h >>> 16;
-    return h | 1;
-  }
   // A promise of the engine's, given a reaction of the protection: then()
   // asks the promise for its constructor (the "species"), and a getter on
   // Promise.prototype.constructor was handed the engine's own promise, with
@@ -603,6 +590,17 @@
   // areas and known test patterns stay exact), one in 32 of them. getImageData
   // is left as it was (a second read gives the same pixels: pages that edit
   // pictures read and write them back). Large pictures: a part of the pixels.
+  // Since 1.1.30 (the owner's decision) its key is the site's, the same at every
+  // export: two exports of a drawing are equal on a site and differ between
+  // sites (Cover Your Tracks: "randomized fingerprint"), see exported().
+  // the key of an exported picture's own noise: the site's, the same at every export (1.1.30)
+  var EXPORT_SALT = (function () {
+    var h = (seed ^ 0x9E3779B1) | 0;
+    h ^= h >>> 16; h = mul32(h, 0x85EBCA6B);
+    h ^= h >>> 13; h = mul32(h, 0xC2B2AE35);
+    h ^= h >>> 16;
+    return h | 1;
+  })();
   function jitter(data, w, h, salt) {
     var row = w * 4, n = w * h, step = n > 100000 ? ((n + 99999) / 100000) | 0 : 1;
     var at = function (q) {
@@ -872,12 +870,15 @@
   // ---- values shared by every realm and by workers ---------------------------
   var realCores = navigator.hardwareConcurrency || 4;
   // A number of cores that most computers report, so the value itself is
-  // common: 4 or 8, no more than the computer has (and 4 at least). Balanced
-  // picks one of them per site; Strict and above always the higher one.
+  // common: 4 or 8, no more than the computer has (and 4 at least), one of
+  // them per site.
   // Before 1.1.21 rarer values (2, 6, 12) were picked too, and made the
   // browser stand out (Cover Your Tracks: "2 cores", 5.7 bits).
   var usual = [4, 8].filter(function (n) { return n <= Math.max(realCores, 4); });
-  var cores = strict ? usual[usual.length - 1] : usual[seed % usual.length];
+  // 1.1.30 (the owner): one of them per site at every level, Strict and
+  // Maximum too (they gave the higher one everywhere: Cover Your Tracks
+  // counts the cores as randomized when two sites see different ones)
+  var cores = usual[seed % usual.length];
   // ---- graphics card (1.1.18) --------------------------------------------------
   // Balanced: each site gets one of a few models that are common on Linux,
   // written exactly as Chrome reports them there (vendor, renderer, and what
@@ -1112,10 +1113,23 @@
     for (var i = 0; i < p.length; i++) if (p[i] < '0' || p[i] > '9') return false;
     return true;
   }
-  function pluginList(w, real, PA) {
-    var next = rng(seed ^ 0x51ed27), fakes = { __proto__: null, length: 2 }, n = RAPPLY(PA.len, real, []);
+  // invent: the two invented entries (Balanced and below). Strict and Maximum
+  // (1.1.30, the owner): none, the engine's own entries in an order of the
+  // site's own (another on every site and in every session), so the list still
+  // differs between two sites, as Cover Your Tracks checks ("randomized"),
+  // and holds nothing Chrome does not have.
+  function pluginList(w, real, PA, invent) {
+    var next = rng(seed ^ 0x51ed27), fakes = { __proto__: null, length: invent ? 2 : 0 }, n = RAPPLY(PA.len, real, []);
     var proto = w.Plugin ? w.Plugin.prototype : w.Object.prototype;
-    for (var i = 0; i < 2; i++) {
+    var order = [], j, t;
+    for (j = 0; j < n; j++) put(order, j, j);
+    if (!invent) {
+      for (j = n - 1; j > 0; j--) {          // a shuffle of the site's own
+        var r = next() % (j + 1);
+        t = order[j]; order[j] = order[r]; order[r] = t;
+      }
+    }
+    for (var i = 0; i < fakes.length; i++) {
       var f = O_CREATE(proto);
       PLUGIN_FAKES.set(f, { name: word(next, 6 + next() % 5) + ' ' + word(next, 5 + next() % 4),
         description: word(next, 7 + next() % 6), filename: word(next, 8 + next() % 5, true) });
@@ -1123,7 +1137,7 @@
     }
     var info = {
       real: real, n: n + fakes.length,
-      at: function (k) { return k < n ? real[k] : fakes[k - n]; },
+      at: function (k) { return k < n ? real[order[k]] : fakes[k - n]; },
       named: function (name) {
         var r = RAPPLY(PA.named, real, [name]);
         if (r) return r;
@@ -1284,6 +1298,140 @@
     d.set = s;
     try { Object.defineProperty(obj, name, d); } catch (e) {}
   }
+  // window.chrome as Chromium has it (1.1.30, Engine Privacy Layer study):
+  // Qt WebEngine leaves it an empty object, and "chrome.loadTimes missing"
+  // is a classic test for "not a real Chrome". Shape measured on Chromium
+  // 140 (tools/engine-probe/chrome-shape.html): loadTimes and csi, anonymous
+  // constructible natives; app with isInstalled and four methods that
+  // refuse extra arguments; window.chrome not configurable. The values come
+  // from the page's own timing, as Chromium computes them.
+  function chromeObject(w) {
+    try {
+      var c = w.chrome;
+      if (!c || typeof c !== 'object' || Reflect.ownKeys(c).length) return;
+      var WO = w.Object, perf = w.performance, PP = w.Performance && w.Performance.prototype;
+      var PTP = w.PerformanceTiming && w.PerformanceTiming.prototype;
+      var G_TIMING = getterOf(PP, 'timing'), NOW = PP && PP.now, BYTYPE = PP && PP.getEntriesByType;
+      var G_NAVTYPE = getterOf(w.PerformanceNavigationTiming && w.PerformanceNavigationTiming.prototype, 'type');
+      var G_PROTO = getterOf(w.PerformanceResourceTiming && w.PerformanceResourceTiming.prototype, 'nextHopProtocol');
+      var EP = w.PerformanceEntry && w.PerformanceEntry.prototype;
+      var G_ENAME = getterOf(EP, 'name'), G_START = getterOf(EP, 'startTime'), G_ORIGIN = getterOf(PP, 'timeOrigin');
+      var T = {};
+      ['navigationStart', 'responseStart', 'domContentLoadedEventEnd', 'loadEventEnd'].forEach(function (k) { T[k] = getterOf(PTP, k); });
+      var timing = function (k) { try { return RAPPLY(T[k], RAPPLY(G_TIMING, perf, []), []); } catch (e) { return 0; } };
+      var nav = function () { try { return RAPPLY(BYTYPE, perf, ['navigation'])[0]; } catch (e) { return undefined; } };
+      var navType = function () { var e = nav(); try { return e ? RAPPLY(G_NAVTYPE, e, []) : 'navigate'; } catch (x) { return 'navigate'; } };
+      var proto = function () { var e = nav(); try { return e ? `${RAPPLY(G_PROTO, e, [])}` : ''; } catch (x) { return ''; } };
+      var firstPaint = function () {
+        try {
+          var list = RAPPLY(BYTYPE, perf, ['paint']);
+          for (var i = 0; i < list.length; i++) {
+            if (RAPPLY(G_ENAME, list[i], []) === 'first-paint') return (RAPPLY(G_ORIGIN, perf, []) + RAPPLY(G_START, list[i], [])) / 1000;
+          }
+        } catch (e) {}
+        return 0;
+      };
+      var put = function (o, k, v) { DEFPROP(o, k, { value: v, writable: true, enumerable: true, configurable: true }); };
+      var TE = w.TypeError, SETTIMEOUT = w.setTimeout;
+      var loadTimes = (0, function () {
+        var o = new WO(), t = navType(), p = proto(), spdy = p === 'h2' || p === 'h3';
+        var start = timing('navigationStart') / 1000;
+        put(o, 'requestTime', start);
+        put(o, 'startLoadTime', start);
+        put(o, 'commitLoadTime', timing('responseStart') / 1000);
+        put(o, 'finishDocumentLoadTime', timing('domContentLoadedEventEnd') / 1000);
+        put(o, 'finishLoadTime', timing('loadEventEnd') / 1000);
+        put(o, 'firstPaintTime', firstPaint());
+        put(o, 'firstPaintAfterLoadTime', 0);
+        put(o, 'navigationType', t === 'reload' ? 'Reload' : t === 'back_forward' ? 'BackForward' : 'Other');
+        put(o, 'wasFetchedViaSpdy', spdy);
+        put(o, 'wasNpnNegotiated', spdy);
+        put(o, 'npnNegotiatedProtocol', spdy ? p : 'unknown');
+        put(o, 'wasAlternateProtocolAvailable', false);
+        put(o, 'connectionInfo', p || 'http/1.1');
+        return o;
+      });
+      var csi = (0, function () {
+        var o = new WO(), t = navType();
+        put(o, 'startE', timing('navigationStart'));
+        put(o, 'onloadT', timing('loadEventEnd'));
+        put(o, 'pageT', RAPPLY(NOW, perf, []));
+        put(o, 'tran', t === 'reload' ? 16 : t === 'back_forward' ? 6 : 15);
+        return o;
+      });
+      natives.set(loadTimes, 'function () { [native code] }');
+      natives.set(csi, 'function () { [native code] }');
+      var invocation = function (name, args) { return new TE('Error in invocation of app.' + name + '(' + args + '): '); };
+      var app = new WO();
+      var M = {
+        getDetails() { if (arguments.length) throw invocation('getDetails', ''); return null; },
+        getIsInstalled() { if (arguments.length) throw invocation('getIsInstalled', ''); return false; },
+        installState(cb) {
+          if (arguments.length !== 1 || typeof cb !== 'function') throw invocation('installState', 'function callback');
+          RAPPLY(SETTIMEOUT, w, [function () { cb('not_installed'); }, 0]);
+        },
+        runningState() { if (arguments.length) throw invocation('runningState', ''); return 'cannot_run'; }
+      };
+      put(app, 'isInstalled', false);
+      ['getDetails', 'getIsInstalled', 'installState', 'runningState'].forEach(function (k) {
+        var f = M[k], g = { [k]() { try { return RAPPLY(f, this, arguments); } catch (e) { clean(e); throw e; } } }[k];
+        try { Object.setPrototypeOf(g, w.Function.prototype); } catch (e) {}
+        natives.set(g, 'function ' + k + '() { [native code] }');
+        put(app, k, g);
+      });
+      var IS = new WO(), RS = new WO();
+      put(IS, 'DISABLED', 'disabled'); put(IS, 'INSTALLED', 'installed'); put(IS, 'NOT_INSTALLED', 'not_installed');
+      put(RS, 'CANNOT_RUN', 'cannot_run'); put(RS, 'READY_TO_RUN', 'ready_to_run'); put(RS, 'RUNNING', 'running');
+      put(app, 'InstallState', IS);
+      put(app, 'RunningState', RS);
+      [loadTimes, csi].forEach(function (f) {
+        try { Object.setPrototypeOf(f, w.Function.prototype); Object.setPrototypeOf(f.prototype, WO.prototype); } catch (e) {}
+      });
+      put(c, 'loadTimes', loadTimes);
+      put(c, 'csi', csi);
+      put(c, 'app', app);
+      DEFPROP(w, 'chrome', { value: c, writable: true, enumerable: true, configurable: false });
+    } catch (e) {}
+  }
+  // The answers of navigator.permissions.query as Chromium gives them
+  // (1.1.30, Engine Privacy Layer study): Qt WebEngine says "denied" for
+  // every permission it has no prompt for, Chromium 140 "prompt" or
+  // "granted". Only the state read is changed, and only from "denied" (or
+  // "prompt" where Chromium answers "granted");
+  // asking for the permission itself is refused as before.
+  var CHROMIUM_PERMS = { 'midi': 'prompt', 'background-fetch': 'granted', 'background-sync': 'granted',
+    'persistent-storage': 'prompt', 'accelerometer': 'granted', 'gyroscope': 'granted', 'magnetometer': 'granted',
+    'clipboard-write': 'granted', 'payment-handler': 'granted', 'idle-detection': 'prompt', 'screen-wake-lock': 'granted',
+    'storage-access': 'granted', 'window-management': 'prompt', 'captured-surface-control': 'prompt',
+    'keyboard-lock': 'granted', 'pointer-lock': 'granted', 'local-network-access': 'prompt' };
+  var permShown = hardMap();
+  function chromiumPermissions(w) {
+    try {
+      var PSP = w.PermissionStatus && w.PermissionStatus.prototype, PMP = w.Permissions && w.Permissions.prototype;
+      if (!PSP || !PMP) return;
+      var G_STATE = getterOf(PSP, 'state');
+      getter(PSP, 'state', function (orig) {
+        var v = permShown.get(this);
+        return v !== undefined ? v : RAPPLY(orig, this, []);
+      });
+      wrap(PMP, 'query', function (orig) {
+        return function (desc) {
+          var p = RAPPLY(orig, this, arguments), name = '';
+          try { name = desc && typeof desc === 'object' ? `${desc.name}` : ''; } catch (e) {}
+          if (!own(CHROMIUM_PERMS, name)) return p;
+          return then(p, function (st) {
+            // from "denied", or from "prompt" where Chromium needs no question
+            // (clipboard-write, pointer-lock); never a state the user chose
+            try {
+              var was = RAPPLY(G_STATE, st, []), want = CHROMIUM_PERMS[name];
+              if (was === 'denied' || (was === 'prompt' && want === 'granted')) permShown.set(st, want);
+            } catch (e) {}
+            return st;
+          }, w.Promise);
+        };
+      });
+    } catch (e) {}
+  }
   // A current Firefox on Linux, in one realm (1.1.27): its navigator's texts,
   // its own oscpu and buildID, and none of Chromium's userAgentData or
   // window.chrome. The getters read as the engine's own (natives).
@@ -1386,18 +1534,20 @@
       else if (tg === 'Uint8ClampedArray') farble(px, c.seed, rng, RAW(LENG, px, []));
       else if (tg === 'Float16Array') viewNoise(TW, px, 0, -1, c.seed, rng, farble, true);
     };
-    // the variation of every exported picture, as in the page (1.1.27, jitter)
-    var exportsW = 0;
-    var exported = function (img, w, h) {
-      var px = RAW(IMGD, img, []);
-      if (RAW(TAGG, px, []) !== 'Uint8ClampedArray') return;
-      exportsW = (exportsW + 1) | 0;
-      var k = (c.seed ^ (exportsW * 40503)) | 0;
+    // an exported picture: its own little noise from a key of the site's, the
+    // same at every export, as in the page (1.1.30)
+    var exportKey = (function () {
+      var k = (c.seed ^ 40503) | 0;
       k = (k + (k << 1) + (k << 4) + (k << 7) + (k << 8) + (k << 24)) | 0;
       k ^= k >>> 15;
       k = (k + (k << 1) + (k << 4) + (k << 7) + (k << 8) + (k << 24)) | 0;
       k ^= k >>> 13;
-      jitter(px, w, h, k | 1);
+      return k | 1;
+    })();
+    var exported = function (img, w, h) {
+      var px = RAW(IMGD, img, []);
+      if (RAW(TAGG, px, []) !== 'Uint8ClampedArray') return;
+      jitter(px, w, h, exportKey);
     };
     var OCW = self.OffscreenCanvas, OCWP = OCW && OCW.prototype;
     var O2WP = self.OffscreenCanvasRenderingContext2D && OffscreenCanvasRenderingContext2D.prototype;
@@ -2067,7 +2217,7 @@
   // could otherwise be turned into something else by the page's toJSON);
   // at Strict and above it carries the masks for the workers' own fonts
   WCFG = JSON_STR({ cores: cores, mem: strict ? 8 : 0, langs: workerLangs, strict: strict, maximum: maximum,
-    gpus: GPUS, pick: PICK, hidden: hiddenExt, lines: PRELUDE_LINES, glx: GLX, net: strict ? NET : null,
+    gpus: GPUS, pick: PICK, hidden: hiddenExt, lines: PRELUDE_LINES, glx: GLX, net: NET,
     mtop: MODULE_TOP,
     fonts: strict ? MASKED : null, blank: strict ? BLANK_FONT : null });
   // A FontFace source written by the page at Strict and above: every local()
@@ -2227,6 +2377,10 @@
       return;
     }
     if (FIREFOX) firefoxIdentity(w);
+    else {
+      chromeObject(w);
+      chromiumPermissions(w);
+    }
     if (CFG.gpc) {
       try {
         Object.defineProperty(w.Navigator.prototype, 'globalPrivacyControl', {
@@ -2261,10 +2415,18 @@
       else noiseImage(img);
       return img;
     }
-    // a picture about to be exported: the variation of this export (jitter)
+    // a picture about to be exported: as it is, with the site's noise (1.1.30,
+    // the owner: Cover Your Tracks counts a canvas or a WebGL picture as
+    // randomized when it differs between two sites, and calls the same
+    // "randomized" on both sites equal: the variation of every export of
+    // 1.1.27 to 1.1.28 made it never count. The same picture on a site, another
+    // on every other site and in every session, as Brave does.)
+    // The export keeps the little noise of its own it had since 1.1.27 (the same
+    // amount: "Nothing gets worse"), from a key of the site's instead of a new
+    // one at every export, so it is the same at every export on a site.
     function exported(img, cw, ch) {
       var px = pixels(img);
-      if (TAG(px) === 'Uint8ClampedArray') jitter(px, cw, ch, freshSalt());
+      if (TAG(px) === 'Uint8ClampedArray') jitter(px, cw, ch, EXPORT_SALT);
       return img;
     }
     function noisyCopy(canvas) {
@@ -2511,9 +2673,10 @@
     var NP = w.Navigator.prototype;
     // Plugins: the real list plus two entries whose names differ on every site.
     // Strict and Maximum (1.1.25): the engine's own list, Chrome's five PDF
-    // viewers with their two types, the same for everyone; the two invented
-    // ones had no type, which a one-line check tells ("missing mimetype").
-    if (!strict && w.Proxy && w.Reflect) {
+    // viewers with their two types; the two invented ones had no type, which a
+    // one-line check tells ("missing mimetype"). 1.1.30: in an order of the
+    // site's own (pluginList).
+    if (w.Proxy && w.Reflect) {
       var pluginViews = hardMap(), PAP0 = w.PluginArray && w.PluginArray.prototype;
       // the engine's own, taken before they are wrapped below
       var PA = { len: getterOf(PAP0, 'length'), named: PAP0 && PAP0.namedItem };
@@ -2522,15 +2685,16 @@
         var real = RAPPLY(orig, this, []);
         try {
           var view = pluginViews.get(real);
-          if (!view) { view = pluginList(w, real, PA); pluginViews.set(real, view); }
+          if (!view) { view = pluginList(w, real, PA, !strict); pluginViews.set(real, view); }
           return view;
         } catch (e) { return real; }
       });
     }
     getter(NP, 'hardwareConcurrency', function () { return cores; });
     if (strict) getter(NP, 'deviceMemory', function () { return 8; });
-    if (strict && w.NetworkInformation) {
-      // one common network for everyone, the same as the client hints say it
+    if (w.NetworkInformation) {
+      // Balanced and above since 1.1.30 (Engine Privacy Layer study: Qt
+      // says rtt 0, no Chromium does); one common network for everyone, the same as the client hints say it
       // (1.1.25, shields._NETWORK_HINTS): rtt 0 and a downlink of about 9.5
       // here, 100 and about 1.7 in the headers, before
       var NIP = w.NetworkInformation.prototype;

@@ -63,6 +63,7 @@ def test_about_shows_formats_and_engine_age(run_ike, site):
             out["text_before"] = win.about_text()
             menu = win.burger
             out["entries"] = [a.text() for a in menu.actions()]
+            win.m_help_burger.aboutToShow.emit()
             out["help"] = [a.text() for a in win.m_help_burger.actions()]
             menu.popup(win.mapToGlobal(win.rect().center()))
             yield 300

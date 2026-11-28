@@ -1178,7 +1178,9 @@ class WindowFeatures:
         m = self.m_containers
         m.clear()
         for cont in self.app.config["containers"]:
-            m.addAction(tab_icon(QIcon(), None, cont["color"]), cont["name"],
+            # its colour as a dot in the middle of the icon's square, as in the
+            # tab menus (1.1.30, the owner: it sat at the top, above the text's middle)
+            m.addAction(colour_dot(cont["color"]), cont["name"],
                         lambda n=cont["name"]: self.add_tab(container=n))
         m.addSeparator()
         m.addAction(_theme(("configure", "preferences-system"), QStyle.StandardPixmap.SP_FileDialogDetailedView),

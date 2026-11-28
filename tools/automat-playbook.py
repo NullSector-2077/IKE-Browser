@@ -108,7 +108,7 @@ PLAYBOOK = (
         "id": "builder-anchor",
         "signs": (r"builder refused", r"anchor [^\n]{0,60}(?:not found|found \d+ times|more than once)"),
         "meaning": "A new upstream version of uBlock Origin moved the library I.K.E.'s builder of its scriptlets "
-                   "imports. (Dark Reader's engine, with its patches, left I.K.E. in 1.1.29; a refusal of its "
+                   "imports. (Dark Reader's engine, with its patches, left I.K.E. in 1.1.30; a refusal of its "
                    "lists' builder is for a person.)",
         "where": ("tools/build-ubo-scriptlets.mjs",),
         "how": "Only on the builder's branch, and only the path of the library it imports: find in the new "

@@ -34,7 +34,7 @@ Rules (the plan below; the workflow follows them):
 - a builder that refuses the new upstream version starts the builder's own
   path instead (``automation/builder/<id>``, WP11: an AI may only re-anchor
   I.K.E.'s existing changes, tools/builder-anchor.py; uBlock Origin's
-  scriptlets only since 1.1.29), or, for a builder with nothing to re-anchor
+  scriptlets only since 1.1.30), or, for a builder with nothing to re-anchor
   (Dark Reader's lists, KDE's Breeze icons), waits for a person;
 - a source unreachable today makes nothing (the next run tries again).
 
@@ -109,7 +109,7 @@ PRIORITY = ("adblock", "pyo3", "crates", "crate-major-", "test-qt", "test-tools"
 # scriptlets, Breeze, the PKGBUILD, and test-qt (the early warning of a Qt release). Security fixes
 # are their own branches (automation/update/security-*) and never wait. An open weekly candidate is left as it
 # is between Mondays: it still merges by itself when verified.
-# 1.1.29: Dark Reader's engine left I.K.E.; its lists are fetched by the browser itself once a day
+# 1.1.30: Dark Reader's engine left I.K.E.; its lists are fetched by the browser itself once a day
 # (ike/darklists.py, 1.1.27: no new version every day for simple lists), so the copy I.K.E. comes with (for a
 # new profile, or one that could not fetch them) is refreshed weekly: never more than a week old in a release.
 WEEKLY = ("crates", "test-tools", "test-libs", "ci-")

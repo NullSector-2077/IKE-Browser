@@ -174,10 +174,10 @@ OWN_RESOURCES = (
     # 2026-11-23; its yearly refresh by AUTOMAT is planned with the other ageing data)
     "ike/resources/greeting.js", "ike/resources/holidays.json",
 )
-# folders of I.K.E.'s own resources: its language packs, and the icon sets (Lucide, Phosphor and the
-# Orbitron font: fixed copies with their licences in licenses/, chosen by the owner, not followed
-# upstream: docs/THIRD-PARTY.md)
-OWN_RESOURCE_DIRS = ("ike/resources/lang/", "ike/resources/icons/")
+# folders of I.K.E.'s own resources: its language packs, the icon sets (Lucide, Phosphor) and the
+# Orbitron font (ike/resources/fonts/, 1.1.30): fixed copies with their licences in licenses/, chosen
+# by the owner, not followed upstream: docs/THIRD-PARTY.md
+OWN_RESOURCE_DIRS = ("ike/resources/lang/", "ike/resources/icons/", "ike/resources/fonts/")
 # folders under those that hold a component followed upstream (1.1.24: KDE's Breeze icons, built by
 # tools/build-breeze-icons.py): every file there must be declared in components.json
 FOLLOWED_DIRS = ("ike/resources/icons/sets/breeze/",)
@@ -939,7 +939,7 @@ def discover(root, arch_tested=None):
     res = root / "ike" / "resources"
     try:
         dr = json.loads((res / "darkreader-data.json").read_text("utf-8"))
-        # 1.1.29: Dark Reader's engine left I.K.E.; its lists stay (data, no code: no advisory database)
+        # 1.1.30: Dark Reader's engine left I.K.E.; its lists stay (data, no code: no advisory database)
         add(record("Dark Reader", "integrated", "runtime", "ike/resources/darkreader-data.json",
                    "git (https://github.com/darkreader/darkreader, default branch: its lists), rebuilt by "
                    "tools/build-darkreader-lists.py", "%s, lists %s (%s)" % (dr.get("version", "?"),
@@ -1082,6 +1082,12 @@ def vkey(version):
     return tuple(int(n) for n in re.findall(r"\d+", version or ""))
 
 
+def _commit(version):
+    """A commit hash (a component followed on a branch, 1.1.30): its digits say nothing about
+    which is newer, so any other commit than the one in use is an update."""
+    return re.fullmatch(r"[0-9a-f]{40}", str(version or "")) is not None
+
+
 def stable(version):
     return re.fullmatch(r"v?[0-9]+(\.[0-9]+)*(\.post[0-9]+)?", version or "") is not None
 
@@ -1130,7 +1136,7 @@ def _compare(rec, latest, source):
     elif not vkey(inst):
         rec["result"] = "ok"
         rec["compatibility"] = "installed version not pinned"
-    elif vkey(latest) > vkey(inst):
+    elif (latest != inst) if (_commit(latest) or _commit(inst)) else vkey(latest) > vkey(inst):
         rec["result"] = "update available"
         if rec["compatibility"] == UNKNOWN:
             rec["compatibility"] = "newer version: to verify"
