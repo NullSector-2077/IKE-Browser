@@ -8,8 +8,8 @@ fingerprinting protection built in.
 
 The interface, protections, password manager and updater are I.K.E.'s own code
 (Python + Qt). Pages are rendered by Qt WebEngine, the Chromium engine,
-provided and kept up to date by Arch Linux. I.K.E. is developed on and for
-KDE Plasma (CachyOS / Arch Linux) and works on the other Arch-based desktops.
+provided and kept up to date by Arch Linux. I.K.E. is made for KDE Plasma on
+Arch Linux and CachyOS and works on the other Arch-based desktops.
 
 **Version 1.1.30** - see [CHANGELOG.md](CHANGELOG.md).
 
@@ -61,8 +61,8 @@ profiles: `ike-browser --profile NAME`.
   card (a common model of the same maker chosen per site instead of the exact
   one). Kontrol and Maximum give everyone the same values instead: one WebGL
   identity (no card name, a fixed list of extensions, fixed limits never
-  above the real ones), Chrome's own PDF plugins, a common network speed,
-  screen, fonts, memory, languages and voices; their canvas noise is only
+  above the real ones), Chrome's own PDF plugins in an order of the site's
+  own, a common network speed, screen, fonts, memory and voices; their canvas noise is only
   where a drawing has edges (never in plain colours); a worker a site starts
   from a file of its own gets the same protection, and they start no service
   worker and no shared worker from a site's file.
@@ -111,8 +111,13 @@ profiles: `ike-browser --profile NAME`.
   asks first; a file over plain http from an https page is stopped. "Cancel"
   is the default, "Download anyway" is at your own risk. Nothing is asked of
   the network.
-- "Clear this site's data" says what it removed: cookies, the site's storage,
-  its caches, and the permissions it kept.
+- **The broom** ("Clear this site's data") shows what the site keeps before
+  anything goes: its cookies, the data it stored, its cache, the cookies of the
+  other sites its page loaded, the permissions you gave it, each with a switch
+  and its count; "Clear" deletes what is on and says what went. A switch cleans
+  the site by itself when its last tab is closed.
+- **Common English language**: sites are told American English, the most
+  common language, at every level; I.K.E.'s own menus keep yours.
 
 **Browsing**
 - Horizontal or vertical tabs (vertical ones also with only their icons), tab groups, workspaces, containers with separate
@@ -197,11 +202,16 @@ profiles: `ike-browser --profile NAME`.
   window the buttons that do not fit are listed under a » button. Buttons you
   can add (off at first): Zoom, Manage bookmarks, Print or save as PDF, Send to
   device (KDE Connect) and Site resources.
-- The ☰ menu grouped as you look for things: new tabs and windows, this page
-  (find, zoom, dark mode, reader mode, translation), print and save, history,
-  bookmarks and downloads, protection and extensions, Settings and Help; every
-  other command is under "More", as in the menu bar. Settings have a search
-  field that finds an option by its name or its explanation, in any language.
+- The ☰ menu: new tab, window and private window, then eleven categories (Tabs
+  and windows, Web page, Edit, File and downloads, Audio and video, Bookmarks
+  and history, Privacy and security, Browser appearance, I.K.E. extensions,
+  Performance and tools, Backup and restore), Settings, Help, About and Quit;
+  never more than two levels. The menu bar: File, Edit, Tabs, Page, View,
+  History, Bookmarks, Privacy, Extensions, Tools, Help; both are described in
+  one place (`ike/menus.py`). Settings: 14 pages in four areas (Basics,
+  Appearance and browsing, Privacy and security, System and extensions), with
+  a search field that finds an option by its name or its explanation, in any
+  language.
 - One look for every menu: Breeze's on Plasma; with another widget style
   I.K.E. draws them in the same way (rounded, a light shadow, the icons, texts
   and shortcuts each on one line). History lists the last pages under Today,
@@ -312,7 +322,8 @@ and never with anything about its users ([docs/MAINTENANCE.md](docs/MAINTENANCE.
   itself once a day, like the filter lists, and checked before use (1.1.27):
   a change of the lists no longer makes a new version of I.K.E.
 - The components inside I.K.E. — the AdBlock engine, the uBlock Origin
-  scriptlets and Dark Reader's lists — are checked for new versions every day by
+  scriptlets, Dark Reader's lists, Brave's debounce list and KDE's Breeze
+  icons — are checked for new versions every day by
   GitHub Actions (and the engine's Rust crates against known
   vulnerabilities), which
   prepares a tested candidate release; it is merged once its tests are green,
