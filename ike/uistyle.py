@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
     QStyle,
     QStyledItemDelegate,
     QStyleFactory,
+    QStyleOption,
     QStyleOptionMenuItem,
     QStyleOptionViewItem,
     QWidget,
@@ -352,6 +353,22 @@ def _real_widget(widget):
         return widget
 
 
+def _menu_option(opt):
+    """The option of a menu entry as one (QStyleOptionMenuItem). PyQt 6.12
+    can hand a style method the wrapper of an option of another kind left at
+    the same address (Qt makes them on the stack): a menu entry's option then
+    did not look like one, the entry was measured by the desktop's style when
+    its menu opened and by I.K.E.'s afterwards (20 to 40 px apart: entries
+    stuck out of their menu, 1.1.30's test round), and reading it as the wrong
+    kind gave garbage. Only for what Qt asks with a menu entry's option."""
+    if opt is None or isinstance(opt, QStyleOptionMenuItem):
+        return opt
+    try:
+        return sip.cast(sip.cast(opt, QStyleOption), QStyleOptionMenuItem)
+    except Exception:            # noqa: BLE001 (a style method must never raise)
+        return opt
+
+
 def _is_menu(widget):
     """Is widget a menu? Asked of the object itself, not of the type of its
     Python wrapper: PyQt can hand a style method a wrapper left by a deleted
@@ -637,6 +654,8 @@ class IkeStyle(QProxyStyle):
 
     def drawControl(self, element, opt, p, widget=None):
         widget = _real_widget(widget)
+        if element == QStyle.ControlElement.CE_MenuItem:
+            opt = _menu_option(opt)
         if self._own_menu(widget):
             if element == QStyle.ControlElement.CE_MenuItem and isinstance(opt, QStyleOptionMenuItem) \
                     and opt.menuItemType in (QStyleOptionMenuItem.MenuItemType.Normal,
@@ -771,6 +790,8 @@ class IkeStyle(QProxyStyle):
 
     def sizeFromContents(self, kind, opt, size, widget=None):
         widget = _real_widget(widget)
+        if kind == QStyle.ContentsType.CT_MenuItem:
+            opt = _menu_option(opt)
         if kind == QStyle.ContentsType.CT_MenuItem and self._own_menu(widget) \
                 and isinstance(opt, QStyleOptionMenuItem) and opt.menuItemType in (
                     QStyleOptionMenuItem.MenuItemType.Normal, QStyleOptionMenuItem.MenuItemType.DefaultItem,
