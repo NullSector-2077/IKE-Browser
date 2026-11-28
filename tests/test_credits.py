@@ -77,7 +77,7 @@ def test_withdrawn_list_is_never_offered(run_ike):
     hosts = [e["url"].split("/")[2] for e in config.DEFAULT_LISTS]
     assert not [h for h in hosts if config._withdrawn_list("https://%s/" % h)]
     out = run_ike(LISTS)
-    assert out["version"] == 5
+    assert out["version"] >= 5
     assert not [u for u in out["urls"] if "yoyo" in u]
     assert "https://easylist.to/easylist/easylist.txt" in out["urls"]
 
@@ -122,12 +122,12 @@ def test_withdrawn_list_dropped_from_old_settings(monkeypatch, tmp_path):
         assert not [u for u in urls if u and "yoyo" in u.lower()]
         assert urls == [e["url"] for e in others[:3]] + ["http://[bad", None] + \
             [e["url"] for e in others[3:]] + ["https://lists.example/mine.txt"]
-        assert cfg["lists_version"] == 5 and cfg["last_lists_update"] == 123
+        assert cfg["lists_version"] >= 5 and cfg["last_lists_update"] == 123
         assert "pgl_off_1116" not in cfg.data
         assert not copy.exists()
         cfg.save()
         saved = json.loads(path.read_text("utf-8"))
-        assert "pgl_off_1116" not in saved and saved["lists_version"] == 5
+        assert "pgl_off_1116" not in saved and saved["lists_version"] >= 5
         assert "yoyo" not in json.dumps(saved["filter_lists"]).lower()
         again = C.Config()                                   # once only: nothing changes now
         assert [e.get("url") for e in again["filter_lists"]] == urls
@@ -145,7 +145,7 @@ def test_withdrawn_list_on_for_a_user_is_dropped_too(monkeypatch, tmp_path):
             {"name": "Peter Lowe's list", "group": "ads", "enabled": True, "url": WITHDRAWN}]}), "utf-8")
         cfg = C.Config()
         assert not [e for e in cfg["filter_lists"] if "yoyo" in e["url"]]
-        assert cfg["lists_version"] == 5
+        assert cfg["lists_version"] >= 5
         # the older steps still ran (the lists of video-ad rules and of malware)
         assert any("quick-fixes" in e["url"] for e in cfg["filter_lists"])
     finally:

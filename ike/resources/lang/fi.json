@@ -1589,6 +1589,21 @@
 "Developer": "Kehittäjä",
 "Edit": "Muokkaa",
 "Undo, cut, copy and paste": "Kumoa, leikkaa, kopioi ja liitä",
-"Recently visited": "Äskettäin vieraillut"
+"Recently visited": "Äskettäin vieraillut",
+"1 month": "1 kuukausi",
+"3 months": "3 kuukautta",
+"6 months": "6 kuukautta",
+"1 year": "1 vuosi",
+"2 years": "2 vuotta",
+"Keep the history": "Säilytä historia",
+"The pages visited and the downloads list older than this are deleted by themselves. Bookmarks, passwords, cookies and settings are kept.": "Tätä vanhemmat vieraillut sivut ja latauslista poistetaan itsestään. Kirjanmerkit, salasanat, evästeet ja asetukset säilyvät.",
+"Spelling": "Oikeinkirjoitus",
+"Check spelling while typing": "Tarkista oikeinkirjoitus kirjoittaessa",
+"Dictionaries in use: %s. Checked on this computer: nothing you type is sent anywhere.": "Käytössä olevat sanakirjat: %s. Tarkistus tehdään tällä tietokoneella: mitään kirjoittamaasi ei lähetetä minnekään.",
+"No dictionary is installed. Install the one of your language with pacman, for example hunspell-it or hunspell-en_us, then restart I.K.E.": "Sanakirjaa ei ole asennettu. Asenna oman kielesi sanakirja pacmanilla, esimerkiksi hunspell-it tai hunspell-en_us, ja käynnistä I.K.E. uudelleen.",
+"Lock the vault when I.K.E. is not used for": "Lukitse holvi, kun I.K.E. on ollut käyttämättä",
+"%d minutes": "%d minuuttia",
+"Lock the vault when the screen is locked or the computer sleeps": "Lukitse holvi, kun näyttö lukitaan tai tietokone menee lepotilaan",
+"Print preview": "Tulostuksen esikatselu"
 }
 }

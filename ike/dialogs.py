@@ -905,6 +905,23 @@ class SettingsDialog(QDialog):
         _row(f, "", lang_row, T("More languages: a language pack from a file, or from I.K.E.'s list."))
         _row(f, T("Languages for websites"), self.accept_lang,
              T("Sites use it to choose the language of their pages. Empty: the languages of your system."))
+        # spell checking while typing (spelling.py)
+        from . import spelling
+        box, g = self._group(T("Spelling"))
+        self.spellcheck = Switch(T("Check spelling while typing"))
+        self.spellcheck.setChecked(bool(self.cfg.get("spellcheck", True)))
+        found = spelling.installed()
+        in_use = spelling.choose(found, spelling.wanted_languages(),
+                                 [str(x) for x in (self.cfg.get("spellcheck_langs") or [])])
+        if in_use:
+            note = T("Dictionaries in use: %s. Checked on this computer: nothing you type is sent "
+                     "anywhere.") % ", ".join(in_use)
+        else:
+            note = T("No dictionary is installed. Install the one of your language with pacman, "
+                     "for example hunspell-it or hunspell-en_us, then restart I.K.E.")
+        self.spell_note = note
+        _row(g, "", _wrapping(self.spellcheck), note)
+        f.addRow(box)
         # (1.1.30: the translation of pages, here from System)
         box, g = self._group(T("Translation"))
         self.translate = QLineEdit(self.cfg["translate_url"])
@@ -1725,6 +1742,15 @@ class SettingsDialog(QDialog):
         c.setChecked(bool(self.cfg["clear_on_exit"]))
         self.checks["clear_on_exit"] = c
         _row(g, "", _wrapping(c), T("Bookmarks, passwords and settings are kept."))
+        self.history_keep = QComboBox()
+        names = {0: T("Always"), 30: T("1 month"), 91: T("3 months"), 182: T("6 months"),
+                 365: T("1 year"), 730: T("2 years")}
+        for days in self.app.HISTORY_KEEP:
+            self.history_keep.addItem(names[days], days)
+        self.history_keep.setCurrentIndex(max(0, self.history_keep.findData(self.app.history_keep_days())))
+        _row(g, T("Keep the history"), self.history_keep,
+             T("The pages visited and the downloads list older than this are deleted by "
+               "themselves. Bookmarks, passwords, cookies and settings are kept."))
         clear = QPushButton(T("Clear browsing data…"))
         clear.clicked.connect(self.app.show_clear_data)
         crow = QHBoxLayout()
@@ -2179,6 +2205,8 @@ class SettingsDialog(QDialog):
         cfg["update_channel"] = self.channel.currentData()
         if "{url}" in self.translate.text():
             cfg["translate_url"] = self.translate.text().strip()
+        cfg["spellcheck"] = self.spellcheck.isChecked()
+        cfg["history_keep_days"] = int(self.history_keep.currentData())
         cfg["autoplay_block"] = self.autoplay.isChecked()
         cfg["mouse_gestures"] = self.gestures.isChecked()
         cfg["smooth_scrolling"] = self.smooth.isChecked()

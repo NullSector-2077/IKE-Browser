@@ -17,6 +17,7 @@ import time
 from PyQt6.QtCore import QFile, QIODevice, QObject, Qt, QTimer, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import (
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
@@ -502,6 +503,9 @@ class PasswordManager(QObject):
         self._confirmed = -1e9           # when the master password was last typed (time.monotonic)
         self._last = None
         self._script = None
+        from .vaultlock import VaultLock
+        self.locker = VaultLock(self, app)   # locks the open vault by itself (vaultlock.py)
+        self.locked_because = ""             # "button", "idle" or "screen": the last lock
 
     # --- page integration --------------------------------------------
     def script_source(self):
@@ -673,6 +677,7 @@ class PasswordManager(QObject):
                 return False
             self.vault.create(pw)
             self._confirmed = time.monotonic()
+            self.locker.opened()
             return True
         for _ in range(3):
             pw, ok = QInputDialog.getText(parent, T("Unlock passwords"), T("Master password:"),
@@ -681,9 +686,25 @@ class PasswordManager(QObject):
                 return False
             if self.vault.unlock(pw):
                 self._confirmed = time.monotonic()
+                self.locker.opened()
                 return True
             QMessageBox.warning(parent, "I.K.E.", T("Wrong master password."))
         return False
+
+    def lock_vault(self, reason="button"):
+        """Lock the vault: the Lock button, or by itself (vaultlock.py: "idle",
+        "screen"). The Passwords window closes; the next use asks for the
+        master password again."""
+        self.vault.lock()
+        self._confirmed = -1e9
+        self.locker.closed()
+        self.locked_because = reason
+        dlg = getattr(self.app, "_dialogs", {}).get("passwords")
+        if dlg is not None:
+            try:
+                dlg.close()
+            except RuntimeError:
+                pass
 
     # showing, copying or exporting saved passwords in the Passwords window
     # asks for the master password again, unless it was typed in the last few
@@ -809,9 +830,34 @@ class PasswordsDialog(QDialog):
                        "leaves this computer. Off by default."))
         why.setWordWrap(True)
         lay.addWidget(why)
+        # the vault locks itself (vaultlock.py)
+        from .vaultlock import CHOICES, minutes_of
+        row3 = QHBoxLayout()
+        row3.addWidget(QLabel(T("Lock the vault when I.K.E. is not used for")))
+        self.lock_after = QComboBox()
+        for m in CHOICES:
+            self.lock_after.addItem(T("Never") if not m else T("%d minutes") % m, m)
+        self.lock_after.setCurrentIndex(CHOICES.index(minutes_of(app.config)))
+        self.lock_after.currentIndexChanged.connect(self._lock_after_changed)
+        row3.addWidget(self.lock_after)
+        row3.addStretch(1)
+        lay.addLayout(row3)
+        self.lock_screen = Switch(T("Lock the vault when the screen is locked or the computer sleeps"))
+        self.lock_screen.setChecked(bool(app.config.get("pw_lock_screen", True)))
+        self.lock_screen.toggled.connect(self._lock_screen_changed)
+        lay.addWidget(self.lock_screen)
         lay.addWidget(QLabel(T("The vault is encrypted with AES-256; the key comes from your "
                                "master password (scrypt). Without it the data cannot be read.")))
         self.fill()
+
+    def _lock_after_changed(self, _index):
+        self.app.config["pw_lock_minutes"] = int(self.lock_after.currentData())
+        self.app.config.save()
+        self.manager.locker.changed()
+
+    def _lock_screen_changed(self, on):
+        self.app.config["pw_lock_screen"] = bool(on)
+        self.app.config.save()
 
     def _breach_changed(self, on):
         self.app.config["pw_breach_check"] = bool(on)
@@ -934,8 +980,7 @@ class PasswordsDialog(QDialog):
                 "The master password must have at least 8 characters."))
 
     def _lock(self):
-        self.vault.lock()
-        self.manager._confirmed = -1e9
+        self.manager.lock_vault("button")
         self.close()
 
 

@@ -1589,6 +1589,21 @@
 "Developer": "개발자",
 "Edit": "편집",
 "Undo, cut, copy and paste": "실행 취소, 잘라내기, 복사, 붙여넣기",
-"Recently visited": "최근 방문"
+"Recently visited": "최근 방문",
+"1 month": "1개월",
+"3 months": "3개월",
+"6 months": "6개월",
+"1 year": "1년",
+"2 years": "2년",
+"Keep the history": "방문 기록 보관 기간",
+"The pages visited and the downloads list older than this are deleted by themselves. Bookmarks, passwords, cookies and settings are kept.": "이 기간보다 오래된 방문 페이지와 다운로드 목록은 자동으로 삭제됩니다. 북마크, 비밀번호, 쿠키, 설정은 유지됩니다.",
+"Spelling": "맞춤법",
+"Check spelling while typing": "입력할 때 맞춤법 검사",
+"Dictionaries in use: %s. Checked on this computer: nothing you type is sent anywhere.": "사용 중인 사전: %s. 이 컴퓨터에서 검사하므로 입력한 내용은 어디에도 전송되지 않습니다.",
+"No dictionary is installed. Install the one of your language with pacman, for example hunspell-it or hunspell-en_us, then restart I.K.E.": "설치된 사전이 없습니다. pacman으로 사용하는 언어의 사전(예: hunspell-it 또는 hunspell-en_us)을 설치한 다음 I.K.E.를 다시 시작하세요.",
+"Lock the vault when I.K.E. is not used for": "다음 시간 동안 I.K.E.를 사용하지 않으면 보관함 잠금",
+"%d minutes": "%d분",
+"Lock the vault when the screen is locked or the computer sleeps": "화면이 잠기거나 컴퓨터가 절전 모드로 전환되면 보관함 잠금",
+"Print preview": "인쇄 미리 보기"
 }
 }

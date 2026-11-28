@@ -1589,6 +1589,21 @@
 "Developer": "Arendaja",
 "Edit": "Muuda",
 "Undo, cut, copy and paste": "Võta tagasi, lõika, kopeeri ja kleebi",
-"Recently visited": "Hiljuti külastatud"
+"Recently visited": "Hiljuti külastatud",
+"1 month": "1 kuu",
+"3 months": "3 kuud",
+"6 months": "6 kuud",
+"1 year": "1 aasta",
+"2 years": "2 aastat",
+"Keep the history": "Ajaloo säilitamine",
+"The pages visited and the downloads list older than this are deleted by themselves. Bookmarks, passwords, cookies and settings are kept.": "Sellest vanemad külastatud lehed ja allalaadimiste loend kustutatakse iseenesest. Järjehoidjad, paroolid, küpsised ja seaded säilivad.",
+"Spelling": "Õigekiri",
+"Check spelling while typing": "Kontrolli õigekirja trükkimise ajal",
+"Dictionaries in use: %s. Checked on this computer: nothing you type is sent anywhere.": "Kasutusel sõnastikud: %s. Kontrollitakse selles arvutis: midagi, mida trükid, ei saadeta kuhugi.",
+"No dictionary is installed. Install the one of your language with pacman, for example hunspell-it or hunspell-en_us, then restart I.K.E.": "Ühtegi sõnastikku pole paigaldatud. Paigalda oma keele sõnastik pacmaniga, näiteks hunspell-it või hunspell-en_us, ja käivita I.K.E. uuesti.",
+"Lock the vault when I.K.E. is not used for": "Lukusta hoidla, kui I.K.E. pole kasutusel olnud",
+"%d minutes": "%d minutit",
+"Lock the vault when the screen is locked or the computer sleeps": "Lukusta hoidla, kui ekraan lukustatakse või arvuti jääb unerežiimi",
+"Print preview": "Prindi eelvaade"
 }
 }

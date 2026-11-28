@@ -1589,6 +1589,21 @@
 "Developer": "डेव्हलपर",
 "Edit": "संपादन",
 "Undo, cut, copy and paste": "पूर्ववत करा, कट, कॉपी आणि पेस्ट",
-"Recently visited": "अलीकडे भेट दिलेली"
+"Recently visited": "अलीकडे भेट दिलेली",
+"1 month": "1 महिना",
+"3 months": "3 महिने",
+"6 months": "6 महिने",
+"1 year": "1 वर्ष",
+"2 years": "2 वर्षे",
+"Keep the history": "इतिहास ठेवा",
+"The pages visited and the downloads list older than this are deleted by themselves. Bookmarks, passwords, cookies and settings are kept.": "यापेक्षा जुनी भेट दिलेली पाने आणि डाउनलोड सूची आपोआप हटवली जाते. बुकमार्क, पासवर्ड, कुकीज आणि सेटिंग्ज ठेवल्या जातात.",
+"Spelling": "शुद्धलेखन",
+"Check spelling while typing": "टाइप करताना शुद्धलेखन तपासा",
+"Dictionaries in use: %s. Checked on this computer: nothing you type is sent anywhere.": "वापरात असलेले शब्दकोश: %s. तपासणी याच संगणकावर होते: तुम्ही टाइप केलेले काहीही कुठेही पाठवले जात नाही.",
+"No dictionary is installed. Install the one of your language with pacman, for example hunspell-it or hunspell-en_us, then restart I.K.E.": "कोणताही शब्दकोश स्थापित नाही. तुमच्या भाषेचा शब्दकोश pacman ने स्थापित करा, उदाहरणार्थ hunspell-it किंवा hunspell-en_us, नंतर I.K.E. पुन्हा सुरू करा.",
+"Lock the vault when I.K.E. is not used for": "I.K.E. इतका वेळ वापरला नाही तर व्हॉल्ट लॉक करा",
+"%d minutes": "%d मिनिटे",
+"Lock the vault when the screen is locked or the computer sleeps": "स्क्रीन लॉक झाल्यावर किंवा संगणक स्लीपमध्ये गेल्यावर व्हॉल्ट लॉक करा",
+"Print preview": "प्रिंट पूर्वावलोकन"
 }
 }

@@ -1589,6 +1589,21 @@
 "Developer": "Garatzaileak",
 "Edit": "Editatu",
 "Undo, cut, copy and paste": "Desegin, ebaki, kopiatu eta itsatsi",
-"Recently visited": "Azkenaldian bisitatuak"
+"Recently visited": "Azkenaldian bisitatuak",
+"1 month": "Hilabete 1",
+"3 months": "3 hilabete",
+"6 months": "6 hilabete",
+"1 year": "Urte 1",
+"2 years": "2 urte",
+"Keep the history": "Gorde historia",
+"The pages visited and the downloads list older than this are deleted by themselves. Bookmarks, passwords, cookies and settings are kept.": "Hori baino zaharragoak diren bisitatutako orriak eta deskargen zerrenda berez ezabatzen dira. Laster-markak, pasahitzak, cookieak eta ezarpenak gorde egiten dira.",
+"Spelling": "Ortografia",
+"Check spelling while typing": "Egiaztatu ortografia idatzi bitartean",
+"Dictionaries in use: %s. Checked on this computer: nothing you type is sent anywhere.": "Erabiltzen ari diren hiztegiak: %s. Ordenagailu honetan egiaztatzen da: idazten duzun ezer ez da inora bidaltzen.",
+"No dictionary is installed. Install the one of your language with pacman, for example hunspell-it or hunspell-en_us, then restart I.K.E.": "Ez dago hiztegirik instalatuta. Instalatu zure hizkuntzarena pacman bidez, adibidez hunspell-it edo hunspell-en_us, eta berrabiarazi I.K.E.",
+"Lock the vault when I.K.E. is not used for": "Blokeatu kutxa gotorra I.K.E. erabili gabe dagoenean denbora honetan:",
+"%d minutes": "%d minutu",
+"Lock the vault when the screen is locked or the computer sleeps": "Blokeatu kutxa gotorra pantaila blokeatzean edo ordenagailua lo geratzean",
+"Print preview": "Inprimatzeko aurrebista"
 }
 }

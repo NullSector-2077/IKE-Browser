@@ -1589,6 +1589,21 @@
 "Developer": "Для распрацоўшчыкаў",
 "Edit": "Праўка",
 "Undo, cut, copy and paste": "Адмяніць, выразаць, капіяваць і ўставіць",
-"Recently visited": "Нядаўна наведаныя"
+"Recently visited": "Нядаўна наведаныя",
+"1 month": "1 месяц",
+"3 months": "3 месяцы",
+"6 months": "6 месяцаў",
+"1 year": "1 год",
+"2 years": "2 гады",
+"Keep the history": "Захоўваць гісторыю",
+"The pages visited and the downloads list older than this are deleted by themselves. Bookmarks, passwords, cookies and settings are kept.": "Наведаныя старонкі і спіс спамповак, старэйшыя за гэты тэрмін, выдаляюцца самі. Закладкі, паролі, кукі і налады захоўваюцца.",
+"Spelling": "Правапіс",
+"Check spelling while typing": "Правяраць правапіс падчас набору",
+"Dictionaries in use: %s. Checked on this computer: nothing you type is sent anywhere.": "Слоўнікі ў выкарыстанні: %s. Праверка ідзе на гэтым камп’ютары: нічога з набранага нікуды не адпраўляецца.",
+"No dictionary is installed. Install the one of your language with pacman, for example hunspell-it or hunspell-en_us, then restart I.K.E.": "Не ўсталяваны ніводны слоўнік. Усталюйце слоўнік вашай мовы праз pacman, напрыклад hunspell-it або hunspell-en_us, і перазапусціце I.K.E.",
+"Lock the vault when I.K.E. is not used for": "Блакіраваць сховішча, калі I.K.E. не выкарыстоўваецца",
+"%d minutes": "%d хвілін",
+"Lock the vault when the screen is locked or the computer sleeps": "Блакіраваць сховішча, калі экран заблакіраваны або камп’ютар спіць",
+"Print preview": "Папярэдні прагляд друку"
 }
 }
