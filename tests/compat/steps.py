@@ -163,6 +163,15 @@ def steps(ike, qapp, out):
                     pr = None
                 rec["switch"].append({"level": lv, "probe": pr, "shot": shot("%s__to_%s" % (key, lv)),
                                       "console_n": len(logs.get(key, []))})
+        # what the shield's octagon said (1.1.32): the diagnosis, a safety
+        # warning, the green confirmation of the page's load
+        try:
+            f = ike.diagnosis.finding(v)
+            rec["octagon"] = {"state": win.interference_state(v)[0],
+                              "finding": [f.detector, list(f.keys), f.severity] if f else None,
+                              "green": getattr(v, "_ike_confirmed", None) is not None}
+        except Exception as e:
+            rec["octagon"] = {"error": str(e)[:200]}
         rec["console"] = logs.get(key, [])
         rec["blocked"] = blocked.get(key, [])
         rec["secs"] = round(time.time() - t0, 1)

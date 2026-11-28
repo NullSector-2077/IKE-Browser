@@ -66,6 +66,23 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Owner's decisions
 
+- 2026-11-28, **"Ripara sito" becomes a diagnosis centre, and the octagon
+  has four colours** (the owner's brief "Evoluzione strutturale della
+  compatibilità, delle protezioni e di «Ripara sito»" and its two additions):
+  "Proteggere il più possibile, interferire il meno possibile e intervenire
+  esclusivamente sulle protezioni che compromettono realmente il
+  funzionamento di un sito." A finding needs a protection that really acted
+  (I.K.E.'s request check), a coherent error, a real impairment and a narrow
+  repair; nothing is turned off by itself, the page cannot raise or settle
+  anything by itself, nothing leaves the computer. The shield's octagon:
+  green (#00E676, once, nothing found on a page that loaded well; never a
+  safety guarantee), yellow (#FACC15, a feature may not work), orange
+  (#FF9100, something essential may not work: "Repair this site"), red
+  (#FF254F, only I.K.E.'s safety warnings, never "Repair this site").
+  Precedence red, orange, yellow, green. The bar for Maximum's workers is
+  absorbed into the shield. "Non indebolire ulteriormente Maximum senza una
+  mia autorizzazione esplicita": Maximum was made stricter only (level
+  changes no longer leave a running worker to the page).
 - 2026-11-28, **compatibility first, and the user told what is turned off**
   (the owner, after the web compatibility campaign,
   docs/review/web-compat-2026-11.md: "deve essere utilizzabile il
