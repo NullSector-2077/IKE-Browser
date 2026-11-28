@@ -1,6 +1,10 @@
 # Web compatibility campaign, 2026-11-28 (I.K.E. 1.1.30)
 
-Investigation, diagnosis and plan only: nothing in the browser was changed.
+Investigation, diagnosis and plan; nothing in the browser was changed by the
+campaign itself. **Follow-up (the owner's decision of the same day):** S1
+and S2 below, with a bar above the page at Maximum, were built for 1.1.31 on
+top of the Cloudflare fix (#233); see CHANGELOG.md and
+`tests/test_site_workers.py`. The rest of this document describes 1.1.30.
 The tools are in [tests/compat/](../../tests/compat/README.md) and can be run
 again at any time; they are not part of AUTOMAT nor of the automatic tests.
 

@@ -7,9 +7,10 @@ browserleaks.com and CreepJS, the owner's decisions of 2026-11-24):
   the engine's own client hints, never the profile's, and gave "Chromium" only,
   the engine's full version and the real kernel (6.18.44) where the page said
   "Google Chrome", 140.0.0.0 and 6.0.0;
-- Strict and Maximum start no service worker and no shared worker from a
-  site's own file (their script is refused in the engine), and a service
-  worker registered before at a lower level is unregistered;
+- Maximum starts no service worker and no shared worker from a site's own
+  file (their script is refused in the engine), and a service worker
+  registered before at a lower level is unregistered (Strict too until
+  1.1.30; since 1.1.31 Kontrol lets the site's own run: tests/test_site_workers.py);
 - Strict and Maximum: Chrome's own five PDF plugins (the two invented ones had
   no type: "missing mimetype"); the network in JavaScript and in the client
   hints is one common set; the languages are the first one and its base, as
@@ -176,12 +177,24 @@ def test_every_place_gives_the_same_identity(run_ike, site, level):
     page = r["page"]
     strict = level in ("strict", "maximum")
     places = {"page": page, "frame": r["frame"], "blob_shared": r["blob_shared"], "file_worker": r["file_worker"]}
-    if strict:
+    if level == "maximum":
         # no service worker, no shared worker from a file: their scripts are refused
         assert r["reg"].startswith("TypeError: Failed to register a ServiceWorker"), r["reg"]
         assert r["regs"] == 0 and "sw" not in r, r
         assert r["file_shared"] == "error", r["file_shared"]
         assert not [p for p, h in seen if p in ("/sw.js", "/shw.js")], seen
+    elif level == "strict":
+        # Kontrol (1.1.31, the owner's decision): the site's own service and shared
+        # workers run, with the engine's own values: its brand list in its order and
+        # no kernel version, as everywhere; Chrome's full version where the page says
+        # only the major one (the difference the owner accepted, see
+        # docs/review/web-compat-2026-11.md)
+        assert r["reg"] == "ok" and r["regs"] == 1, r
+        for name in ("sw", "file_shared"):
+            v = r[name]
+            assert isinstance(v, dict) and "err" not in v, (name, v)
+            assert (v["brands"], v["pv"]) == (page["brands"], ""), (name, v, page)
+            assert v["full"].split(".")[0] == page["full"].split(".")[0], (name, v, page)
     else:
         assert r["reg"] == "ok" and r["regs"] == 1, r
         places["service_worker"], places["file_shared"] = r["sw"], r["file_shared"]
@@ -256,15 +269,18 @@ def steps(ike, qapp, out):
 '''
 
 
-def test_strict_unregisters_an_older_service_worker(run_ike, site):
+def test_maximum_unregisters_an_older_service_worker(run_ike, site):
     """A service worker registered at Balanced would still start with the
-    engine's own values at Strict: it is unregistered there."""
+    engine's own values at Maximum: it is unregistered there. Kontrol keeps
+    it (1.1.31: WhatsApp starts from its service worker)."""
     port, seen = site
     out = run_ike(STEPS % port, settings={"shield_level": "balanced"}, timeout=180)
     assert json.loads(out["r1"])["regs"] == 1
     out = run_ike(STEPS_OLD_WORKER % port, settings={"shield_level": "balanced"}, keep_profile=True, timeout=120)
     assert out["regs"] == 1, out                          # kept at Balanced
     out = run_ike(STEPS_OLD_WORKER % port, settings={"shield_level": "strict"}, keep_profile=True, timeout=120)
+    assert out["regs"] == 1, out                          # kept at Kontrol
+    out = run_ike(STEPS_OLD_WORKER % port, settings={"shield_level": "maximum"}, keep_profile=True, timeout=120)
     assert out["regs"] == 0, out
 
 

@@ -66,6 +66,19 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Owner's decisions
 
+- 2026-11-28, **compatibility first, and the user told what is turned off**
+  (the owner, after the web compatibility campaign,
+  docs/review/web-compat-2026-11.md: "deve essere utilizzabile il
+  browser... rendiamo consapevole l'utente che verranno disattivati i worker
+  o alcune protezioni per far funzionare il sito"). Kontrol lets the sites'
+  own workers run (service workers, shared workers, workers from their own
+  files: WhatsApp and Telegram need them); every worker a page's script can
+  make from its own text keeps the protection. Maximum keeps refusing them,
+  says so (a bar above the page and the shield) and lets the user allow them
+  for one site; "Repair this site" turns off only the workers there, not the
+  whole fingerprinting protection. Nothing is turned off by itself. This
+  replaces, for Kontrol, the worker rule of 2026-11-24. Done together with
+  the Cloudflare fix (#233).
 - 2026-11-24, **a stricter gate for an AI's change of the fingerprint
   protection, permanent** (the owner's decision; the owner never has to
   intervene). An independent review showed weakened copies of

@@ -20,8 +20,10 @@ Now:
   in every document, never the seed);
 - where the page's Trusted Types allow the policy, the worker keeps the
   protection (the same noise as the page, another on every site);
-- a worker from a file at Kontrol and Maximum still never runs without the
-  protection (refused, as before).
+- a worker from a file at Maximum still never runs without the protection
+  (refused, as before); at Kontrol the site's own file runs (1.1.31, the
+  owner's decision after the web compatibility campaign,
+  tests/test_site_workers.py).
 
 SIMULATION: a local server; 127.0.0.1 and localhost are two sites. The
 "allowlist" page copies the policy of Cloudflare's frame and adds a default
@@ -331,9 +333,9 @@ def test_workers_start_where_the_page_refuses_the_protections_policy(run_ike, si
         # at most one refusal the page can see (made as the document starts,
         # it usually comes before the page's first script listens)
         assert len(policy_names(r)) <= 1, (level, r)
-        # a worker from a file: Balanced starts it as the page asked; Kontrol
-        # and Maximum never run it without the protection (refused, as before)
-        assert r["file"] == ("data" if level == "balanced" else "error"), (level, r)
+        # a worker from a file: Balanced and Kontrol (1.1.31) start it as the
+        # page asked; Maximum never runs it without the protection (refused)
+        assert r["file"] == ("error" if level == "maximum" else "data"), (level, r)
     # what the site's server is told (report-uri): one refusal in each of the
     # two documents, not one for every worker, and another name in each: not
     # the site's seed ('p' + seed was the same in both)

@@ -87,9 +87,13 @@ profiles: `ike-browser --profile NAME`.
   never above the real ones), Chrome's own PDF plugins in an order of the
   site's own, a common screen, fonts, memory and voices, generic Client Hints
   and no WebGPU; their canvas noise is only where a drawing has edges (never
-  in plain colours); a worker a site starts from a file of its own gets the
-  same protection, and they start no service worker and no shared worker from
-  a site's file. Maximum also tells sites English only, with dates and numbers
+  in plain colours); a worker a page's script makes gets the same
+  protection. The site's own background workers (service workers, shared
+  workers, workers from its files: WhatsApp and Telegram need them) run at
+  Kontrol, and the shield counts them; Maximum refuses them, and a bar above
+  the page says so, with "Allow them on this site" for that site alone (or
+  "Repair this site", which finds them before the whole fingerprinting
+  protection). Maximum also tells sites English only, with dates and numbers
   written the American way.
 - The engine's advertising measurement (Attribution Reporting, Topics) is
   off; WebRTC does not show your local IP addresses (Settings → Privacy);

@@ -3176,7 +3176,9 @@
           flush(st, made);
         }]);
         RAPPLY(eAdd, made, ['error', function (e) {
-          if (st.ok || st.real || st.dead) return;
+          // only the refusal of the protected copy (its report came first,
+          // securitypolicyviolation below): any other error is the page's
+          if (st.ok || st.real || st.dead || !blobRefused) return;
           RAPPLY(eStop, e, []);
           RAPPLY(ePrevent, e, []);
           blobRefused = true;
