@@ -265,7 +265,9 @@ Answer with ONE JSON object and nothing else:
 - Comments can be wrong (the tests and docs decide); a comment next to your fix
   that says the opposite of it is corrected too.
 - At most 5 files, the smallest correct change. Only files that are shown
-  below, and only under ike/, tests/, tools/ or docs/ (%(wrapper)s).
+  below, in full or in an excerpt of the code at the failure (then "find" is
+  copied from that excerpt), and only under ike/, tests/, tools/ or docs/
+  (%(wrapper)s).
 - Never ike-adblock/Cargo.toml or Cargo.lock, the adblock-rust engine itself, Dark
   Reader's files, uBlock Origin's scriptlets, the icon sets, docs/THIRD-PARTY.md
   or any file that comes from others or is generated.
@@ -750,6 +752,21 @@ def files_shown(workdir, related):
     return out
 
 
+EXCERPT = re.compile(r"^### `([\w./-]+)`, lines \d+-\d+ \(the failure points at line \d+\)$", re.M)
+
+
+def editable_files(shown, context, related):
+    """The files an edit may change: the ones shown in full and the ones whose code at the failure is shown in an
+    excerpt (tools/autofix-context.py). A large file (ike/window.py, 175 KB) never fits whole, and its fix was
+    refused as "not one of the files shown" (the drill, 2026-11-28); the text to replace must still be copied
+    exactly and appear once in the file, and the checks after it are the same."""
+    out = dict(shown)
+    for path in EXCERPT.findall(context or ""):
+        if path in related and path not in out:
+            out[path] = ""
+    return out
+
+
 NOTES = re.compile(r"\n(?=## (?:One problem per attempt|AUTOMAT's memory of this error|What changed upstream"
                    r"|The fix of this attempt's last round"
                    r"|Why earlier fixes were refused|Previous automatic fix))")
@@ -1228,6 +1245,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     failure, context = read("failure.md"), read("context.md")
     related = [line.strip() for line in read("related.txt").splitlines() if line.strip()]
     shown = files_shown(workdir, related)
+    editable = editable_files(shown, context, related)
     rules = Path(a.prompt).read_text("utf-8") + (SECURITY_RULES if a.security else "") + builder_rules(a.builder) \
         + (AUTO_RULES if a.auto and not a.builder else "") + (TIER_B_RULES if TIER_B["on"] and not a.builder else "")
     keys = [env.get(p[2], "") for p in PROVIDERS]
@@ -1322,7 +1340,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
                 base = [{"role": "system", "content": system}, {"role": "user", "content": user}]
                 try:
                     outcome, said, refused = one_model(url, key, model, base, tokens, deadline, opener,
-                                                       workdir, shown, a, refused, applied, extra)
+                                                       workdir, editable, a, refused, applied, extra)
                 except Exception as e:                    # 1.1.18: a malformed answer never ends the chain
                     if applied:
                         undo(workdir, applied)
