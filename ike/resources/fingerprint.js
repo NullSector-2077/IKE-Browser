@@ -2950,19 +2950,35 @@
     var XP = NXHR && NXHR.prototype, xOpen = XP && XP.open, xSend = XP && XP.send;
     // Trusted Types (verification V-13): a TrustedScriptURL is read through
     // its own method and passed on as it is when nothing is added; an
-    // address with the prelude gets a policy of the protection's own
+    // address with the prelude gets a policy of the protection's own.
+    // A page whose security policy allows only its own policies by name
+    // (Cloudflare's challenge frame: `trusted-types <name> default`) refuses
+    // that policy (1.1.31): the worker then starts with the page's own
+    // TrustedScriptURL, as the page asked. Until 1.1.31 the bare address went
+    // on, the page's own default policy turned it into an address its
+    // worker-src refuses, and the worker never started (Turnstile failed at
+    // Balanced and above). The policy is asked for once in a realm, so a page
+    // that refuses it sees one refusal, and its name is random: it was
+    // 'p' + the site's seed, which the refusal's report hands to the page
+    // (securitypolicyviolation, `sample`), and the seed gives the noise away.
     var TTP = w.trustedTypes, TT_MAKE = TTP && TTP.createPolicy;
     var TT_URL = w.TrustedTypePolicy && w.TrustedTypePolicy.prototype.createScriptURL;
-    var TSU_STR = w.TrustedScriptURL && w.TrustedScriptURL.prototype.toString, ttPolicy = null, TT_NAME = 'p' + seed;
+    var TSU_STR = w.TrustedScriptURL && w.TrustedScriptURL.prototype.toString, ttPolicy = null, ttRefused = false;
     var trustedText = function (v) {
       if (!TSU_STR || v === null || typeof v !== 'object') return null;
       try { return RAPPLY(TSU_STR, v, []); } catch (e) { return null; }
     };
+    // the address as a TrustedScriptURL of the protection's policy, or null
+    // when the page's security policy refuses that policy
     var asTrusted = function (u) {
+      if (ttRefused) return null;
       try {
-        if (!ttPolicy) ttPolicy = RAPPLY(TT_MAKE, TTP, [TT_NAME, { createScriptURL: function (x) { return x; } }]);
+        if (!ttPolicy) {
+          RAPPLY(RND_GET, CRYPTO, [RND]);
+          ttPolicy = RAPPLY(TT_MAKE, TTP, ['p' + RND[0], { createScriptURL: function (x) { return x; } }]);
+        }
         return RAPPLY(TT_URL, ttPolicy, [u]);
-      } catch (e) { return u; }
+      } catch (e) { ttRefused = true; return null; }
     };
     var xStatus = getterOf(XP, 'status'), xText = getterOf(XP, 'responseText');
     // Strict and Maximum (1.1.25, independent review): a dedicated worker the
@@ -3086,7 +3102,9 @@
             try {
               if (strict && name === 'Worker' && sslice(url, 0, 5) !== 'blob:' && lower(sslice(url, 0, 5)) !== 'data:') {
                 file = fromFile(url, opt.module);
-                if (file) call = send(tt !== null ? asTrusted(file) : file);
+                // refused: the file as the page asked, which the request check refuses
+                var fv = file && (tt !== null ? asTrusted(file) : file);
+                if (fv) call = send(fv); else file = null;
               } else if (sslice(url, 0, 5) === 'blob:') {
                 var blob = blobs.get(url);
                 if (!blob) {
@@ -3103,10 +3121,13 @@
                 if (blob) {
                   var patched = RAPPLY(rawCreate, U, [new NBlob([preludeFor(url, opt.module), blob],
                     { type: RAPPLY(BLOB_TYPE, blob, []) || 'text/javascript' })]);
-                  call = send(tt !== null ? asTrusted(patched) : patched);
-                  PATCHED.set(patched, url);
-                  // the prelude revokes it at once; this is the fallback
-                  RAPPLY(nLater, w, [function () { RAPPLY(rawRevoke, U, [patched]); }, 30000]);
+                  var tv = tt !== null ? asTrusted(patched) : patched;
+                  if (tv) {
+                    call = send(tv);
+                    PATCHED.set(patched, url);
+                    // the prelude revokes it at once; this is the fallback
+                    RAPPLY(nLater, w, [function () { RAPPLY(rawRevoke, U, [patched]); }, 30000]);
+                  } else RAPPLY(rawRevoke, U, [patched]);
                 }
               } else if (lower(sslice(url, 0, 5)) === 'data:') {
                 var comma = sindex(url, ',');
@@ -3115,8 +3136,8 @@
                   var pre = preludeFor(url, true);
                   var made = sslice(url, 0, comma + 1) +
                     (b64 ? RAPPLY(nBtoa, w, [pre]) : RAPPLY(nEnc, w, [pre])) + sslice(url, comma + 1);
-                  call = send(tt !== null ? asTrusted(made) : made);
-                  PATCHED.set(made, url);
+                  var dv = tt !== null ? asTrusted(made) : made;
+                  if (dv) { call = send(dv); PATCHED.set(made, url); }
                 }
               }
             } catch (e) {}
