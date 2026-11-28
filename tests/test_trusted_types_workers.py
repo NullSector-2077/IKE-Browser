@@ -147,6 +147,62 @@ window.__run = async function () {
 };
 </script></body>"""
 
+# Frames that take the policy of the document that made them (the second
+# round of the independent review): a <meta> a script added in the page is
+# their policy too, so it can refuse the protection's policy there. Their
+# workers must keep the protection or not start, never start without it; and
+# the page never sees the protection's refusals.
+CHILD = r"""<!doctype html><title>tt</title><body><script>
+""" + COMMON + r"""
+window.WORKER = WORKER; window.start = start;
+function meta(text) {
+  var m = document.createElement('meta');
+  m.httpEquiv = 'Content-Security-Policy';
+  m.content = text;
+  document.head.appendChild(m);
+}
+function inFrame(f) {
+  var cw = f.contentWindow, seen = [];
+  cw.document.addEventListener('securitypolicyviolation', function (e) {
+    seen.push(e.effectiveDirective + ':' + e.sourceFile);
+  });
+  var pol = cw.trustedTypes.createPolicy('site', { createScriptURL: function (u) { return u; } });
+  try { cw.trustedTypes.createPolicy('default', { createScriptURL: function (u) { return u; } }); } catch (e) {}
+  return start(function () {
+    return new cw.Worker(pol.createScriptURL(cw.URL.createObjectURL(new cw.Blob([WORKER], { type: 'text/javascript' }))));
+  }).then(function (r) { return { worker: r, seen: seen }; });
+}
+window.__run = async function () {
+  var out = { page: 'pic:' + draw(new OffscreenCanvas(96, 40)) };
+  // a data: worker whose address has a character beyond Latin-1
+  out.dataWide = await start(function () {
+    return new Worker('data:text/javascript;base64,' + btoa(WORKER) + '#\u65e5');
+  });
+  // a <meta> that allows only the page's names (and a default policy), then
+  // an empty frame and a srcdoc frame that take it
+  meta("trusted-types site default");
+  var f = document.createElement('iframe');
+  document.body.appendChild(f);
+  out.blank = await inFrame(f);
+  out.srcdoc = await new Promise(function (ok) {
+    window.fromSrcdoc = ok;
+    var g = document.createElement('iframe');
+    g.srcdoc = '<script>var pol = trustedTypes.createPolicy("site", { createScriptURL: function (u) { return u; } });' +
+      'try { trustedTypes.createPolicy("default", { createScriptURL: function (u) { return u; } }); } catch (e) {}' +
+      'parent.start(function () { return new Worker(pol.createScriptURL(URL.createObjectURL(' +
+      'new Blob([parent.WORKER], { type: "text/javascript" })))); }).then(parent.fromSrcdoc);<\/script>';
+    document.body.appendChild(g);
+    setTimeout(function () { ok('no answer'); }, 6000);
+  });
+  // the same with Trusted Types required and no default policy
+  meta("require-trusted-types-for 'script'; trusted-types site");
+  var h = document.createElement('iframe');
+  document.body.appendChild(h);
+  out.required = await inFrame(h);
+  return out;
+};
+</script></body>"""
+
 FILE_WORKER = b"postMessage({pic: ''});"
 
 PAGES = {
@@ -156,6 +212,7 @@ PAGES = {
     "/open.html": (OPEN.encode(), "text/html; charset=utf-8", "require-trusted-types-for 'script'"),
     "/names.html": (NAMES.encode(), "text/html; charset=utf-8", "trusted-types site"),
     "/tricks.html": (TRICKS.encode(), "text/html; charset=utf-8", None),
+    "/child.html": (CHILD.encode(), "text/html; charset=utf-8", None),
     "/w.js": (FILE_WORKER, "text/javascript", None),
 }
 
@@ -299,3 +356,20 @@ def test_a_pages_script_cannot_refuse_the_protection(run_ike, site, level):
         assert t[key].startswith("pic:") and t[key] == t["page"], (level, key, t)
     assert t["deep"] in ("none", t["page"]), (level, t)
     assert policy_names(t) == [], (level, t)
+
+
+@pytest.mark.parametrize("level", LEVELS)
+def test_frames_that_take_a_scripts_policy_never_run_a_worker_without_the_protection(run_ike, site, level):
+    t = run(run_ike, site, level, [("child", "http://127.0.0.1:%d/child.html")])["child"]
+    # the engine's own picture: the page's with the shield off
+    real = run(run_ike, site, "off", [("child", "http://127.0.0.1:%d/child.html")])["child"]["page"]
+    assert t["page"] != real, (level, t, real)
+    # protected (the page's noise), or not started: never the engine's own picture
+    safe = (t["page"], "error", "timeout")
+    # a data: worker has a seed of its own: another noise, never none
+    assert t["dataWide"].startswith("pic:") and t["dataWide"] != real, (level, t, real)
+    for key in ("blank", "required"):
+        assert t[key]["worker"] in safe or t[key]["worker"].startswith("throw"), (level, key, t)
+        # the page does not see the protection's own refusals
+        assert not [v for v in t[key]["seen"] if v.endswith(":userscript")], (level, key, t)
+    assert t["srcdoc"] in safe or str(t["srcdoc"]).startswith("throw"), (level, t)

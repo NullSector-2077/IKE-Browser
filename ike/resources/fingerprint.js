@@ -76,11 +76,12 @@
   }
   // strings and arrays the same way (fingerprinting audit, H-A)
   var S_SLICE = String.prototype.slice, S_INDEX = String.prototype.indexOf, S_LOWER = String.prototype.toLowerCase;
+  var S_CODE = String.prototype.charCodeAt;
   function sslice(s, a, b) { return RAPPLY(S_SLICE, s, b === undefined ? [a] : [a, b]); }
   function sindex(s, x, from) { return RAPPLY(S_INDEX, s, from === undefined ? [x] : [x, from]); }
   function lower(s) { return RAPPLY(S_LOWER, s, []); }
   var HASOWN = Object.prototype.hasOwnProperty, RE_EXEC = RegExp.prototype.exec, RE_TEST = RegExp.prototype.test;
-  var IS_PROTO = Object.prototype.isPrototypeOf, RANGE_PROTO = RangeError.prototype;
+  var IS_PROTO = Object.prototype.isPrototypeOf, RANGE_PROTO = RangeError.prototype, NUM_STR = Number.prototype.toString;
   function own(o, k) { return RAPPLY(HASOWN, o, [k]); }
   var M_ = Map, M_GET = Map.prototype.get, M_SET = Map.prototype.set, M_DEL = Map.prototype['delete'];
   function hardStrongMap() {
@@ -165,6 +166,9 @@
   // The site the user is visiting (not the frame's own), so every frame of a
   // page shares the same protection level and the same noise.
   var host = location.hostname;
+  // the scheme of this script's own document, read before any script of the
+  // page: only a document from the network has a policy its server alone sent
+  var DOC_PROTO = location.protocol;
   try {
     var ao = location.ancestorOrigins;
     if (ao && ao.length) host = new URL(ao[ao.length - 1]).hostname || host;
@@ -2171,7 +2175,14 @@
   function preludeFor(address, ownSeed, run) {
     var sd = seed;
     if (ownSeed) { RAPPLY(RND_GET, CRYPTO, [RND]); sd = RND[0] || 1; }
-    var at = RAPPLY(JSON_STR, JSON, [address]);
+    // the address in ASCII only (1.1.31, the independent review): a data:
+    // address with a character beyond Latin-1 made btoa() throw, and the
+    // worker started as the page asked, without the protection
+    var json = RAPPLY(JSON_STR, JSON, [address]), at = '';
+    for (var i = 0; i < json.length; i++) {
+      var ch = RAPPLY(S_CODE, json, [i]);
+      at += ch < 127 ? json[i] : '\\u' + sslice('000' + RAPPLY(NUM_STR, ch, [16]), -4);
+    }
     var p = WP_HEAD + WCFG + WP_TAIL + sd + ',' + at + (run ? ')(' + at + ');\n' : ');\n');
     while (p.length % 3) p += ' ';               // so it can be joined to base64 data
     return p;
@@ -2356,6 +2367,9 @@
     h: getterOf(window.ImageData && ImageData.prototype, 'height') });
 
   // ---- one realm ---------------------------------------------------------------
+  // the site's server refused the protection's policy in this script's own
+  // document (see makePolicy): its empty frames may refuse it too
+  var MAIN_REFUSED = false;
   function install(w) {
     var WPr = w.Promise;            // this realm's, for then()
     if (!w) return;
@@ -2992,11 +3006,20 @@
         try { if (TT_TYPEERR && RAPPLY(IS_PROTO, TT_TYPEERR, [e])) ttRefused = true; } catch (x) {}
       }
     };
+    // a document from the network, protected before any script of its own:
+    // a refusal now comes from the policy its server sent. Empty frames,
+    // srcdoc and blob: documents take the policy of the document that made
+    // them, a <meta> a script added included (the independent review): there
+    // a refusal counts only if the server's policy refused it in this
+    // script's own document as well.
+    var netDoc = w === window && (DOC_PROTO === 'https:' || DOC_PROTO === 'http:');
     makePolicy();
-    // the page refused the policy and has a default policy of its own: its
-    // worker starts as it asked
+    if (netDoc && ttRefused) MAIN_REFUSED = true;
+    var serverRefused = ttRefused && (netDoc || (w !== window && MAIN_REFUSED));
+    // the site's server refused the policy and the page has a default policy
+    // of its own: its worker starts as it asked
     var asAsked = function () {
-      if (!ttRefused) return false;
+      if (!serverRefused) return false;
       try { return !!(TT_DEFAULT && RAPPLY(TT_DEFAULT, TTP, [])); } catch (e) { return false; }
     };
     // the address as a TrustedScriptURL of the protection's policy, or the
@@ -3077,16 +3100,22 @@
     }
     // a content security policy that refuses the blob address: its report of
     // the protection's own attempt is not the page's (review round 3, N-6);
-    // the worker the page asked for is then refused (see above)
+    // the worker the page asked for is then refused (see above). The same
+    // for a refusal of the protection's Trusted Types policy or of its
+    // address (1.1.31, the independent review: in an empty frame the page
+    // always saw it, named as coming from "userscript"), at every level. The
+    // report a server asked for (report-uri) cannot be held back.
     var SPV = w.SecurityPolicyViolationEvent && w.SecurityPolicyViolationEvent.prototype;
     var vBlocked = getterOf(SPV, 'blockedURI'), vSource = getterOf(SPV, 'sourceFile');
-    if (strict && vBlocked && vSource) {
+    var vDirective = getterOf(SPV, 'effectiveDirective');
+    if (vBlocked && vSource) {
       try {
         RAPPLY(eAdd, w, ['securitypolicyviolation', function (e) {
           try {
-            if (RAPPLY(vBlocked, e, []) === 'blob' && sindex(`${RAPPLY(vSource, e, [])}`, 'userscript') === 0) {
-              RAPPLY(eStop, e, []);
-            }
+            if (sindex(`${RAPPLY(vSource, e, [])}`, 'userscript') !== 0) return;
+            var d = vDirective ? `${RAPPLY(vDirective, e, [])}` : '';
+            if ((strict && RAPPLY(vBlocked, e, []) === 'blob') || d === 'trusted-types' ||
+                d === 'require-trusted-types-for') RAPPLY(eStop, e, []);
           } catch (x) {}
         }, true]);
       } catch (e) {}
@@ -3125,6 +3154,7 @@
             var opt = workerOptions(args[1], args.length > 1);
             var send = function (u) { return opt.given ? [u, opt.value] : [u]; };
             var call = send(tt !== null ? first : url), asked = call;
+            var inline = sslice(url, 0, 5) === 'blob:' || lower(sslice(url, 0, 5)) === 'data:';
             try {
               if (tt !== null && asAsked()) {
                 // nothing to add: the worker the page asked for (a file of the
@@ -3165,18 +3195,23 @@
                 }
               }
             } catch (e) {
-              // a page that used up the stack first made the protection fail
-              // here, and got the worker it asked for without it (1.1.31, the
-              // independent review): the engine's own error instead, as a
-              // native call that deep would throw
-              if (outOfStack(e)) { clean(e); throw e; }
+              // a page that used up the stack first, or gave an address the
+              // protection could not be added to, got the worker it asked for
+              // without it (1.1.31, the independent review): the error
+              // instead, for an inline worker (a file's is refused anyway at
+              // these levels, by the request check)
+              if (outOfStack(e) || (!file && inline)) { clean(e); throw e; }
             }
             // the engine's own errors (a policy of Trusted Types, say) without
-            // the protection's lines in their stack (M-5); a blob address a
-            // policy refuses: the worker the page asked for (see fromFile)
+            // the protection's lines in their stack (M-5). The worker the page
+            // asked for when the protection's address is refused: a file's
+            // (refused anyway at these levels, see fromFile), or in a document
+            // from the network, whose policy only its server sent. An inline
+            // worker anywhere else is not started without the protection: a
+            // script could have given an empty frame the policy that refuses it
             var made;
             try { made = nConstruct(target, call, nt); } catch (e) {
-              if (call !== asked && !outOfStack(e)) {
+              if (call !== asked && !outOfStack(e) && (file || netDoc || !inline)) {
                 try { return nConstruct(target, asked, nt); } catch (e2) { clean(e2); throw e2; }
               }
               clean(e); throw e;
