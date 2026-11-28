@@ -1747,6 +1747,24 @@ def behind_main(repo, sha):
         return False
 
 
+def conflicts_with_main(repo, n, tries=6, pause=20):
+    """True when GitHub finds the pull request in conflict with main (GET only; GitHub computes it a little after
+    a push: asked a few times while it says nothing). False when it cannot be read or is not known."""
+    import time
+    for i in range(tries):
+        try:
+            data = api("repos/%s/pulls/%d" % (repo, n))
+        except Exception:
+            return False
+        if not isinstance(data, dict) or "mergeable" not in data:
+            return False
+        if data["mergeable"] is not None:
+            return data["mergeable"] is False
+        if i + 1 < tries:
+            time.sleep(pause)
+    return False
+
+
 def refresh_branch(repo, ref, sha, cwd=ROOT, reset=False, reversion=False):
     """(commit, why): main merged into the candidate's branch (make_refresh; reset: the files in
     conflict as main's; reversion: the version as main's), checked as the merge will check it, pushed
@@ -2055,6 +2073,20 @@ def main(argv=None):
         if ref.startswith(ARCH_TESTING_PREFIX):
             ensure_arch(a.repo, ref, a.sha, workflow="arch-testing.yml")
     has_ai = verified and bool(ai_commits(commits))
+    if verified and not a.dry_run and conflicts_with_main(a.repo, n):
+        # GitHub starts no pull_request run on a pull request in conflict with main, so nothing would ever judge
+        # it (the drill, 2026-11-28: the fix's CHANGELOG line against main's 1.1.31 notes). main merged in first,
+        # as the refresh of a verified candidate does; the refreshed commit is then tested and judged in full
+        commit, why = refresh_branch(a.repo, ref, a.sha)
+        if why and CONFLICT in why and not rebuilt_daily(ref):
+            commit, why = refresh_branch(a.repo, ref, a.sha, reset=True)
+        if why:
+            step = follow(a.repo, pr, a.sha, "it conflicts with main, and the refresh stopped: %s" % why,
+                          "rebuild" if rebuilt_daily(ref) else "judge")
+            print("#%d (%s): in conflict with main, not refreshed: %s; next: %s" % (n, ref, why, step))
+            return 0
+        print("#%d in conflict with main: refreshed (%s); its tests run now, then it is judged" % (n, commit[:10]))
+        return 0
     # a check still running (another workflow's last job): read again for a
     # while, so that the deciding run does not end on "wait" for good (N7)
     for _round in range(16):
