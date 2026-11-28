@@ -452,10 +452,10 @@
    }
   },
   "2026-11-28": {
-   "answered": 4,
+   "answered": 5,
    "answered_for": {
     "automation/autofix-main": 3,
-    "automation/update/drill-qt": 1
+    "automation/update/drill-qt": 2
    },
    "no_provider": 0,
    "providers": {
@@ -494,18 +494,28 @@
     },
     "OpenRouter": {
      "account": "free",
-     "by": {},
-     "classes": {},
+     "by": {
+      "automation/update/drill-qt": {
+       "requests": 2,
+       "tokens": 72842
+      }
+     },
+     "classes": {
+      "4": {
+       "requests": 2,
+       "tokens": 72842
+      }
+     },
      "observed": {
       "requests": {
        "limit": 50,
-       "mark": 0,
+       "mark": 2,
        "window": "day"
       }
      },
-     "requests": 0,
+     "requests": 2,
      "spent": "",
-     "tokens": 0
+     "tokens": 72842
     },
     "Z.AI": {
      "by": {
@@ -526,7 +536,7 @@
      "tokens": 179584
     }
    },
-   "runs": 4
+   "runs": 5
   }
  },
  "schema": 1

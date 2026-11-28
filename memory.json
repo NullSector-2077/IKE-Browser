@@ -271,17 +271,34 @@
     "task": "python"
    }
   ],
+  "automation/update/drill-qt@6ba7b46a0f18894e": [
+   {
+    "attempt": 2,
+    "date": "2026-11-28",
+    "detail": "",
+    "files": [
+     "ike/repair.py"
+    ],
+    "model": "particle-ai/particle-1:free",
+    "outcome": "published",
+    "patch": "diff --git a/ike/repair.py b/ike/repair.py\nindex 7bd0331..9b6cd2d 100644\n--- a/ike/repair.py\n+++ b/ike/repair.py\n@@ -20,6 +20,11 @@ from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QStyle, QToolButto\n from .config import rank\n from .i18n import T\n \n+# PyQt6 7.0 renamed QWebEnginePage.recentlyAudible to isRecentlyAudible; the\n+# window asks for the new name, so give it to an older engine too.\n+if not hasattr(QWebEnginePage, \"isRecentlyAudible\"):\n+    QWebEnginePage.isRecentlyAudible = QWebEnginePage.recentlyAudible\n+\n # (key, name shown to the user). Each one is a per-site switch.\n PROTECTIONS = (\n     (\"ads\", \"Ad and tracker blocking\"),\n",
+    "ph": "ad305dc4a0fb379b",
+    "provider": "OpenRouter",
+    "sig": "6ba7b46a0f18894e",
+    "summary": "Il browser non partiva: una correzione precedente aveva rinominato una funzione del motore web (recentlyAudible in isRecentlyAudible), ma la versione installata di PyQt6 usa ancora il nome vecchio. Per questo quasi tutti i test fallivano con \"il browser \u00e8 terminato senza risultat",
+    "task": "rust"
+   }
+  ],
   "automation/update/drill-qt@82c44fd3281679ef": [
    {
     "attempt": 1,
     "date": "2026-11-28",
-    "detail": "",
+    "detail": "its tests failed after it (error 6ba7b46a0f18894e)",
     "files": [
      "ike/window.py"
     ],
     "model": "renamed-symbol",
-    "outcome": "published",
-    "patch": "diff --git a/ike/window.py b/ike/window.py\nindex 2bdeb4f..1bbb4f8 100644\n--- a/ike/window.py\n+++ b/ike/window.py\n@@ -1497,7 +1497,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):\n             prefix = \"\ud83d\udca4 \"\n         elif view.page().isAudioMuted():\n             prefix = \"\ud83d\udd07 \"\n-        elif view.page().recentlyAudible():\n+        elif view.page().isRecentlyAudible():\n             prefix = \"\ud83d\udd0a \"\n         tip = title\n         g = self.groups.get(view.group) if view.group else None\n",
+    "outcome": "tests-failed",
     "ph": "45bae370dc40c1b3",
     "provider": "Recipe",
     "sig": "82c44fd3281679ef",
@@ -453,10 +470,10 @@
    "since": "2026-11-28"
   },
   "automation/update/drill-qt": {
-   "at": "2026-11-28T09:09:54Z",
+   "at": "2026-11-28T10:53:17Z",
    "date": "2026-11-28",
    "n": 0,
-   "sig": "82c44fd3281679ef",
+   "sig": "6ba7b46a0f18894e",
    "since": "2026-11-28"
   },
   "automation/update/lists-2026-11-22": {
