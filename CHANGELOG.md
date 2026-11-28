@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **Dark Engine: a background of a gradient and a colour is darkened** (a
+  panel of a site stayed white in 1.1.30): Chromium reads a layer without a
+  picture as `initial` in the list (`background: linear-gradient(#fff, #fff),
+  rgba(0,0,0,.03)`); written back so, the whole dark declaration was not valid
+  and the page's light one stayed. Such a layer is now written as `none`
+  (tests/test_dark_engine_hard.py).
+
 ## 1.1.30
 
 1.1.29 was never published on its own: everything prepared for it is in

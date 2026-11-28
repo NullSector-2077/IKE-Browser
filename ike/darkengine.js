@@ -520,6 +520,12 @@
       i = e + 1;
     }
   }
+  // a layer with no picture reads "initial" in a list (background: a gradient,
+  // a colour): written back so, the whole declaration is not valid and the page's
+  // light one stays. Such a layer is "none".
+  function layerList(v) {
+    return v && v.indexOf('initial') >= 0 ? v.replace(/(^|,)(\s*)initial(?=\s*(,|$))/g, '$1$2none') : v;
+  }
   function background(st, value, mine, base, again, skipPicture) {
     var ours = mine && mine['background-image'] === value;
     var source = ours ? imageSources.get(st) : value;
@@ -527,7 +533,7 @@
       // a gradient next to a variable (linear-gradient(#fff, #fff), var(--picture)):
       // its colours are mapped, the variable left to its own definition
       imageSources.delete(st);
-      var g = mapGradients(source, clipsText(st) ? 'fg' : 'bg');
+      var g = layerList(mapGradients(source, clipsText(st) ? 'fg' : 'bg'));
       return g !== value ? g : null;
     }
     if (!source || source === 'none' || source.indexOf('var(') >= 0) {
@@ -539,7 +545,8 @@
     // our output. A new value written by the page takes precedence.
     if (mine && mapped.pending) imageSources.set(st, source);
     else imageSources.delete(st);
-    return mapped.value !== value ? mapped.value : null;
+    var mv = layerList(mapped.value);
+    return mv !== value ? mv : null;
   }
 
   // --- one style declaration -> the override text ------------------------------

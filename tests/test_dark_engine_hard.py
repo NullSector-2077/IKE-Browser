@@ -79,6 +79,9 @@ PAGES = {
       .card h2{position:absolute;top:20px;left:20px;margin:0;color:#333}</style>
       <div class="card"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect width='400' height='300' fill='%23eeeeee'/%3E%3C/svg%3E">
       <h2 id="over">Ecco la nuova gamma</h2></div><p id="below">A caption under the picture</p>""",
+    "layers": """<!doctype html><style>body{background:#fff;color:#111;margin:0}
+      .ti{background:linear-gradient(0deg,#fff,#fff),rgba(0,0,0,.03);height:60px}</style>
+      <div id="ti" class="ti">I Do in Private Shows</div>""",
     "late": """<!doctype html><style>body{background:#fff;color:#111;margin:0}</style><style id="js"></style>
       <div id="a" class="a" style="height:40px">a</div><div id="b" class="b" style="height:40px">b</div>
       <div id="c" class="c" style="height:40px">c</div>
@@ -153,6 +156,7 @@ READS = {
                "return {p1:s('p1'),p2:s('p2')}",
     "halo": "function s(i){return getComputedStyle(document.getElementById(i)).textShadow;}"
             "return {over:s('over'),below:s('below')}",
+    "layers": "return {img:getComputedStyle(document.getElementById('ti')).backgroundImage}",
     "late": "function s(i){return getComputedStyle(document.getElementById(i)).backgroundColor;}"
             "return {a:s('a'),b:s('b'),c:s('c')}",
     "frame": "var p=document.getElementById('fr').contentDocument.getElementById('x');"
@@ -225,6 +229,9 @@ def test_hard_cases(run_ike, site):
         assert light(first) < 0.3, p
     p = out["halo"]                                           # light text over a photo: a dark halo
     assert "rgba(0, 0, 0" in p["over"] and p["below"] == "none", p
+    p = out["layers"]                      # a gradient and a colour in one background: still mapped
+    first = re.search(r"rgba?\([^)]*\)", p["img"]).group(0)
+    assert light(first) < 0.3, p
     p = out["late"]                                    # insertRule with no node changed, a style's text changed
     assert light(p["a"]) < 0.3 and light(p["b"]) < 0.3 and light(p["c"]) < 0.3, p
     p = out["frame"]
