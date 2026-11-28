@@ -773,6 +773,19 @@
    "why": "Cover Your Tracks' \"randomized fingerprint\" (1.1.29, the owner's decision): it counts the plugins among the five values that must differ between two sites. At Strict and Maximum the list stays Chrome's own five PDF viewers with their two types, nothing invented, in an order of the site's own (another on every site and in every session); main gave the engine's order on every site.",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
    "version": "1.1.30"
+  },
+  {
+   "key": "fingerprint-config/*/rk",
+   "detail": "ike-rk-",
+   "why": "1.1.32 (incompat.py, the diagnosis of \"Repair this site\"): the session's report key, a random value (secrets.token_hex) made at every start and held only inside fingerprint.js's closure, so the page's world can send weak evidence to I.K.E.'s diagnosis that the page itself cannot forge. It is not a value any page can read and it describes nothing of the computer; it differs at every start by design, so it differs between main and any candidate, also after 1.1.32.",
+   "accepted": "the owner accepted these rows of PR #241 (1.1.32) on 2026-11-28 (\"ok\", after reading what they are); entry written by Claude"
+  },
+  {
+   "key": "fingerprint-config/*/wkout.*",
+   "base": null,
+   "candidate": [],
+   "why": "1.1.32 (shields.workers_out): where the site's own background workers stay out (pages of I.K.E.'s safety warnings, sites where the user blocked them, the home network's allowed sites); in the measured fresh profile every list is empty. A list that can only add protection; new in 1.1.32, absent on main.",
+   "accepted": "the owner accepted these rows of PR #241 (1.1.32) on 2026-11-28 (\"ok\", after reading what they are); entry written by Claude"
   }
  ]
 }
