@@ -177,14 +177,8 @@ def test_every_place_gives_the_same_identity(run_ike, site, level):
     page = r["page"]
     strict = level in ("strict", "maximum")
     places = {"page": page, "frame": r["frame"], "blob_shared": r["blob_shared"], "file_worker": r["file_worker"]}
-    if level == "maximum":
-        # no service worker, no shared worker from a file: their scripts are refused
-        assert r["reg"].startswith("TypeError: Failed to register a ServiceWorker"), r["reg"]
-        assert r["regs"] == 0 and "sw" not in r, r
-        assert r["file_shared"] == "error", r["file_shared"]
-        assert not [p for p, h in seen if p in ("/sw.js", "/shw.js")], seen
-    elif level == "strict":
-        # Kontrol (1.1.32, the owner's decision): the site's own service and shared
+    if strict:
+        # Kontrol and Maximum (1.1.32, the owner's decisions): the site's own service and shared
         # workers run, with the engine's own values: its brand list in its order and
         # no kernel version, as everywhere; Chrome's full version where the page says
         # only the major one (the difference the owner accepted, see

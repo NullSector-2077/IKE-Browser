@@ -428,12 +428,13 @@ def steps(ike, qapp, out):
     # something the diagnosis still looks at: none
     view._ike_confirmed_site = None
     ike.config["site_levels"]["127.0.0.1"] = "maximum"
-    out["pending_settled"] = []
+    ike.config.set_site_opt("127.0.0.1", "workers", True)     # the user's block: refusals are looked into
     yield from load(view, base + "/page?pending")
     d = ike.diagnosis
     d.ledger.note(d.scope_of(view), "127.0.0.1", "worker:shared")
     out["pending"] = win.confirm_due(view)
     ike.config["site_levels"].pop("127.0.0.1", None)
+    ike.config.set_site_opt("127.0.0.1", "workers", None)
     # a finding while the green plays: at once the finding's colour
     view._ike_confirmed_site = None
     yield from load(view, "http://localhost:%d/page?cut")
