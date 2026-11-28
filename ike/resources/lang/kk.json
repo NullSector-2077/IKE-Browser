@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Сайттың өз фондық процестерін бұғаттау",
 "Background workers blocked": "Бұғатталған фондық процестер",
 "Site's own workers allowed": "Сайттың өз процестеріне рұқсат берілді",
-"Probable cause: this level blocks the site's own background workers.": "Ықтимал себеп: бұл деңгей сайттың өз фондық процестерін бұғаттайды.",
 "Probable cause: a protection blocked something the page needs.": "Ықтимал себеп: бір қорғау бетке қажет нәрсені бұғаттады.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Жөндеу: ықтимал себеп осы сайтта біраз уақытқа өшірілді, қалған барлық қорғаулар қосулы қалады. Бет қазір жұмыс істей ме?",
 "This site works fine": "Бұл сайт дұрыс жұмыс істейді",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Бұл сайт фондық бағдарламаларды пайдаланады: ол жақсырақ жұмыс істейді, бірақ сізді сәл азырақ қорғайды.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Бұл сайттың фондық бағдарламалары бұғатталған: қорғау көбірек, бірақ сайт жұмыс істемеуі мүмкін.",
 "Block them on this site": "Бұл сайтта оларды бұғаттау",
-"Allow them again": "Оларға қайта рұқсат беру"
+"Allow them again": "Оларға қайта рұқсат беру",
+"Probable cause: this site's background programs are blocked.": "Ықтимал себеп: бұл сайттың фондық бағдарламалары бұғатталған."
 }
 }

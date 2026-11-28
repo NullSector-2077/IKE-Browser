@@ -571,7 +571,21 @@ class WebPage(QWebEnginePage):
             import json
             self.runJavaScript(_COSMETIC_JS % ("a", json.dumps(css)), 1)
 
+    def _sync_webrtc(self, *_):
+        """The page's WebRTC setting for the page it shows now (1.1.32, the
+        review): a navigation to a site with that repair which never shows
+        (a download, an empty answer) must not leave its exception to the
+        page of another site still on screen."""
+        from PyQt6.QtWebEngineCore import QWebEngineSettings
+        url = self.url()
+        if url.scheme() not in ("http", "https"):
+            return
+        cfg = self.app.config
+        self.settings().setAttribute(QWebEngineSettings.WebAttribute.WebRTCPublicInterfacesOnly,
+                                     bool(cfg["webrtc_hide_ip"]) and cfg.site_opt(url.host().lower(), "webrtc") is not False)
+
     def _load_finished(self, ok):
+        self._sync_webrtc()
         url = self.url()
         sh = self.app.shields
         self._loaded_url = url.toString() if ok else None

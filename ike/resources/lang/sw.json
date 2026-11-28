@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Kuzuia michakato ya nyuma ya tovuti yenyewe",
 "Background workers blocked": "Michakato ya nyuma iliyozuiwa",
 "Site's own workers allowed": "Michakato ya tovuti yenyewe imeruhusiwa",
-"Probable cause: this level blocks the site's own background workers.": "Sababu inayowezekana: kiwango hiki kinazuia michakato ya nyuma ya tovuti yenyewe.",
 "Probable cause: a protection blocked something the page needs.": "Sababu inayowezekana: ulinzi fulani umezuia kitu ambacho ukurasa unahitaji.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Urekebishaji: sababu inayowezekana imezimwa kwa muda kwenye tovuti hii, kila ulinzi mwingine unabaki umewashwa. Je, ukurasa unafanya kazi sasa?",
 "This site works fine": "Tovuti hii inafanya kazi vizuri",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Tovuti hii inatumia programu za nyuma: inafanya kazi vizuri zaidi, lakini ulinzi wako unapungua kidogo.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Programu za nyuma za tovuti hii zimezuiwa: ulinzi zaidi, lakini huenda tovuti isifanye kazi.",
 "Block them on this site": "Zizuie kwenye tovuti hii",
-"Allow them again": "Ziruhusu tena"
+"Allow them again": "Ziruhusu tena",
+"Probable cause: this site's background programs are blocked.": "Sababu inayowezekana: programu za nyuma za tovuti hii zimezuiwa."
 }
 }

@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Կայքի սեփական ֆոնային գործընթացների արգելափակում",
 "Background workers blocked": "Արգելափակված ֆոնային գործընթացներ",
 "Site's own workers allowed": "Կայքի սեփական գործընթացները թույլատրված են",
-"Probable cause: this level blocks the site's own background workers.": "Հավանական պատճառ՝ այս մակարդակը արգելափակում է կայքի սեփական ֆոնային գործընթացները։",
 "Probable cause: a protection blocked something the page needs.": "Հավանական պատճառ՝ պաշտպանություններից մեկը արգելափակել է մի բան, որն անհրաժեշտ է էջին։",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Վերանորոգում՝ հավանական պատճառը այս կայքում մի պահ անջատված է, մյուս բոլոր պաշտպանությունները մնում են միացված։ Էջն այժմ աշխատո՞ւմ է։",
 "This site works fine": "Այս կայքը լավ է աշխատում",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Այս կայքն օգտագործում է ֆոնային ծրագրեր. այն ավելի լավ է աշխատում, բայց ձեզ մի փոքր ավելի քիչ է պաշտպանում։",
 "This site's background programs are blocked: more protection, but the site may not work.": "Այս կայքի ֆոնային ծրագրերն արգելափակված են. ավելի շատ պաշտպանություն, բայց կայքը կարող է չաշխատել։",
 "Block them on this site": "Արգելափակել դրանք այս կայքում",
-"Allow them again": "Կրկին թույլատրել դրանք"
+"Allow them again": "Կրկին թույլատրել դրանք",
+"Probable cause: this site's background programs are blocked.": "Հավանական պատճառ՝ այս կայքի ֆոնային ծրագրերն արգելափակված են։"
 }
 }

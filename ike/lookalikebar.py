@@ -85,6 +85,8 @@ class LookalikeBar(QWidget):
             cfg.save()
         v.lookalike = None
         self.hide()
+        # the site's own workers are no longer kept out there (1.1.32, the review)
+        self.win.app.shields.apply_settings()
         self.win.sync_interference()
 
     def _close(self):

@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Sitenin kendi arka plan işlemlerinin engellenmesi",
 "Background workers blocked": "Engellenen arka plan işlemleri",
 "Site's own workers allowed": "Sitenin kendi işlemlerine izin verildi",
-"Probable cause: this level blocks the site's own background workers.": "Olası neden: bu düzey sitenin kendi arka plan işlemlerini engeller.",
 "Probable cause: a protection blocked something the page needs.": "Olası neden: bir koruma sayfanın ihtiyaç duyduğu bir şeyi engelledi.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Onarım: olası neden bu sitede bir anlığına kapalı, diğer tüm korumalar açık kalır. Sayfa şimdi çalışıyor mu?",
 "This site works fine": "Bu site düzgün çalışıyor",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Bu site arka plan programları kullanıyor: daha iyi çalışır ama sizi biraz daha az korur.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Bu sitenin arka plan programları engellendi: daha fazla koruma, ama site çalışmayabilir.",
 "Block them on this site": "Bu sitede engelle",
-"Allow them again": "Yeniden izin ver"
+"Allow them again": "Yeniden izin ver",
+"Probable cause: this site's background programs are blocked.": "Olası neden: bu sitenin arka plan programları engellendi."
 }
 }

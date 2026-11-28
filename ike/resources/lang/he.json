@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "חסימת תהליכי הרקע של האתר עצמו",
 "Background workers blocked": "תהליכי רקע חסומים",
 "Site's own workers allowed": "תהליכי האתר עצמו מותרים",
-"Probable cause: this level blocks the site's own background workers.": "סיבה אפשרית: רמה זו חוסמת את תהליכי הרקע של האתר עצמו.",
 "Probable cause: a protection blocked something the page needs.": "סיבה אפשרית: הגנה חסמה משהו שהדף צריך.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "תיקון: הסיבה האפשרית כבויה באתר הזה לרגע, כל שאר ההגנות נשארות פעילות. האם הדף עובד עכשיו?",
 "This site works fine": "האתר הזה עובד כראוי",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "האתר הזה משתמש בתוכניות רקע: הוא עובד טוב יותר, אבל ההגנה עליך מעט פחותה.",
 "This site's background programs are blocked: more protection, but the site may not work.": "תוכניות הרקע של האתר הזה חסומות: יותר הגנה, אבל ייתכן שהאתר לא יעבוד.",
 "Block them on this site": "לחסום אותן באתר זה",
-"Allow them again": "לאפשר אותן שוב"
+"Allow them again": "לאפשר אותן שוב",
+"Probable cause: this site's background programs are blocked.": "סיבה אפשרית: תוכניות הרקע של האתר הזה חסומות."
 }
 }

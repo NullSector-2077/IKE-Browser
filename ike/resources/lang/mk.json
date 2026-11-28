@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Блокирање на сопствените позадински процеси на страницата",
 "Background workers blocked": "Блокирани позадински процеси",
 "Site's own workers allowed": "Дозволени сопствени процеси на страницата",
-"Probable cause: this level blocks the site's own background workers.": "Веројатна причина: ова ниво ги блокира сопствените позадински процеси на страницата.",
 "Probable cause: a protection blocked something the page needs.": "Веројатна причина: заштита блокираше нешто што ѝ треба на страницата.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Поправка: веројатната причина е исклучена за момент на овој сајт, сите други заштити остануваат вклучени. Дали страницата сега работи?",
 "This site works fine": "Овој сајт работи добро",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Овој сајт користи позадински програми: работи подобро, но ве штити малку помалку.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Позадинските програми на овој сајт се блокирани: повеќе заштита, но сајтот можеби нема да работи.",
 "Block them on this site": "Блокирај ги на овој сајт",
-"Allow them again": "Повторно дозволи ги"
+"Allow them again": "Повторно дозволи ги",
+"Probable cause: this site's background programs are blocked.": "Веројатна причина: позадинските програми на овој сајт се блокирани."
 }
 }

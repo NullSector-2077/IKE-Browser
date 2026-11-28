@@ -754,22 +754,27 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             # PayPal's and Stripe's own parts of a shop (payment buttons and
             # fields, anti-fraud checks): never blocked or changed (1.1.14)
             return
-        if lv >= 3 and rtype in _WORKER_SCRIPTS and cfg.site_opt(first_host, "fp") is not False:
+        if lv >= 3 and rtype in _WORKER_SCRIPTS:
             # only the visited site's own file (1.1.32, the independent review:
             # a frame of another site, an embedded widget, an ad, stays out at
-            # Kontrol too, and is never counted for the site nor offered to it)
+            # Kontrol too, and is never counted for the site nor offered to it).
             # 1.1.32, the owner's decision (Maximum too: "i siti devono
             # funzionare, almeno quelli fidati"): the site's own run at Kontrol
             # and Maximum, except where the user blocked them on the site (the
-            # shield) or on a page I.K.E.'s safety warnings call dangerous
+            # shield) or on a page I.K.E.'s safety warnings call dangerous;
+            # there whatever the repairs left (the fingerprinting protection
+            # off too: the review)
             own = host_site == first_site
-            if not own or cfg.site_opt(first_host, "workers") is True or self.s.worker_danger(first_host):
+            fp_on = cfg.site_opt(first_host, "fp") is not False
+            if self.s.worker_danger(first_host) or (
+                    fp_on and (not own or cfg.site_opt(first_host, "workers") is True)):
                 info.block(True)       # no worker from a file without the protection (1.1.25)
                 if own:
                     self._count(first_host, "workers")
                     self._note(first_host, "worker:" + _WORKER_KIND.get(rtype, "dedicated"))
                 return
-            self._count(first_host, "workers_open")     # the site's own, with the engine's values (1.1.32)
+            if fp_on:                  # (the protection off on the site: as Balanced, not counted)
+                self._count(first_host, "workers_open")     # the site's own, with the engine's values (1.1.32)
         if cfg["login_compat"]:
             try:
                 init_host = info.initiator().host().lower()
@@ -1604,14 +1609,26 @@ class Shields(QObject):
             self._lookalikes[key] = hit
         return hit
 
-    def workers_out_hosts(self):
-        """The hosts whose own workers stay out, for fingerprint.js (its
-        keepWorkersOut): blocked by the user, or pages of a safety warning."""
+    def workers_out(self):
+        """Where the site's own workers stay out, for fingerprint.js (its
+        keepWorkersOut), with the request check's own rules (the review: the
+        same answer on both sides): "map" the user's choices on the sites
+        (the nearest of a host and its parents decides, as site_opt), "exact"
+        the hosts of a warning (pages of the lists opened anyway, sites opened
+        without their secure connection, Sosia's lookalikes), "sites" the
+        public sites allowed into the home network (their whole site)."""
         cfg = self.config
-        out = {h for h, o in cfg["site_opts"].items() if o.get("workers") is True}
-        out |= self.pages_allowed | self.http_allowed | self.lan_allowed
-        out |= {k[0] for k, v in self._lookalikes.items() if v}
-        return sorted(out)
+        wmap = {h: bool(o["workers"]) for h, o in cfg["site_opts"].items() if isinstance(o.get("workers"), bool)}
+        n_ok = len(cfg["lookalike_ok"] or [])
+        exact = set(self.pages_allowed) | set(self.http_allowed)
+        if cfg["lookalike_warn"]:
+            exact |= {k[0] for k, v in self._lookalikes.items() if v and k[1] == n_ok}
+        return {"map": wmap, "exact": sorted(exact), "sites": sorted(self.lan_allowed)}
+
+    def workers_out_hosts(self):
+        """Every host named above (the window asks whether one is known yet)."""
+        w = self.workers_out()
+        return sorted(set(w["exact"]) | set(w["sites"]) | {h for h, v in w["map"].items() if v})
 
     def apply_settings(self, profile=None):
         """(Re)apply everything that depends on the configuration."""
@@ -1687,7 +1704,7 @@ class Shields(QObject):
                       "rk": self.report_key,
                       # where the site's own workers stay out (1.1.32): blocked by
                       # the user on the site, or a page of a safety warning
-                      "wkout": self.workers_out_hosts(),
+                      "wkout": self.workers_out(),
                       "payframes": list(PAYMENT_SITES),
                       "ffua": FIREFOX_UA if cfg["login_compat"] else "",
                       "ffsignin": list(GOOGLE_SIGNIN_HOSTS), "ffsites": list(GOOGLE_SITES),

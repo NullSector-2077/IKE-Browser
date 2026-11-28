@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Saidi enda taustaprotsesside blokeerimine",
 "Background workers blocked": "Taustaprotsessid blokeeritud",
 "Site's own workers allowed": "Saidi enda protsessid lubatud",
-"Probable cause: this level blocks the site's own background workers.": "Tõenäoline põhjus: see tase blokeerib saidi enda taustaprotsessid.",
 "Probable cause: a protection blocked something the page needs.": "Tõenäoline põhjus: kaitse blokeeris midagi, mida leht vajab.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Parandus: tõenäoline põhjus on sellel saidil hetkeks välja lülitatud, kõik teised kaitsed jäävad sisse. Kas leht töötab nüüd?",
 "This site works fine": "See sait töötab hästi",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "See sait kasutab taustaprogramme: see töötab paremini, kuid kaitseb sind veidi vähem.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Selle saidi taustaprogrammid on blokeeritud: rohkem kaitset, kuid sait ei pruugi töötada.",
 "Block them on this site": "Blokeeri need sellel saidil",
-"Allow them again": "Luba need uuesti"
+"Allow them again": "Luba need uuesti",
+"Probable cause: this site's background programs are blocked.": "Tõenäoline põhjus: selle saidi taustaprogrammid on blokeeritud."
 }
 }

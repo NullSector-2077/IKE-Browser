@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "साइटका आफ्नै पृष्ठभूमि वर्कर रोक्ने",
 "Background workers blocked": "रोकिएका पृष्ठभूमि वर्कर",
 "Site's own workers allowed": "साइटका आफ्नै वर्करलाई अनुमति",
-"Probable cause: this level blocks the site's own background workers.": "सम्भावित कारण: यो तहले साइटका आफ्नै पृष्ठभूमि वर्कर रोक्छ।",
 "Probable cause: a protection blocked something the page needs.": "सम्भावित कारण: कुनै सुरक्षाले पृष्ठलाई चाहिने केही कुरा रोक्यो।",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "मर्मत: केही क्षणका लागि यो साइटमा सम्भावित कारण बन्द छ, अरू हरेक सुरक्षा चालु रहन्छ। अब पृष्ठले काम गर्छ?",
 "This site works fine": "यो साइटले राम्रोसँग काम गर्छ",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "यो साइटले पृष्ठभूमि प्रोग्राम प्रयोग गर्छ: यसले राम्रो काम गर्छ, तर तपाईंको सुरक्षा अलि कम हुन्छ।",
 "This site's background programs are blocked: more protection, but the site may not work.": "यो साइटका पृष्ठभूमि प्रोग्राम रोकिएका छन्: बढी सुरक्षा, तर साइटले काम नगर्न सक्छ।",
 "Block them on this site": "यो साइटमा तिनलाई रोक्नुहोस्",
-"Allow them again": "तिनलाई फेरि अनुमति दिनुहोस्"
+"Allow them again": "तिनलाई फेरि अनुमति दिनुहोस्",
+"Probable cause: this site's background programs are blocked.": "सम्भावित कारण: यो साइटका पृष्ठभूमि प्रोग्राम रोकिएका छन्।"
 }
 }

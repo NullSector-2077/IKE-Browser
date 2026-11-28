@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Αποκλεισμός των δικών του διεργασιών παρασκηνίου του ιστότοπου",
 "Background workers blocked": "Διεργασίες παρασκηνίου αποκλείστηκαν",
 "Site's own workers allowed": "Επιτρέπονται οι δικές του διεργασίες του ιστότοπου",
-"Probable cause: this level blocks the site's own background workers.": "Πιθανή αιτία: αυτό το επίπεδο αποκλείει τις δικές του διεργασίες παρασκηνίου του ιστότοπου.",
 "Probable cause: a protection blocked something the page needs.": "Πιθανή αιτία: μια προστασία απέκλεισε κάτι που χρειάζεται η σελίδα.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Επιδιόρθωση: η πιθανή αιτία είναι προς στιγμήν απενεργοποιημένη σε αυτόν τον ιστότοπο, όλες οι άλλες προστασίες μένουν ενεργές. Λειτουργεί τώρα η σελίδα;",
 "This site works fine": "Αυτός ο ιστότοπος λειτουργεί κανονικά",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Αυτός ο ιστότοπος χρησιμοποιεί προγράμματα παρασκηνίου: λειτουργεί καλύτερα, αλλά σας προστατεύει λίγο λιγότερο.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Τα προγράμματα παρασκηνίου αυτού του ιστότοπου είναι αποκλεισμένα: περισσότερη προστασία, αλλά ο ιστότοπος ίσως δεν λειτουργεί.",
 "Block them on this site": "Να αποκλείονται σε αυτόν τον ιστότοπο",
-"Allow them again": "Να επιτρέπονται ξανά"
+"Allow them again": "Να επιτρέπονται ξανά",
+"Probable cause: this site's background programs are blocked.": "Πιθανή αιτία: τα προγράμματα παρασκηνίου αυτού του ιστότοπου είναι αποκλεισμένα."
 }
 }

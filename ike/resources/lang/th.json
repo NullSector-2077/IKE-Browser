@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "การบล็อกเวิร์กเกอร์เบื้องหลังของเว็บไซต์เอง",
 "Background workers blocked": "เวิร์กเกอร์เบื้องหลังที่ถูกบล็อก",
 "Site's own workers allowed": "อนุญาตเวิร์กเกอร์ของเว็บไซต์เอง",
-"Probable cause: this level blocks the site's own background workers.": "สาเหตุที่เป็นไปได้: ระดับนี้บล็อกเวิร์กเกอร์เบื้องหลังของเว็บไซต์เอง",
 "Probable cause: a protection blocked something the page needs.": "สาเหตุที่เป็นไปได้: การป้องกันบล็อกบางอย่างที่หน้านี้ต้องใช้",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "ซ่อมแซม: ปิดสาเหตุที่เป็นไปได้บนไซต์นี้ชั่วคราว การป้องกันอื่นทั้งหมดยังเปิดอยู่ ตอนนี้หน้านี้ใช้งานได้หรือไม่",
 "This site works fine": "ไซต์นี้ใช้งานได้ปกติ",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "ไซต์นี้ใช้โปรแกรมเบื้องหลัง: ทำงานได้ดีขึ้น แต่ปกป้องคุณน้อยลงเล็กน้อย",
 "This site's background programs are blocked: more protection, but the site may not work.": "โปรแกรมเบื้องหลังของไซต์นี้ถูกบล็อก: ป้องกันได้มากขึ้น แต่ไซต์อาจไม่ทำงาน",
 "Block them on this site": "บล็อกบนไซต์นี้",
-"Allow them again": "อนุญาตอีกครั้ง"
+"Allow them again": "อนุญาตอีกครั้ง",
+"Probable cause: this site's background programs are blocked.": "สาเหตุที่เป็นไปได้: โปรแกรมเบื้องหลังของไซต์นี้ถูกบล็อก"
 }
 }

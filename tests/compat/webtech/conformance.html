@@ -52,8 +52,14 @@ var R = {};
   R.clone_error = err(function () { fresh.postMessage(function () {}); });
   R.transfer_error = err(function () { fresh.postMessage(1, [{}]); });
   R.transfer_twice = err(function () { var z = new ArrayBuffer(1); fresh.postMessage(z, [z, z]); });
+  R.overload_number = err(function () { fresh.postMessage(1, 5); });
+  R.overload_string = err(function () { fresh.postMessage(1, 'str'); });
   R.after_errors = await one(fresh, function (x) { x.postMessage('still fine'); });
   fresh.terminate();
+  var b3 = new ArrayBuffer(8), after3;
+  R.buffer_set = await one(new Worker('cw.js'), function (x) { x.postMessage({ kind: 'buf', buf: b3 }, new Set([b3])); after3 = b3.byteLength; });
+  R.buffer_set_detached = after3;
+  R.dead_clone_error = err(function () { var x = new Worker('cw.js'); x.terminate(); x.postMessage(function () {}); });
   R.terminate_at_once = await new Promise(function (ok) {
     var x = new Worker('cw.js'), got = 0;
     x.onmessage = function () { got++; };

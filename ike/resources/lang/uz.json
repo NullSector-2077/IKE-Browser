@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Saytning oʻz fon jarayonlarini bloklash",
 "Background workers blocked": "Bloklangan fon jarayonlari",
 "Site's own workers allowed": "Saytning oʻz jarayonlariga ruxsat berildi",
-"Probable cause: this level blocks the site's own background workers.": "Ehtimoliy sabab: bu daraja saytning oʻz fon jarayonlarini bloklaydi.",
 "Probable cause: a protection blocked something the page needs.": "Ehtimoliy sabab: himoya sahifaga kerak boʻlgan narsani blokladi.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Taʼmirlash: ehtimoliy sabab shu saytda bir zumga oʻchirilgan, boshqa barcha himoyalar yoniq qoladi. Sahifa endi ishlayaptimi?",
 "This site works fine": "Bu sayt yaxshi ishlayapti",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Bu sayt fon dasturlaridan foydalanadi: u yaxshiroq ishlaydi, lekin sizni biroz kamroq himoya qiladi.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Bu saytning fon dasturlari bloklangan: koʻproq himoya, lekin sayt ishlamasligi mumkin.",
 "Block them on this site": "Bu saytda ularni bloklash",
-"Allow them again": "Ularga yana ruxsat berish"
+"Allow them again": "Ularga yana ruxsat berish",
+"Probable cause: this site's background programs are blocked.": "Ehtimoliy sabab: bu saytning fon dasturlari bloklangan."
 }
 }

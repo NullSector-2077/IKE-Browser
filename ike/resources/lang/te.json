@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "సైట్ స్వంత బ్యాక్‌గ్రౌండ్ వర్కర్ల నిరోధం",
 "Background workers blocked": "నిరోధించిన బ్యాక్‌గ్రౌండ్ వర్కర్లు",
 "Site's own workers allowed": "అనుమతించిన సైట్ స్వంత వర్కర్లు",
-"Probable cause: this level blocks the site's own background workers.": "సంభావ్య కారణం: ఈ స్థాయి సైట్ స్వంత బ్యాక్‌గ్రౌండ్ వర్కర్లను నిరోధిస్తుంది.",
 "Probable cause: a protection blocked something the page needs.": "సంభావ్య కారణం: పేజీకి అవసరమైన దేనినో ఒక రక్షణ నిరోధించింది.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "బాగుచేత: ఈ సైట్‌లో సంభావ్య కారణం కొంతసేపు ఆఫ్ చేయబడింది, మిగతా ప్రతి రక్షణ ఆన్‌లోనే ఉంటుంది. ఇప్పుడు పేజీ పనిచేస్తోందా?",
 "This site works fine": "ఈ సైట్ బాగా పనిచేస్తోంది",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "ఈ సైట్ బ్యాక్‌గ్రౌండ్ ప్రోగ్రామ్‌లను ఉపయోగిస్తుంది: ఇది బాగా పనిచేస్తుంది, కానీ మీకు రక్షణ కొంచెం తగ్గుతుంది.",
 "This site's background programs are blocked: more protection, but the site may not work.": "ఈ సైట్ బ్యాక్‌గ్రౌండ్ ప్రోగ్రామ్‌లు నిరోధించబడ్డాయి: రక్షణ ఎక్కువ, కానీ సైట్ పని చేయకపోవచ్చు.",
 "Block them on this site": "ఈ సైట్‌లో వాటిని నిరోధించు",
-"Allow them again": "వాటిని మళ్లీ అనుమతించు"
+"Allow them again": "వాటిని మళ్లీ అనుమతించు",
+"Probable cause: this site's background programs are blocked.": "సంభావ్య కారణం: ఈ సైట్ బ్యాక్‌గ్రౌండ్ ప్రోగ్రామ్‌లు నిరోధించబడ్డాయి."
 }
 }

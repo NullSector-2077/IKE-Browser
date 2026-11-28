@@ -2745,6 +2745,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if state is None and anim.confirming():
             text = self.CONFIRM_TEXT
         anim.set_state(state, fade=fade)
+        anim._run()                             # the effects may have come back on (the review)
         level = self._shield_shown or self.app.config["shield_level"]
         tip = "%s — %s" % (T("I.K.E. Shield: choose the protection level"), T(LEVEL_NAMES[level]))
         if text:
@@ -2758,6 +2759,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
     CONFIRM_AFTER_MS = 500        # after the load, before the green confirmation
     CONFIRM_REST_S = 30.0         # the same site in the same tab: not again before this
+    CONFIRM_TAB_REST_S = 10.0     # any site in the same tab: not again before this
 
     def confirm_due(self, view, load_no=None):
         """May the green confirmation play for the page in `view` now? Only for
@@ -2766,7 +2768,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         still looks at), protection on and no exception on the site (the
         green must not suggest that every protection is on when some are
         off), over a secure connection. It says nothing more than that."""
-        from . import repair
         from .securebar import danger_of
         try:
             if view is None or view is not self.current_view() or not self.isVisible() or self.isMinimized():
@@ -2785,16 +2786,38 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         level = cfg.level_for(host)
         if level == "off" or LEVELS.index(level) < LEVELS.index(cfg["shield_level"]):
             return False
-        if repair.repaired(cfg, host) or any(v is False for v in (cfg["site_opts"].get(host) or {}).values()):
+        if self.site_has_exception(host):
             return False
         if danger_of(view) is not None or self.interference_state(view)[0] is not None:
             return False
+        if self.app.shields.worker_danger(host):
+            return False                        # a page of a warning the user went through: never green
         if not self.app.diagnosis.settled(view):
             return False
+        now = time.monotonic()
         last = getattr(view, "_ike_confirmed_site", None)
-        if last and last[0] == host and time.monotonic() - last[1] < self.CONFIRM_REST_S:
+        if last and last[0] == host and now - last[1] < self.CONFIRM_REST_S:
             return False                        # a web app reloading itself: once is enough
+        if now - getattr(view, "_ike_confirmed_at", -1e9) < self.CONFIRM_TAB_REST_S:
+            return False                        # two sites sending the tab to each other (the review)
         return True
+
+    # the overrides that leave a protection off on a site (1.1.32: the green
+    # must not suggest that every protection is on when some are off)
+    # ("workers" False is the levels' own default since the owner's decision;
+    # a repair that turned off the user's block is in "repaired")
+    EXCEPTION_KEYS = ("ads", "fp", "https", "webrtc", "consent", "params")
+
+    def site_has_exception(self, host):
+        """Is a protection turned off on `host`, by a repair or by hand, on
+        the host or on a parent it inherits from (site_opt's own rule)?"""
+        from . import repair
+        cfg = self.app.config
+        if repair.repaired(cfg, host):
+            return True
+        if cfg.site_opt(host, "cookies") == "allow":
+            return True
+        return any(cfg.site_opt(host, k) is False for k in self.EXCEPTION_KEYS)
 
     def _confirm(self, view, load_no):
         if not self.confirm_due(view, load_no):
@@ -2802,6 +2825,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if self.shield_btn.interference.confirm():
             view._ike_confirmed = load_no
             view._ike_confirmed_site = (view.url().host().lower(), time.monotonic())
+            view._ike_confirmed_at = time.monotonic()
             self.sync_interference()
 
     def _diagnosis_changed(self, view):

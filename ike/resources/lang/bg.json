@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Блокиране на собствените фонови процеси на сайта",
 "Background workers blocked": "Блокирани фонови процеси",
 "Site's own workers allowed": "Разрешени собствени процеси на сайта",
-"Probable cause: this level blocks the site's own background workers.": "Вероятна причина: това ниво блокира собствените фонови процеси на сайта.",
 "Probable cause: a protection blocked something the page needs.": "Вероятна причина: защита е блокирала нещо, от което страницата се нуждае.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Поправяне: вероятната причина е изключена на този сайт за момент, всички други защити остават включени. Страницата работи ли сега?",
 "This site works fine": "Този сайт работи добре",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Този сайт използва фонови програми: работи по-добре, но ви защитава малко по-слабо.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Фоновите програми на този сайт са блокирани: повече защита, но сайтът може да не работи.",
 "Block them on this site": "Блокирай ги на този сайт",
-"Allow them again": "Разреши ги отново"
+"Allow them again": "Разреши ги отново",
+"Probable cause: this site's background programs are blocked.": "Вероятна причина: фоновите програми на този сайт са блокирани."
 }
 }

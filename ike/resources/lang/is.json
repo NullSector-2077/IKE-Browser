@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Lokun á eigin bakgrunnsferlum vefsvæðisins",
 "Background workers blocked": "Bakgrunnsferli lokuð",
 "Site's own workers allowed": "Eigin ferli vefsvæðisins leyfð",
-"Probable cause: this level blocks the site's own background workers.": "Líkleg orsök: þetta stig lokar á eigin bakgrunnsferli vefsvæðisins.",
 "Probable cause: a protection blocked something the page needs.": "Líkleg orsök: vörn lokaði á eitthvað sem síðan þarf.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Viðgerð: slökkt er á líklegu orsökinni á þessu vefsvæði í smá stund, allar aðrar varnir eru áfram virkar. Virkar síðan núna?",
 "This site works fine": "Þetta vefsvæði virkar vel",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Þetta vefsvæði notar bakgrunnsforrit: það virkar betur en verndar þig aðeins minna.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Bakgrunnsforrit þessa vefsvæðis eru lokuð: meiri vernd, en vefsvæðið virkar hugsanlega ekki.",
 "Block them on this site": "Loka á þau á þessu vefsvæði",
-"Allow them again": "Leyfa þau aftur"
+"Allow them again": "Leyfa þau aftur",
+"Probable cause: this site's background programs are blocked.": "Líkleg orsök: bakgrunnsforrit þessa vefsvæðis eru lokuð."
 }
 }

@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Blokering af webstedets egne baggrundsprocesser",
 "Background workers blocked": "Baggrundsprocesser blokeret",
 "Site's own workers allowed": "Webstedets egne processer tilladt",
-"Probable cause: this level blocks the site's own background workers.": "Sandsynlig årsag: dette niveau blokerer webstedets egne baggrundsprocesser.",
 "Probable cause: a protection blocked something the page needs.": "Sandsynlig årsag: en beskyttelse blokerede noget, som siden har brug for.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Reparation: den sandsynlige årsag er slået fra på dette websted et øjeblik, alle andre beskyttelser forbliver slået til. Virker siden nu?",
 "This site works fine": "Dette websted virker fint",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Dette websted bruger baggrundsprogrammer: det virker bedre, men beskytter dig lidt mindre.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Dette websteds baggrundsprogrammer er blokeret: mere beskyttelse, men webstedet virker måske ikke.",
 "Block them on this site": "Bloker dem på dette websted",
-"Allow them again": "Tillad dem igen"
+"Allow them again": "Tillad dem igen",
+"Probable cause: this site's background programs are blocked.": "Sandsynlig årsag: dette websteds baggrundsprogrammer er blokeret."
 }
 }

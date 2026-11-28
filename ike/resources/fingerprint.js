@@ -46,15 +46,6 @@
       add: function (o) { RAPPLY(WS_ADD, s, [o]); return this; }
     });
   }
-  // the service worker scopes unregistered at Maximum (1.1.32, see register()):
-  // strings, so a plain object of its own, without a prototype the page could touch
-  var swDropped = (function () {
-    var o = Object.create(null);
-    return FREEZE({
-      has: function (k) { return typeof k === 'string' && o[k] === true; },
-      add: function (k) { if (typeof k === 'string') o[k] = true; return this; }
-    });
-  })();
 
   function hardMap() {
     var m = new WM_();
@@ -313,14 +304,20 @@
     try { RAPPLY(REPORT_LOG, REPORT_CON, [REPORT_KEY + ' ' + kind]); } catch (e) {}
   }
   var keepWorkersOut = strict && (function () {
-    var h = host, list = CFG.wkout || [];
+    // the request check's own rules (shields.py workers_out, the review)
+    var W = CFG.wkout || {}, map = W.map || {}, exact = W.exact || [], sites = W.sites || [];
+    if (exact.indexOf(host) >= 0) return true;
+    var h = host;
     while (h) {
-      if (list.indexOf(h) >= 0) return true;
+      if (Object.prototype.hasOwnProperty.call(map, h)) {
+        if (map[h] === true) return true;
+        break;            // allowed by the user here: only a warning can keep them out
+      }
       var i = h.indexOf('.');
-      if (i < 0) return false;
+      if (i < 0) break;
       h = h.slice(i + 1);
     }
-    return false;
+    return null;          // the home network's sites: below, once siteOf is known
   })();
 
   // ---- seed: random per browser session, different for every site ----------
@@ -376,6 +373,10 @@
   // Kontrol its workers stay out as at Maximum (1.1.32, the independent
   // review): only the site the user visits gets its own workers; the request
   // check refuses the frame's worker scripts the same way (shields.py).
+  if (keepWorkersOut === null) {
+    var wkSites = (CFG.wkout && CFG.wkout.sites) || [];
+    keepWorkersOut = wkSites.length > 0 && wkSites.indexOf(siteOf(lower(host))) >= 0;
+  }
   if (strict && !keepWorkersOut) {
     try {
       var frameHost = location.hostname;
@@ -3354,11 +3355,37 @@
     var nClone = w.structuredClone, NDOMEx = w.DOMException, IS_ARRAY = Array.isArray;
     var NTypeError = w.TypeError, TYPEERR_P = NTypeError && NTypeError.prototype;
     var CLONE_WHERE = "'structuredClone' on 'Window'", POST_WHERE = "'postMessage' on 'Worker'";
+    var SYM_IT = Symbol.iterator;
+    // a sequence as the engine reads it: an array as it is, any other
+    // iterable walked once (a Set: the independent review)
+    var seqOf = function (x) {
+      if (RAPPLY(IS_ARRAY, Array, [x])) return x;
+      var f = x[SYM_IT];
+      if (typeof f !== 'function') {
+        var te = new NTypeError("Failed to execute 'postMessage' on 'Worker': The provided value cannot be converted to a sequence.");
+        clean(te);
+        throw te;
+      }
+      var it = RAPPLY(f, x, []), nx = it.next, arr = [];
+      for (;;) {
+        var step = RAPPLY(nx, it, []);
+        if (step.done) break;
+        arr[arr.length] = step.value;
+      }
+      return arr;
+    };
     var argsOf = function (list) {
       var msg = list[0], opt = list.length > 1 ? list[1] : undefined, tr = [];
       if (opt !== undefined && opt !== null) {
-        if (RAPPLY(IS_ARRAY, Array, [opt])) tr = opt;
-        else if (typeof opt === 'object' || typeof opt === 'function') { var t = opt.transfer; if (t !== undefined) tr = t; }
+        if (typeof opt !== 'object' && typeof opt !== 'function') {
+          // the engine's overloads take a sequence or a dictionary only
+          var oe = new NTypeError("Failed to execute 'postMessage' on 'Worker': Overload resolution failed.");
+          clean(oe);
+          throw oe;
+        }
+        var itf = opt[SYM_IT];
+        if (itf !== undefined && itf !== null) tr = seqOf(opt);
+        else { var t = opt.transfer; if (t !== undefined) tr = seqOf(t); }
       }
       var c;
       try {
@@ -3437,7 +3464,9 @@
           var st = arguments.length ? PENDING.get(this) : undefined;
           if (st && !st.ok) {
             if (st.real) return RAPPLY(orig, st.real, arguments);
-            if (!st.dead) st.q[st.q.length] = argsOf(arguments);
+            // copied even after terminate(): its errors are thrown as the engine's (the review)
+            var copy = argsOf(arguments);
+            if (!st.dead) st.q[st.q.length] = copy;
             return;
           }
           return RAPPLY(orig, this, arguments);
@@ -3561,8 +3590,10 @@
                     if (ov[ok] !== undefined) DEFPROP(own, ok, { value: ov[ok], writable: true, enumerable: true, configurable: true });
                   }
                 }
-                var nm = opt.given && (ov === null || typeof ov !== 'object') ? `${ov}` : (own.name !== undefined ? own.name : '');
-                DEFPROP(own, 'name', { value: nm + '\u2063' + newHello(), writable: true, enumerable: true, configurable: true });
+                var nm = opt.given && ov !== null && ov !== undefined && typeof ov !== 'object' ? `${ov}`
+                  : (own.name !== undefined ? own.name : '');
+                // a mark of its own, random, that names nothing (the review)
+                DEFPROP(own, 'name', { value: nm + '\u2063' + sslice(newHello(), 10), writable: true, enumerable: true, configurable: true });
                 call = [tt !== null ? first : url, own];
               } catch (e) {}
             }
@@ -3666,69 +3697,63 @@
         } catch (e) {}
       });
     }
-    // Maximum, or a frame of another site (1.1.32, the owner's brief 3.2): a
-    // service worker registered at a lower level is unregistered (below, at
-    // the end, and here), but while a tab still uses it the engine keeps it,
-    // and a register() of its scope takes it back without asking for the
-    // file: the request check would never see it, and the page would get a
-    // worker with the engine's own values. For such a scope register()
-    // answers as the engine does when the file is refused, without asking it
-    // to; any other register() goes to the engine as it is (the request
-    // check refuses the file, and sees it).
+    // Where the site's own workers stay out (1.1.32, the owner's brief 3.2):
+    // a service worker registered before is unregistered (below, at the end),
+    // but while a tab still uses it the engine keeps it, and a register() of
+    // its scope takes it back without asking for the file, in any later
+    // document (the independent review: a list of the dropped scopes kept per
+    // document missed the second one). The site's own file is refused here
+    // by the request check in any case, so register() of a script and scope
+    // of the page's own origin always answers as the engine does when the
+    // file is refused, without asking it to. The page's arguments are read
+    // once: what goes to the engine (another origin, another scheme...) is
+    // that reading, never the page's objects read again.
     var SWCP = w.ServiceWorkerContainer && w.ServiceWorkerContainer.prototype;
-    var SWRP = w.ServiceWorkerRegistration && w.ServiceWorkerRegistration.prototype;
-    if (keepWorkersOut && SWCP && SWRP && typeof SWCP.register === 'function' && typeof SWCP.getRegistrations === 'function') {
-      var NPromiseSW = w.Promise, NTypeErrorSW = w.TypeError, swRegs = SWCP.getRegistrations;
-      var swUnreg = SWRP.unregister, swScope = getterOf(SWRP, 'scope');
+    if (keepWorkersOut && SWCP && typeof SWCP.register === 'function') {
+      var NPromiseSW = w.Promise, NTypeErrorSW = w.TypeError;
       wrap(SWCP, 'register', function (orig) {
         return function (scriptURL) {
-          var ex = null, scHref = null;
+          if (!arguments.length) return RAPPLY(orig, this, arguments);
+          var ex = null, call = null, conv = true;
           try {
-            if (arguments.length && ownOrigin) {
-              var tts = trustedText(scriptURL), base = RAPPLY(baseOf, w.document, []);
-              var su = nConstruct(U, [tts !== null ? tts : `${scriptURL}`, base]);
+            var tts = trustedText(scriptURL), script = tts !== null ? scriptURL : `${scriptURL}`;
+            call = [script];
+            var opts = arguments.length > 1 ? arguments[1] : undefined, given;
+            if (arguments.length > 1) {
+              if (opts !== undefined && opts !== null && (typeof opts === 'object' || typeof opts === 'function')) {
+                // the dictionary's members, once, in the engine's order
+                var o2 = {}, sv = opts.scope, tv = opts.type, uv = opts.updateViaCache;
+                if (sv !== undefined) { given = `${sv}`; o2.scope = given; }
+                if (tv !== undefined) o2.type = `${tv}`;
+                if (uv !== undefined) o2.updateViaCache = `${uv}`;
+                call[1] = o2;
+              } else call[1] = opts;
+            }
+            conv = false;
+            if (ownOrigin) {
+              var base = RAPPLY(baseOf, w.document, []);
+              var su = nConstruct(U, [tts !== null ? tts : script, base]);
               var sp = RAPPLY(uProto, su, []);
               if ((sp === 'http:' || sp === 'https:') && RAPPLY(uOrigin, su, []) === ownOrigin) {
-                var opts = arguments.length > 1 ? arguments[1] : undefined, given = opts !== undefined && opts !== null ? opts.scope : undefined;
-                var sc = given !== undefined ? nConstruct(U, [`${given}`, base]) : nConstruct(U, ['./', RAPPLY(uHref, su, [])]);
-                scHref = RAPPLY(uHref, sc, []);
-                var scProto = RAPPLY(uProto, sc, []), scLow = lower(scHref);   // never the page's RegExp methods
+                var sc = given !== undefined ? nConstruct(U, [given, base]) : nConstruct(U, ['./', RAPPLY(uHref, su, [])]);
+                var scHref = RAPPLY(uHref, sc, []), scProto = RAPPLY(uProto, sc, []), scLow = lower(scHref);
                 if ((scProto === 'http:' || scProto === 'https:') && RAPPLY(uOrigin, sc, []) === ownOrigin &&
-                    sindex(scLow, '%2f') < 0 && sindex(scLow, '%5c') < 0) {
+                    sindex(scLow, '%2f') < 0 && sindex(scLow, '%5c') < 0) {   // never the page's RegExp methods
                   ex = new NTypeErrorSW("Failed to register a ServiceWorker for scope ('" + scHref + "') with script ('" +
                     RAPPLY(uHref, su, []) + "'): An unknown error occurred when fetching the script.");
                   clean(ex);
                 }
               }
             }
-          } catch (e) { ex = null; }
-          if (ex === null) return RAPPLY(orig, this, arguments);
-          var self = this, args = arguments;
-          return new NPromiseSW(function (ok, no) {
-            var go = function (list) {
-              var hit = swDropped.has(scHref);
-              try {
-                for (var i = 0; list && i < list.length; i++) {
-                  var r = list[i];
-                  if (RAPPLY(swScope, r, []) !== scHref) continue;
-                  hit = true;
-                  swDropped.add(scHref);
-                  try { RAPPLY(swUnreg, r, []); } catch (e) {}
-                }
-              } catch (e) {}
-              if (hit) no(ex);
-              else { try { ok(RAPPLY(orig, self, args)); } catch (e) { no(e); } }
-            };
-            try {
-              var p = RAPPLY(swRegs, self, []);
-              try {
-                var spc = {};
-                DEFPROP(spc, SPECIES, { value: NPromiseSW });
-                DEFPROP(p, 'constructor', { value: spc, configurable: true });
-              } catch (e) {}
-              RAPPLY(THEN, p, [go, function () { go(null); }]);
-            } catch (e) { go(null); }
-          });
+          } catch (e) {
+            if (outOfStack(e)) throw e;
+            // the page's own toString threw while its arguments were read: a
+            // rejected promise, as the engine's conversion gives
+            if (conv) { var ce = e; return new NPromiseSW(function (ok, no) { no(ce); }); }
+            ex = null;
+          }
+          if (ex === null) return RAPPLY(orig, this, call);
+          return new NPromiseSW(function (ok, no) { no(ex); });
         };
       });
     }
@@ -4100,7 +4125,6 @@
   // page keeps its controller until it is left, as with unregister()).
   if (keepWorkersOut) {
     try {
-      var swScopeOf = getterOf(window.ServiceWorkerRegistration && ServiceWorkerRegistration.prototype, 'scope');
       var SWC = window.ServiceWorkerContainer && ServiceWorkerContainer.prototype;
       var SWR = window.ServiceWorkerRegistration && ServiceWorkerRegistration.prototype;
       var regsOf = SWC && SWC.getRegistrations, unreg = SWR && SWR.unregister;
@@ -4120,8 +4144,6 @@
       if (swc && regsOf && unreg) {
         both(RAPPLY(regsOf, swc, []), function (list) {
           for (var i = 0; i < list.length; i++) {
-            // its scope is remembered: register() must not take it back (above)
-            try { swDropped.add(RAPPLY(swScopeOf, list[i], [])); } catch (e) {}
             try { both(RAPPLY(unreg, list[i], []), quiet); } catch (e) {}
           }
         });

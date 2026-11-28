@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Blokiranje lastnih procesov spletnega mesta v ozadju",
 "Background workers blocked": "Blokirani procesi v ozadju",
 "Site's own workers allowed": "Dovoljeni lastni procesi spletnega mesta",
-"Probable cause: this level blocks the site's own background workers.": "Verjeten vzrok: ta raven blokira lastne procese spletnega mesta v ozadju.",
 "Probable cause: a protection blocked something the page needs.": "Verjeten vzrok: zaščita je blokirala nekaj, kar stran potrebuje.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Popravilo: verjeten vzrok je na tem spletnem mestu za trenutek izklopljen, vse druge zaščite ostanejo vklopljene. Ali stran zdaj deluje?",
 "This site works fine": "To spletno mesto deluje dobro",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "To spletno mesto uporablja programe v ozadju: deluje bolje, vendar vas ščiti nekoliko manj.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Programi tega spletnega mesta v ozadju so blokirani: več zaščite, vendar spletno mesto morda ne bo delovalo.",
 "Block them on this site": "Blokiraj jih na tem spletnem mestu",
-"Allow them again": "Znova jih dovoli"
+"Allow them again": "Znova jih dovoli",
+"Probable cause: this site's background programs are blocked.": "Verjeten vzrok: programi tega spletnega mesta v ozadju so blokirani."
 }
 }

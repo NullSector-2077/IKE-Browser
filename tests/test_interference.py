@@ -123,8 +123,10 @@ def test_detectors_and_the_life_of_a_finding(run_ike):
     assert out["page_worker_content"] == ["workers", ["workers"], "attention"], out
     assert out["page_worker_sparse"] == ["workers", ["workers"], "serious"], out
     assert out["copy_and_sw_sparse"] == ["workers", ["workers"], "serious"], out
-    assert out["own_script_empty"] == ["empty", [], "serious"], out
-    assert out["player"] == ["player", [], "serious"], out
+    # yellow (the review: a script of the site's own address blocked by the
+    # lists is often a tracker; the search with the user finds the cause)
+    assert out["own_script_empty"] == ["empty", [], "attention"], out
+    assert out["player"] == ["player", [], "attention"], out
     # a finding: a known cause stays, it only grows, and once settled it stays quiet
     assert out["first"] == "attention", out
     assert out["vaguer_kept"] == ["workers", "attention"], out
@@ -367,25 +369,33 @@ def steps(ike, qapp, out):
     yield from load(view, base + "/page?again")
     yield 900
     out["same_site_again"] = anim.confirms
-    # another site: its own green
+    # another site at once: the tab rests (two sites sending it to each other)
+    yield from load(view, "http://localhost:%d/page?rest")
+    yield 900
+    out["tab_rest"] = anim.confirms
+    # another site later: its own green
+    view._ike_confirmed_at = -1e9
     yield from load(view, "http://localhost:%d/page")
     yield 900
     out["other_site"] = anim.confirms
     yield 2000
     # a redirect: one green for the page it ends on
     view._ike_confirmed_site = None
+    view._ike_confirmed_at = -1e9
     yield from load(view, base + "/redir")
     yield 900
     out["redirect"] = [anim.confirms, view.url().toString().endswith("after-redirect")]
     yield 2000
     # a load that fails: none
     view._ike_confirmed_site = None
+    view._ike_confirmed_at = -1e9
     n = anim.confirms
     ok = yield from load(view, "http://127.0.0.1:9/nothing")
     yield 900
     out["failed"] = [ok, anim.confirms - n]
     # two pages at once (a quick click): at most one green, for the last one
     view._ike_confirmed_site = None
+    view._ike_confirmed_at = -1e9
     n = anim.confirms
     view.load(QUrl(base + "/page?one"))
     yield 30
@@ -395,6 +405,7 @@ def steps(ike, qapp, out):
     yield 2000
     # a tab in the background: none
     view._ike_confirmed_site = None
+    view._ike_confirmed_at = -1e9
     n = anim.confirms
     bg = win.add_tab(QUrl(base + "/page?bg"), background=True)
     yield 2500
@@ -409,6 +420,7 @@ def steps(ike, qapp, out):
              lambda: ike.config.__setitem__("ui_effects", True))):
         setup()
         view._ike_confirmed_site = None
+        view._ike_confirmed_at = -1e9
         n = anim.confirms
         yield from load(view, base + "/page?" + key)
         yield 900
@@ -416,6 +428,7 @@ def steps(ike, qapp, out):
         undo()
     # a danger in effect: none (red instead)
     view._ike_confirmed_site = None
+    view._ike_confirmed_at = -1e9
     n = anim.confirms
     yield from load(view, base + "/page?danger")
     view.lookalike, view.lookalike_host = "Example Bank", "127.0.0.1"
@@ -427,6 +440,7 @@ def steps(ike, qapp, out):
     yield 600
     # something the diagnosis still looks at: none
     view._ike_confirmed_site = None
+    view._ike_confirmed_at = -1e9
     ike.config["site_levels"]["127.0.0.1"] = "maximum"
     ike.config.set_site_opt("127.0.0.1", "workers", True)     # the user's block: refusals are looked into
     yield from load(view, base + "/page?pending")
@@ -437,6 +451,7 @@ def steps(ike, qapp, out):
     ike.config.set_site_opt("127.0.0.1", "workers", None)
     # a finding while the green plays: at once the finding's colour
     view._ike_confirmed_site = None
+    view._ike_confirmed_at = -1e9
     yield from load(view, "http://localhost:%d/page?cut")
     yield 700
     out["cut_before"] = anim.confirming()
@@ -448,6 +463,7 @@ def steps(ike, qapp, out):
     yield 800
     # another tab in front while it plays: it stops
     view._ike_confirmed_site = None
+    view._ike_confirmed_at = -1e9
     other = win.add_tab(QUrl("about:blank"), background=True)
     yield from load(view, base + "/page?switch")
     yield 650
@@ -459,13 +475,13 @@ def steps(ike, qapp, out):
 
 
 def test_the_green_confirmation(run_ike, site):
-    out = run_ike(GREEN % ((site,) * 4), timeout=200)
+    out = run_ike(GREEN % ((site,) * 5), timeout=200)
     assert out["first"][0] == 1 and out["first"][1] is True, out
     assert out["first"][2].startswith("I.K.E. found nothing wrong") and "does not prove" in out["first"][2], out
     assert out["first_timer"] is True, out
     assert out["after"] == [False, True, False], out              # 1.8 s, then nothing at all
     assert out["same_site_again"] == 1, out
-    assert out["other_site"] == 2, out
+    assert out["tab_rest"] == 1 and out["other_site"] == 2, out
     assert out["redirect"] == [3, True], out
     assert out["failed"] == [False, 0], out
     assert out["rapid"] <= 1, out

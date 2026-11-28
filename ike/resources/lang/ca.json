@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Bloqueig dels processos en segon pla del lloc",
 "Background workers blocked": "Processos en segon pla blocats",
 "Site's own workers allowed": "Processos propis del lloc permesos",
-"Probable cause: this level blocks the site's own background workers.": "Causa probable: aquest nivell bloca els processos en segon pla del lloc.",
 "Probable cause: a protection blocked something the page needs.": "Causa probable: una protecció ha blocat una cosa que la pàgina necessita.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Reparació: la causa probable està desactivada en aquest lloc web per un moment, totes les altres proteccions continuen actives. La pàgina funciona ara?",
 "This site works fine": "Aquest lloc web funciona bé",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Aquest lloc web fa servir programes en segon pla: funciona millor, però et protegeix una mica menys.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Els programes en segon pla d'aquest lloc web estan blocats: més protecció, però pot ser que el lloc no funcioni.",
 "Block them on this site": "Bloca'ls en aquest lloc",
-"Allow them again": "Torna a permetre'ls"
+"Allow them again": "Torna a permetre'ls",
+"Probable cause: this site's background programs are blocked.": "Causa probable: els programes en segon pla d'aquest lloc web estan blocats."
 }
 }

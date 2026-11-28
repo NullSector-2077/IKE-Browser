@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "A webhely saját háttérfolyamatainak tiltása",
 "Background workers blocked": "Letiltott háttérfolyamatok",
 "Site's own workers allowed": "A webhely saját folyamatai engedélyezve",
-"Probable cause: this level blocks the site's own background workers.": "Valószínű ok: ez a szint letiltja a webhely saját háttérfolyamatait.",
 "Probable cause: a protection blocked something the page needs.": "Valószínű ok: egy védelem letiltott valamit, amire az oldalnak szüksége van.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Javítás: a valószínű ok pillanatnyilag ki van kapcsolva ezen a webhelyen, minden más védelem bekapcsolva marad. Működik most az oldal?",
 "This site works fine": "Ez a webhely jól működik",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Ez a webhely háttérprogramokat használ: jobban működik, de egy kicsit kevésbé véd.",
 "This site's background programs are blocked: more protection, but the site may not work.": "A webhely háttérprogramjai le vannak tiltva: több védelem, de a webhely lehet, hogy nem működik.",
 "Block them on this site": "Letiltás ezen a webhelyen",
-"Allow them again": "Újbóli engedélyezés"
+"Allow them again": "Újbóli engedélyezés",
+"Probable cause: this site's background programs are blocked.": "Valószínű ok: a webhely háttérprogramjai le vannak tiltva."
 }
 }

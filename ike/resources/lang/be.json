@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Блакаванне ўласных фонавых працэсаў сайта",
 "Background workers blocked": "Заблакаваныя фонавыя працэсы",
 "Site's own workers allowed": "Уласныя працэсы сайта дазволены",
-"Probable cause: this level blocks the site's own background workers.": "Верагодная прычына: гэты ўзровень блакуе ўласныя фонавыя працэсы сайта.",
 "Probable cause: a protection blocked something the page needs.": "Верагодная прычына: абарона заблакавала нешта, што патрэбна старонцы.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Выпраўленне: верагодная прычына на гэтым сайце ненадоўга выключана, усе іншыя абароны застаюцца ўключанымі. Старонка цяпер працуе?",
 "This site works fine": "Гэты сайт працуе нармальна",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Гэты сайт выкарыстоўвае фонавыя праграмы: ён працуе лепш, але абараняе вас крыху менш.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Фонавыя праграмы гэтага сайта заблакаваныя: больш абароны, але сайт можа не працаваць.",
 "Block them on this site": "Заблакаваць іх на гэтым сайце",
-"Allow them again": "Дазволіць іх зноў"
+"Allow them again": "Дазволіць іх зноў",
+"Probable cause: this site's background programs are blocked.": "Верагодная прычына: фонавыя праграмы гэтага сайта заблакаваныя."
 }
 }

@@ -287,7 +287,9 @@ def test_maximum_refuses_them_where_blocked_or_dangerous(run_ike, site, why):
     assert r["shared"] == "error", r
     assert r["sw"].startswith("refused"), r
     stats = out["127.0.0.1_stats"]
-    assert stats["workers"] >= 2, stats          # the shared and the service worker (the dedicated ones: the policy)
+    # the shared worker (the service worker is answered before its file is
+    # asked for, as the engine would answer; the dedicated ones: the policy)
+    assert stats["workers"] >= 1, stats
     # the octagon: orange where the user's block breaks the app (with the
     # repair of that block); on a page of the lists opened anyway nothing to
     # repair (the warning was the user's to go through)
@@ -341,7 +343,7 @@ def test_repair_puts_the_cause_first_and_undo(run_ike, site):
                                                  "site_opts": {"127.0.0.1": {"workers": True}}}, timeout=150)
     assert out["before_state"] == "serious" and out["keys"] == ["workers"], out
     assert out["anim"] == "serious", out
-    assert "background workers" in out["panel"]["note"], out                # the probable cause, in words
+    assert "background programs" in out["panel"]["note"], out               # the probable cause, in words
     assert out["panel"]["ok"] is True and out["panel"]["repair_default"] is True, out
     assert out["phase"] == "suggested" and out["during"] == "serious", out
     assert out["kept_during"] == [], out                   # nothing kept before the user's answer

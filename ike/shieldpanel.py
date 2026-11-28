@@ -582,6 +582,11 @@ class ShieldPanel(QWidget):
             if f is not None:
                 lines.append(T(f.cause))
                 lines.append(T(self.REPAIR_CHANGES) if f.keys else T(self.HELP))
+        v = self.win.current_view()
+        if state is None and v is not None and getattr(v, "_ike_confirmed", None) is not None \
+                and v._ike_confirmed == getattr(v, "_ike_loads", None):
+            # the green's words stay here until the next page (the review)
+            lines.append("✓ " + T(self.win.CONFIRM_TEXT))
         self.diag_note.setText("\n".join(lines))
         self.diag_note.setVisible(bool(lines))
         incompat = state in ("attention", "serious")
@@ -592,10 +597,17 @@ class ShieldPanel(QWidget):
             font.setBold(incompat)
             self.repair_btn.setFont(font)
         self.repair_btn.setDefault(incompat)
+        host = self.win.current_host()
+        cfg = self.win.app.config
         if incompat:
             # put forward even where the user hid the button from the panel:
             # it is the one way to the narrow repair the text speaks of
-            self.repair_btn.setVisible(bool(self.win.current_host()))
+            self.repair_btn.setVisible(bool(host))
+        elif state == "danger":
+            # a safety warning is not an incompatibility: no repair offered
+            self.repair_btn.setVisible(False)
+        else:
+            self.repair_btn.setVisible(bool(host) and cfg.level_for(host) != "off" and bool(cfg["repair_button"]))
 
     WORKERS_RUN = _t("This site uses background programs: it works better, but protects you a little less.")
     WORKERS_BLOCKED = _t("This site's background programs are blocked: more protection, but the site may not work.")
@@ -624,7 +636,12 @@ class ShieldPanel(QWidget):
             return
         cfg = self.win.app.config
         if cfg.site_opt(host, "workers") is True:
-            cfg.set_site_opt(host, "workers", None)
+            # the block may be a parent's (the review): this site only, so an
+            # allowance of its own here, the parent's block left as it is
+            holder = cfg.site_opt_holder(host, "workers")
+            cfg.set_site_opt(host, "workers", None if holder == host else False)
+            if cfg.site_opt(host, "workers") is True:
+                cfg.set_site_opt(host, "workers", False)
         else:
             cfg.set_site_opt(host, "workers", True)
             o = cfg["site_opts"].get(host) or {}

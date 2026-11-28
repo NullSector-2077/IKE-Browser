@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "مسدودسازی فرایندهای پس‌زمینهٔ خود سایت",
 "Background workers blocked": "فرایندهای پس‌زمینهٔ مسدودشده",
 "Site's own workers allowed": "فرایندهای خود سایت مجاز شد",
-"Probable cause: this level blocks the site's own background workers.": "علت احتمالی: این سطح فرایندهای پس‌زمینهٔ خود سایت را مسدود می‌کند.",
 "Probable cause: a protection blocked something the page needs.": "علت احتمالی: یک محافظت چیزی را که صفحه به آن نیاز دارد مسدود کرد.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "تعمیر: علت احتمالی برای لحظه‌ای در این سایت خاموش است، همهٔ محافظت‌های دیگر روشن می‌مانند. آیا صفحه اکنون کار می‌کند؟",
 "This site works fine": "این سایت درست کار می‌کند",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "این سایت از برنامه‌های پس‌زمینه استفاده می‌کند: بهتر کار می‌کند، اما کمی کمتر از شما محافظت می‌کند.",
 "This site's background programs are blocked: more protection, but the site may not work.": "برنامه‌های پس‌زمینهٔ این سایت مسدود شده‌اند: محافظت بیشتر، اما ممکن است سایت کار نکند.",
 "Block them on this site": "در این سایت مسدود شوند",
-"Allow them again": "دوباره مجاز شوند"
+"Allow them again": "دوباره مجاز شوند",
+"Probable cause: this site's background programs are blocked.": "علت احتمالی: برنامه‌های پس‌زمینهٔ این سایت مسدود شده‌اند."
 }
 }

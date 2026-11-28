@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Blokowanie własnych procesów w tle witryny",
 "Background workers blocked": "Zablokowane procesy w tle",
 "Site's own workers allowed": "Dozwolone własne procesy witryny",
-"Probable cause: this level blocks the site's own background workers.": "Prawdopodobna przyczyna: ten poziom blokuje własne procesy w tle witryny.",
 "Probable cause: a protection blocked something the page needs.": "Prawdopodobna przyczyna: zabezpieczenie zablokowało coś, czego potrzebuje strona.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Naprawa: prawdopodobna przyczyna jest na chwilę wyłączona na tej witrynie, wszystkie inne zabezpieczenia pozostają włączone. Czy strona teraz działa?",
 "This site works fine": "Ta witryna działa dobrze",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Ta witryna używa programów w tle: działa lepiej, ale chroni Cię trochę słabiej.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Programy w tle tej witryny są zablokowane: więcej ochrony, ale witryna może nie działać.",
 "Block them on this site": "Zablokuj je w tej witrynie",
-"Allow them again": "Zezwól na nie ponownie"
+"Allow them again": "Zezwól na nie ponownie",
+"Probable cause: this site's background programs are blocked.": "Prawdopodobna przyczyna: programy w tle tej witryny są zablokowane."
 }
 }

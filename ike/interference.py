@@ -313,6 +313,11 @@ class Interference(QObject):
             self._confirm_step(now)
             self._update()
             return
+        if not self.moving():
+            # the effects turned off meanwhile (the review): the still rim, no timer
+            self._stop()
+            self._update()
+            return
         if self._last is not None and self.style is not None:
             self.phase = (self.phase + (now - self._last) / max(0.5, self.style.cycle)) % 1.0
         self._last = now
@@ -408,7 +413,7 @@ class Interference(QObject):
     def _trail_pens(self, s, k, stroke):
         """The trail's pens, fainter and thinner behind the head: made once
         per style, strength and size, not at every picture."""
-        key = (id(s), round(k, 3), round(stroke, 3))
+        key = (s.colour.rgba(), round(s.trail_alpha, 3), round(k, 3), round(stroke, 3))
         if self._pens[0] != key:
             n = SEGMENTS if stroke < 3 else SEGMENTS * 2       # a smooth trail on a big octagon too
             pens = []
@@ -430,8 +435,11 @@ class Interference(QObject):
             p.drawLine(prev, pt)
             prev = pt
         pos = path.pointAtPercent(head)
-        # the glow, then the bright core
-        r = stroke * (s.glow + 0.6 * bump)
+        # the glow, then the bright core; never cut flat by the button's edge
+        # (the review): smaller where the rim runs close to it
+        b = self.button
+        room = min(pos.x(), pos.y(), b.width() - pos.x(), b.height() - pos.y()) + 0.75
+        r = max(stroke, min(stroke * (s.glow + 0.6 * bump), room))
         g = QRadialGradient(pos, r)
         g.setColorAt(0.0, self._alpha(s.colour, k * (s.glow_alpha + 0.2 * bump)))
         g.setColorAt(1.0, self._alpha(s.colour, 0))

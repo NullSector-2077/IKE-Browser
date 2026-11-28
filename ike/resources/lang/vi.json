@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Chặn tiến trình nền của chính trang",
 "Background workers blocked": "Tiến trình nền bị chặn",
 "Site's own workers allowed": "Đã cho phép tiến trình của chính trang",
-"Probable cause: this level blocks the site's own background workers.": "Nguyên nhân có thể: mức này chặn các tiến trình nền của chính trang.",
 "Probable cause: a protection blocked something the page needs.": "Nguyên nhân có thể: một biện pháp bảo vệ đã chặn thứ mà trang cần.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Sửa lỗi: nguyên nhân có thể đã tạm thời bị tắt trên trang này, mọi biện pháp bảo vệ khác vẫn bật. Bây giờ trang có hoạt động không?",
 "This site works fine": "Trang này hoạt động tốt",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Trang này dùng các chương trình chạy nền: trang hoạt động tốt hơn, nhưng bảo vệ bạn ít hơn một chút.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Các chương trình chạy nền của trang này bị chặn: bảo vệ tốt hơn, nhưng trang có thể không hoạt động.",
 "Block them on this site": "Chặn trên trang này",
-"Allow them again": "Cho phép lại"
+"Allow them again": "Cho phép lại",
+"Probable cause: this site's background programs are blocked.": "Nguyên nhân có thể: các chương trình chạy nền của trang này bị chặn."
 }
 }

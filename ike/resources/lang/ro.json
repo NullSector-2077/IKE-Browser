@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Blocarea proceselor de fundal ale site-ului",
 "Background workers blocked": "Procese de fundal blocate",
 "Site's own workers allowed": "Procesele proprii ale site-ului permise",
-"Probable cause: this level blocks the site's own background workers.": "Cauză probabilă: acest nivel blochează procesele de fundal ale site-ului.",
 "Probable cause: a protection blocked something the page needs.": "Cauză probabilă: o protecție a blocat ceva de care pagina are nevoie.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Reparare: cauza probabilă este dezactivată pe acest site pentru un moment, toate celelalte protecții rămân active. Funcționează pagina acum?",
 "This site works fine": "Acest site funcționează bine",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Acest site folosește programe de fundal: funcționează mai bine, dar te protejează puțin mai puțin.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Programele de fundal ale acestui site sunt blocate: mai multă protecție, dar site-ul poate să nu funcționeze.",
 "Block them on this site": "Blochează-le pe acest site",
-"Allow them again": "Permite-le din nou"
+"Allow them again": "Permite-le din nou",
+"Probable cause: this site's background programs are blocked.": "Cauză probabilă: programele de fundal ale acestui site sunt blocate."
 }
 }

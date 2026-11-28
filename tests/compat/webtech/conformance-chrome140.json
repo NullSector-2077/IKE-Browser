@@ -47,7 +47,30 @@
   true,
   false
  ],
+ "overload_number": [
+  "TypeError",
+  "Failed to execute 'postMessage' on 'Worker': Overload resolution failed.",
+  false,
+  true
+ ],
+ "overload_string": [
+  "TypeError",
+  "Failed to execute 'postMessage' on 'Worker': Overload resolution failed.",
+  false,
+  true
+ ],
  "after_errors": "still fine",
+ "buffer_set": {
+  "kind": "buf",
+  "len": 8
+ },
+ "buffer_set_detached": 0,
+ "dead_clone_error": [
+  "DataCloneError",
+  "Failed to execute 'postMessage' on 'Worker': function () {} could not be cloned.",
+  true,
+  false
+ ],
  "terminate_at_once": 0,
  "late_listener": 0,
  "both_listeners": 2,

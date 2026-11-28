@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Pagharang sa sariling mga background worker ng site",
 "Background workers blocked": "Naharang na mga background worker",
 "Site's own workers allowed": "Pinayagan ang sariling worker ng site",
-"Probable cause: this level blocks the site's own background workers.": "Malamang na sanhi: hinaharang ng antas na ito ang sariling mga background worker ng site.",
 "Probable cause: a protection blocked something the page needs.": "Malamang na sanhi: may proteksyong humarang sa isang bagay na kailangan ng page.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Pag-aayos: naka-off sandali sa site na ito ang malamang na sanhi, nananatiling naka-on ang lahat ng iba pang proteksyon. Gumagana na ba ang page?",
 "This site works fine": "Maayos na gumagana ang site na ito",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Gumagamit ang site na ito ng mga background program: mas gumagana ito, pero medyo mas kaunti ang proteksyon mo.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Naharang ang mga background program ng site na ito: mas maraming proteksyon, pero maaaring hindi gumana ang site.",
 "Block them on this site": "Harangin sila sa site na ito",
-"Allow them again": "Payagan sila ulit"
+"Allow them again": "Payagan sila ulit",
+"Probable cause: this site's background programs are blocked.": "Malamang na sanhi: naharang ang mga background program ng site na ito."
 }
 }

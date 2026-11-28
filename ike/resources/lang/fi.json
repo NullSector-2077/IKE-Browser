@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Sivuston omien taustaprosessien esto",
 "Background workers blocked": "Estetyt taustaprosessit",
 "Site's own workers allowed": "Sivuston omat prosessit sallittu",
-"Probable cause: this level blocks the site's own background workers.": "Todennäköinen syy: tämä taso estää sivuston omat taustaprosessit.",
 "Probable cause: a protection blocked something the page needs.": "Todennäköinen syy: suojaus esti jotain, mitä sivu tarvitsee.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Korjaus: todennäköinen syy on hetken pois päältä tällä sivustolla, kaikki muut suojaukset pysyvät päällä. Toimiiko sivu nyt?",
 "This site works fine": "Tämä sivusto toimii hyvin",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Tämä sivusto käyttää taustaohjelmia: se toimii paremmin, mutta suojaa sinua hieman vähemmän.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Tämän sivuston taustaohjelmat on estetty: enemmän suojaa, mutta sivusto ei ehkä toimi.",
 "Block them on this site": "Estä ne tällä sivustolla",
-"Allow them again": "Salli ne uudelleen"
+"Allow them again": "Salli ne uudelleen",
+"Probable cause: this site's background programs are blocked.": "Todennäköinen syy: tämän sivuston taustaohjelmat on estetty."
 }
 }

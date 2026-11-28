@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Svetainės pačios foninių procesų blokavimas",
 "Background workers blocked": "Užblokuoti foniniai procesai",
 "Site's own workers allowed": "Svetainės procesai leidžiami",
-"Probable cause: this level blocks the site's own background workers.": "Tikėtina priežastis: šis lygis blokuoja svetainės pačios foninius procesus.",
 "Probable cause: a protection blocked something the page needs.": "Tikėtina priežastis: apsauga užblokavo tai, ko reikia puslapiui.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Taisymas: tikėtina priežastis šioje svetainėje trumpam išjungta, visos kitos apsaugos lieka įjungtos. Ar puslapis dabar veikia?",
 "This site works fine": "Ši svetainė veikia gerai",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Ši svetainė naudoja fonines programas: ji veikia geriau, bet jus saugo šiek tiek mažiau.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Šios svetainės foninės programos užblokuotos: daugiau apsaugos, bet svetainė gali neveikti.",
 "Block them on this site": "Blokuoti jas šioje svetainėje",
-"Allow them again": "Vėl jas leisti"
+"Allow them again": "Vėl jas leisti",
+"Probable cause: this site's background programs are blocked.": "Tikėtina priežastis: šios svetainės foninės programos užblokuotos."
 }
 }

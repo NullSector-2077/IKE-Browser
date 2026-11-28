@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Pemblokiran proses latar milik situs",
 "Background workers blocked": "Proses latar diblokir",
 "Site's own workers allowed": "Proses milik situs diizinkan",
-"Probable cause: this level blocks the site's own background workers.": "Kemungkinan penyebab: tingkat ini memblokir proses latar milik situs.",
 "Probable cause: a protection blocked something the page needs.": "Kemungkinan penyebab: sebuah perlindungan memblokir sesuatu yang dibutuhkan halaman.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Perbaikan: kemungkinan penyebabnya dimatikan sejenak di situs ini, semua perlindungan lain tetap aktif. Apakah halaman berfungsi sekarang?",
 "This site works fine": "Situs ini berfungsi dengan baik",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Situs ini menggunakan program latar: berfungsi lebih baik, tetapi perlindungan Anda sedikit berkurang.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Program latar situs ini diblokir: perlindungan lebih kuat, tetapi situs mungkin tidak berfungsi.",
 "Block them on this site": "Blokir di situs ini",
-"Allow them again": "Izinkan lagi"
+"Allow them again": "Izinkan lagi",
+"Probable cause: this site's background programs are blocked.": "Kemungkinan penyebab: program latar situs ini diblokir."
 }
 }

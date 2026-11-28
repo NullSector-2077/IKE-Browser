@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "साइट के अपने बैकग्राउंड वर्कर रोकना",
 "Background workers blocked": "बैकग्राउंड वर्कर रोके गए",
 "Site's own workers allowed": "साइट के अपने वर्कर की अनुमति",
-"Probable cause: this level blocks the site's own background workers.": "संभावित कारण: यह स्तर साइट के अपने बैकग्राउंड वर्कर रोकता है।",
 "Probable cause: a protection blocked something the page needs.": "संभावित कारण: किसी सुरक्षा ने कुछ ऐसा रोक दिया जिसकी पेज को ज़रूरत है।",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "मरम्मत: कुछ क्षण के लिए इस साइट पर संभावित कारण बंद है, बाकी हर सुरक्षा चालू रहती है। क्या पेज अब काम करता है?",
 "This site works fine": "यह साइट ठीक काम करती है",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "यह साइट बैकग्राउंड प्रोग्राम इस्तेमाल करती है: यह बेहतर काम करती है, लेकिन आपको थोड़ी कम सुरक्षा मिलती है।",
 "This site's background programs are blocked: more protection, but the site may not work.": "इस साइट के बैकग्राउंड प्रोग्राम रोके गए हैं: ज़्यादा सुरक्षा, लेकिन साइट शायद काम न करे।",
 "Block them on this site": "इस साइट पर इन्हें रोकें",
-"Allow them again": "इन्हें फिर से अनुमति दें"
+"Allow them again": "इन्हें फिर से अनुमति दें",
+"Probable cause: this site's background programs are blocked.": "संभावित कारण: इस साइट के बैकग्राउंड प्रोग्राम रोके गए हैं।"
 }
 }

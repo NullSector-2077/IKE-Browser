@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "সাইটের নিজস্ব ব্যাকগ্রাউন্ড ওয়ার্কার অবরোধ",
 "Background workers blocked": "ব্যাকগ্রাউন্ড ওয়ার্কার অবরুদ্ধ",
 "Site's own workers allowed": "সাইটের নিজস্ব ওয়ার্কার অনুমোদিত",
-"Probable cause: this level blocks the site's own background workers.": "সম্ভাব্য কারণ: এই স্তর সাইটের নিজস্ব ব্যাকগ্রাউন্ড ওয়ার্কার অবরুদ্ধ করে।",
 "Probable cause: a protection blocked something the page needs.": "সম্ভাব্য কারণ: একটি সুরক্ষা পেজের প্রয়োজনীয় কিছু অবরুদ্ধ করেছে।",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "মেরামত: কিছুক্ষণের জন্য এই সাইটে সম্ভাব্য কারণটি বন্ধ, বাকি সব সুরক্ষা চালু থাকে। পেজটি কি এখন কাজ করছে?",
 "This site works fine": "এই সাইট ঠিকঠাক কাজ করছে",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "এই সাইট ব্যাকগ্রাউন্ড প্রোগ্রাম ব্যবহার করে: এটি আরও ভালো কাজ করে, তবে আপনাকে একটু কম সুরক্ষা দেয়।",
 "This site's background programs are blocked: more protection, but the site may not work.": "এই সাইটের ব্যাকগ্রাউন্ড প্রোগ্রাম অবরুদ্ধ: সুরক্ষা বেশি, তবে সাইটটি কাজ নাও করতে পারে।",
 "Block them on this site": "এই সাইটে এগুলো অবরুদ্ধ করুন",
-"Allow them again": "এগুলো আবার অনুমতি দিন"
+"Allow them again": "এগুলো আবার অনুমতি দিন",
+"Probable cause: this site's background programs are blocked.": "সম্ভাব্য কারণ: এই সাইটের ব্যাকগ্রাউন্ড প্রোগ্রাম অবরুদ্ধ।"
 }
 }

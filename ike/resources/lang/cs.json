@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Blokování vlastních procesů webu na pozadí",
 "Background workers blocked": "Zablokované procesy na pozadí",
 "Site's own workers allowed": "Povolené vlastní procesy webu",
-"Probable cause: this level blocks the site's own background workers.": "Pravděpodobná příčina: tato úroveň blokuje vlastní procesy webu na pozadí.",
 "Probable cause: a protection blocked something the page needs.": "Pravděpodobná příčina: ochrana zablokovala něco, co stránka potřebuje.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Oprava: pravděpodobná příčina je na tomto webu na chvíli vypnutá, všechny ostatní ochrany zůstávají zapnuté. Funguje teď stránka?",
 "This site works fine": "Tento web funguje správně",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Tento web používá programy na pozadí: funguje lépe, ale chrání vás o něco méně.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Programy tohoto webu na pozadí jsou zablokované: více ochrany, ale web nemusí fungovat.",
 "Block them on this site": "Zablokovat je na tomto webu",
-"Allow them again": "Znovu je povolit"
+"Allow them again": "Znovu je povolit",
+"Probable cause: this site's background programs are blocked.": "Pravděpodobná příčina: programy tohoto webu na pozadí jsou zablokované."
 }
 }

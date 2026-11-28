@@ -113,8 +113,15 @@ def set_off(cfg, host, key, off):
         return
     if key == "workers":
         # the protection here is the user's own block (True): back on is the
-        # block again, off lets the site's own workers run (1.1.32)
-        cfg.set_site_opt(host, key, False if off else True)
+        # block again, off lets the site's own workers run (1.1.32). Back on
+        # where the block came from a parent: its inheritance, not a block of
+        # the host's own that a later "Allow them again" there would miss
+        if off:
+            cfg.set_site_opt(host, key, False)
+        else:
+            cfg.set_site_opt(host, key, None)
+            if cfg.site_opt(host, key) is not True:
+                cfg.set_site_opt(host, key, True)
         return
     value = "allow" if key == "cookies" else False
     cfg.set_site_opt(host, key, value if off else None)

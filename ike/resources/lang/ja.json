@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "サイト自身のバックグラウンドワーカーのブロック",
 "Background workers blocked": "ブロックしたバックグラウンドワーカー",
 "Site's own workers allowed": "許可したサイト自身のワーカー",
-"Probable cause: this level blocks the site's own background workers.": "考えられる原因：このレベルはサイト自身のバックグラウンドワーカーをブロックします。",
 "Probable cause: a protection blocked something the page needs.": "考えられる原因：保護がページに必要なものをブロックしました。",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "修復：考えられる原因をこのサイトで一時的にオフにしました。ほかの保護はすべてオンのままです。ページは動きますか？",
 "This site works fine": "このサイトは正常に動作しています",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "このサイトはバックグラウンドでプログラムを動かしています：動作は良くなりますが、保護は少し弱くなります。",
 "This site's background programs are blocked: more protection, but the site may not work.": "このサイトのバックグラウンドのプログラムをブロックしています：保護は強くなりますが、サイトが動作しない可能性があります。",
 "Block them on this site": "このサイトでブロックする",
-"Allow them again": "もう一度許可する"
+"Allow them again": "もう一度許可する",
+"Probable cause: this site's background programs are blocked.": "考えられる原因：このサイトのバックグラウンドのプログラムがブロックされています。"
 }
 }

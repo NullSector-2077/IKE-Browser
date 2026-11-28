@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Vietnes pašas fona procesu bloķēšana",
 "Background workers blocked": "Bloķētie fona procesi",
 "Site's own workers allowed": "Vietnes pašas procesi atļauti",
-"Probable cause: this level blocks the site's own background workers.": "Iespējamais cēlonis: šis līmenis bloķē vietnes pašas fona procesus.",
 "Probable cause: a protection blocked something the page needs.": "Iespējamais cēlonis: aizsardzība bloķēja kaut ko, kas lapai ir nepieciešams.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Labošana: iespējamais cēlonis šajā vietnē uz brīdi ir izslēgts, visas pārējās aizsardzības paliek ieslēgtas. Vai lapa tagad darbojas?",
 "This site works fine": "Šī vietne darbojas labi",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Šī vietne izmanto fona programmas: tā darbojas labāk, bet aizsargā jūs nedaudz mazāk.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Šīs vietnes fona programmas ir bloķētas: vairāk aizsardzības, bet vietne var nedarboties.",
 "Block them on this site": "Bloķēt tās šajā vietnē",
-"Allow them again": "Atkal tās atļaut"
+"Allow them again": "Atkal tās atļaut",
+"Probable cause: this site's background programs are blocked.": "Iespējamais cēlonis: šīs vietnes fona programmas ir bloķētas."
 }
 }

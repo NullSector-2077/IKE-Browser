@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "حظر العمليات الخلفية الخاصة بالموقع",
 "Background workers blocked": "عمليات خلفية محظورة",
 "Site's own workers allowed": "عمليات الموقع الخاصة مسموح بها",
-"Probable cause: this level blocks the site's own background workers.": "السبب المحتمل: هذا المستوى يحظر العمليات الخلفية الخاصة بالموقع.",
 "Probable cause: a protection blocked something the page needs.": "السبب المحتمل: حظرت إحدى الحمايات شيئًا تحتاجه الصفحة.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "الإصلاح: السبب المحتمل متوقف مؤقتًا في هذا الموقع، وتبقى جميع الحمايات الأخرى مفعّلة. هل تعمل الصفحة الآن؟",
 "This site works fine": "هذا الموقع يعمل جيدًا",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "يستخدم هذا الموقع برامج تعمل في الخلفية: يعمل بشكل أفضل، لكن حمايتك أقل قليلًا.",
 "This site's background programs are blocked: more protection, but the site may not work.": "البرامج التي تعمل في خلفية هذا الموقع محظورة: حماية أكثر، لكن قد لا يعمل الموقع.",
 "Block them on this site": "حظرها على هذا الموقع",
-"Allow them again": "السماح بها مجددًا"
+"Allow them again": "السماح بها مجددًا",
+"Probable cause: this site's background programs are blocked.": "السبب المحتمل: البرامج التي تعمل في خلفية هذا الموقع محظورة."
 }
 }

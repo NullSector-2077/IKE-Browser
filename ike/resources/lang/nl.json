@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Blokkeren van de eigen achtergrondprocessen van de site",
 "Background workers blocked": "Achtergrondprocessen geblokkeerd",
 "Site's own workers allowed": "Eigen processen van de site toegestaan",
-"Probable cause: this level blocks the site's own background workers.": "Waarschijnlijke oorzaak: dit niveau blokkeert de eigen achtergrondprocessen van de site.",
 "Probable cause: a protection blocked something the page needs.": "Waarschijnlijke oorzaak: een bescherming heeft iets geblokkeerd dat de pagina nodig heeft.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Reparatie: de waarschijnlijke oorzaak is heel even uitgeschakeld op deze site, alle andere beschermingen blijven aan. Werkt de pagina nu?",
 "This site works fine": "Deze site werkt goed",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Deze site gebruikt achtergrondprogramma's: hij werkt beter, maar beschermt je iets minder.",
 "This site's background programs are blocked: more protection, but the site may not work.": "De achtergrondprogramma's van deze site zijn geblokkeerd: meer bescherming, maar de site werkt misschien niet.",
 "Block them on this site": "Op deze site blokkeren",
-"Allow them again": "Weer toestaan"
+"Allow them again": "Weer toestaan",
+"Probable cause: this site's background programs are blocked.": "Waarschijnlijke oorzaak: de achtergrondprogramma's van deze site zijn geblokkeerd."
 }
 }

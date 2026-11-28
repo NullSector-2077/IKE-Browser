@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "Penyekatan proses latar milik laman",
 "Background workers blocked": "Proses latar disekat",
 "Site's own workers allowed": "Proses milik laman dibenarkan",
-"Probable cause: this level blocks the site's own background workers.": "Punca berkemungkinan: tahap ini menyekat proses latar milik laman.",
 "Probable cause: a protection blocked something the page needs.": "Punca berkemungkinan: satu perlindungan menyekat sesuatu yang diperlukan oleh halaman.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Pembaikan: punca berkemungkinan dimatikan seketika pada laman ini, semua perlindungan lain kekal hidup. Adakah halaman berfungsi sekarang?",
 "This site works fine": "Laman ini berfungsi dengan baik",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "Laman ini menggunakan program latar: ia berfungsi lebih baik, tetapi perlindungan anda sedikit berkurang.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Program latar laman ini disekat: lebih banyak perlindungan, tetapi laman mungkin tidak berfungsi.",
 "Block them on this site": "Sekat di laman ini",
-"Allow them again": "Benarkan semula"
+"Allow them again": "Benarkan semula",
+"Probable cause: this site's background programs are blocked.": "Punca berkemungkinan: program latar laman ini disekat."
 }
 }

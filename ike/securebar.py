@@ -165,7 +165,10 @@ def danger_of(view):
     if cert and cert == host:
         return "cert"
     n = getattr(view, "secure_notice", None)
-    if n and (url.toString() == n["url"] or host == QUrl(n["url"]).host().lower()):
+    # not the notice for "a part of this page" (1.1.32, the independent
+    # review): it is read from a console message any script of the page, an
+    # ad's frame too, can print, and the engine stopped that part anyway
+    if n and not n.get("frame") and (url.toString() == n["url"] or host == QUrl(n["url"]).host().lower()):
         return n["kind"]
     if getattr(view, "lookalike", None) and getattr(view, "lookalike_host", None) == host:
         return "lookalike"

@@ -1613,7 +1613,6 @@
 "Blocking of the site's own background workers": "საიტის საკუთარი ფონური პროცესების დაბლოკვა",
 "Background workers blocked": "დაბლოკილი ფონური პროცესები",
 "Site's own workers allowed": "საიტის საკუთარი პროცესები დაშვებულია",
-"Probable cause: this level blocks the site's own background workers.": "სავარაუდო მიზეზი: ეს დონე ბლოკავს საიტის საკუთარ ფონურ პროცესებს.",
 "Probable cause: a protection blocked something the page needs.": "სავარაუდო მიზეზი: დაცვამ დაბლოკა რაღაც, რაც გვერდს სჭირდება.",
 "Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "გამოსწორება: სავარაუდო მიზეზი ამ საიტზე ერთი წუთით გამორთულია, ყველა სხვა დაცვა ჩართული რჩება. გვერდი ახლა მუშაობს?",
 "This site works fine": "ეს საიტი კარგად მუშაობს",
@@ -1628,6 +1627,7 @@
 "This site uses background programs: it works better, but protects you a little less.": "ეს საიტი იყენებს ფონურ პროგრამებს: ის უკეთ მუშაობს, მაგრამ ცოტა ნაკლებად გიცავთ.",
 "This site's background programs are blocked: more protection, but the site may not work.": "ამ საიტის ფონური პროგრამები დაბლოკილია: მეტი დაცვა, მაგრამ საიტმა შეიძლება არ იმუშაოს.",
 "Block them on this site": "დაბლოკეთ ისინი ამ საიტზე",
-"Allow them again": "კვლავ დაუშვით ისინი"
+"Allow them again": "კვლავ დაუშვით ისინი",
+"Probable cause: this site's background programs are blocked.": "სავარაუდო მიზეზი: ამ საიტის ფონური პროგრამები დაბლოკილია."
 }
 }
