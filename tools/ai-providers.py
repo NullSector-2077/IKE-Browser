@@ -147,6 +147,19 @@ def discovered(env=None, provider=None):
     return out.get(provider, []) if provider else out
 
 
+# Gemini through its own API, asked by the reserves (2026-11-28): the Antigravity CLI never worked in the closed
+# room of the workflow (it looks up other names, which the firewall refuses: "temporary" on 2026-11-25, a timeout
+# on 2026-11-28, about 150 refused lookups each time). The API is the one the reviewers already use.
+GEMINI_OPENAI = GEMINI_API + "/openai/chat/completions"
+GEMINI_BUDGET = 400_000         # characters of failure + code sent (its context holds a million tokens)
+GEMINI_TOKENS = 8_000
+
+
+def gemini_api_id(name):
+    """The Gemini API's id of a model name of the CLI: "Gemini 3.8 Flash (High)" -> "gemini-3.8-flash"."""
+    return "-".join(str(name).split("(")[0].strip().lower().split())
+
+
 def gemini_cli_name(model_id):
     """The Antigravity CLI's name of a Gemini API id: "gemini-4-neon" -> "Gemini 4 Neon (High)"."""
     words = str(model_id).split("-")

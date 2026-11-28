@@ -21,6 +21,13 @@ from pathlib import Path
 
 import pytest
 
+
+@pytest.fixture(autouse=True)
+def _the_agent_cli_on(monkeypatch):
+    """These tests prove the Antigravity CLI's own path; since 2026-11-28 it runs only with AUTOFIX_AGENT_CLI=on
+    (tests/test_gemini_api_first.py proves the default)."""
+    monkeypatch.setenv("AUTOFIX_AGENT_CLI", "on")
+
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
 
@@ -872,7 +879,7 @@ def test_zai_is_the_third_reserve():
     assert "x = 1" in reserve.message_for("F" * 500, "C" * 500, {"ike/window.py": "x = 1\n" * 2000}, zai)
     workflow = (WORKFLOWS / "autofix.yml").read_text()
     assert "ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}" in workflow
-    assert '"$GROQ_API_KEY$ZAI_API_KEY$OPENROUTER_API_KEY"' in workflow
+    assert '"$GEMINI_API_KEY$GROQ_API_KEY$ZAI_API_KEY$OPENROUTER_API_KEY"' in workflow
     assert '("GROQ_API_KEY", "ZAI_API_KEY", "OPENROUTER_API_KEY")' in workflow       # never handed over
     assert "${{ secrets.ZAI_API_KEY != '' }}" in (WORKFLOWS / "health.yml").read_text()
 
@@ -1636,10 +1643,12 @@ def test_the_closed_room_is_closed_for_git_and_names():
     # the installer: checked against its recorded sha256 when one is set
     assert "AGY_INSTALLER_SHA256" in steps["A closed room for the agent"]["env"]
     assert 'sha256sum /srv/autofix/agy-install.sh' in room and '"$got" != "$AGY_INSTALLER_SHA256"' in room
-    # Antigravity's step has the Gemini key only; the reserves' step has none of it
+    # Antigravity's step has the Gemini key only. Since 2026-11-28 the CLI no longer runs (it executed commands,
+    # so it was kept away from the other keys): Gemini is asked through its API by the reserves' step, which
+    # applies answers as text and runs nothing an AI wrote, like for the other providers' keys
     agy, reserves = steps["Antigravity"], steps["Reserves, then the patch"]
     assert set(agy["env"]) == {"GEMINI_API_KEY", "AUTOFIX_MODEL", "ALLOW_ADBLOCK"}
-    assert "GEMINI_API_KEY" not in reserves["env"]
+    assert "GEMINI_API_KEY" in reserves["env"] and "AUTOFIX_AGENT_CLI" not in (WORKFLOWS / "autofix.yml").read_text()
     assert "GROQ" not in agy["run"] and "OPENROUTER" not in agy["run"]
     # every git command on the agent's tree goes through rgit
     for name in ("Antigravity", "Reserves, then the patch"):
