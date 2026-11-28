@@ -88,7 +88,7 @@ kind; fixed too:
 | N3 | Noise removable by a majority vote over reads with one corner changed, and audio factors read from a buffer of known samples | The noise depends on each pixel's colour and its neighbour's, each sample's value and the one before it: neither the place nor the whole picture | Areas of one plain colour are left as they are (they say nothing about the computer); noise of any kind cannot resist a script written against it (audit, I-1) |
 | FP-M-5 | Error stacks named the protection (`userscript:ike-fp`) | Neutral script names; the protection's lines taken out of stacks | A page that sets `Error.prepareStackTrace` still sees the frames |
 | FP-M-6 | The plugin list recognisable (the prototype's `item()`/`length`/`name` threw; own properties on the invented entries) | The engine's own getters and methods answer for the list and the invented entries | - |
-| FP-V (second pass) | 13 more ways around the fixes: a getter on `Promise`/`Array.prototype.constructor` (species), setters on `Array.prototype`'s index names, module workers (imports run before the prelude), workers inside workers from a page-made address, WebGL numbers given as text or objects, float16 reads rounded to 8 bits, `local()` written with escapes, comments or objects, quiet audio sharing one factor, `SharedArrayBuffer`, the plugin list's own keys, `split()` in the stack cleaning, Trusted Types and `Worker()` with no argument | The engine's promises get an own constructor; loops instead of `filter()`; elements written with `defineProperty`; internal tables without a prototype; module workers get a seed of their own; nested blob addresses read and given the prelude; WebGL numbers read once and passed on as read; float16 noise at the 8-bit scale; every `local()` taken out of FontFace sources; audio factors from each sample's own bits; `SharedArrayBuffer` noised; `ownKeys` and descriptors of the plugin list; a TrustedScriptURL kept, or the prelude's address given a policy of its own (1.1.31: made as the document starts, under a random name; where the site's server refuses it and the page has a default policy, the worker starts as the page asked; an exhausted stack or an address the prelude cannot be added to gives an error, never an inline worker without the protection) | See "Known limits of the noise" below |
+| FP-V (second pass) | 13 more ways around the fixes: a getter on `Promise`/`Array.prototype.constructor` (species), setters on `Array.prototype`'s index names, module workers (imports run before the prelude), workers inside workers from a page-made address, WebGL numbers given as text or objects, float16 reads rounded to 8 bits, `local()` written with escapes, comments or objects, quiet audio sharing one factor, `SharedArrayBuffer`, the plugin list's own keys, `split()` in the stack cleaning, Trusted Types and `Worker()` with no argument | The engine's promises get an own constructor; loops instead of `filter()`; elements written with `defineProperty`; internal tables without a prototype; module workers get a seed of their own; nested blob addresses read and given the prelude; WebGL numbers read once and passed on as read; float16 noise at the 8-bit scale; every `local()` taken out of FontFace sources; audio factors from each sample's own bits; `SharedArrayBuffer` noised; `ownKeys` and descriptors of the plugin list; a TrustedScriptURL kept, or the prelude's address given a policy of its own (1.1.32: made as the document starts, under a random name; where the site's server refuses it and the page has a default policy, the worker starts as the page asked; an exhausted stack or an address the prelude cannot be added to gives an error, never an inline worker without the protection) | See "Known limits of the noise" below |
 | FP-M-4 | The storage quota gave the disk size | `StaticStorageQuota`: 10 GiB for everyone | - |
 | N5 | Maximum: an empty language list, or a language the engine lacks, fell back to the system's language | Such a list means the language shown (en-US), in pages and workers; the list is read once, as the engine reads it | At the global level Maximum the engine itself speaks en-US too (form messages, Date's zone names, every kind of worker; owner's decision, audit M-7). A site set to Maximum by itself keeps the engine's texts in the system's language: the engine has one language for all sites |
 
@@ -117,14 +117,14 @@ routes useless; it cannot stop a script written against it:
   effect (a computed style).
 - **A site set to Maximum by itself** (not the global level) keeps the
   engine's own texts and the time zone's name in the system's language.
-- **Workers of a site that refuses I.K.E.'s Trusted Types policy** (1.1.31):
+- **Workers of a site that refuses I.K.E.'s Trusted Types policy** (1.1.32):
   a site whose server sends a content security policy that allows only its
   own Trusted Types policies by name (`trusted-types <names>`) refuses the
   policy that makes a worker address with the protection in it trusted. Where
   that site also has a default policy of its own (Cloudflare's challenge
   frame), the worker starts as the page asked, with the engine's own values
   (canvas, WebGL, navigator in that worker): one header is enough for a site
-  to have its own workers without the protection. Until 1.1.31 such workers
+  to have its own workers without the protection. Until 1.1.32 such workers
   did not start at all (Cloudflare's Turnstile failed at Balanced and above),
   and the refused policy's name was made from the site's seed. Only the
   server can do this: I.K.E.'s policy is made before any script of a
@@ -157,17 +157,21 @@ routes useless; it cannot stop a script written against it:
   of the address it gives where its policy was refused; the page's own
   Trusted Types errors and events it makes reach it), but a
   `ReportingObserver` of `csp-violation` reports still sees them, and so
-  does a listener after `document.open()`. Before 1.1.31 the same report was
+  does a listener after `document.open()`. Before 1.1.32 the same report was
   sent when the page started a worker.
 - **Inline workers whose address looked different** (found by the
-  independent review of 1.1.31, older than it, closed in 1.1.31): an address
+  independent review of 1.1.32, older than it, closed in 1.1.32): an address
   the engine takes but the protection did not see as blob: or data: (leading
   spaces, capital letters), and a blob address made in another frame or in a
   worker whose text could not be read (a `connect-src` that leaves out
   blob:), started without the protection. The address is now read as the
   engine reads it, and an unreadable blob is started from the protection,
-  which then loads it (tests/test_worker_addresses.py).
-- **A srcdoc frame of a site that refuses the policy** (1.1.31): its worker
+  which then loads it (tests/test_worker_addresses.py). Blobs made in the
+  page's own empty frames are read directly. Where the worker itself cannot
+  load such a blob either (a policy whose script-src leaves out blob:, the
+  blob revoked by its own frame or worker right after the worker was asked
+  for), the worker does not start: never without the protection.
+- **A srcdoc frame of a site that refuses the policy** (1.1.32): its worker
   does not start (its own script cannot know that the server refused the
   policy in the page); an empty frame of the same page starts it as asked.
 

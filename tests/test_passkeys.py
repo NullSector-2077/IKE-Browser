@@ -1,4 +1,4 @@
-"""Passkey questions get an answer (1.1.31, the owner: "we must find a solution").
+"""Passkey questions get an answer (1.1.32, the owner: "we must find a solution").
 
 Arch's Qt WebEngine never settles the promises of
 PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(),

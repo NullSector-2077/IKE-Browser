@@ -1,4 +1,4 @@
-"""Inline workers keep the protection whatever their address looks like (1.1.31).
+"""Inline workers keep the protection whatever their address looks like (1.1.32).
 
 Found by the independent review of the Trusted Types change (older than it):
 - an address the engine takes but the protection did not see as blob: or

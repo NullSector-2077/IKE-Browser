@@ -1,11 +1,11 @@
-"""Workers on pages that use Trusted Types (1.1.31: Cloudflare's Turnstile).
+"""Workers on pages that use Trusted Types (1.1.32: Cloudflare's Turnstile).
 
 Cloudflare's challenge frame allows only its own Trusted Types policies by
 name (`trusted-types <name> default; require-trusted-types-for 'script';
 worker-src blob:`) and starts its workers from blob addresses wrapped by its
 policy. I.K.E. adds its protection to a worker by starting it from a new blob
 address (the protection, then the site's script), made trusted by a policy of
-its own. The page refuses that policy; until 1.1.31 the bare address went on,
+its own. The page refuses that policy; until 1.1.32 the bare address went on,
 the page's own default policy turned it into an address worker-src refuses,
 and the worker never started: Turnstile failed at Balanced, Kontrol and
 Maximum and worked at Compatibility (verified on turnstile.pages.dev, see
@@ -326,7 +326,7 @@ def test_workers_start_where_the_page_refuses_the_protections_policy(run_ike, si
     got = run(run_ike, site, level)
     for key in ("allow1", "allow2"):
         r = got[key]
-        # the page's blob workers run (Turnstile's did not until 1.1.31)
+        # the page's blob workers run (Turnstile's did not until 1.1.32)
         assert r["a"].startswith("pic:") and r["b"].startswith("pic:"), (level, r)
         # nothing of I.K.E.'s reached the page's own default policy
         assert r["tripped"] == 0, (level, r)

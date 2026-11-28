@@ -259,7 +259,7 @@
   if (lv < 2) {
     // Compatibility, or the fingerprint protection off for this site: no
     // protection, but Google's sites still see Firefox, as in the headers,
-    // and the passkey questions are answered (1.1.31: a sign-in page waited
+    // and the passkey questions are answered (1.1.32: a sign-in page waited
     // for ever at every level)
     if (FIREFOX) {
       try {
@@ -1479,7 +1479,7 @@
       });
     } catch (e) {}
   }
-  // Passkeys (1.1.31): Arch's Qt WebEngine never settles the promises of
+  // Passkeys (1.1.32): Arch's Qt WebEngine never settles the promises of
   // PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(),
   // isConditionalMediationAvailable() and getClientCapabilities() (other
   // builds answer the first two; none the third), so a sign-in page that
@@ -2166,7 +2166,7 @@
             u = absW(u);
             args = send(u);
             var asked = args, nestedMade = null;
-            // the address as the engine reads it (' blob:', 'BLOB:', 1.1.31)
+            // the address as the engine reads it (' blob:', 'BLOB:', 1.1.32)
             try {
               var nu = RAW(hrefW, new URLC(u), []);
               if (RAW(SSL, nu, [0, 5]) === 'blob:' || RAW(SSL, nu, [0, 5]) === 'data:') u = nu;
@@ -2205,7 +2205,7 @@
                 args = send(pu);
                 RA(LT, self, [function () { RA(rv, Ur, [pu]); }, 30000]);
               } else if (nBlob && NB) {
-                // its text cannot be read: the prelude, which loads it (1.1.31)
+                // its text cannot be read: the prelude, which loads it (1.1.32)
                 var ljs = { type: 'text/javascript' };
                 if (module) {
                   var lpre = RA(mk, Ur, [new NB([preludeOf(u, true)], ljs)]);
@@ -2223,7 +2223,7 @@
               }
             } catch (e) {
               // an inline worker the protection could not be added to: the
-              // error, never the worker as asked without it (1.1.31)
+              // error, never the worker as asked without it (1.1.32)
               if (nBlob || nData) throw e;
             }
             var wk;
@@ -2285,7 +2285,7 @@
     'origin: R(OR, e, []), lastEventId: R(LI, e, []), source: R(SO, e, []), ports: pl })]); }\n'];
   var RND = new Uint32Array(1), RND_GET = crypto.getRandomValues, CRYPTO = crypto;
   // run: a classic worker from a file, whose prelude then runs the file
-  // JSON text in ASCII only (1.1.31, the independent review): a data:
+  // JSON text in ASCII only (1.1.32, the independent review): a data:
   // address, or an installed font's name, with a character beyond Latin-1
   // made btoa() throw, and the worker started as the page asked, without the
   // protection; the same characters as \uXXXX escapes, as JSON allows
@@ -3092,7 +3092,7 @@
     // Trusted Types (verification V-13): a TrustedScriptURL is read through
     // its own method and passed on as it is when nothing is added; an
     // address with the prelude gets a policy of the protection's own.
-    // 1.1.31 (Cloudflare's Turnstile failed at Balanced and above): that
+    // 1.1.32 (Cloudflare's Turnstile failed at Balanced and above): that
     // policy is made as the document starts, before any script of the page,
     // so only the policy the site's server sent can refuse it (a policy a
     // script adds later, in a <meta>, cannot: the independent review). Its
@@ -3101,7 +3101,7 @@
     // gives the noise away. Where the site allows only its own policies by
     // name (Cloudflare's challenge frame: `trusted-types <name> default`) and
     // has a default policy of its own, the worker starts with the page's own
-    // TrustedScriptURL, as the page asked: until 1.1.31 the bare address went
+    // TrustedScriptURL, as the page asked: until 1.1.32 the bare address went
     // on, the page's default policy turned it into an address its worker-src
     // refuses, and the worker never started. With no default policy the bare
     // address goes on as before (the engine takes it where Trusted Types are
@@ -3201,7 +3201,7 @@
     }
     // a worker started from a blob address whose text cannot be read: the
     // prelude, then the address loaded by the worker itself (importScripts,
-    // or import() for a module), as for a site's file (1.1.31)
+    // or import() for a module), as for a site's file (1.1.32)
     function blobLoader(address, module) {
       var js = { type: 'text/javascript' };
       if (module) {
@@ -3354,7 +3354,7 @@
     // the protection's own attempt is not the page's (review round 3, N-6);
     // the worker the page asked for is then refused (see above). The same
     // for a refusal of the protection's Trusted Types policy or of its
-    // address (1.1.31, the independent review: in an empty frame the page
+    // address (1.1.32, the independent review: in an empty frame the page
     // always saw it, named as coming from "userscript"), at every level. The
     // report a server asked for (report-uri) cannot be held back.
     var SPV = w.SecurityPolicyViolationEvent && w.SecurityPolicyViolationEvent.prototype;
@@ -3415,7 +3415,7 @@
             var opt = workerOptions(args[1], args.length > 1);
             var send = function (u) { return opt.given ? [u, opt.value] : [u]; };
             var call = send(tt !== null ? first : url), asked = call, hello = null, loader = null;
-            // the address as the engine reads it (1.1.31, the independent
+            // the address as the engine reads it (1.1.32, the independent
             // review): ' blob:...' or 'BLOB:...', which the engine takes, were
             // no inline worker here and started without the protection
             try {
@@ -3482,7 +3482,7 @@
             } catch (e) {
               // a page that used up the stack first, or gave an address the
               // protection could not be added to, got the worker it asked for
-              // without it (1.1.31, the independent review): the error
+              // without it (1.1.32, the independent review): the error
               // instead, for an inline worker (a file's is refused anyway at
               // these levels, by the request check)
               if (outOfStack(e) || (!file && inline)) { clean(e); throw e; }
