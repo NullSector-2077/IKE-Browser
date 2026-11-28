@@ -1,0 +1,9 @@
+{
+  "scenario": "qt",
+  "candidate": "drill-qt",
+  "drill": "qt-202611281757",
+  "started": "2026-11-28T17:57:43+00:00",
+  "main": "b01b0e5f1dedc0ebc6576db04efcde15f428c73c",
+  "hours": 48,
+  "what": "AUTOMAT drill: an exercise, never merged into main and never shipped (tools/automat-drill.py)"
+}
