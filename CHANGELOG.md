@@ -92,13 +92,21 @@
   and the page no longer sees the protection's own refusals (in an empty
   frame it always saw one, from "userscript"), while its own Trusted Types
   errors and events still reach it.
-- **Two older ways to a worker without the protection are closed** (found by
-  the same review): an address the engine takes but I.K.E. did not recognise
-  (`' blob:…'`, `'BLOB:…'`, `' data:…'`), in a page or in a worker, and a
-  blob address made in another frame whose text the page cannot read (a
-  policy without blob: in connect-src). Such a worker now starts with the
-  protection, which loads the site's script itself
-  (tests/test_worker_addresses.py).
+- **Older ways to a worker without the protection are closed** (found by the
+  independent reviews): an address the engine takes but I.K.E. did not
+  recognise (`' blob:…'`, `'BLOB:…'`, `' data:…'`), in a page or in a worker;
+  a blob address made in another frame or a worker whose text the page cannot
+  read (a policy without blob: in connect-src); a `filesystem:` address
+  holding the page's own text; and, the most serious, a page that requires
+  Trusted Types itself (a `<meta>` its script adds) with a default policy of
+  its own: the protection's address reached that policy as a bare string, so
+  the page could read the protection with the site's seed in it, or start
+  its own text in its place. The protection's address is now always made
+  trusted by I.K.E.'s own policy (in workers too), the page's default policy
+  never sees it, and where that cannot be done the worker is refused as the
+  engine refuses an untrusted address, never started without the protection
+  (tests/test_worker_addresses.py, tests/test_trusted_types_workers.py).
+
 - **The noise's seed is no longer handed to such a page**: the protection's
   policy was named 'p' + the site's seed, and a site that refuses it reads the
   name in the refusal (`securitypolicyviolation`'s `sample`, and the report its

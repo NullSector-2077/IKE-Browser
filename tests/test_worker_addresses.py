@@ -51,6 +51,21 @@ window.__run = async function () {
     JSON.stringify(WORKER) + '], { type: "text/javascript" })));'], { type: 'text/javascript' })));
   var fromWorker = await new Promise(function (ok) { maker.onmessage = function (e) { ok(e.data); }; });
   out.fromWorker = await start(function () { return new Worker(fromWorker); });
+  // a filesystem: address of the page's own text (the final review of 1.1.32)
+  out.fs = await new Promise(function (ok) {
+    var rfs = window.webkitRequestFileSystem;
+    if (!rfs) return ok('none');
+    var no = function () { ok('no filesystem'); };
+    rfs.call(window, window.TEMPORARY, 1 << 20, function (fsys) {
+      fsys.root.getFile('w' + Math.random() + '.js', { create: true }, function (fe) {
+        fe.createWriter(function (wr) {
+          wr.onwriteend = function () { start(function () { return new Worker(fe.toURL()); }).then(ok); };
+          wr.write(new Blob([WORKER], { type: 'text/javascript' }));
+        }, no);
+      }, no);
+    }, no);
+    setTimeout(function () { ok('timeout'); }, 6000);
+  });
   // a blob address that leads nowhere: the engine's own plain error event
   out.dead = await new Promise(function (ok) {
     var w = new Worker('blob:' + location.origin + '/00000000-0000-4000-8000-000000000000');
@@ -120,6 +135,9 @@ def test_inline_workers_keep_the_protection_whatever_their_address(run_ike, site
         # by the page under connect-src 'none'): protected
         assert r["foreign"] == r["page"], (level, key, r)
         assert r["fromWorker"] == r["page"], (level, key, r)
+        # a filesystem: worker of the page's own text: protected, or not started
+        assert r["fs"] != "pic:" + real.split(":")[1], (level, key, r)
+        assert r["fs"] in (r["page"], "error", "timeout", "none", "no filesystem"), (level, key, r)
         # a dead blob address: the engine's plain error event, no message
         assert r["dead"] == "Event:-", (level, key, r)
         # 'http:w.js', the site's own file, read relative to the document as

@@ -165,12 +165,23 @@ routes useless; it cannot stop a script written against it:
   spaces, capital letters), and a blob address made in another frame or in a
   worker whose text could not be read (a `connect-src` that leaves out
   blob:), started without the protection. The address is now read as the
-  engine reads it, and an unreadable blob is started from the protection,
-  which then loads it (tests/test_worker_addresses.py). Blobs made in the
+  engine reads it, an unreadable blob (or a `filesystem:` address) is
+  started from the protection, which then loads it, and the protection's
+  address is always trusted by I.K.E.'s own Trusted Types policy, so a
+  default policy of the page's never sees it (tests/test_worker_addresses.py,
+  tests/test_trusted_types_workers.py). Blobs made in the
   page's own empty frames are read directly. Where the worker itself cannot
   load such a blob either (a policy whose script-src leaves out blob:, the
   blob revoked by its own frame or worker right after the worker was asked
   for), the worker does not start: never without the protection.
+- **The passkey answers at Compatibility** (1.1.32): there the three
+  `PublicKeyCredential` functions are proxies of the engine's own, so that
+  `Function.prototype.toString` stays the engine's on every page (the sign-in
+  pages kept at Compatibility included); their own text reads
+  `function () { [native code] }` instead of Chromium's
+  `function isConditionalMediationAvailable() { [native code] }`. A script
+  that reads the text of these three functions can tell; replacing `toString`
+  instead would be seen by any page that reads it from a clean frame.
 - **A srcdoc frame of a site that refuses the policy** (1.1.32): its worker
   does not start (its own script cannot know that the server refused the
   policy in the page); an empty frame of the same page starts it as asked.

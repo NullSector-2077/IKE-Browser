@@ -1618,6 +1618,25 @@
     var lower = function (x) { return RAW(SLO, x, []); };
     var major = function (x) { var t = `${x}`, i = RAW(SIX, t, ['.']); return i < 0 ? t : RAW(SSL, t, [0, i]); };
     var getOf = function (proto, name) { var d = proto && GD(proto, name); return d && d.get; };
+    // a Trusted Types policy of the protection's own, made before the
+    // worker's code runs, for the addresses of the workers it starts: never
+    // a bare string a default policy of the worker's code would be handed
+    // (1.1.32, as in the page: that policy could read the prelude)
+    var wPolicy = null, TTF = self.trustedTypes;
+    var wDefault = getOf(self.TrustedTypePolicyFactory && TrustedTypePolicyFactory.prototype, 'defaultPolicy');
+    var wMakeURL = self.TrustedTypePolicy && TrustedTypePolicy.prototype.createScriptURL;
+    try {
+      if (TTF && wMakeURL) {
+        var wr = new Uint32Array(1);
+        crypto.getRandomValues(wr);
+        wPolicy = RAW(TTF.createPolicy, TTF, ['p' + wr[0], { createScriptURL: function (x) { return x; } }]);
+      }
+    } catch (e) {}
+    var oursW = function (x) {
+      if (wPolicy) { try { return RAW(wMakeURL, wPolicy, [x]); } catch (e) { return null; } }
+      try { if (wDefault && RAW(wDefault, TTF, [])) return null; } catch (e) { return null; }
+      return x;
+    };
     var TAP = Object.getPrototypeOf(Uint8Array.prototype);
     var LENG = getOf(TAP, 'length'), TAGG = getOf(TAP, Symbol.toStringTag);
     var IMGD = getOf(self.ImageData && ImageData.prototype, 'data');
@@ -2165,13 +2184,17 @@
             var send = function (x) { return given ? [x, ov] : [x]; };
             u = absW(u);
             args = send(u);
-            var asked = args, nestedMade = null;
+            var asked = args, nestedMade = null, wRefused = false;
+            var giveW = function (x) { var v = oursW(x); if (v === null) wRefused = true; else args = send(v); };
             // the address as the engine reads it (' blob:', 'BLOB:', 1.1.32)
             try {
               var nu = RAW(hrefW, new URLC(u), []);
-              if (RAW(SSL, nu, [0, 5]) === 'blob:' || RAW(SSL, nu, [0, 5]) === 'data:') u = nu;
+              if (RAW(SSL, nu, [0, 5]) === 'blob:' || RAW(SSL, nu, [0, 5]) === 'data:' ||
+                  RAW(SSL, nu, [0, 11]) === 'filesystem:') u = nu;
             } catch (e) {}
-            var nBlob = RAW(SSL, u, [0, 5]) === 'blob:', nData = RAW(SSL, u, [0, 5]) === 'data:';
+            // a filesystem: address holds the page's text as a blob does (1.1.32)
+            var nBlob = RAW(SSL, u, [0, 5]) === 'blob:' || RAW(SSL, u, [0, 11]) === 'filesystem:';
+            var nData = RAW(SSL, u, [0, 5]) === 'data:';
             try {
               var b = made.get(u);
               if (c.strict && name === 'Worker' && !nBlob && !nData && XR && NB) {
@@ -2186,7 +2209,7 @@
                   } else {
                     nestedMade = RA(mk, Ur, [new NB([preludeOf(fa, false, true)], js)]);
                   }
-                  args = send(nestedMade);
+                  giveW(nestedMade);
                 }
               }
               if (!b && nBlob && XR) {
@@ -2202,7 +2225,7 @@
               }
               if (b) {
                 var pu = RA(mk, Ur, [new NB([preludeOf(u, module), b], { type: RAW(BTY, b, []) || 'text/javascript' })]);
-                args = send(pu);
+                giveW(pu);
                 RA(LT, self, [function () { RA(rv, Ur, [pu]); }, 30000]);
               } else if (nBlob && NB) {
                 // its text cannot be read: the prelude, which loads it (1.1.32)
@@ -2214,17 +2237,22 @@
                 } else {
                   nestedMade = RA(mk, Ur, [new NB([preludeOf(u, false, true)], ljs)]);
                 }
-                args = send(nestedMade);
+                giveW(nestedMade);
               } else if (nData && RAW(SIX, u, [',']) > 0) {
                 var k = RAW(SIX, u, [',']), b64 = lower(RAW(SSL, u, [k - 7 < 0 ? 0 : k - 7, k])) === ';base64';
                 var mine = preludeOf(u, true);
-                args = send(RAW(SSL, u, [0, k + 1]) + (b64 ? RA(b2a, self, [mine]) : RA(enc, self, [mine])) +
+                giveW(RAW(SSL, u, [0, k + 1]) + (b64 ? RA(b2a, self, [mine]) : RA(enc, self, [mine])) +
                   RAW(SSL, u, [k + 1]));
               }
             } catch (e) {
               // an inline worker the protection could not be added to: the
               // error, never the worker as asked without it (1.1.32)
               if (nBlob || nData) throw e;
+            }
+            if (wRefused) {
+              // the address could not be given without handing it to the
+              // worker's own code: the engine's refusal, never the worker without it
+              throw new TypeError("Failed to construct '" + name + "': This document requires 'TrustedScriptURL' assignment.");
             }
             var wk;
             try { wk = RC(t, args, nt); } catch (e) {
@@ -3150,12 +3178,19 @@
       if (!serverRefused) return false;
       try { return !!(TT_DEFAULT && RAPPLY(TT_DEFAULT, TTP, [])); } catch (e) { return false; }
     };
-    // the address as a TrustedScriptURL of the protection's policy, or the
-    // bare address when there is none
-    var asTrusted = function (u) {
+    // The protection's address as the engine is given it: a TrustedScriptURL
+    // of the protection's own policy, whatever the page gave (1.1.32, the
+    // independent review: given as a bare string, it went to the page's own
+    // default policy where the page requires Trusted Types, and that policy
+    // could read the prelude, the seed with it, or put the page's own
+    // address in its place). Without a policy of the protection's, a bare
+    // string only where the page has no default policy; null: the address
+    // cannot be given without handing it to the page.
+    var ours = function (u) {
       makePolicy();
-      if (!ttPolicy) return u;
-      try { return RAPPLY(TT_URL, ttPolicy, [u]); } catch (e) { return u; }
+      if (ttPolicy) { try { return RAPPLY(TT_URL, ttPolicy, [u]); } catch (e) { return null; } }
+      try { if (TT_DEFAULT && RAPPLY(TT_DEFAULT, TTP, [])) return null; } catch (e) { return null; }
+      return u;
     };
     var xStatus = getterOf(XP, 'status'), xText = getterOf(XP, 'responseText');
     // Strict and Maximum (1.1.25, independent review): a dedicated worker the
@@ -3414,7 +3449,7 @@
             var url = tt !== null ? tt : `${first}`;
             var opt = workerOptions(args[1], args.length > 1);
             var send = function (u) { return opt.given ? [u, opt.value] : [u]; };
-            var call = send(tt !== null ? first : url), asked = call, hello = null, loader = null;
+            var call = send(tt !== null ? first : url), asked = call, hello = null, loader = null, refused = false;
             // the address as the engine reads it (1.1.32, the independent
             // review): ' blob:...' or 'BLOB:...', which the engine takes, were
             // no inline worker here and started without the protection
@@ -3422,12 +3457,15 @@
               // against the document's own base (the review: 'https:w.js' is
               // relative to it, and a <base> may be a blob: address)
               var nu = RAPPLY(uHref, nConstruct(U, [url, RAPPLY(baseOf, w.document, [])]), []);
-              if (sslice(nu, 0, 5) === 'blob:' || sslice(nu, 0, 5) === 'data:') url = nu;
+              if (sslice(nu, 0, 5) === 'blob:' || sslice(nu, 0, 5) === 'data:' || sslice(nu, 0, 11) === 'filesystem:') url = nu;
             } catch (e) {}
-            var isBlob = sslice(url, 0, 5) === 'blob:', isData = sslice(url, 0, 5) === 'data:';
+            // a filesystem: address holds the page's own text, as a blob does
+            // (1.1.32, the review): read, or loaded by the prelude, the same way
+            var isBlob = sslice(url, 0, 5) === 'blob:' || sslice(url, 0, 11) === 'filesystem:';
+            var isData = sslice(url, 0, 5) === 'data:';
             var inline = isBlob || isData;
             try {
-              if (tt !== null && asAsked()) {
+              if (asAsked()) {
                 // nothing to add: the worker the page asked for (a file of the
                 // site's at Strict and above: refused by the request check)
               } else if (strict && name === 'Worker' && !inline) {
@@ -3437,8 +3475,9 @@
                 } else {
                   hello = keepWorkersOut ? null : newHello();
                   file = fromFile(url, opt.module, hello);
-                  if (file) call = send(tt !== null ? asTrusted(file) : file);
-                  else hello = null;
+                  var fv = file ? ours(file) : null;
+                  if (fv !== null) call = send(fv);
+                  else { file = null; hello = null; }   // the site's file as asked (refused at Maximum)
                 }
               } else if (isBlob) {
                 var blob = blobs.get(url);
@@ -3456,7 +3495,8 @@
                 if (blob) {
                   var patched = RAPPLY(rawCreate, U, [new NBlob([preludeFor(url, opt.module), blob],
                     { type: RAPPLY(BLOB_TYPE, blob, []) || 'text/javascript' })]);
-                  call = send(tt !== null ? asTrusted(patched) : patched);
+                  var pv = ours(patched);
+                  if (pv === null) refused = true; else call = send(pv);
                   PATCHED.set(patched, url);
                   // the prelude revokes it at once; this is the fallback
                   RAPPLY(nLater, w, [function () { RAPPLY(rawRevoke, U, [patched]); }, 30000]);
@@ -3466,7 +3506,8 @@
                   // then loads the address itself, as a site's file at Strict;
                   // never the worker as asked, without the protection
                   loader = blobLoader(url, opt.module);
-                  call = send(tt !== null ? asTrusted(loader) : loader);
+                  var lv = ours(loader);
+                  if (lv === null) refused = true; else call = send(lv);
                 }
               } else if (isData) {
                 var comma = sindex(url, ',');
@@ -3475,7 +3516,8 @@
                   var pre = preludeFor(url, true);
                   var made = sslice(url, 0, comma + 1) +
                     (b64 ? RAPPLY(nBtoa, w, [pre]) : RAPPLY(nEnc, w, [pre])) + sslice(url, comma + 1);
-                  call = send(tt !== null ? asTrusted(made) : made);
+                  var dv = ours(made);
+                  if (dv === null) refused = true; else call = send(dv);
                   PATCHED.set(made, url);
                 }
               }
@@ -3494,6 +3536,13 @@
             // from the network, whose policy only its server sent. An inline
             // worker anywhere else is not started without the protection: a
             // script could have given an empty frame the policy that refuses it
+            // the protection's address could not be given without handing it
+            // to the page (see ours): the engine's refusal of an untrusted
+            // address, never the worker without the protection
+            if (refused) {
+              var te = new w.TypeError("Failed to construct '" + name + "': This document requires 'TrustedScriptURL' assignment.");
+              clean(te); throw te;
+            }
             var made;
             try { made = nConstruct(target, call, nt); } catch (e) {
               if (call !== asked && !outOfStack(e) && (file || netDoc || !inline)) {
