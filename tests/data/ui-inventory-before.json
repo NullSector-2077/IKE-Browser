@@ -1,0 +1,4162 @@
+{
+ "menubar": [
+  {
+   "text": "&File",
+   "id": "",
+   "menu": [
+    {
+     "text": "New tab",
+     "id": "act_new_tab",
+     "keys": [
+      "Ctrl+T"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "New window",
+     "id": "act_new_window",
+     "keys": [
+      "Ctrl+N"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "New private window",
+     "id": "act_new_private",
+     "keys": [
+      "Ctrl+Shift+N"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "New tab in container",
+     "id": "m_containers",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true,
+     "menu": [
+      {
+       "text": "Personale",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Lavoro",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Banca",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Acquisti",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "sep": ""
+      },
+      {
+       "text": "Manage containers…",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      }
+     ]
+    },
+    {
+     "text": "Profiles",
+     "id": "m_profiles",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true,
+     "menu": [
+      {
+       "text": "default",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": true,
+       "icon": true
+      },
+      {
+       "sep": ""
+      },
+      {
+       "text": "New profile…",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      }
+     ]
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Open file…",
+     "id": "",
+     "keys": [
+      "Ctrl+O"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Save page as…",
+     "id": "act_save_page",
+     "keys": [
+      "Ctrl+S"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Save as PDF…",
+     "id": "act_pdf",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Print…",
+     "id": "act_print",
+     "keys": [
+      "Ctrl+P"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Screenshot…",
+     "id": "act_shot",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true,
+     "menu": [
+      {
+       "text": "Visible part",
+       "id": "",
+       "keys": [
+        "Ctrl+Shift+S"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Whole page",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Selected area",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      }
+     ]
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Import from another browser…",
+     "id": "act_import",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Back up I.K.E. data…",
+     "id": "act_backup",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Restore a backup…",
+     "id": "act_restore",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Close tab",
+     "id": "",
+     "keys": [
+      "Ctrl+W"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Close window",
+     "id": "",
+     "keys": [
+      "Ctrl+Shift+W"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Quit",
+     "id": "act_quit",
+     "keys": [
+      "Ctrl+Q"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    }
+   ]
+  },
+  {
+   "text": "&Edit",
+   "id": "",
+   "menu": [
+    {
+     "text": "Undo",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Redo",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Cut",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Copy",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Paste",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Select all",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Find in page…",
+     "id": "act_find",
+     "keys": [
+      "Ctrl+F"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    }
+   ]
+  },
+  {
+   "text": "&View",
+   "id": "",
+   "menu": [
+    {
+     "text": "Zoom in",
+     "id": "act_zoom_in",
+     "keys": [
+      "Ctrl++",
+      "Ctrl+="
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Zoom out",
+     "id": "act_zoom_out",
+     "keys": [
+      "Ctrl+-"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Actual size",
+     "id": "act_zoom_reset",
+     "keys": [
+      "Ctrl+0"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Full screen",
+     "id": "act_fullscreen",
+     "keys": [
+      "F11"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Reader mode",
+     "id": "act_reader",
+     "keys": [
+      "F9"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Dark mode for pages",
+     "id": "m_dark",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true,
+     "menu": [
+      {
+       "text": "On everywhere",
+       "id": "act_dark_all",
+       "keys": [],
+       "visible": true,
+       "checkable": true,
+       "icon": true
+      },
+      {
+       "text": "On for this site",
+       "id": "act_dark_site",
+       "keys": [],
+       "visible": true,
+       "checkable": true,
+       "icon": true
+      }
+     ]
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Vertical tabs",
+     "id": "act_vertical",
+     "keys": [
+      "Ctrl+Shift+E"
+     ],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Split view",
+     "id": "act_split",
+     "keys": [
+      "Ctrl+Shift+2"
+     ],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Workspaces",
+     "id": "m_workspaces",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true,
+     "menu": [
+      {
+       "text": "Main  (1)",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": true,
+       "icon": true
+      },
+      {
+       "sep": ""
+      },
+      {
+       "text": "New workspace…",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Rename workspace…",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Delete workspace",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      }
+     ]
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Menu bar",
+     "id": "act_menubar",
+     "keys": [
+      "Ctrl+M"
+     ],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Bookmarks bar: only on a new tab",
+     "id": "act_bookbar",
+     "keys": [
+      "Ctrl+Shift+B"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "System title bar",
+     "id": "act_titlebar",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Customise toolbar…",
+     "id": "act_customise",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Page source",
+     "id": "",
+     "keys": [
+      "Ctrl+U"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Developer tools",
+     "id": "",
+     "keys": [
+      "F12",
+      "Ctrl+Shift+I"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    }
+   ]
+  },
+  {
+   "text": "Hi&story",
+   "id": "m_history",
+   "menu": [
+    {
+     "text": "Back",
+     "id": "act_back",
+     "keys": [
+      "Alt+Left"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Forward",
+     "id": "act_fwd",
+     "keys": [
+      "Alt+Right"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Home",
+     "id": "act_home",
+     "keys": [
+      "Alt+Home"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Reopen closed tab",
+     "id": "act_reopen",
+     "keys": [
+      "Ctrl+Shift+T"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Recently closed tabs",
+     "id": "m_closed",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true,
+     "menu": []
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Show all history",
+     "id": "act_history",
+     "keys": [
+      "Ctrl+H"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Clear recent history…",
+     "id": "act_clear_recent",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    }
+   ]
+  },
+  {
+   "text": "&Bookmarks",
+   "id": "m_bookmarks",
+   "menu": [
+    {
+     "text": "Bookmark this page",
+     "id": "act_bookmark",
+     "keys": [
+      "Ctrl+D"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Manage bookmarks",
+     "id": "act_bookmarks",
+     "keys": [
+      "Ctrl+Shift+O"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Bookmarks bar: only on a new tab",
+     "id": "act_bookbar",
+     "keys": [
+      "Ctrl+Shift+B"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "sep": ""
+    }
+   ]
+  },
+  {
+   "text": "&Protection",
+   "id": "",
+   "menu": [
+    {
+     "sep": "Protection level for every site"
+    },
+    {
+     "text": "Off",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Compatibility",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Balanced",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Strict",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Maximum",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Repair this site",
+     "id": "act_repair",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Site permissions…",
+     "id": "act_permissions",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Update filter lists now",
+     "id": "act_update_lists",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Clear browsing data…",
+     "id": "act_clear",
+     "keys": [
+      "Ctrl+Shift+Del"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Protection settings…",
+     "id": "act_protection_settings",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    }
+   ]
+  },
+  {
+   "text": "E&xtensions",
+   "id": "",
+   "menu": [
+    {
+     "text": "User scripts",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Dark mode for pages",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Skip ads in videos",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Cookie banners",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Password manager",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Notify me when a page changes",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Split view",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Video in a floating window",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Translate page",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Containers",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Site resources",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Weather on the new tab page",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Command bar",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Plasma integration",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Automatic scrolling",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Open selected text with middle click",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Manage extensions…",
+     "id": "act_manage_ext",
+     "keys": [
+      "Ctrl+Shift+A"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    }
+   ]
+  },
+  {
+   "text": "&Tools",
+   "id": "",
+   "menu": [
+    {
+     "text": "Command bar…",
+     "id": "act_command_bar",
+     "keys": [
+      "F2"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Search open tabs…",
+     "id": "act_search_tabs",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Downloads",
+     "id": "act_downloads",
+     "keys": [
+      "Ctrl+J"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Passwords…",
+     "id": "act_passwords",
+     "keys": [
+      "Ctrl+Shift+K"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Fill login on this page",
+     "id": "act_fill_login",
+     "keys": [
+      "Ctrl+Shift+L"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Translate page…",
+     "id": "act_translate",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Video in floating window",
+     "id": "act_float",
+     "keys": [
+      "Ctrl+Shift+V"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Mute tab",
+     "id": "act_mute",
+     "keys": [
+      "Ctrl+Shift+M"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Site resources…",
+     "id": "act_resources",
+     "keys": [
+      "Shift+Esc"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Suspend inactive tabs now",
+     "id": "act_suspend",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Watched pages…",
+     "id": "act_watches",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Search engines…",
+     "id": "act_engines",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Chrome Web Store",
+     "id": "act_store",
+     "keys": [],
+     "visible": false,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Settings…",
+     "id": "act_settings",
+     "keys": [
+      "Ctrl+,"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    }
+   ]
+  },
+  {
+   "text": "&Help",
+   "id": "",
+   "menu": [
+    {
+     "text": "Keyboard shortcuts",
+     "id": "",
+     "keys": [
+      "F1"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Check for I.K.E. updates",
+     "id": "act_check_updates",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "About Qt",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    }
+   ]
+  }
+ ],
+ "burger": [
+  {
+   "text": "New tab",
+   "id": "act_new_tab",
+   "keys": [
+    "Ctrl+T"
+   ],
+   "visible": true,
+   "checkable": false,
+   "icon": true
+  },
+  {
+   "text": "New window",
+   "id": "act_new_window",
+   "keys": [
+    "Ctrl+N"
+   ],
+   "visible": true,
+   "checkable": false,
+   "icon": true
+  },
+  {
+   "text": "New private window",
+   "id": "act_new_private",
+   "keys": [
+    "Ctrl+Shift+N"
+   ],
+   "visible": true,
+   "checkable": false,
+   "icon": true
+  },
+  {
+   "sep": ""
+  },
+  {
+   "text": "Find in page…",
+   "id": "act_find",
+   "keys": [
+    "Ctrl+F"
+   ],
+   "visible": true,
+   "checkable": false,
+   "icon": true
+  },
+  {
+   "text": "Zoom",
+   "id": "m_zoom",
+   "keys": [],
+   "visible": true,
+   "checkable": false,
+   "icon": true,
+   "menu": [
+    {
+     "text": "Zoom in",
+     "id": "act_zoom_in",
+     "keys": [
+      "Ctrl++",
+      "Ctrl+="
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Zoom out",
+     "id": "act_zoom_out",
+     "keys": [
+      "Ctrl+-"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Actual size",
+     "id": "act_zoom_reset",
+     "keys": [
+      "Ctrl+0"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    }
+   ]
+  },
+  {
+   "text": "Dark mode for pages",
+   "id": "m_dark",
+   "keys": [],
+   "visible": true,
+   "checkable": false,
+   "icon": true,
+   "menu": [
+    {
+     "text": "On everywhere",
+     "id": "act_dark_all",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "On for this site",
+     "id": "act_dark_site",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    }
+   ]
+  },
+  {
+   "text": "Reader mode",
+   "id": "act_reader",
+   "keys": [
+    "F9"
+   ],
+   "visible": true,
+   "checkable": false,
+   "icon": true
+  },
+  {
+   "text": "Translate page…",
+   "id": "act_translate",
+   "keys": [],
+   "visible": true,
+   "checkable": false,
+   "icon": true
+  },
+  {
+   "sep": ""
+  },
+  {
+   "text": "Print…",
+   "id": "act_print",
+   "keys": [
+    "Ctrl+P"
+   ],
+   "visible": true,
+   "checkable": false,
+   "icon": true
+  },
+  {
+   "text": "Save as PDF…",
+   "id": "act_pdf",
+   "keys": [],
+   "visible": true,
+   "checkable": false,
+   "icon": true
+  },
+  {
+   "text": "Save page as…",
+   "id": "act_save_page",
+   "keys": [
+    "Ctrl+S"
+   ],
+   "visible": true,
+   "checkable": false,
+   "icon": true
+  },
+  {
+   "text": "Screenshot…",
+   "id": "act_shot",
+   "keys": [],
+   "visible": true,
+   "checkable": false,
+   "icon": true,
+   "menu": [
+    {
+     "text": "Visible part",
+     "id": "",
+     "keys": [
+      "Ctrl+Shift+S"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Whole page",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Selected area",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    }
+   ]
+  },
+  {
+   "sep": ""
+  },
+  {
+   "text": "History",
+   "id": "",
+   "keys": [],
+   "visible": true,
+   "checkable": false,
+   "icon": true,
+   "menu": [
+    {
+     "text": "Back",
+     "id": "act_back",
+     "keys": [
+      "Alt+Left"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Forward",
+     "id": "act_fwd",
+     "keys": [
+      "Alt+Right"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Home",
+     "id": "act_home",
+     "keys": [
+      "Alt+Home"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Reopen closed tab",
+     "id": "act_reopen",
+     "keys": [
+      "Ctrl+Shift+T"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Recently closed tabs",
+     "id": "m_closed",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true,
+     "menu": []
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Show all history",
+     "id": "act_history",
+     "keys": [
+      "Ctrl+H"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Clear recent history…",
+     "id": "act_clear_recent",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    }
+   ]
+  },
+  {
+   "text": "Bookmarks",
+   "id": "",
+   "keys": [],
+   "visible": true,
+   "checkable": false,
+   "icon": true,
+   "menu": [
+    {
+     "text": "Bookmark this page",
+     "id": "act_bookmark",
+     "keys": [
+      "Ctrl+D"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Manage bookmarks",
+     "id": "act_bookmarks",
+     "keys": [
+      "Ctrl+Shift+O"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Bookmarks bar: only on a new tab",
+     "id": "act_bookbar",
+     "keys": [
+      "Ctrl+Shift+B"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "sep": ""
+    }
+   ]
+  },
+  {
+   "text": "Downloads",
+   "id": "act_downloads",
+   "keys": [
+    "Ctrl+J"
+   ],
+   "visible": true,
+   "checkable": false,
+   "icon": true
+  },
+  {
+   "sep": ""
+  },
+  {
+   "text": "Protection",
+   "id": "m_level",
+   "keys": [],
+   "visible": true,
+   "checkable": false,
+   "icon": true,
+   "menu": [
+    {
+     "sep": "Protection level for every site"
+    },
+    {
+     "text": "Off",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Compatibility",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Balanced",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Strict",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Maximum",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Repair this site",
+     "id": "act_repair",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Site permissions…",
+     "id": "act_permissions",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Update filter lists now",
+     "id": "act_update_lists",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Clear browsing data…",
+     "id": "act_clear",
+     "keys": [
+      "Ctrl+Shift+Del"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Protection settings…",
+     "id": "act_protection_settings",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    }
+   ]
+  },
+  {
+   "text": "I.K.E. extensions",
+   "id": "m_extensions",
+   "keys": [],
+   "visible": true,
+   "checkable": false,
+   "icon": true,
+   "menu": [
+    {
+     "text": "User scripts",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Dark mode for pages",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Skip ads in videos",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Cookie banners",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Password manager",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Notify me when a page changes",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Split view",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Video in a floating window",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Translate page",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Containers",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Site resources",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Weather on the new tab page",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Command bar",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Plasma integration",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Automatic scrolling",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "text": "Open selected text with middle click",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": true,
+     "icon": true
+    },
+    {
+     "sep": ""
+    },
+    {
+     "text": "Manage extensions…",
+     "id": "act_manage_ext",
+     "keys": [
+      "Ctrl+Shift+A"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    }
+   ]
+  },
+  {
+   "text": "More",
+   "id": "m_more",
+   "keys": [],
+   "visible": true,
+   "checkable": false,
+   "icon": true,
+   "menu": [
+    {
+     "text": "File",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true,
+     "menu": [
+      {
+       "text": "New tab",
+       "id": "act_new_tab",
+       "keys": [
+        "Ctrl+T"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "New window",
+       "id": "act_new_window",
+       "keys": [
+        "Ctrl+N"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "New private window",
+       "id": "act_new_private",
+       "keys": [
+        "Ctrl+Shift+N"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "New tab in container",
+       "id": "m_containers",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true,
+       "menu": [
+        {
+         "text": "Personale",
+         "id": "",
+         "keys": [],
+         "visible": true,
+         "checkable": false,
+         "icon": true
+        },
+        {
+         "text": "Lavoro",
+         "id": "",
+         "keys": [],
+         "visible": true,
+         "checkable": false,
+         "icon": true
+        },
+        {
+         "text": "Banca",
+         "id": "",
+         "keys": [],
+         "visible": true,
+         "checkable": false,
+         "icon": true
+        },
+        {
+         "text": "Acquisti",
+         "id": "",
+         "keys": [],
+         "visible": true,
+         "checkable": false,
+         "icon": true
+        },
+        {
+         "sep": ""
+        },
+        {
+         "text": "Manage containers…",
+         "id": "",
+         "keys": [],
+         "visible": true,
+         "checkable": false,
+         "icon": true
+        }
+       ]
+      },
+      {
+       "text": "Profiles",
+       "id": "m_profiles",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true,
+       "menu": [
+        {
+         "text": "default",
+         "id": "",
+         "keys": [],
+         "visible": true,
+         "checkable": true,
+         "icon": true
+        },
+        {
+         "sep": ""
+        },
+        {
+         "text": "New profile…",
+         "id": "",
+         "keys": [],
+         "visible": true,
+         "checkable": false,
+         "icon": true
+        }
+       ]
+      },
+      {
+       "sep": ""
+      },
+      {
+       "text": "Open file…",
+       "id": "",
+       "keys": [
+        "Ctrl+O"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Save page as…",
+       "id": "act_save_page",
+       "keys": [
+        "Ctrl+S"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Save as PDF…",
+       "id": "act_pdf",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Print…",
+       "id": "act_print",
+       "keys": [
+        "Ctrl+P"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Screenshot…",
+       "id": "act_shot",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true,
+       "menu": []
+      },
+      {
+       "sep": ""
+      },
+      {
+       "text": "Import from another browser…",
+       "id": "act_import",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Back up I.K.E. data…",
+       "id": "act_backup",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Restore a backup…",
+       "id": "act_restore",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "sep": ""
+      },
+      {
+       "text": "Close tab",
+       "id": "",
+       "keys": [
+        "Ctrl+W"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Close window",
+       "id": "",
+       "keys": [
+        "Ctrl+Shift+W"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Quit",
+       "id": "act_quit",
+       "keys": [
+        "Ctrl+Q"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      }
+     ]
+    },
+    {
+     "text": "Edit",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true,
+     "menu": [
+      {
+       "text": "Undo",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Redo",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "sep": ""
+      },
+      {
+       "text": "Cut",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Copy",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Paste",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Select all",
+       "id": "",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "sep": ""
+      },
+      {
+       "text": "Find in page…",
+       "id": "act_find",
+       "keys": [
+        "Ctrl+F"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      }
+     ]
+    },
+    {
+     "text": "View",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true,
+     "menu": [
+      {
+       "text": "Zoom in",
+       "id": "act_zoom_in",
+       "keys": [
+        "Ctrl++",
+        "Ctrl+="
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Zoom out",
+       "id": "act_zoom_out",
+       "keys": [
+        "Ctrl+-"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Actual size",
+       "id": "act_zoom_reset",
+       "keys": [
+        "Ctrl+0"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "sep": ""
+      },
+      {
+       "text": "Full screen",
+       "id": "act_fullscreen",
+       "keys": [
+        "F11"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Reader mode",
+       "id": "act_reader",
+       "keys": [
+        "F9"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Dark mode for pages",
+       "id": "m_dark",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true,
+       "menu": []
+      },
+      {
+       "sep": ""
+      },
+      {
+       "text": "Vertical tabs",
+       "id": "act_vertical",
+       "keys": [
+        "Ctrl+Shift+E"
+       ],
+       "visible": true,
+       "checkable": true,
+       "icon": true
+      },
+      {
+       "text": "Split view",
+       "id": "act_split",
+       "keys": [
+        "Ctrl+Shift+2"
+       ],
+       "visible": true,
+       "checkable": true,
+       "icon": true
+      },
+      {
+       "text": "Workspaces",
+       "id": "m_workspaces",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true,
+       "menu": [
+        {
+         "text": "Main  (1)",
+         "id": "",
+         "keys": [],
+         "visible": true,
+         "checkable": true,
+         "icon": true
+        },
+        {
+         "sep": ""
+        },
+        {
+         "text": "New workspace…",
+         "id": "",
+         "keys": [],
+         "visible": true,
+         "checkable": false,
+         "icon": true
+        },
+        {
+         "text": "Rename workspace…",
+         "id": "",
+         "keys": [],
+         "visible": true,
+         "checkable": false,
+         "icon": true
+        },
+        {
+         "text": "Delete workspace",
+         "id": "",
+         "keys": [],
+         "visible": true,
+         "checkable": false,
+         "icon": true
+        }
+       ]
+      },
+      {
+       "sep": ""
+      },
+      {
+       "text": "Menu bar",
+       "id": "act_menubar",
+       "keys": [
+        "Ctrl+M"
+       ],
+       "visible": true,
+       "checkable": true,
+       "icon": true
+      },
+      {
+       "text": "Bookmarks bar: only on a new tab",
+       "id": "act_bookbar",
+       "keys": [
+        "Ctrl+Shift+B"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "System title bar",
+       "id": "act_titlebar",
+       "keys": [],
+       "visible": true,
+       "checkable": true,
+       "icon": true
+      },
+      {
+       "text": "Customise toolbar…",
+       "id": "act_customise",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "sep": ""
+      },
+      {
+       "text": "Page source",
+       "id": "",
+       "keys": [
+        "Ctrl+U"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Developer tools",
+       "id": "",
+       "keys": [
+        "F12",
+        "Ctrl+Shift+I"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      }
+     ]
+    },
+    {
+     "text": "Tools",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true,
+     "menu": [
+      {
+       "text": "Command bar…",
+       "id": "act_command_bar",
+       "keys": [
+        "F2"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Search open tabs…",
+       "id": "act_search_tabs",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "sep": ""
+      },
+      {
+       "text": "Downloads",
+       "id": "act_downloads",
+       "keys": [
+        "Ctrl+J"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Passwords…",
+       "id": "act_passwords",
+       "keys": [
+        "Ctrl+Shift+K"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Fill login on this page",
+       "id": "act_fill_login",
+       "keys": [
+        "Ctrl+Shift+L"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "sep": ""
+      },
+      {
+       "text": "Translate page…",
+       "id": "act_translate",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Video in floating window",
+       "id": "act_float",
+       "keys": [
+        "Ctrl+Shift+V"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Mute tab",
+       "id": "act_mute",
+       "keys": [
+        "Ctrl+Shift+M"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "sep": ""
+      },
+      {
+       "text": "Site resources…",
+       "id": "act_resources",
+       "keys": [
+        "Shift+Esc"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Suspend inactive tabs now",
+       "id": "act_suspend",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Watched pages…",
+       "id": "act_watches",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "sep": ""
+      },
+      {
+       "text": "Search engines…",
+       "id": "act_engines",
+       "keys": [],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "text": "Chrome Web Store",
+       "id": "act_store",
+       "keys": [],
+       "visible": false,
+       "checkable": false,
+       "icon": true
+      },
+      {
+       "sep": ""
+      },
+      {
+       "text": "Settings…",
+       "id": "act_settings",
+       "keys": [
+        "Ctrl+,"
+       ],
+       "visible": true,
+       "checkable": false,
+       "icon": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "sep": ""
+  },
+  {
+   "text": "Settings…",
+   "id": "act_settings",
+   "keys": [
+    "Ctrl+,"
+   ],
+   "visible": true,
+   "checkable": false,
+   "icon": true
+  },
+  {
+   "text": "Help",
+   "id": "m_help_burger",
+   "keys": [],
+   "visible": true,
+   "checkable": false,
+   "icon": true,
+   "menu": [
+    {
+     "text": "Keyboard shortcuts",
+     "id": "",
+     "keys": [
+      "F1"
+     ],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "Check for I.K.E. updates",
+     "id": "act_check_updates",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    },
+    {
+     "text": "About Qt",
+     "id": "",
+     "keys": [],
+     "visible": true,
+     "checkable": false,
+     "icon": true
+    }
+   ]
+  },
+  {
+   "sep": ""
+  },
+  {
+   "text": "About I.K.E.",
+   "id": "act_about",
+   "keys": [],
+   "visible": true,
+   "checkable": false,
+   "icon": true
+  },
+  {
+   "text": "Quit",
+   "id": "act_quit",
+   "keys": [
+    "Ctrl+Q"
+   ],
+   "visible": true,
+   "checkable": false,
+   "icon": true
+  }
+ ],
+ "toolbar": [
+  "act_back",
+  "act_fwd",
+  "act_reload",
+  "act_home",
+  "home_sep_act",
+  "act_dark",
+  "act_tb_private",
+  "act_tb_clean",
+  "act_tb_shot",
+  "act_tb_split",
+  "space_left_act",
+  "urlbar_act",
+  "bookmark_gap_act",
+  "act_tb_bookmark",
+  "store_act",
+  "space_right_act",
+  "act_downloads",
+  "act_tb_reader",
+  "more_act",
+  "win_sep_act",
+  "menu_act",
+  "",
+  "",
+  ""
+ ],
+ "shortcuts": [
+  [
+   "Alt+1",
+   "tab-1"
+  ],
+  [
+   "Alt+2",
+   "tab-2"
+  ],
+  [
+   "Alt+3",
+   "tab-3"
+  ],
+  [
+   "Alt+4",
+   "tab-4"
+  ],
+  [
+   "Alt+5",
+   "tab-5"
+  ],
+  [
+   "Alt+6",
+   "tab-6"
+  ],
+  [
+   "Alt+7",
+   "tab-7"
+  ],
+  [
+   "Alt+8",
+   "tab-8"
+  ],
+  [
+   "Alt+9",
+   "tab-9"
+  ],
+  [
+   "Alt+D",
+   "focus-url"
+  ],
+  [
+   "Alt+Home",
+   "act_home"
+  ],
+  [
+   "Alt+Left",
+   "act_back"
+  ],
+  [
+   "Alt+Right",
+   "act_fwd"
+  ],
+  [
+   "Ctrl++",
+   "act_zoom_in"
+  ],
+  [
+   "Ctrl+,",
+   "act_settings"
+  ],
+  [
+   "Ctrl+-",
+   "act_zoom_out"
+  ],
+  [
+   "Ctrl+0",
+   "act_zoom_reset"
+  ],
+  [
+   "Ctrl+=",
+   "act_zoom_in"
+  ],
+  [
+   "Ctrl+D",
+   "act_bookmark"
+  ],
+  [
+   "Ctrl+F",
+   "act_find"
+  ],
+  [
+   "Ctrl+F5",
+   "hard-reload"
+  ],
+  [
+   "Ctrl+H",
+   "act_history"
+  ],
+  [
+   "Ctrl+J",
+   "act_downloads"
+  ],
+  [
+   "Ctrl+L",
+   "focus-url"
+  ],
+  [
+   "Ctrl+M",
+   "act_menubar"
+  ],
+  [
+   "Ctrl+N",
+   "act_new_window"
+  ],
+  [
+   "Ctrl+O",
+   "Open file…"
+  ],
+  [
+   "Ctrl+P",
+   "act_print"
+  ],
+  [
+   "Ctrl+PgDown",
+   "next-tab"
+  ],
+  [
+   "Ctrl+PgUp",
+   "prev-tab"
+  ],
+  [
+   "Ctrl+Q",
+   "act_quit"
+  ],
+  [
+   "Ctrl+R",
+   "act_reload"
+  ],
+  [
+   "Ctrl+S",
+   "act_save_page"
+  ],
+  [
+   "Ctrl+Shift+2",
+   "act_split"
+  ],
+  [
+   "Ctrl+Shift+A",
+   "act_manage_ext"
+  ],
+  [
+   "Ctrl+Shift+B",
+   "act_bookbar"
+  ],
+  [
+   "Ctrl+Shift+Del",
+   "act_clear"
+  ],
+  [
+   "Ctrl+Shift+E",
+   "act_vertical"
+  ],
+  [
+   "Ctrl+Shift+I",
+   "Developer tools"
+  ],
+  [
+   "Ctrl+Shift+K",
+   "act_passwords"
+  ],
+  [
+   "Ctrl+Shift+L",
+   "act_fill_login"
+  ],
+  [
+   "Ctrl+Shift+M",
+   "act_mute"
+  ],
+  [
+   "Ctrl+Shift+N",
+   "act_new_private"
+  ],
+  [
+   "Ctrl+Shift+O",
+   "act_bookmarks"
+  ],
+  [
+   "Ctrl+Shift+R",
+   "hard-reload"
+  ],
+  [
+   "Ctrl+Shift+S",
+   "Visible part"
+  ],
+  [
+   "Ctrl+Shift+T",
+   "act_reopen"
+  ],
+  [
+   "Ctrl+Shift+Tab",
+   "prev-tab"
+  ],
+  [
+   "Ctrl+Shift+V",
+   "act_float"
+  ],
+  [
+   "Ctrl+Shift+W",
+   "Close window"
+  ],
+  [
+   "Ctrl+T",
+   "act_new_tab"
+  ],
+  [
+   "Ctrl+Tab",
+   "next-tab"
+  ],
+  [
+   "Ctrl+U",
+   "Page source"
+  ],
+  [
+   "Ctrl+W",
+   "Close tab"
+  ],
+  [
+   "Esc",
+   "act_customise_done"
+  ],
+  [
+   "Esc",
+   "act_escape"
+  ],
+  [
+   "F1",
+   "Keyboard shortcuts"
+  ],
+  [
+   "F11",
+   "act_fullscreen"
+  ],
+  [
+   "F12",
+   "Developer tools"
+  ],
+  [
+   "F2",
+   "act_command_bar"
+  ],
+  [
+   "F5",
+   "act_reload"
+  ],
+  [
+   "F6",
+   "focus-url"
+  ],
+  [
+   "F9",
+   "act_reader"
+  ],
+  [
+   "Shift+Esc",
+   "act_resources"
+  ]
+ ],
+ "settings": [
+  {
+   "key": "general",
+   "name": "General",
+   "items": [
+    [
+     "label",
+     "What I.K.E. opens when it starts, your home page, and how links of other programs open."
+    ],
+    [
+     "label",
+     "At startup"
+    ],
+    [
+     "choice",
+     [
+      "Restore the previous session",
+      "Open the home page",
+      "Open a new tab"
+     ]
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Load restored tabs only when they are opened (faster start)"
+    ],
+    [
+     "label",
+     "Home page"
+    ],
+    [
+     "field",
+     "QLineEdit"
+    ],
+    [
+     "button",
+     "Make I.K.E. the default browser"
+    ],
+    [
+     "label",
+     "Email links"
+    ],
+    [
+     "choice",
+     [
+      "Ask each time",
+      "Gmail",
+      "Outlook.com",
+      "Proton Mail",
+      "Yahoo Mail",
+      "The computer's mail program"
+     ]
+    ],
+    [
+     "group",
+     "Browsing"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Do not let videos and sounds start by themselves (single sites: the lock in the address bar)"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Mouse gestures: hold the right button and draw ← back, → forward, ↑ reload, ↓→ close the tab"
+    ]
+   ]
+  },
+  {
+   "key": "appearance",
+   "name": "Appearance",
+   "items": [
+    [
+     "label",
+     "Colours, icons, tabs, toolbar and the dark mode of pages."
+    ],
+    [
+     "label",
+     "Interface colours"
+    ],
+    [
+     "choice",
+     [
+      "Follow the system",
+      "Light",
+      "Dark",
+      "",
+      "I.K.E.",
+      "Night",
+      "Paper",
+      "Forest",
+      "High contrast"
+     ]
+    ],
+    [
+     "button",
+     "Customize…"
+    ],
+    [
+     "label",
+     "Icons"
+    ],
+    [
+     "choice",
+     [
+      "Follow the system",
+      "I.K.E. (included with I.K.E.)",
+      "Lucide (included with I.K.E.)",
+      "Phosphor (included with I.K.E.)",
+      "Phosphor Bold (included with I.K.E.)",
+      "Breeze (KDE) (included with I.K.E.)"
+     ]
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Interface effects: short fades and the mark on tabs that are loading"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Colour the edge of the address bar with the colour of the site"
+    ],
+    [
+     "group",
+     "Window"
+    ],
+    [
+     "label",
+     "Tabs"
+    ],
+    [
+     "choice",
+     [
+      "Horizontal (top bar)",
+      "Vertical (side panel)"
+     ]
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Hide vertical tabs; show them when the mouse touches the left edge"
+    ],
+    [
+     "label",
+     "Bookmarks bar"
+    ],
+    [
+     "choice",
+     [
+      "Only on a new tab",
+      "Always",
+      "Never"
+     ]
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Show the menu bar"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Use the system title bar (untick for more room: the window buttons move next to the address bar)"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Open windows maximized"
+    ],
+    [
+     "group",
+     "Toolbar buttons"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Back"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Forward"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Reader mode"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Screenshot"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Video in floating window"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Split view"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Dark mode for pages"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "New private window"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Clear this site's data"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Downloads"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Zoom"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Manage bookmarks"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Print or save as PDF"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Send to device"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Site resources"
+    ],
+    [
+     "group",
+     "Web pages"
+    ],
+    [
+     "label",
+     "Default zoom"
+    ],
+    [
+     "field",
+     "qt_spinbox_lineedit"
+    ],
+    [
+     "label",
+     "Dark mode for pages"
+    ],
+    [
+     "choice",
+     [
+      "On",
+      "Off"
+     ]
+    ],
+    [
+     "label",
+     "Dark mode method"
+    ],
+    [
+     "choice",
+     [
+      "Dark Reader (can be set per site, immediate)",
+      "Chromium Auto Dark Mode (can be set per site, immediate)",
+      "I.K.E. Dark Engine"
+     ]
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Show PDFs with dark colours"
+    ],
+    [
+     "group",
+     "I.K.E. Dark Engine"
+    ],
+    [
+     "label",
+     "Style"
+    ],
+    [
+     "choice",
+     [
+      "Graphite",
+      "Midnight",
+      "Warm",
+      "Nordic"
+     ]
+    ],
+    [
+     "label",
+     "Background depth"
+    ],
+    [
+     "label",
+     "50%"
+    ],
+    [
+     "label",
+     "Text brightness"
+    ],
+    [
+     "label",
+     "50%"
+    ],
+    [
+     "label",
+     "Dim pictures"
+    ],
+    [
+     "label",
+     "0%"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Leave sites that are dark already as they are"
+    ]
+   ]
+  },
+  {
+   "key": "newtab",
+   "name": "New tab page",
+   "items": [
+    [
+     "label",
+     "What the page of a new tab shows: tiles, clock, weather and a photo."
+    ],
+    [
+     "label",
+     "Site tiles"
+    ],
+    [
+     "choice",
+     [
+      "My bookmarks",
+      "The sites I visit most",
+      "None"
+     ]
+    ],
+    [
+     "button",
+     "Show the hidden tiles again"
+    ],
+    [
+     "label",
+     "Blocked counter"
+    ],
+    [
+     "choice",
+     [
+      "This month (starts again on the first of each month)",
+      "Since I.K.E. was installed"
+     ]
+    ],
+    [
+     "label",
+     "New tab page"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Show the clock and the date"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Greeting on the new tab page"
+    ],
+    [
+     "label",
+     "Tone"
+    ],
+    [
+     "choice",
+     [
+      "Greetings only",
+      "Also friendly messages"
+     ]
+    ],
+    [
+     "group",
+     "Holidays to remember"
+    ],
+    [
+     "label",
+     "Choose the holidays you want remembered on the new tab page. I.K.E. never guesses them by itself."
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Christian (Catholic, Protestant)"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Orthodox Christian"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Islamic"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Jewish"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Hindu"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Buddhist"
+    ],
+    [
+     "switch",
+     "Lunar New Year"
+    ],
+    [
+     "switch",
+     "Nowruz"
+    ],
+    [
+     "switch",
+     "New Year (1 January)"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Show the weather"
+    ],
+    [
+     "label",
+     "City for the weather"
+    ],
+    [
+     "field",
+     "QLineEdit"
+    ],
+    [
+     "button",
+     "Find"
+    ],
+    [
+     "label",
+     "Temperature"
+    ],
+    [
+     "choice",
+     [
+      "°C",
+      "°F"
+     ]
+    ],
+    [
+     "label",
+     "Wind"
+    ],
+    [
+     "choice",
+     [
+      "Automatic",
+      "km/h",
+      "mph",
+      "m/s",
+      "kn"
+     ]
+    ],
+    [
+     "label",
+     "Pressure"
+    ],
+    [
+     "choice",
+     [
+      "Automatic",
+      "hPa",
+      "mbar",
+      "inHg",
+      "mmHg"
+     ]
+    ],
+    [
+     "label",
+     "Background photo"
+    ],
+    [
+     "label",
+     "—"
+    ],
+    [
+     "label",
+     "No photo"
+    ],
+    [
+     "button",
+     "Choose…"
+    ],
+    [
+     "button",
+     "Default"
+    ],
+    [
+     "button",
+     "Remove"
+    ],
+    [
+     "label",
+     "Photo placement"
+    ],
+    [
+     "choice",
+     [
+      "Fill the page",
+      "Show the whole photo",
+      "Centre at its own size"
+     ]
+    ],
+    [
+     "label",
+     "Veil over the photo"
+    ],
+    [
+     "label",
+     "35%"
+    ]
+   ]
+  },
+  {
+   "key": "search",
+   "name": "Search",
+   "items": [
+    [
+     "label",
+     "The search engines of the address bar and of the new tab page."
+    ],
+    [
+     "label",
+     "Default search engine"
+    ],
+    [
+     "choice",
+     [
+      "DuckDuckGo",
+      "Startpage",
+      "Brave Search",
+      "Qwant",
+      "Ecosia",
+      "Mojeek",
+      "Google",
+      "Bing",
+      "Wikipedia",
+      "YouTube"
+     ]
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Show search suggestions while typing"
+    ],
+    [
+     "button",
+     "Add engine"
+    ],
+    [
+     "button",
+     "Remove selected"
+    ],
+    [
+     "button",
+     "Restore defaults"
+    ]
+   ]
+  },
+  {
+   "key": "downloads",
+   "name": "Downloads",
+   "items": [
+    [
+     "label",
+     "Where downloaded files are saved."
+    ],
+    [
+     "label",
+     "Download folder"
+    ],
+    [
+     "field",
+     "QLineEdit"
+    ],
+    [
+     "button",
+     "Choose…"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Always ask where to save files"
+    ]
+   ]
+  },
+  {
+   "key": "protection",
+   "name": "Protection",
+   "items": [
+    [
+     "label",
+     "What I.K.E. blocks: ads, trackers, fingerprinting and unsafe connections."
+    ],
+    [
+     "label",
+     "Default protection level"
+    ],
+    [
+     "choice",
+     [
+      "Off",
+      "Compatibility",
+      "Balanced",
+      "Strict",
+      "Maximum"
+     ]
+    ],
+    [
+     "group",
+     "Connections and tracking"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Upgrade connections to HTTPS when possible"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Block cross-site (third-party) cookies"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Remove tracking parameters from links (utm_, fbclid, gclid…)"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Send only the site origin as referrer to other sites"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Send the “Global Privacy Control” signal"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Hide local IP addresses from WebRTC"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Clear the data of sites that only redirect you (bounce tracking)"
+    ],
+    [
+     "group",
+     "Warnings and repairs"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Warn about sites that imitate well-known ones"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Show “Repair this site” in the shield"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Make sign-in with Google, Microsoft and Apple accounts work (lighter protection on their sign-in pages only)"
+    ],
+    [
+     "group",
+     "Ad and tracker blocker"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Ad and tracker blocker — uses the uBlock Origin and EasyList filter lists"
+    ],
+    [
+     "label",
+     "The I.K.E. AdBlock engine could not be loaded: only basic domain blocking is active."
+    ],
+    [
+     "label",
+     "Filter lists"
+    ],
+    [
+     "button",
+     "Add list from URL…"
+    ],
+    [
+     "button",
+     "Remove selected"
+    ],
+    [
+     "button",
+     "Restore defaults"
+    ],
+    [
+     "label",
+     "Your own filters (uBlock Origin / Adblock Plus syntax)"
+    ]
+   ]
+  },
+  {
+   "key": "privacy",
+   "name": "Privacy",
+   "items": [
+    [
+     "label",
+     "What is kept on this computer, and what sites are allowed to use."
+    ],
+    [
+     "label",
+     "Encrypted DNS"
+    ],
+    [
+     "choice",
+     [
+      "Off (system DNS)",
+      "Quad9",
+      "Mullvad",
+      "Cloudflare",
+      "AdGuard"
+     ]
+    ],
+    [
+     "field",
+     "QLineEdit"
+    ],
+    [
+     "label",
+     "Containers (comma separated)"
+    ],
+    [
+     "field",
+     "QLineEdit"
+    ],
+    [
+     "group",
+     "Permissions"
+    ],
+    [
+     "label",
+     "Always refuse:"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Camera"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Microphone"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Location"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Notifications"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Clipboard"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Screen"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Local fonts"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Ask quietly in the address bar"
+    ],
+    [
+     "button",
+     "Reset per-site exceptions (0)"
+    ],
+    [
+     "button",
+     "Site permissions…"
+    ],
+    [
+     "group",
+     "Browsing data"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Clear cookies, cache and history when I.K.E. is closed"
+    ],
+    [
+     "button",
+     "Clear browsing data…"
+    ]
+   ]
+  },
+  {
+   "key": "extensions",
+   "name": "I.K.E. extensions",
+   "items": [
+    [
+     "label",
+     "Features that come with I.K.E. Switch on only the ones you want."
+    ],
+    [
+     "label",
+     "User scripts"
+    ],
+    [
+     "button",
+     "Options…"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Dark mode for pages"
+    ],
+    [
+     "button",
+     "Options…"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Skip ads in videos"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Cookie banners"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Password manager"
+    ],
+    [
+     "button",
+     "Options…"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Notify me when a page changes"
+    ],
+    [
+     "button",
+     "Options…"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Split view"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Video in a floating window"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Translate page"
+    ],
+    [
+     "button",
+     "Options…"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Containers"
+    ],
+    [
+     "button",
+     "Options…"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Site resources"
+    ],
+    [
+     "button",
+     "Options…"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Weather on the new tab page"
+    ],
+    [
+     "button",
+     "Options…"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Command bar"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Plasma integration"
+    ],
+    [
+     "button",
+     "Options…"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Automatic scrolling"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Open selected text with middle click"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "group",
+     "Extensions (experimental, Chrome format)"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Enable experimental support for Chrome extensions (Manifest V3)"
+    ]
+   ]
+  },
+  {
+   "key": "language",
+   "name": "Language",
+   "items": [
+    [
+     "label",
+     "The language of I.K.E. and the languages websites are asked for."
+    ],
+    [
+     "label",
+     "Interface language"
+    ],
+    [
+     "choice",
+     [
+      "System language",
+      "Italiano",
+      "English",
+      "Afrikaans",
+      "Azərbaycan dili",
+      "Bahasa Indonesia",
+      "Bahasa Melayu",
+      "Bosanski",
+      "Català",
+      "Dansk",
+      "Deutsch",
+      "Eesti"
+     ]
+    ],
+    [
+     "button",
+     "Install language from file…"
+    ],
+    [
+     "button",
+     "Download languages…"
+    ],
+    [
+     "label",
+     "Languages for websites"
+    ],
+    [
+     "field",
+     "QLineEdit"
+    ]
+   ]
+  },
+  {
+   "key": "updates",
+   "name": "Updates",
+   "items": [
+    [
+     "label",
+     "New versions of I.K.E. and of the blocking lists, checked by themselves."
+    ],
+    [
+     "group",
+     "I.K.E. updates"
+    ],
+    [
+     "label",
+     "New versions"
+    ],
+    [
+     "choice",
+     [
+      "Install automatically",
+      "Ask before installing",
+      "Do not check"
+     ]
+    ],
+    [
+     "label",
+     "Update channel"
+    ],
+    [
+     "choice",
+     [
+      "Stable",
+      "Experimental (beta)"
+     ]
+    ],
+    [
+     "button",
+     "Check now"
+    ],
+    [
+     "label",
+     "Last check: never"
+    ],
+    [
+     "group",
+     "Filter lists"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Update the lists automatically every day"
+    ],
+    [
+     "button",
+     "Update now"
+    ],
+    [
+     "label",
+     "Last update: 01/01/2100 00:00"
+    ]
+   ]
+  },
+  {
+   "key": "system",
+   "name": "System",
+   "items": [
+    [
+     "label",
+     "How I.K.E. works with your computer: desktop, video, memory and translation."
+    ],
+    [
+     "group",
+     "Desktop integration"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Media controls: the media widget, the lock screen and the media keys control the tab playing sound"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Show downloads in Plasma’s notifications"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Find open tabs and bookmarks with KRunner"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "“Send to device” with KDE Connect"
+    ],
+    [
+     "label",
+     "For KDE Plasma. All of it is off while the “Plasma integration” extension is off."
+    ],
+    [
+     "group",
+     "Speed and memory"
+    ],
+    [
+     "label",
+     "Video decoding with the graphics card"
+    ],
+    [
+     "choice",
+     [
+      "Automatic (recommended)",
+      "On (experimental)",
+      "Off"
+     ]
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Smooth scrolling of pages (after a restart)"
+    ],
+    [
+     "label",
+     "Suspend inactive tabs after"
+    ],
+    [
+     "field",
+     "QSpinBox"
+    ],
+    [
+     "field",
+     "qt_spinbox_lineedit"
+    ],
+    [
+     "switch",
+     ""
+    ],
+    [
+     "label",
+     "Battery saver"
+    ],
+    [
+     "group",
+     "Translation"
+    ],
+    [
+     "label",
+     "Translation service"
+    ],
+    [
+     "field",
+     "QLineEdit"
+    ],
+    [
+     "group",
+     "DRM video (Widevine)"
+    ],
+    [
+     "label",
+     "Widevine is not installed: Netflix, Prime Video and similar services will not play. I.K.E. can download it from Google's server into its own"
+    ],
+    [
+     "button",
+     "Download and install"
+    ],
+    [
+     "button",
+     "Install from a file…"
+    ],
+    [
+     "button",
+     "Remove"
+    ]
+   ]
+  }
+ ],
+ "settings_icon": [
+  22,
+  22
+ ],
+ "extensions": [
+  "userscripts",
+  "dark",
+  "videoads",
+  "consent",
+  "passwords",
+  "watcher",
+  "split",
+  "pip",
+  "translate",
+  "containers",
+  "resources",
+  "weather",
+  "commandbar",
+  "plasma",
+  "autoscroll",
+  "middleclick"
+ ]
+}

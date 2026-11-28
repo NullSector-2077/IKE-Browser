@@ -3,7 +3,7 @@ address of a page, the fix for that site (with the common fix), whether the
 site is on the list of sites that are dark already, and the hints that
 recognise a site's own dark theme.
 
-The lists are resources/darkreader-data.json (tools/build-darkreader.py makes
+The lists are resources/darkreader-data.json (tools/build-darkreader-lists.py makes
 it from Dark Reader's repository), or, since 1.1.27, the newer ones the
 browser fetched itself (ike/darklists.py). The address patterns are matched as Dark
 Reader matches them (src/utils/url.ts): "example.com", "*.example.com",

@@ -11,8 +11,8 @@ to a budget, and writes it into the failure description as quoted data:
   between main's ``ike-adblock/Cargo.lock`` and the candidate's, the crates the failure names first,
   then the direct ones; each crate's repository from crates.io, then GitHub's comparison of the two
   release tags (the commits' first lines and the changed lines) and the new release's notes;
-- **Dark Reader**: the two versions of ``ike/resources/darkreader-data.json`` (on a builder's branch,
-  the versions the builder's refusal names), compared on GitHub;
+- **Dark Reader's lists** (its engine left I.K.E. in 1.1.30): the two commits of
+  ``ike/resources/darkreader-data.json`` ("lists_commit"), compared on GitHub, the lists' own files first;
 - **uBlock Origin's scriptlets**: the two commits of ``ike/resources/ubo-scriptlets.json``, compared
   on GitHub, the scriptlets' own files first;
 - **the test packages** (PyPI): the versions that differ in ``tools/test-requirements.txt``; each
@@ -271,12 +271,6 @@ def json_field(text, field):
     return value if isinstance(value, str) else ""
 
 
-def builder_versions(failure):
-    """(old, new) version of the component a builder's refusal names ("4.9.135, lists x -> 4.9.136, ...")."""
-    m = re.search(r"^- Component: .*?(\d+\.\d+\.\d+)[^\n]*?->\s*(\d+\.\d+\.\d+)", failure or "", re.M)
-    return (m.group(1), m.group(2)) if m else ("", "")
-
-
 # --- what the authors changed ----------------------------------------------------------------------
 
 def github_repo(url):
@@ -445,11 +439,11 @@ def changes_of(branch, show, failure=""):
     main, head = "origin/main", "origin/" + branch
     out = []
     if cid == "darkreader":
-        old, new = json_field(show(main, DARKREADER[0]), "version"), json_field(show(head, DARKREADER[0]), "version")
-        if kind == "builder" or old == new:
-            old, new = builder_versions(failure) if builder_versions(failure)[0] else (old, new)
-        if old and new and old != new:
-            out.append({"name": "darkreader", "old": old, "new": new, "kind": "npm", "repo": DARKREADER[1]})
+        old = json_field(show(main, DARKREADER[0]), "lists_commit")
+        new = json_field(show(head, DARKREADER[0]), "lists_commit")
+        if SHA.match(old) and SHA.match(new) and old != new:
+            out.append({"name": "Dark Reader's lists", "old": old[:12], "new": new[:12], "kind": "git",
+                        "repo": DARKREADER[1], "exact": (old, new), "prefer": ("src/config/",)})
     elif cid == "ubo-scriptlets":
         old, new = json_field(show(main, UBO[0]), "commit"), json_field(show(head, UBO[0]), "commit")
         if SHA.match(old) and SHA.match(new) and old != new:

@@ -41,6 +41,9 @@ next to this one:
                            notice and the complete GNU LGPL version 3; the GNU
                            GPL version 3 it builds on is LICENSE)
   LICENSE.orbitron         Orbitron typeface (SIL Open Font License 1.1)
+  LICENSE.brave-adblock-lists
+                           Mozilla Public License 2.0 (Brave's debounce list,
+                           brave-debounce.json, shipped unchanged)
 
 Filter lists are not shipped: the browser downloads them at run time from their
 maintainers, and they are covered by their own licences.

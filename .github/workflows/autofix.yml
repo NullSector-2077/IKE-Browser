@@ -183,7 +183,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/failure"
           # the daily check's work (tools/ai-work.py), only in its own forms
-          if ! printf '%s' "$WORK" | grep -Eq '^(lists/[0-9]{4}-[0-9]{2}-[0-9]{2}/lists/[a-z-]+/[a-z0-9.-]+@[a-z]+|run/[0-9]{1,20}|builder/(darkreader|ubo-scriptlets)/[0-9]{4}-[0-9]{2}-[0-9]{2}|chatgpt/[0-9]{1,8}/[0-9a-f]{40}|inner/[0-9]{1,20}/[0-9]{1,20}/[23]|refused/[0-9a-f]{40})$'; then
+          if ! printf '%s' "$WORK" | grep -Eq '^(lists/[0-9]{4}-[0-9]{2}-[0-9]{2}/lists/[a-z-]+/[a-z0-9.-]+@[a-z]+|run/[0-9]{1,20}|builder/(ubo-scriptlets)/[0-9]{4}-[0-9]{2}-[0-9]{2}|chatgpt/[0-9]{1,8}/[0-9a-f]{40}|inner/[0-9]{1,20}/[0-9]{1,20}/[23]|refused/[0-9a-f]{40})$'; then
             WORK=""
           fi
           round=""
@@ -493,7 +493,7 @@ jobs:
           printf '%s' "$UNAVAILABLE" | tr -cd 'A-Za-z.,' > "$RUNNER_TEMP/unavailable"
           printf '%s' "$DISCOVERED" | tr -cd 'A-Za-z0-9.:|;/_-' > "$RUNNER_TEMP/discovered"
           # WP11: the builders' re-anchoring, that builder only
-          case "$BUILDER" in darkreader|ubo-scriptlets) printf '%s' "$BUILDER" > "$RUNNER_TEMP/builder" ;; esac
+          case "$BUILDER" in ubo-scriptlets) printf '%s' "$BUILDER" > "$RUNNER_TEMP/builder" ;; esac
           # the full chain: attempt n starts with the n-th free provider (tools/ai-providers.py)
           case "$FIRST" in
             Groq) has="$HAS_GROQ" ;;
@@ -711,7 +711,6 @@ jobs:
           python3 -I "$RUNNER_TEMP/autofix-context.py" --repo "$repo" --failure "$inputs/failure.md" --out-dir "$inputs"
           # WP11: the builders' re-anchoring: the refused builder is the one file involved (and shown)
           case "$(cat "$RUNNER_TEMP/builder" 2> /dev/null || true)" in
-            darkreader) printf 'tools/build-darkreader.py\n' > "$inputs/related.txt" ;;
             ubo-scriptlets) printf 'tools/build-ubo-scriptlets.mjs\n' > "$inputs/related.txt" ;;
           esac
           cp "$inputs/related.txt" "$RUNNER_TEMP/autofix/related.txt"
@@ -1311,7 +1310,7 @@ jobs:
           # a fix of a security finding: the guard's stricter rules (WP6), for the agent, the reserves and the checks
           if [ "$SECURITY" = "true" ]; then allow="$allow --security"; fi
           if [ "$MODE" = "lists" ]; then allow="$allow --lists"; fi
-          case "$BUILDER" in darkreader|ubo-scriptlets) allow="$allow --builder $BUILDER" ;; esac
+          case "$BUILDER" in ubo-scriptlets) allow="$allow --builder $BUILDER" ;; esac
           # AUTOMAT: the static guard of a fix that may reach main by itself (tools/fix-guard.py)
           allow="$allow --auto"
           # AUTOMAT part 2: only with the owner's switch, the narrow form of tier B (tools/tier-b.py)

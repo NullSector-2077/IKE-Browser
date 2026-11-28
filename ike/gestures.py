@@ -37,6 +37,7 @@ def handle(view, event):
     win = view.window_ref
     if kind == G.BeginNativeGesture:
         st["dx"], st["pinch"] = 0.0, False
+        _arrow(view, None)
         return False
     if kind == G.ZoomNativeGesture:
         pinch(view, float(event.value()))
@@ -44,6 +45,7 @@ def handle(view, event):
         return True
     if kind == G.PanNativeGesture:
         st["dx"] += float(event.delta().x())
+        _arrow(view, st["dx"])
         return True
     if kind == G.SwipeNativeGesture:
         angle = float(event.value()) % 360
@@ -53,6 +55,7 @@ def handle(view, event):
             return swipe(view, back=False)
         return False
     if kind == G.EndNativeGesture:
+        _arrow(view, None)
         if st["pinch"]:
             st["pinch"] = False
             win._remember_zoom(view)
@@ -61,6 +64,26 @@ def handle(view, event):
         if abs(dx) >= SWIPE_PX:
             return swipe(view, back=dx > 0)
     return False
+
+
+def _arrow(view, dx):
+    """The swipe's arrow at the page's edge (polish.SwipeArrow, 1.1.30): shown
+    while the fingers move toward a page there is, gone otherwise."""
+    arrow = view.__dict__.get("_ike_swipe_arrow")
+    win = getattr(view, "window_ref", None)
+    if dx is None or not dx or win is None or not polish.moving(win.app.config, "swipe_arrow"):
+        if arrow is not None:
+            arrow.hide()
+        return
+    back = dx > 0
+    h = view.history()
+    if not (h.canGoBack() if back else h.canGoForward()):
+        if arrow is not None:
+            arrow.hide()
+        return
+    if arrow is None:
+        arrow = view.__dict__["_ike_swipe_arrow"] = polish.SwipeArrow(view)
+    arrow.show_progress(back, abs(dx) / SWIPE_PX)
 
 
 def pinch(view, delta):

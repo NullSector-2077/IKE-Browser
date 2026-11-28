@@ -9,8 +9,8 @@ data, no account, no key, nothing about I.K.E.'s users:
   name and version of each component, in batches of OSV_BATCH, then ``GET
   /v1/vulns/<id>`` once per advisory found for its summary and fixed
   versions. Ecosystems: PyPI (the test and CI packages of the workflows,
-  pinned in tools/test-requirements.txt), npm (Dark Reader's engine, and the
-  modules of tools/*.mjs when a version is known) and GitHub Actions (each
+  pinned in tools/test-requirements.txt), npm (the modules of tools/*.mjs
+  when a version is known) and GitHub Actions (each
   ``uses:`` pinned to a commit, by the release its comment names);
 - the Arch Linux security tracker (https://security.archlinux.org,
   ``/issues/all.json``: every advisory group, AVG, with its packages, status,
@@ -77,8 +77,6 @@ def osv_targets(records):
                 asked.append((rec, "npm", rec["name"], ver))
             else:
                 skipped[rec["id"]] = "no pinned version: no lockfile pins it"
-        elif kind == "integrated" and rec.get("npm_version"):
-            asked.append((rec, "npm", "darkreader", _version(rec["npm_version"]) or rec["npm_version"]))
         elif kind == "github-action":
             ver = _version(rec.get("release"))
             if rec.get("pinned_sha") and ver and re.match(r"^\d", ver):

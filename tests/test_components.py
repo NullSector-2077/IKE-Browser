@@ -79,7 +79,7 @@ def tool(monkeypatch, tmp_path, repo):
     real_run = mod.run
     monkeypatch.setattr(mod, "run", lambda cmd, **kw: calls.append(cmd) if cmd[0] == "cargo" else real_run(cmd, **kw))
     mod.up, mod.calls = up, calls
-    # Dark Reader: the engine and the lists the repository has (its own test: test_darkreader.py)
+    # Dark Reader's lists: those the repository has (their own test below and test_darkreader_lists.py)
     monkeypatch.setattr(mod, "check_darkreader", lambda root, work, dr_src=None: {
         "current": "same", "latest": "same", "update": False, "note": ""})
     # scriptlets: the repository's file is replaced by one built from a stand-in checkout
@@ -656,31 +656,16 @@ def test_a_refused_builder_keeps_its_component_and_the_others_go_on(tool, repo, 
     assert ubo["refused"] and "gone.fn" in ubo["refused"]["reason"]
 
 
-def darkreader_upstream(tool, monkeypatch, tmp_path, lib_text, version="9.9.9"):
-    """Stand-ins for npm (the "darkreader" package with this engine, and its
-    sha512) and for Dark Reader's repository (its lists)."""
-    import base64
-    import hashlib
-    import io
-    import tarfile
-    tgz = io.BytesIO()
-    with tarfile.open(fileobj=tgz, mode="w:gz") as tar:
-        data = lib_text.encode()
-        info = tarfile.TarInfo("package/darkreader.js")
-        info.size = len(data)
-        tar.addfile(info, io.BytesIO(data))
-    blob = tgz.getvalue()
-    meta = {"version": version, "dist": {
-        "tarball": "https://registry.npmjs.org/darkreader/-/darkreader-%s.tgz" % version,
-        "integrity": "sha512-" + base64.b64encode(hashlib.sha512(blob).digest()).decode()}}
+FIXES = "*\n\nCSS\nbody { color: red }\n\n====\n\nexample.test\n\nINVERT\n.logo\n"
 
-    def fetch_source(url, timeout=60):
-        return json.dumps(meta).encode() if url == tool.DARKREADER_NPM else blob
-    monkeypatch.setattr(tool, "fetch_source", fetch_source)
+
+def darkreader_upstream(tmp_path, fixes=FIXES, version="9.9.9"):
+    """A stand-in for Dark Reader's repository: its version (package.json) and its three lists."""
     src = tmp_path / "dr"
     cfg = src / "src" / "config"
     cfg.mkdir(parents=True)
-    (cfg / "dynamic-theme-fixes.config").write_text("*\n\nCSS\nbody { color: red }\n")
+    (src / "package.json").write_text(json.dumps({"name": "darkreader", "version": version}))
+    (cfg / "dynamic-theme-fixes.config").write_text(fixes)
     (cfg / "dark-sites.config").write_text("dark.example\n")
     (cfg / "detector-hints.config").write_text("own.example\n\nNO DARK THEME\n")
     commit = ["git", "-C", str(src), "-c", "user.name=t", "-c", "user.email=t@t"]
@@ -690,77 +675,82 @@ def darkreader_upstream(tool, monkeypatch, tmp_path, lib_text, version="9.9.9"):
     return src
 
 
-@pytest.mark.skipif(not shutil.which("git"), reason="needs git")
-def test_a_dark_reader_patch_that_no_longer_fits_is_left_out_and_said(repo, tmp_path, monkeypatch):
-    """Dark Reader changes the text one of I.K.E.'s speed patches changes (the
-    owner's decision of 2026-11-24): the update is still taken, without that
-    patch's family, and the note names it (so the candidate's CHANGELOG line
-    and the signing notice show it). The proxy change is no speed patch: when
-    its text is gone the builder refuses, and the report names the step, the
-    versions and the new engine's lines around it; nothing of Dark Reader is
-    replaced."""
-    from test_darkreader import build_tool, fake_engine
-    tool = load_tool()
-    for rel in ("ike/resources/darkreader-data.json", "tools/build-darkreader.py"):
+def dark_repo(repo, bundled=None):
+    """The lists' builder, the browser's reader it uses, and the copy in use (small, or the real one)."""
+    for rel in ("tools/build-darkreader-lists.py", "ike/darklists.py"):
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(ROOT / rel, repo / rel)
-    patches = build_tool().PATCHES
-    old = dict((n, o) for n, o, _new in patches)["style-moves"]
-    changed = old.replace("nextStyleSiblings.set(style, style.nextElementSibling);",
-                          "nextStyleSiblings.set(style, getNext(style));")
-    # (fake_engine runs the texts together: the changed one on lines of its own)
-    lib = fake_engine(patches, skip="style-moves").replace("})();\r\n", "\r\n" + changed.replace("\n", "\r\n") + "})();\r\n")
-    src = darkreader_upstream(tool, monkeypatch, tmp_path, lib)
-    results = tool.check_all(repo, work=tmp_path / "w", dr_src=src)
-    dr = by_name(results)["Dark"]
-    assert not dr["refused"] and dr["update"] and not dr["error"], dr
-    assert "speed patches left out (no longer fit the new engine): style-moves" in dr["note"], dr["note"]
-    assert dr["latest"].startswith("9.9.9, lists")
-    built = Path(dr["_dir"])
-    engine = (built / "darkreader.js").read_bytes().decode()
-    assert "ikeStyleSibling" not in engine and "nextStyleSiblings.set(style, getNext(style));" in engine
-    data = json.loads((built / "darkreader-data.json").read_text())
-    assert [d["family"] for d in data["ike_build"]["speed_patches_dropped"]] == ["style-moves"]
-    cand = next(c for c in tool.candidates_of(results) if c["id"] == "darkreader")
-    assert "style-moves" in cand["note"] and not cand.get("refused")
-
-    # the proxy injection is not where it was: refused, with its step and the upstream lines
-    lib = fake_engine(patches).replace("proxyScript.remove();", "proxyScript.detach();")
-    src = darkreader_upstream(tool, monkeypatch, tmp_path / "p", lib)
-    results = tool.check_all(repo, work=tmp_path / "w2", dr_src=src)
-    dr = by_name(results)["Dark"]
-    assert dr["refused"] and not dr["update"] and not dr["error"], dr
-    rep = dr["refused"]
-    assert rep["step"] == "tools/build-darkreader.py, the proxy taken out of the engine (PROXY_BLOCK)"
-    current = json.loads((ROOT / "ike/resources/darkreader-data.json").read_text())["version"]
-    assert rep["current"].startswith(current + ", lists") and rep["latest"].startswith("9.9.9, lists")
-    assert "proxy injection" in rep["reason"] and "proxy injection" in rep["log"]
-    assert 'const proxyScript = createOrUpdateScript("darkreader--proxy");' in rep["context"]
-    assert "proxyScript.detach();" in rep["context"]                    # the upstream lines, numbered
-    md = tool.to_markdown(results)
-    assert "**Dark Reader (engine and lists)**: %s" % rep["current"] in md and "(PROXY_BLOCK)" in md
-
-    # a link a person must judge: refused at the links check
-    lib = fake_engine(patches).replace("})();\r\n", 'var x = "https://cdn.unknown.example/a.js";\r\n})();\r\n')
-    src = darkreader_upstream(tool, monkeypatch, tmp_path / "l", lib)
-    dr = by_name(tool.check_all(repo, work=tmp_path / "w3", dr_src=src))["Dark"]
-    assert dr["refused"]["step"] == "tools/build-darkreader.py, the links check (LINKS_ALLOWED, LINK_DENY)", dr
-    assert "an unknown link in a string" in dr["refused"]["reason"]
-
-    # Dark Reader's site unreachable: infrastructure, never "refused"
-    def down(url, timeout=60):
-        raise tool.SourceUnreachable("%s: timed out" % url)
-    monkeypatch.setattr(tool, "fetch_source", down)
-    dr = by_name(tool.check_all(repo, work=tmp_path / "w4", dr_src=src))["Dark"]
-    assert dr["error"].startswith("source unreachable: SourceUnreachable") and not dr["refused"]
+    data = bundled or {"version": "4.9.135", "lists_commit": "a" * 40, "lists_date": "2026-11-25",
+                       "fixes": [{"url": ["*"], "css": "body { color: blue }"}], "dark_sites": ["dark.example"],
+                       "detector_hints": []}
+    (repo / "ike/resources/darkreader-data.json").write_text(json.dumps(data, separators=(",", ":")) + "\n")
+    return data
 
 
-def test_anchor_context_places():
+@pytest.mark.skipif(not shutil.which("git"), reason="needs git")
+def test_dark_readers_lists_are_built_and_anything_like_a_script_is_refused(repo, tmp_path, monkeypatch):
+    """1.1.30: Dark Reader's engine left I.K.E.; the component is its lists, built from a checkout of its
+    repository (no npm). New lists are noted, never a candidate (the browser fetches them itself);
+    anything that looks like a script, a site fixes list without the common fix first, or a list much
+    shorter than the copy in use is refused at its step, and nothing of the lists in use is replaced."""
     tool = load_tool()
-    text = "a\nb\nanchor 1\nanchor 2\nc\nanchor 1\nanchor 2\nd\n"
-    twice = tool.anchor_context(text, "anchor 1\nanchor 2\n", around=1)
-    assert "found at line 3:" in twice and "found at line 6:" in twice
-    gone = tool.anchor_context("x\ny\n", "nothing\nof this\n")
-    assert "(2 of 2)" in gone and "no line of the anchor is found once" in gone
+    dark_repo(repo)
+    before = (repo / "ike/resources/darkreader-data.json").read_text()
+    src = darkreader_upstream(tmp_path)
+    results = tool.check_all(repo, work=tmp_path / "w", dr_src=src, only="darkreader")
+    assert [r["id"] for r in results] == ["darkreader"]
+    dr = by_name(results)["Dark"]
+    assert dr["name"] == "Dark Reader (lists)"
+    assert not dr["refused"] and not dr["update"] and not dr["error"], dr
+    assert dr["note"] == "lists changed, Dark Reader 9.9.9 (the browser fetches them itself)"
+    assert dr["latest"].startswith("9.9.9, lists ")
+    assert dr["current"].startswith("4.9.135, lists aaaaaaaaaa (2026-11-25)")
+    built = sorted(p.name for p in Path(dr["_dir"]).iterdir())
+    assert built == ["darkreader-data.json"]                               # no engine, no proxy
+    data = json.loads((Path(dr["_dir"]) / "darkreader-data.json").read_text())
+    assert list(data) == ["version", "lists_commit", "lists_date", "fixes", "dark_sites", "detector_hints"]
+    assert data["fixes"][0] == {"url": ["*"], "css": "body { color: red }"}
+    assert data["fixes"][1] == {"url": ["example.test"], "invert": [".logo"]}
+    assert data["dark_sites"] == ["dark.example"] and data["detector_hints"] == [{"url": ["own.example"],
+                                                                                   "noDarkTheme": True}]
+    assert re.fullmatch(r"[0-9a-f]{40}", data["lists_commit"]) and re.fullmatch(r"\d{4}-\d\d-\d\d", data["lists_date"])
+    # never a candidate (the browser fetches the lists itself), and the copy in use is untouched
+    assert not [c for c in tool.candidates_of(results) if c["id"] == "darkreader"]
+    assert (repo / "ike/resources/darkreader-data.json").read_text() == before
+
+    dark_repo(repo)
+    refusals = {
+        "script": (FIXES.replace("body { color: red }", "body { background: url(javascript:alert(1)) }"),
+                   "tools/build-darkreader-lists.py, the lists' content (DATA_SCRIPT_MARKS of ike/darklists.py)"),
+        "common": ("example.test\n\nCSS\nbody { color: red }\n",
+                   "tools/build-darkreader-lists.py, the site fixes list (dynamic-theme-fixes.config)"),
+    }
+    for n, (fixes, step) in enumerate(refusals.values()):
+        src = darkreader_upstream(tmp_path / ("r%d" % n), fixes)
+        results = tool.check_all(repo, work=tmp_path / ("w%d" % (n + 2)), dr_src=src, only="darkreader")
+        dr = by_name(results)["Dark"]
+        assert dr["refused"] and not dr["update"] and not dr["error"], dr
+        assert dr["refused"]["step"] == step, dr["refused"]
+        assert dr["refused"]["current"].startswith("4.9.135, lists aaaaaaaaaa")
+        assert not (Path(tmp_path / ("w%d" % (n + 2))) / "darkreader-out" / "darkreader-data.json").exists()
+        assert (repo / "ike/resources/darkreader-data.json").read_text() == before
+        with pytest.raises(LookupError):
+            tool.apply_candidate(repo, results, "darkreader")
+    assert "example.test" in dr["refused"]["context"]                     # the new list's first lines
+    md = tool.to_markdown(results)
+    assert "**Dark Reader (lists)**: 4.9.135, lists aaaaaaaaaa" in md
+    # a list much shorter than the copy in use: a broken checkout, refused
+    dark_repo(repo, json.loads((ROOT / "ike/resources/darkreader-data.json").read_text()))
+    dr = by_name(tool.check_all(repo, work=tmp_path / "w9", dr_src=darkreader_upstream(tmp_path / "s"),
+                                only="darkreader"))["Dark"]
+    assert dr["refused"]["step"].endswith("a list much shorter than the copy in use (MIN_SHARE)"), dr["refused"]
+
+    # Dark Reader's repository unreachable: infrastructure, never "refused"
+    def down(url, dest):
+        raise tool.SourceUnreachable("git clone %s: timed out" % url)
+    monkeypatch.setattr(tool, "clone", down)
+    dr = by_name(tool.check_all(repo, work=tmp_path / "w10", only="darkreader"))["Dark"]
+    assert dr["error"].startswith("source unreachable: SourceUnreachable") and not dr["refused"]
 
 
 def test_the_maintenance_and_the_plan_tell_refused_from_unreachable():

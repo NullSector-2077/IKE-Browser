@@ -191,10 +191,12 @@ def run(run_ike, site, **settings):
     return run_ike(STEPS.replace("__SITE__", site), settings=base, timeout=150)
 
 
-def test_off_by_default_dark_reader_as_before(run_ike, site):
+def test_the_engine_by_default_and_no_dark_reader(run_ike, site):
+    # 1.1.30: Dark Reader is no longer part of I.K.E.; a profile that chose it gets the engine
     out = run(run_ike, site)
-    assert out["page"]["dr"] > 0 and out["engine"] == "null" and out["native"] is False, out
-    assert "ike-dark-engine-x" not in out["scripts"], out
+    assert out["page"]["dr"] == 0 and json.loads(out["engine"])["sheets"] >= 1 and out["native"] is False, out
+    assert "ike-dark-engine-x" in out["scripts"], out
+    assert not [s for s in out["scripts"] if "darkreader" in s or s == "ike-dark-proxy"], out
 
 
 @pytest.mark.parametrize("level", ["off", "compatibility", "balanced", "strict", "maximum"])

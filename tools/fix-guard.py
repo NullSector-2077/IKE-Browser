@@ -123,7 +123,8 @@ TIER_B_FILES = {
 # the modules where one line decides the user's safety (tools/automerge.py PERSON_FILES, without tier B)
 PROTECTED_PY = ("ike/blocker.py", "ike/scriptlets.py", "vendor/adblock/__init__.py", "ike/__main__.py",
                 "ike/config.py", "ike/osinfo.py", "ike/passwords.py", "ike/userscripts.py", "ike/webview.py",
-                "ike/shields.py", "ike/doh.py", "ike/sitedata.py", "ike/drm.py", "ike/chromever.py")
+                "ike/shields.py", "ike/doh.py", "ike/sitedata.py", "ike/drm.py", "ike/chromever.py",
+                "ike/debounce.py")
 # I.K.E.'s own page scripts (the others under ike/resources/ come from upstream or are YouTube's)
 PROTECTED_JS = ("ike/resources/fingerprint.js", "ike/resources/consent.js", "ike/resources/darkmode.js",
                 "ike/resources/passwords.js", "ike/resources/reader.js", "ike/resources/userscript.js")

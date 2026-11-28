@@ -9,8 +9,8 @@ from Dark Reader's repository once a day, as it fetches the filter lists, and
 uses them in place of the copy it came with; a new version is made only for a
 new Dark Reader engine.
 
-What is fetched is read the way tools/build-darkreader.py reads it (the same
-functions, copied: tests/test_darklists.py keeps the two copies identical)
+What is fetched is read the way tools/build-darkreader-lists.py reads it (the
+same functions: the tool imports them from here, tests/test_darklists.py)
 and checked the same way
 before anything uses it: data for Dark Reader only (CSS for a style element,
 selectors, flags), nothing that could be a script, the common fix first, and
@@ -40,7 +40,7 @@ MIN_SHARE = 0.5
 STORE_NAME = "darkreader-lists.json"
 
 
-# --- reading Dark Reader's lists (as tools/build-darkreader.py reads them) --------
+# --- reading Dark Reader's lists (tools/build-darkreader-lists.py uses these too) -
 
 FIX_COMMANDS = {"INVERT": "invert", "CSS": "css", "IGNORE INLINE STYLE": "ignoreInlineStyle",
                 "IGNORE IMAGE ANALYSIS": "ignoreImageAnalysis", "IGNORE CSS URL": "ignoreCSSUrl"}

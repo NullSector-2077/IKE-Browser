@@ -286,13 +286,12 @@ SECURITY_RULES = (
 
 
 # WP11 (--builder ID): only the refused builder's existing patches, re-anchored
-BUILDERS = {"darkreader": "tools/build-darkreader.py", "ubo-scriptlets": "tools/build-ubo-scriptlets.mjs"}
+BUILDERS = {"ubo-scriptlets": "tools/build-ubo-scriptlets.mjs"}
 BUILDER_RULES = (
     "\n\nThis run re-anchors I.K.E.'s builder %(file)s on an isolated branch: a new upstream version moved "
     "the text one of I.K.E.'s patches is anchored to (the failure description shows the new upstream lines "
-    "around it). Change ONLY %(file)s, and in it only the anchor texts of the existing patches (for Dark "
-    "Reader the second text of each PATCHES entry; for uBlock Origin only the path of the library it "
-    "imports): never a replacement text, never a new or removed patch, never other code, never the "
+    "around it). Change ONLY %(file)s, and in it only the path of the library it imports (uBlock "
+    "Origin): never a replacement text, never a new or removed patch, never other code, never the "
     "upstream code or the generated files. If the patch cannot be re-anchored that way, answer "
     "\"fixable\": false.\n")
 

@@ -123,7 +123,7 @@ Each with a test in `tests/test_review_fixes.py` that failed before the fix.
 | Point | Was | Now |
 |---|---|---|
 | Fonts (audit "known limits") | A style sheet's `src: local()` and workers loaded from an address found any installed font | At the global levels Strict and Maximum fontconfig gets a file of I.K.E.'s (`ike/fontallow.py`): the system's configuration plus a rule that keeps only DejaVu, Liberation, Noto, Cantarell, Source Han and WenQuanYi. Read at start (a change of level applies after a restart); I.K.E.'s own interface uses the same fonts; programs I.K.E. starts get the user's configuration back; nothing changes when none of these families is installed |
-| Cores (Cover Your Tracks) | 2, 4, 6, 8 (12, 16 at Balanced) per site; "2" was rare | 4 or 8, never more than the computer has; Strict and above the higher one |
+| Cores (Cover Your Tracks) | 2, 4, 6, 8 (12, 16 at Balanced) per site; "2" was rare | 4 or 8, never more than the computer has; Strict and above the higher one. **1.1.30**: one of 4 or 8 per site at every level (the owner: Cover Your Tracks counts the cores among the values that must differ between two sites for "randomized") |
 | M-2 | `matchMedia('(min-device-width: Npx)')` gave the real screen size behind Strict's usual one | `device-width`, `device-height`, `device-aspect-ratio` (both syntaxes) answered for the shown size; the query's text kept. Style sheets: see "Known limits of the noise" |
 | L-2 | The noise's site came from a short list of hosting domains: unrelated sites under another one shared their noise | The system's Public Suffix List, as for the rest of I.K.E., given to the page as sorted 24-bit hashes (about 35 KB); a chance match makes a site one label longer, never shared |
 | L-3 | `window.name` written on one site was still there on the next site of the tab | Emptied in a top-level document reached from another site (or from nowhere) on a new navigation, unless a script opened the tab; kept within a site and on a reload |
@@ -269,7 +269,7 @@ The owner's decisions of 2026-11-27, each with its tests
 |---|---|---|
 | Google's sign-in, "this browser may not be secure" | Only accounts.google.com got a Firefox identity, a fixed Firefox 140 (June 2025); the engine's client hints in the same request said `"Chromium";v="140"`; the getters of the JavaScript identity showed their source; Google's sensitive services (AI Studio, the cloud console, the account, payments) got "Compatibility" and then no protection at all (1.1.14) | Every request and frame of Google's sites, a Google sign-in embedded anywhere and what it loads present the Firefox of the calendar (`osinfo.firefox_major`: never ahead of a real release, at most about a version behind), the engine's three client hints sent empty, Firefox's navigator in every frame with getters that read as the engine's, no `userAgentData`, no `window.chrome`; the user's level everywhere on Google's sites |
 | Google's own domains on Google's pages | Left alone on the sensitive services; filtered elsewhere | At Balanced, Google's own domains (google.com, gstatic.com, googleapis.com, googleusercontent.com, recaptcha.net) go the "same site" free way on Google's pages, and their third-party cookies are kept there, as Firefox's entity list counts them; its ad and analytics domains are filtered as before; Strict and Maximum filter everything |
-| Cover Your Tracks: "unique" fingerprint | The noise of a canvas was the same at every read of a site in a session, so two exports of the same drawing were equal | Each export (`toDataURL`, `toBlob`, `convertToBlob`, WebGL canvases included) gets a varying part on top of the site's noise: the lowest bit of one in 32 opaque pixels at an edge of the drawing, chosen from the site's secret key and the number of exports so far. The majority of many exports is the picture with the site's noise (tested), so averaging gives nothing more than one read did; `getImageData` is unchanged |
+| Cover Your Tracks: "unique" fingerprint | The noise of a canvas was the same at every read of a site in a session, so two exports of the same drawing were equal | Each export (`toDataURL`, `toBlob`, `convertToBlob`, WebGL canvases included) gets a varying part on top of the site's noise: the lowest bit of one in 32 opaque pixels at an edge of the drawing, chosen from the site's secret key and the number of exports so far. The majority of many exports is the picture with the site's noise (tested), so averaging gives nothing more than one read did; `getImageData` is unchanged. **1.1.30** (the owner): replaced. Cover Your Tracks compares five values between two sites (audio, canvas, WebGL, plugins, cores) and wants four that differ; a picture that varies at every export reads "randomized" on both sites, which it takes for equal. Every export is the site's own picture again; the plugins at Strict and Maximum are Chrome's five in an order of the site's own; the cores 4 or 8 per site (tests/test_cover_your_tracks.py) |
 
 **Limits.** The identity is Firefox's texts on Chromium's engine: a site
 that tests the engine's features can still tell it is not Firefox (the
@@ -360,8 +360,15 @@ like the rest of the noise it cannot resist a script written against it
   connection at all while the saver is off.
 - **The engine's patch lag** depends on Qt and Arch: Chrome fixes arrive in
   `qt6-webengine` some weeks later.
-- **Certificate Transparency, HSTS preload, V8 hardening of Arch's build and
-  the GPU process on real hardware** were not verified (no means here).
+- **Measured in 1.1.30** (docs/review/engine-privacy-study.md, section 10):
+  Arch's build has the same ELF hardening as Chrome (PIE, full RELRO, NX,
+  stack protector, fortify) and the V8 heap sandbox; bad certificates and
+  weak TLS are refused as in Chromium. Two gaps, neither closable with an
+  engine switch: a **revoked certificate opens** (Qt WebEngine has no CRLSet,
+  Chromium's revocation list), and the built-in **HSTS preload list is not
+  applied** (as in Chromium 140 itself, too old for it); I.K.E.'s automatic
+  HTTPS still sends every `http://` page to HTTPS. Certificate Transparency
+  and the GPU process on real hardware were not measurable here.
 - `IKE_ALLOW_UNSAFE_ENGINE=1` exists for tests and special cases: with it the
   user takes protections away on purpose, and the window says so.
 
