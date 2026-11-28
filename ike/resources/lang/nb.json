@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "En beskyttelse kan forstyrre noen funksjoner på dette nettstedet.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "En beskyttelse kan hindre dette nettstedet i å fungere som det skal. Bruk «Reparer dette nettstedet».",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. fant ingenting galt mens denne siden ble lastet inn. Det beviser ikke at nettstedet er trygt.",
-"This site uses background programs: it works better, but protects you a little less.": "Dette nettstedet bruker bakgrunnsprogrammer: det fungerer bedre, men beskytter deg litt mindre.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Bakgrunnsprogrammene til dette nettstedet er blokkert: mer beskyttelse, men nettstedet virker kanskje ikke.",
 "Block them on this site": "Blokker dem på dette nettstedet",
 "Allow them again": "Tillat dem igjen",
-"Probable cause: this site's background programs are blocked.": "Sannsynlig årsak: bakgrunnsprogrammene til dette nettstedet er blokkert."
+"Probable cause: this site's background programs are blocked.": "Sannsynlig årsak: bakgrunnsprogrammene til dette nettstedet er blokkert.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Sannsynlig årsak: nivået Maksimal blokkerer bakgrunnsprogrammene til dette nettstedet, fordi de ikke kan beskyttes.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "«Bruk Kontrol på dette nettstedet» lar dem kjøre bare på dette nettstedet, med datamaskinens ekte egenskaper; Maksimal forblir på alle andre steder.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Dette nettstedet bruker bakgrunnsprogrammer som ikke kan beskyttes: de kan vise datamaskinens ekte egenskaper. Blokker dem hvis du foretrekker mer beskyttelse.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Nivået Maksimal blokkerer bakgrunnsprogrammene til dette nettstedet, fordi de ikke kan beskyttes: nettstedet virker kanskje ikke. Kontrol lar dem kjøre på dette nettstedet.",
+"Use Kontrol on this site": "Bruk Kontrol på dette nettstedet"
 }
 }

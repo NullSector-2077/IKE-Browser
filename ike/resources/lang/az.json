@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Bir qoruma bu saytın bəzi funksiyalarına mane ola bilər.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Bir qoruma bu saytın düzgün işləməsinə mane ola bilər. “Bu saytı təmir et” seçimindən istifadə edin.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. bu səhifə yüklənərkən heç bir problem aşkar etmədi. Bu, saytın təhlükəsiz olduğunu sübut etmir.",
-"This site uses background programs: it works better, but protects you a little less.": "Bu sayt fon proqramlarından istifadə edir: daha yaxşı işləyir, amma sizi bir az daha az qoruyur.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Bu saytın fon proqramları bloklanıb: daha çox qoruma, amma sayt işləməyə bilər.",
 "Block them on this site": "Bu saytda onları blokla",
 "Allow them again": "Onlara yenidən icazə ver",
-"Probable cause: this site's background programs are blocked.": "Ehtimal olunan səbəb: bu saytın fon proqramları bloklanıb."
+"Probable cause: this site's background programs are blocked.": "Ehtimal olunan səbəb: bu saytın fon proqramları bloklanıb.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Ehtimal olunan səbəb: Maksimum bu saytın fon proqramlarını bloklayır, çünki onları qorumaq mümkün deyil.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“Bu saytda Kontrol istifadə et” onların yalnız bu saytda, kompüterinizin real xüsusiyyətləri ilə işləməsinə imkan verir; Maksimum bütün digər yerlərdə aktiv qalır.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Bu sayt qorunması mümkün olmayan fon proqramlarından istifadə edir: onlar kompüterinizin real xüsusiyyətlərini göstərə bilər. Daha çox qoruma istəyirsinizsə, onları bloklayın.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Maksimum bu saytın fon proqramlarını bloklayır, çünki onları qorumaq mümkün deyil: sayt işləməyə bilər. Kontrol onların bu saytda işləməsinə imkan verir.",
+"Use Kontrol on this site": "Bu saytda Kontrol istifadə et"
 }
 }

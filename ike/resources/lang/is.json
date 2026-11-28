@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Vörn gæti truflað suma eiginleika þessa vefsvæðis.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Vörn gæti komið í veg fyrir að þetta vefsvæði virki rétt. Notaðu „Laga þetta vefsvæði“.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. fann ekkert athugavert á meðan þessi síða hlóðst. Það sannar ekki að vefsvæðið sé öruggt.",
-"This site uses background programs: it works better, but protects you a little less.": "Þetta vefsvæði notar bakgrunnsforrit: það virkar betur en verndar þig aðeins minna.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Bakgrunnsforrit þessa vefsvæðis eru lokuð: meiri vernd, en vefsvæðið virkar hugsanlega ekki.",
 "Block them on this site": "Loka á þau á þessu vefsvæði",
 "Allow them again": "Leyfa þau aftur",
-"Probable cause: this site's background programs are blocked.": "Líkleg orsök: bakgrunnsforrit þessa vefsvæðis eru lokuð."
+"Probable cause: this site's background programs are blocked.": "Líkleg orsök: bakgrunnsforrit þessa vefsvæðis eru lokuð.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Líkleg orsök: Hámark lokar á bakgrunnsforrit þessa vefsvæðis, því ekki er hægt að vernda þau.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "„Nota Kontrol á þessu vefsvæði“ leyfir þeim að keyra aðeins á þessu vefsvæði, með raunverulegum eiginleikum tölvunnar þinnar; Hámark er áfram virkt alls staðar annars staðar.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Þetta vefsvæði notar bakgrunnsforrit sem ekki er hægt að vernda: þau geta sýnt raunverulega eiginleika tölvunnar þinnar. Lokaðu á þau ef þú vilt frekar meiri vernd.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Hámark lokar á bakgrunnsforrit þessa vefsvæðis, því ekki er hægt að vernda þau: vefsvæðið virkar hugsanlega ekki. Kontrol leyfir þeim að keyra á þessu vefsvæði.",
+"Use Kontrol on this site": "Nota Kontrol á þessu vefsvæði"
 }
 }

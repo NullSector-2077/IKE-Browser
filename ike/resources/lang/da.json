@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "En beskyttelse kan forstyrre nogle funktioner på dette websted.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "En beskyttelse kan forhindre dette websted i at virke korrekt. Brug “Reparer dette websted”.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. fandt intet galt, mens denne side blev indlæst. Det beviser ikke, at webstedet er sikkert.",
-"This site uses background programs: it works better, but protects you a little less.": "Dette websted bruger baggrundsprogrammer: det virker bedre, men beskytter dig lidt mindre.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Dette websteds baggrundsprogrammer er blokeret: mere beskyttelse, men webstedet virker måske ikke.",
 "Block them on this site": "Bloker dem på dette websted",
 "Allow them again": "Tillad dem igen",
-"Probable cause: this site's background programs are blocked.": "Sandsynlig årsag: dette websteds baggrundsprogrammer er blokeret."
+"Probable cause: this site's background programs are blocked.": "Sandsynlig årsag: dette websteds baggrundsprogrammer er blokeret.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Sandsynlig årsag: niveauet Maksimal blokerer dette websteds baggrundsprogrammer, fordi de ikke kan beskyttes.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“Brug Kontrol på dette websted” lader dem køre kun på dette websted, med din computers rigtige egenskaber; Maksimal forbliver slået til alle andre steder.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Dette websted bruger baggrundsprogrammer, der ikke kan beskyttes: de kan vise din computers rigtige egenskaber. Bloker dem, hvis du foretrækker mere beskyttelse.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Niveauet Maksimal blokerer dette websteds baggrundsprogrammer, fordi de ikke kan beskyttes: webstedet virker måske ikke. Kontrol lader dem køre på dette websted.",
+"Use Kontrol on this site": "Brug Kontrol på dette websted"
 }
 }

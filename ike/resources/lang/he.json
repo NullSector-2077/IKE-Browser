@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "הגנה עלולה להפריע לחלק מהתכונות של האתר הזה.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "הגנה עלולה למנוע מהאתר הזה לעבוד כראוי. יש להשתמש באפשרות “תיקון האתר הזה”.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. לא מצא שום דבר חשוד בזמן טעינת הדף הזה. אין בכך הוכחה שהאתר בטוח.",
-"This site uses background programs: it works better, but protects you a little less.": "האתר הזה משתמש בתוכניות רקע: הוא עובד טוב יותר, אבל ההגנה עליך מעט פחותה.",
 "This site's background programs are blocked: more protection, but the site may not work.": "תוכניות הרקע של האתר הזה חסומות: יותר הגנה, אבל ייתכן שהאתר לא יעבוד.",
 "Block them on this site": "לחסום אותן באתר זה",
 "Allow them again": "לאפשר אותן שוב",
-"Probable cause: this site's background programs are blocked.": "סיבה אפשרית: תוכניות הרקע של האתר הזה חסומות."
+"Probable cause: this site's background programs are blocked.": "סיבה אפשרית: תוכניות הרקע של האתר הזה חסומות.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "סיבה אפשרית: הרמה מרבי חוסמת את תוכניות הרקע של האתר הזה, כי אי אפשר להגן עליהן.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“להשתמש ב-Kontrol באתר זה” מאפשר להן לפעול באתר הזה בלבד, עם המאפיינים האמיתיים של המחשב שלך; הרמה מרבי נשארת פעילה בכל מקום אחר.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "האתר הזה משתמש בתוכניות רקע שאי אפשר להגן עליהן: הן עלולות לחשוף את המאפיינים האמיתיים של המחשב שלך. אפשר לחסום אותן אם מעדיפים יותר הגנה.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "הרמה מרבי חוסמת את תוכניות הרקע של האתר הזה, כי אי אפשר להגן עליהן: ייתכן שהאתר לא יעבוד. Kontrol מאפשר להן לפעול באתר הזה.",
+"Use Kontrol on this site": "להשתמש ב-Kontrol באתר זה"
 }
 }

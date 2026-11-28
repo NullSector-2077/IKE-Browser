@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Maaaring makasagabal ang isang proteksyon sa ilang feature ng site na ito.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Maaaring pigilan ng isang proteksyon ang site na ito na gumana nang maayos. Gamitin ang “Ayusin ang site na ito”.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "Walang nakitang mali ang I.K.E. habang nilo-load ang page na ito. Hindi nito pinapatunayan na ligtas ang site.",
-"This site uses background programs: it works better, but protects you a little less.": "Gumagamit ang site na ito ng mga background program: mas gumagana ito, pero medyo mas kaunti ang proteksyon mo.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Naharang ang mga background program ng site na ito: mas maraming proteksyon, pero maaaring hindi gumana ang site.",
 "Block them on this site": "Harangin sila sa site na ito",
 "Allow them again": "Payagan sila ulit",
-"Probable cause: this site's background programs are blocked.": "Malamang na sanhi: naharang ang mga background program ng site na ito."
+"Probable cause: this site's background programs are blocked.": "Malamang na sanhi: naharang ang mga background program ng site na ito.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Malamang na sanhi: hinaharang ng Maximum ang mga background program ng site na ito, dahil hindi sila mapoprotektahan.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "Ang “Gamitin ang Kontrol sa site na ito” ay hinahayaan silang tumakbo sa site na ito lang, gamit ang totoong katangian ng iyong computer; nananatiling naka-on ang Maximum sa lahat ng iba pang lugar.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Gumagamit ang site na ito ng mga background program na hindi mapoprotektahan: maaari nilang ipakita ang totoong katangian ng iyong computer. Harangin sila kung mas gusto mo ang mas maraming proteksyon.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Hinaharang ng Maximum ang mga background program ng site na ito, dahil hindi sila mapoprotektahan: maaaring hindi gumana ang site. Hinahayaan sila ng Kontrol na tumakbo sa site na ito.",
+"Use Kontrol on this site": "Gamitin ang Kontrol sa site na ito"
 }
 }

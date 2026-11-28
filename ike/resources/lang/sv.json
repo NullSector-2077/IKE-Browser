@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Ett skydd kan störa vissa funktioner på den här webbplatsen.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Ett skydd kan hindra den här webbplatsen från att fungera ordentligt. Använd “Reparera den här webbplatsen”.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. hittade inget konstigt medan den här sidan laddades. Det bevisar inte att webbplatsen är säker.",
-"This site uses background programs: it works better, but protects you a little less.": "Den här webbplatsen använder bakgrundsprogram: den fungerar bättre, men skyddar dig lite mindre.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Den här webbplatsens bakgrundsprogram är blockerade: mer skydd, men webbplatsen kanske inte fungerar.",
 "Block them on this site": "Blockera dem på den här webbplatsen",
 "Allow them again": "Tillåt dem igen",
-"Probable cause: this site's background programs are blocked.": "Trolig orsak: den här webbplatsens bakgrundsprogram är blockerade."
+"Probable cause: this site's background programs are blocked.": "Trolig orsak: den här webbplatsens bakgrundsprogram är blockerade.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Trolig orsak: nivån Maximal blockerar den här webbplatsens bakgrundsprogram, eftersom de inte kan skyddas.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“Använd Kontrol på den här webbplatsen” låter dem köras bara på den här webbplatsen, med datorns verkliga egenskaper; Maximal förblir på överallt annars.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Den här webbplatsen använder bakgrundsprogram som inte kan skyddas: de kan visa datorns verkliga egenskaper. Blockera dem om du föredrar mer skydd.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Nivån Maximal blockerar den här webbplatsens bakgrundsprogram, eftersom de inte kan skyddas: webbplatsen kanske inte fungerar. Kontrol låter dem köras på den här webbplatsen.",
+"Use Kontrol on this site": "Använd Kontrol på den här webbplatsen"
 }
 }

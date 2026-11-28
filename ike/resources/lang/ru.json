@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Защита может мешать некоторым функциям этого сайта.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Защита может мешать нормальной работе этого сайта. Воспользуйтесь функцией «Исправить этот сайт».",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. не обнаружил ничего подозрительного при загрузке этой страницы. Это не доказывает, что сайт безопасен.",
-"This site uses background programs: it works better, but protects you a little less.": "Этот сайт использует фоновые программы: он работает лучше, но защищает вас немного слабее.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Фоновые программы этого сайта заблокированы: больше защиты, но сайт может не работать.",
 "Block them on this site": "Заблокировать их на этом сайте",
 "Allow them again": "Снова разрешить их",
-"Probable cause: this site's background programs are blocked.": "Вероятная причина: фоновые программы этого сайта заблокированы."
+"Probable cause: this site's background programs are blocked.": "Вероятная причина: фоновые программы этого сайта заблокированы.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Вероятная причина: Максимальный уровень блокирует фоновые программы этого сайта, потому что их невозможно защитить.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "«Использовать Kontrol на этом сайте» позволяет им работать только на этом сайте, с реальными характеристиками вашего компьютера; Максимальный уровень остаётся включённым на всех остальных сайтах.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Этот сайт использует фоновые программы, которые невозможно защитить: они могут показать реальные характеристики вашего компьютера. Заблокируйте их, если хотите больше защиты.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Максимальный уровень блокирует фоновые программы этого сайта, потому что их невозможно защитить: сайт может не работать. Kontrol позволяет им работать на этом сайте.",
+"Use Kontrol on this site": "Использовать Kontrol на этом сайте"
 }
 }

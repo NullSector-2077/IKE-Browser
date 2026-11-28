@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Bir koruma bu sitenin bazı özelliklerini etkileyebilir.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Bir koruma bu sitenin düzgün çalışmasını engelleyebilir. “Bu siteyi onar” seçeneğini kullanın.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. bu sayfa yüklenirken bir sorun bulmadı. Bu, sitenin güvenli olduğunu kanıtlamaz.",
-"This site uses background programs: it works better, but protects you a little less.": "Bu site arka plan programları kullanıyor: daha iyi çalışır ama sizi biraz daha az korur.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Bu sitenin arka plan programları engellendi: daha fazla koruma, ama site çalışmayabilir.",
 "Block them on this site": "Bu sitede engelle",
 "Allow them again": "Yeniden izin ver",
-"Probable cause: this site's background programs are blocked.": "Olası neden: bu sitenin arka plan programları engellendi."
+"Probable cause: this site's background programs are blocked.": "Olası neden: bu sitenin arka plan programları engellendi.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Olası neden: Maksimum, korunamadıkları için bu sitenin arka plan programlarını engelliyor.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“Bu sitede Kontrol kullan” onların yalnızca bu sitede, bilgisayarınızın gerçek özellikleriyle çalışmasına izin verir; Maksimum diğer her yerde açık kalır.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Bu site korunamayan arka plan programları kullanıyor: bunlar bilgisayarınızın gerçek özelliklerini gösterebilir. Daha fazla koruma isterseniz onları engelleyin.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Maksimum, korunamadıkları için bu sitenin arka plan programlarını engelliyor: site çalışmayabilir. Kontrol onların bu sitede çalışmasına izin verir.",
+"Use Kontrol on this site": "Bu sitede Kontrol kullan"
 }
 }

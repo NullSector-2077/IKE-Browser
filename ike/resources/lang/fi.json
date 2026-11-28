@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Suojaus saattaa häiritä joitakin tämän sivuston toimintoja.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Suojaus saattaa estää tätä sivustoa toimimasta kunnolla. Käytä toimintoa “Korjaa tämä sivusto”.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. ei havainnut mitään poikkeavaa tämän sivun latautuessa. Tämä ei todista, että sivusto on turvallinen.",
-"This site uses background programs: it works better, but protects you a little less.": "Tämä sivusto käyttää taustaohjelmia: se toimii paremmin, mutta suojaa sinua hieman vähemmän.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Tämän sivuston taustaohjelmat on estetty: enemmän suojaa, mutta sivusto ei ehkä toimi.",
 "Block them on this site": "Estä ne tällä sivustolla",
 "Allow them again": "Salli ne uudelleen",
-"Probable cause: this site's background programs are blocked.": "Todennäköinen syy: tämän sivuston taustaohjelmat on estetty."
+"Probable cause: this site's background programs are blocked.": "Todennäköinen syy: tämän sivuston taustaohjelmat on estetty.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Todennäköinen syy: Maksimi-taso estää tämän sivuston taustaohjelmat, koska niitä ei voi suojata.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“Käytä tasoa Kontrol tällä sivustolla” antaa niiden toimia vain tällä sivustolla, ja ne näkevät tietokoneesi todelliset ominaisuudet; Maksimi pysyy päällä kaikkialla muualla.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Tämä sivusto käyttää taustaohjelmia, joita ei voi suojata: ne voivat paljastaa tietokoneesi todelliset ominaisuudet. Estä ne, jos haluat enemmän suojaa.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Maksimi-taso estää tämän sivuston taustaohjelmat, koska niitä ei voi suojata: sivusto ei ehkä toimi. Kontrol-taso antaa niiden toimia tällä sivustolla.",
+"Use Kontrol on this site": "Käytä tasoa Kontrol tällä sivustolla"
 }
 }

@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "کوئی تحفظ اس سائٹ کی کچھ خصوصیات میں رکاوٹ ڈال سکتا ہے۔",
 "A protection may stop this site from working properly. Use “Repair this site”.": "کوئی تحفظ اس سائٹ کو ٹھیک سے کام کرنے سے روک سکتا ہے۔ “اس سائٹ کی مرمت کریں” استعمال کریں۔",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "اس صفحے کے لوڈ ہوتے وقت I.K.E. کو کوئی خرابی نہیں ملی۔ اس سے یہ ثابت نہیں ہوتا کہ سائٹ محفوظ ہے۔",
-"This site uses background programs: it works better, but protects you a little less.": "یہ سائٹ پس منظر پروگرام استعمال کرتی ہے: یہ بہتر کام کرتی ہے، لیکن آپ کا تحفظ تھوڑا کم ہو جاتا ہے۔",
 "This site's background programs are blocked: more protection, but the site may not work.": "اس سائٹ کے پس منظر پروگرام روک دیے گئے ہیں: زیادہ تحفظ، لیکن ہو سکتا ہے سائٹ کام نہ کرے۔",
 "Block them on this site": "اس سائٹ پر انہیں روکیں",
 "Allow them again": "انہیں دوبارہ اجازت دیں",
-"Probable cause: this site's background programs are blocked.": "ممکنہ وجہ: اس سائٹ کے پس منظر پروگرام روک دیے گئے ہیں۔"
+"Probable cause: this site's background programs are blocked.": "ممکنہ وجہ: اس سائٹ کے پس منظر پروگرام روک دیے گئے ہیں۔",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "ممکنہ وجہ: زیادہ سے زیادہ سطح اس سائٹ کے پس منظر پروگرام روکتی ہے، کیونکہ انہیں محفوظ نہیں کیا جا سکتا۔",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“اس سائٹ پر Kontrol استعمال کریں” انہیں صرف اس سائٹ پر، آپ کے کمپیوٹر کی اصل خصوصیات کے ساتھ چلنے دیتا ہے؛ باقی ہر جگہ زیادہ سے زیادہ سطح آن رہتی ہے۔",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "یہ سائٹ ایسے پس منظر پروگرام استعمال کرتی ہے جنہیں محفوظ نہیں کیا جا سکتا: یہ آپ کے کمپیوٹر کی اصل خصوصیات دکھا سکتے ہیں۔ اگر آپ زیادہ تحفظ چاہتے ہیں تو انہیں روکیں۔",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "زیادہ سے زیادہ سطح اس سائٹ کے پس منظر پروگرام روکتی ہے، کیونکہ انہیں محفوظ نہیں کیا جا سکتا: ہو سکتا ہے سائٹ کام نہ کرے۔ Kontrol انہیں اس سائٹ پر چلنے دیتا ہے۔",
+"Use Kontrol on this site": "اس سائٹ پر Kontrol استعمال کریں"
 }
 }

@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "कोई सुरक्षा इस साइट की कुछ सुविधाओं में बाधा डाल सकती है।",
 "A protection may stop this site from working properly. Use “Repair this site”.": "कोई सुरक्षा इस साइट को ठीक से काम करने से रोक सकती है। “इस साइट की मरम्मत करें” का उपयोग करें।",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "इस पेज के लोड होते समय I.K.E. को कुछ गलत नहीं मिला। इससे यह साबित नहीं होता कि साइट सुरक्षित है।",
-"This site uses background programs: it works better, but protects you a little less.": "यह साइट बैकग्राउंड प्रोग्राम इस्तेमाल करती है: यह बेहतर काम करती है, लेकिन आपको थोड़ी कम सुरक्षा मिलती है।",
 "This site's background programs are blocked: more protection, but the site may not work.": "इस साइट के बैकग्राउंड प्रोग्राम रोके गए हैं: ज़्यादा सुरक्षा, लेकिन साइट शायद काम न करे।",
 "Block them on this site": "इस साइट पर इन्हें रोकें",
 "Allow them again": "इन्हें फिर से अनुमति दें",
-"Probable cause: this site's background programs are blocked.": "संभावित कारण: इस साइट के बैकग्राउंड प्रोग्राम रोके गए हैं।"
+"Probable cause: this site's background programs are blocked.": "संभावित कारण: इस साइट के बैकग्राउंड प्रोग्राम रोके गए हैं।",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "संभावित कारण: अधिकतम स्तर इस साइट के बैकग्राउंड प्रोग्राम रोकता है, क्योंकि उन्हें सुरक्षित नहीं किया जा सकता।",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“इस साइट पर Kontrol इस्तेमाल करें” इन्हें केवल इस साइट पर चलने देता है, आपके कंप्यूटर की असली विशेषताओं के साथ; बाकी हर जगह अधिकतम स्तर चालू रहता है।",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "यह साइट ऐसे बैकग्राउंड प्रोग्राम इस्तेमाल करती है जिन्हें सुरक्षित नहीं किया जा सकता: वे आपके कंप्यूटर की असली विशेषताएँ दिखा सकते हैं। ज़्यादा सुरक्षा चाहें तो इन्हें रोकें।",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "अधिकतम स्तर इस साइट के बैकग्राउंड प्रोग्राम रोकता है, क्योंकि उन्हें सुरक्षित नहीं किया जा सकता: साइट शायद काम न करे। Kontrol इन्हें इस साइट पर चलने देता है।",
+"Use Kontrol on this site": "इस साइट पर Kontrol इस्तेमाल करें"
 }
 }

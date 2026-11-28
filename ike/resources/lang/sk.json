@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Ochrana môže narúšať niektoré funkcie tohto webu.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Ochrana môže brániť správnemu fungovaniu tohto webu. Použite „Opraviť tento web“.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. pri načítaní tejto stránky nezistil nič podozrivé. To neznamená, že je web bezpečný.",
-"This site uses background programs: it works better, but protects you a little less.": "Tento web používa programy na pozadí: funguje lepšie, ale chráni vás o niečo menej.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Programy tohto webu na pozadí sú zablokované: viac ochrany, ale web nemusí fungovať.",
 "Block them on this site": "Zablokovať ich na tomto webe",
 "Allow them again": "Znova ich povoliť",
-"Probable cause: this site's background programs are blocked.": "Pravdepodobná príčina: programy tohto webu na pozadí sú zablokované."
+"Probable cause: this site's background programs are blocked.": "Pravdepodobná príčina: programy tohto webu na pozadí sú zablokované.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Pravdepodobná príčina: Maximálna ochrana blokuje programy tohto webu na pozadí, pretože ich nemožno ochrániť.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "„Použiť Kontrol na tomto webe“ im dovolí bežať iba na tomto webe, so skutočnými vlastnosťami vášho počítača; Maximálna ochrana zostane zapnutá všade inde.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Tento web používa programy na pozadí, ktoré nemožno ochrániť: môžu prezradiť skutočné vlastnosti vášho počítača. Ak chcete viac ochrany, zablokujte ich.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Maximálna ochrana blokuje programy tohto webu na pozadí, pretože ich nemožno ochrániť: web nemusí fungovať. Kontrol im dovolí bežať na tomto webe.",
+"Use Kontrol on this site": "Použiť Kontrol na tomto webe"
 }
 }

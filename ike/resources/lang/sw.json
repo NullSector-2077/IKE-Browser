@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Ulinzi fulani unaweza kutatiza baadhi ya vipengele vya tovuti hii.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Ulinzi fulani unaweza kuzuia tovuti hii isifanye kazi ipasavyo. Tumia “Tengeneza tovuti hii”.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. hakijapata tatizo lolote wakati ukurasa huu ukipakiwa. Hii haithibitishi kwamba tovuti ni salama.",
-"This site uses background programs: it works better, but protects you a little less.": "Tovuti hii inatumia programu za nyuma: inafanya kazi vizuri zaidi, lakini ulinzi wako unapungua kidogo.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Programu za nyuma za tovuti hii zimezuiwa: ulinzi zaidi, lakini huenda tovuti isifanye kazi.",
 "Block them on this site": "Zizuie kwenye tovuti hii",
 "Allow them again": "Ziruhusu tena",
-"Probable cause: this site's background programs are blocked.": "Sababu inayowezekana: programu za nyuma za tovuti hii zimezuiwa."
+"Probable cause: this site's background programs are blocked.": "Sababu inayowezekana: programu za nyuma za tovuti hii zimezuiwa.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Sababu inayowezekana: Kiwango cha juu kinazuia programu za nyuma za tovuti hii, kwa sababu haziwezi kulindwa.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“Tumia Kontrol kwenye tovuti hii” huziruhusu kufanya kazi kwenye tovuti hii tu, zikiwa na sifa halisi za kompyuta yako; Kiwango cha juu kinabaki kimewashwa kila mahali pengine.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Tovuti hii inatumia programu za nyuma ambazo haziwezi kulindwa: zinaweza kuonyesha sifa halisi za kompyuta yako. Zizuie ukipendelea ulinzi zaidi.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Kiwango cha juu kinazuia programu za nyuma za tovuti hii, kwa sababu haziwezi kulindwa: huenda tovuti isifanye kazi. Kontrol huziruhusu kufanya kazi kwenye tovuti hii.",
+"Use Kontrol on this site": "Tumia Kontrol kwenye tovuti hii"
 }
 }

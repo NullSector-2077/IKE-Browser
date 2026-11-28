@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Zabezpieczenie może zakłócać niektóre funkcje tej witryny.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Zabezpieczenie może uniemożliwiać prawidłowe działanie tej witryny. Użyj opcji „Napraw tę witrynę”.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. nie wykrył niczego niepokojącego podczas wczytywania tej strony. Nie dowodzi to, że witryna jest bezpieczna.",
-"This site uses background programs: it works better, but protects you a little less.": "Ta witryna używa programów w tle: działa lepiej, ale chroni Cię trochę słabiej.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Programy w tle tej witryny są zablokowane: więcej ochrony, ale witryna może nie działać.",
 "Block them on this site": "Zablokuj je w tej witrynie",
 "Allow them again": "Zezwól na nie ponownie",
-"Probable cause: this site's background programs are blocked.": "Prawdopodobna przyczyna: programy w tle tej witryny są zablokowane."
+"Probable cause: this site's background programs are blocked.": "Prawdopodobna przyczyna: programy w tle tej witryny są zablokowane.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Prawdopodobna przyczyna: poziom Maksymalny blokuje programy w tle tej witryny, ponieważ nie da się ich chronić.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "„Użyj Kontrol w tej witrynie” pozwala im działać tylko w tej witrynie, z prawdziwymi cechami Twojego komputera; poziom Maksymalny pozostaje włączony wszędzie indziej.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Ta witryna używa programów w tle, których nie da się chronić: mogą pokazać prawdziwe cechy Twojego komputera. Zablokuj je, jeśli wolisz więcej ochrony.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Poziom Maksymalny blokuje programy w tle tej witryny, ponieważ nie da się ich chronić: witryna może nie działać. Kontrol pozwala im działać w tej witrynie.",
+"Use Kontrol on this site": "Użyj Kontrol w tej witrynie"
 }
 }

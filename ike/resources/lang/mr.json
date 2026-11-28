@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "एखादे संरक्षण या साइटच्या काही वैशिष्ट्यांमध्ये अडथळा आणू शकते.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "एखादे संरक्षण या साइटला नीट चालण्यापासून रोखू शकते. “ही साइट दुरुस्त करा” वापरा.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "हे पेज लोड होत असताना I.K.E. ला काहीही चुकीचे आढळले नाही. यावरून साइट सुरक्षित असल्याचे सिद्ध होत नाही.",
-"This site uses background programs: it works better, but protects you a little less.": "ही साइट पार्श्वभूमी प्रोग्राम वापरते: ती अधिक चांगली चालते, पण तुमचे संरक्षण थोडे कमी होते.",
 "This site's background programs are blocked: more protection, but the site may not work.": "या साइटचे पार्श्वभूमी प्रोग्राम अडवले आहेत: अधिक संरक्षण, पण साइट कदाचित काम करणार नाही.",
 "Block them on this site": "या साइटवर त्यांना अडवा",
 "Allow them again": "त्यांना पुन्हा परवानगी द्या",
-"Probable cause: this site's background programs are blocked.": "संभाव्य कारण: या साइटचे पार्श्वभूमी प्रोग्राम अडवले आहेत."
+"Probable cause: this site's background programs are blocked.": "संभाव्य कारण: या साइटचे पार्श्वभूमी प्रोग्राम अडवले आहेत.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "संभाव्य कारण: कमाल स्तर या साइटचे पार्श्वभूमी प्रोग्राम अडवतो, कारण त्यांचे संरक्षण करता येत नाही.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“या साइटवर Kontrol वापरा” त्यांना फक्त या साइटवर, तुमच्या संगणकाच्या खऱ्या वैशिष्ट्यांसह चालू देते; इतर सर्व ठिकाणी कमाल स्तर चालूच राहतो.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "ही साइट असे पार्श्वभूमी प्रोग्राम वापरते ज्यांचे संरक्षण करता येत नाही: ते तुमच्या संगणकाची खरी वैशिष्ट्ये दाखवू शकतात. अधिक संरक्षण हवे असल्यास त्यांना अडवा.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "कमाल स्तर या साइटचे पार्श्वभूमी प्रोग्राम अडवतो, कारण त्यांचे संरक्षण करता येत नाही: साइट कदाचित काम करणार नाही. Kontrol त्यांना या साइटवर चालू देते.",
+"Use Kontrol on this site": "या साइटवर Kontrol वापरा"
 }
 }

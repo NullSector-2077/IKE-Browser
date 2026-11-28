@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Uma proteção pode interferir em alguns recursos deste site.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Uma proteção pode impedir que este site funcione corretamente. Use “Reparar este site”.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "O I.K.E. não encontrou nada de errado durante o carregamento desta página. Isso não prova que o site seja seguro.",
-"This site uses background programs: it works better, but protects you a little less.": "Este site usa programas em segundo plano: funciona melhor, mas protege você um pouco menos.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Os programas em segundo plano deste site estão bloqueados: mais proteção, mas o site pode não funcionar.",
 "Block them on this site": "Bloqueá-los neste site",
 "Allow them again": "Permiti-los de novo",
-"Probable cause: this site's background programs are blocked.": "Causa provável: os programas em segundo plano deste site estão bloqueados."
+"Probable cause: this site's background programs are blocked.": "Causa provável: os programas em segundo plano deste site estão bloqueados.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Causa provável: o nível Máximo bloqueia os programas em segundo plano deste site, porque eles não podem ser protegidos.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“Usar Kontrol neste site” deixa que eles funcionem só neste site, com as características reais do seu computador; o Máximo continua ligado em todos os outros lugares.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Este site usa programas em segundo plano que não podem ser protegidos: eles podem mostrar as características reais do seu computador. Bloqueie-os se preferir mais proteção.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "O nível Máximo bloqueia os programas em segundo plano deste site, porque eles não podem ser protegidos: o site pode não funcionar. O Kontrol deixa que eles funcionem neste site.",
+"Use Kontrol on this site": "Usar Kontrol neste site"
 }
 }

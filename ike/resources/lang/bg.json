@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Защита може да пречи на някои функции на този сайт.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Защита може да попречи на правилната работа на този сайт. Използвайте „Поправи този сайт“.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. не откри нищо нередно при зареждането на тази страница. Това не доказва, че сайтът е безопасен.",
-"This site uses background programs: it works better, but protects you a little less.": "Този сайт използва фонови програми: работи по-добре, но ви защитава малко по-слабо.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Фоновите програми на този сайт са блокирани: повече защита, но сайтът може да не работи.",
 "Block them on this site": "Блокирай ги на този сайт",
 "Allow them again": "Разреши ги отново",
-"Probable cause: this site's background programs are blocked.": "Вероятна причина: фоновите програми на този сайт са блокирани."
+"Probable cause: this site's background programs are blocked.": "Вероятна причина: фоновите програми на този сайт са блокирани.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Вероятна причина: нивото „Максимално“ блокира фоновите програми на този сайт, защото те не могат да бъдат защитени.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "„Използвай Kontrol на този сайт“ им позволява да работят само на този сайт, с истинските характеристики на компютъра ви; „Максимално“ остава включено навсякъде другаде.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Този сайт използва фонови програми, които не могат да бъдат защитени: те могат да покажат истинските характеристики на компютъра ви. Блокирайте ги, ако предпочитате повече защита.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Нивото „Максимално“ блокира фоновите програми на този сайт, защото те не могат да бъдат защитени: сайтът може да не работи. Kontrol им позволява да работят на този сайт.",
+"Use Kontrol on this site": "Използвай Kontrol на този сайт"
 }
 }

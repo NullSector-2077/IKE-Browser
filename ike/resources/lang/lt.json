@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Apsauga gali trukdyti kai kurioms šios svetainės funkcijoms.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Apsauga gali trukdyti šiai svetainei tinkamai veikti. Naudokite „Pataisyti šią svetainę“.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. įkeliant šį puslapį nerado nieko įtartino. Tai neįrodo, kad svetainė yra saugi.",
-"This site uses background programs: it works better, but protects you a little less.": "Ši svetainė naudoja fonines programas: ji veikia geriau, bet jus saugo šiek tiek mažiau.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Šios svetainės foninės programos užblokuotos: daugiau apsaugos, bet svetainė gali neveikti.",
 "Block them on this site": "Blokuoti jas šioje svetainėje",
 "Allow them again": "Vėl jas leisti",
-"Probable cause: this site's background programs are blocked.": "Tikėtina priežastis: šios svetainės foninės programos užblokuotos."
+"Probable cause: this site's background programs are blocked.": "Tikėtina priežastis: šios svetainės foninės programos užblokuotos.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Tikėtina priežastis: Maksimali apsauga blokuoja šios svetainės fonines programas, nes jų negalima apsaugoti.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "„Naudoti Kontrol šioje svetainėje“ leidžia joms veikti tik šioje svetainėje, su tikrosiomis jūsų kompiuterio savybėmis; Maksimali apsauga lieka įjungta visur kitur.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Ši svetainė naudoja fonines programas, kurių negalima apsaugoti: jos gali parodyti tikrąsias jūsų kompiuterio savybes. Blokuokite jas, jei norite daugiau apsaugos.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Maksimali apsauga blokuoja šios svetainės fonines programas, nes jų negalima apsaugoti: svetainė gali neveikti. Kontrol leidžia joms veikti šioje svetainėje.",
+"Use Kontrol on this site": "Naudoti Kontrol šioje svetainėje"
 }
 }

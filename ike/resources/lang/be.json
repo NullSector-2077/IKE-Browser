@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Абарона можа перашкаджаць некаторым функцыям гэтага сайта.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Абарона можа перашкаджаць нармальнай працы гэтага сайта. Скарыстайцеся функцыяй «Выправіць гэты сайт».",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. не выявіў нічога падазронага падчас загрузкі гэтай старонкі. Гэта не даказвае, што сайт бяспечны.",
-"This site uses background programs: it works better, but protects you a little less.": "Гэты сайт выкарыстоўвае фонавыя праграмы: ён працуе лепш, але абараняе вас крыху менш.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Фонавыя праграмы гэтага сайта заблакаваныя: больш абароны, але сайт можа не працаваць.",
 "Block them on this site": "Заблакаваць іх на гэтым сайце",
 "Allow them again": "Дазволіць іх зноў",
-"Probable cause: this site's background programs are blocked.": "Верагодная прычына: фонавыя праграмы гэтага сайта заблакаваныя."
+"Probable cause: this site's background programs are blocked.": "Верагодная прычына: фонавыя праграмы гэтага сайта заблакаваныя.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Верагодная прычына: Максімальны ўзровень блакуе фонавыя праграмы гэтага сайта, бо іх немагчыма абараніць.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "«Выкарыстоўваць Kontrol на гэтым сайце» дазваляе ім працаваць толькі на гэтым сайце, з сапраўднымі характарыстыкамі вашага камп’ютара; Максімальны ўзровень застаецца ўключаным на ўсіх астатніх сайтах.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Гэты сайт выкарыстоўвае фонавыя праграмы, якія немагчыма абараніць: яны могуць паказаць сапраўдныя характарыстыкі вашага камп’ютара. Заблакуйце іх, калі хочаце больш абароны.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Максімальны ўзровень блакуе фонавыя праграмы гэтага сайта, бо іх немагчыма абараніць: сайт можа не працаваць. Kontrol дазваляе ім працаваць на гэтым сайце.",
+"Use Kontrol on this site": "Выкарыстоўваць Kontrol на гэтым сайце"
 }
 }

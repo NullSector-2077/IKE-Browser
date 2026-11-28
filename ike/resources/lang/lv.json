@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Aizsardzība var traucēt dažas šīs vietnes funkcijas.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Aizsardzība var traucēt šīs vietnes pareizu darbību. Izmantojiet „Salabot šo vietni“.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. šīs lapas ielādes laikā neatrada neko aizdomīgu. Tas nepierāda, ka vietne ir droša.",
-"This site uses background programs: it works better, but protects you a little less.": "Šī vietne izmanto fona programmas: tā darbojas labāk, bet aizsargā jūs nedaudz mazāk.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Šīs vietnes fona programmas ir bloķētas: vairāk aizsardzības, bet vietne var nedarboties.",
 "Block them on this site": "Bloķēt tās šajā vietnē",
 "Allow them again": "Atkal tās atļaut",
-"Probable cause: this site's background programs are blocked.": "Iespējamais cēlonis: šīs vietnes fona programmas ir bloķētas."
+"Probable cause: this site's background programs are blocked.": "Iespējamais cēlonis: šīs vietnes fona programmas ir bloķētas.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Iespējamais cēlonis: līmenis Maksimāls bloķē šīs vietnes fona programmas, jo tās nevar aizsargāt.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "„Lietot Kontrol šajā vietnē“ ļauj tām darboties tikai šajā vietnē, ar jūsu datora īstajām īpašībām; Maksimāls paliek ieslēgts visur citur.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Šī vietne izmanto fona programmas, kuras nevar aizsargāt: tās var parādīt jūsu datora īstās īpašības. Bloķējiet tās, ja vēlaties vairāk aizsardzības.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Līmenis Maksimāls bloķē šīs vietnes fona programmas, jo tās nevar aizsargāt: vietne var nedarboties. Kontrol ļauj tām darboties šajā vietnē.",
+"Use Kontrol on this site": "Lietot Kontrol šajā vietnē"
 }
 }

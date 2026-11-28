@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "ممکن است یک محافظت با برخی از قابلیت‌های این سایت تداخل داشته باشد.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "ممکن است یک محافظت مانع کار درست این سایت شود. از «تعمیر این سایت» استفاده کنید.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. هنگام بارگیری این صفحه مشکلی پیدا نکرد. این ثابت نمی‌کند که سایت امن است.",
-"This site uses background programs: it works better, but protects you a little less.": "این سایت از برنامه‌های پس‌زمینه استفاده می‌کند: بهتر کار می‌کند، اما کمی کمتر از شما محافظت می‌کند.",
 "This site's background programs are blocked: more protection, but the site may not work.": "برنامه‌های پس‌زمینهٔ این سایت مسدود شده‌اند: محافظت بیشتر، اما ممکن است سایت کار نکند.",
 "Block them on this site": "در این سایت مسدود شوند",
 "Allow them again": "دوباره مجاز شوند",
-"Probable cause: this site's background programs are blocked.": "علت احتمالی: برنامه‌های پس‌زمینهٔ این سایت مسدود شده‌اند."
+"Probable cause: this site's background programs are blocked.": "علت احتمالی: برنامه‌های پس‌زمینهٔ این سایت مسدود شده‌اند.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "علت احتمالی: سطح بیشینه برنامه‌های پس‌زمینهٔ این سایت را مسدود می‌کند، چون نمی‌توان از آن‌ها محافظت کرد.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "«استفاده از Kontrol در این سایت» اجازه می‌دهد آن‌ها فقط در این سایت اجرا شوند، با مشخصات واقعی رایانهٔ شما؛ بیشینه در همهٔ جاهای دیگر روشن می‌ماند.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "این سایت از برنامه‌های پس‌زمینه‌ای استفاده می‌کند که نمی‌توان از آن‌ها محافظت کرد: آن‌ها می‌توانند مشخصات واقعی رایانهٔ شما را نشان دهند. اگر محافظت بیشتر را ترجیح می‌دهید، آن‌ها را مسدود کنید.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "سطح بیشینه برنامه‌های پس‌زمینهٔ این سایت را مسدود می‌کند، چون نمی‌توان از آن‌ها محافظت کرد: ممکن است سایت کار نکند. Kontrol اجازه می‌دهد آن‌ها در این سایت اجرا شوند.",
+"Use Kontrol on this site": "استفاده از Kontrol در این سایت"
 }
 }

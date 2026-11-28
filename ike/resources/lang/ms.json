@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Satu perlindungan mungkin mengganggu sesetengah ciri laman ini.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Satu perlindungan mungkin menghalang laman ini daripada berfungsi dengan betul. Gunakan “Baiki laman ini”.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. tidak menemui sebarang masalah semasa memuatkan halaman ini. Ini tidak membuktikan bahawa laman ini selamat.",
-"This site uses background programs: it works better, but protects you a little less.": "Laman ini menggunakan program latar: ia berfungsi lebih baik, tetapi perlindungan anda sedikit berkurang.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Program latar laman ini disekat: lebih banyak perlindungan, tetapi laman mungkin tidak berfungsi.",
 "Block them on this site": "Sekat di laman ini",
 "Allow them again": "Benarkan semula",
-"Probable cause: this site's background programs are blocked.": "Punca berkemungkinan: program latar laman ini disekat."
+"Probable cause: this site's background programs are blocked.": "Punca berkemungkinan: program latar laman ini disekat.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Punca berkemungkinan: Maksimum menyekat program latar laman ini, kerana program itu tidak boleh dilindungi.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“Guna Kontrol di laman ini” membenarkannya berjalan di laman ini sahaja, dengan ciri sebenar komputer anda; Maksimum kekal hidup di tempat lain.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Laman ini menggunakan program latar yang tidak boleh dilindungi: program itu boleh menunjukkan ciri sebenar komputer anda. Sekat jika anda mahukan lebih banyak perlindungan.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Maksimum menyekat program latar laman ini, kerana program itu tidak boleh dilindungi: laman mungkin tidak berfungsi. Kontrol membenarkannya berjalan di laman ini.",
+"Use Kontrol on this site": "Guna Kontrol di laman ini"
 }
 }

@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Պաշտպանությունը կարող է խանգարել այս կայքի որոշ գործառույթների։",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Պաշտպանությունը կարող է խանգարել այս կայքի ճիշտ աշխատանքին։ Օգտագործեք «Վերանորոգել այս կայքը» գործառույթը։",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E.-ն այս էջի բեռնման ընթացքում խնդիր չի հայտնաբերել։ Դա չի ապացուցում, որ կայքն անվտանգ է։",
-"This site uses background programs: it works better, but protects you a little less.": "Այս կայքն օգտագործում է ֆոնային ծրագրեր. այն ավելի լավ է աշխատում, բայց ձեզ մի փոքր ավելի քիչ է պաշտպանում։",
 "This site's background programs are blocked: more protection, but the site may not work.": "Այս կայքի ֆոնային ծրագրերն արգելափակված են. ավելի շատ պաշտպանություն, բայց կայքը կարող է չաշխատել։",
 "Block them on this site": "Արգելափակել դրանք այս կայքում",
 "Allow them again": "Կրկին թույլատրել դրանք",
-"Probable cause: this site's background programs are blocked.": "Հավանական պատճառ՝ այս կայքի ֆոնային ծրագրերն արգելափակված են։"
+"Probable cause: this site's background programs are blocked.": "Հավանական պատճառ՝ այս կայքի ֆոնային ծրագրերն արգելափակված են։",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Հավանական պատճառ՝ Առավելագույն մակարդակն արգելափակում է այս կայքի ֆոնային ծրագրերը, քանի որ դրանք հնարավոր չէ պաշտպանել։",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "«Օգտագործել Kontrol-ը այս կայքում» գործառույթը թույլ է տալիս դրանց աշխատել միայն այս կայքում՝ ձեր համակարգչի իրական բնութագրերով. Առավելագույն մակարդակը միացված է մնում մնացած բոլոր տեղերում։",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Այս կայքն օգտագործում է ֆոնային ծրագրեր, որոնք հնարավոր չէ պաշտպանել. դրանք կարող են ցույց տալ ձեր համակարգչի իրական բնութագրերը։ Արգելափակեք դրանք, եթե ավելի շատ պաշտպանություն եք նախընտրում։",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Առավելագույն մակարդակն արգելափակում է այս կայքի ֆոնային ծրագրերը, քանի որ դրանք հնարավոր չէ պաշտպանել. կայքը կարող է չաշխատել։ Kontrol-ը թույլ է տալիս դրանց աշխատել այս կայքում։",
+"Use Kontrol on this site": "Օգտագործել Kontrol-ը այս կայքում"
 }
 }

@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "ஒரு பாதுகாப்பு இந்தத் தளத்தின் சில அம்சங்களில் குறுக்கிடக்கூடும்.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "ஒரு பாதுகாப்பு இந்தத் தளம் சரியாக வேலை செய்வதைத் தடுக்கக்கூடும். “இந்தத் தளத்தைச் சரிசெய்” என்பதைப் பயன்படுத்துங்கள்.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "இந்தப் பக்கம் ஏற்றப்படும்போது I.K.E. எந்தப் பிரச்சினையையும் கண்டறியவில்லை. இது தளம் பாதுகாப்பானது என்பதை நிரூபிக்காது.",
-"This site uses background programs: it works better, but protects you a little less.": "இந்தத் தளம் பின்னணி நிரல்களைப் பயன்படுத்துகிறது: இது சிறப்பாக வேலை செய்யும், ஆனால் உங்களைச் சற்றுக் குறைவாகவே பாதுகாக்கும்.",
 "This site's background programs are blocked: more protection, but the site may not work.": "இந்தத் தளத்தின் பின்னணி நிரல்கள் தடுக்கப்பட்டுள்ளன: கூடுதல் பாதுகாப்பு, ஆனால் தளம் வேலை செய்யாமல் போகலாம்.",
 "Block them on this site": "இந்தத் தளத்தில் தடு",
 "Allow them again": "மீண்டும் அனுமதி",
-"Probable cause: this site's background programs are blocked.": "சாத்தியமான காரணம்: இந்தத் தளத்தின் பின்னணி நிரல்கள் தடுக்கப்பட்டுள்ளன."
+"Probable cause: this site's background programs are blocked.": "சாத்தியமான காரணம்: இந்தத் தளத்தின் பின்னணி நிரல்கள் தடுக்கப்பட்டுள்ளன.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "சாத்தியமான காரணம்: இந்தத் தளத்தின் பின்னணி நிரல்களைப் பாதுகாக்க முடியாததால், அதிகபட்சம் நிலை அவற்றைத் தடுக்கிறது.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“இந்தத் தளத்தில் Kontrol-ஐப் பயன்படுத்து” அவற்றை இந்தத் தளத்தில் மட்டும், உங்கள் கணினியின் உண்மையான பண்புகளுடன் இயங்க அனுமதிக்கும்; மற்ற எல்லா இடங்களிலும் அதிகபட்சம் இயக்கத்திலேயே இருக்கும்.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "இந்தத் தளம் பாதுகாக்க முடியாத பின்னணி நிரல்களைப் பயன்படுத்துகிறது: அவை உங்கள் கணினியின் உண்மையான பண்புகளைக் காட்டக்கூடும். கூடுதல் பாதுகாப்பு வேண்டுமெனில் அவற்றைத் தடுக்கவும்.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "இந்தத் தளத்தின் பின்னணி நிரல்களைப் பாதுகாக்க முடியாததால், அதிகபட்சம் நிலை அவற்றைத் தடுக்கிறது: தளம் வேலை செய்யாமல் போகலாம். Kontrol அவற்றை இந்தத் தளத்தில் இயங்க அனுமதிக்கும்.",
+"Use Kontrol on this site": "இந்தத் தளத்தில் Kontrol-ஐப் பயன்படுத்து"
 }
 }

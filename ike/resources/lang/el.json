@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Μια προστασία μπορεί να επηρεάζει ορισμένες λειτουργίες αυτού του ιστότοπου.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Μια προστασία μπορεί να εμποδίζει τη σωστή λειτουργία αυτού του ιστότοπου. Χρησιμοποιήστε το «Επισκευή αυτού του ιστότοπου».",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "Το I.K.E. δεν εντόπισε κάτι ύποπτο κατά τη φόρτωση αυτής της σελίδας. Αυτό δεν αποδεικνύει ότι ο ιστότοπος είναι ασφαλής.",
-"This site uses background programs: it works better, but protects you a little less.": "Αυτός ο ιστότοπος χρησιμοποιεί προγράμματα παρασκηνίου: λειτουργεί καλύτερα, αλλά σας προστατεύει λίγο λιγότερο.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Τα προγράμματα παρασκηνίου αυτού του ιστότοπου είναι αποκλεισμένα: περισσότερη προστασία, αλλά ο ιστότοπος ίσως δεν λειτουργεί.",
 "Block them on this site": "Να αποκλείονται σε αυτόν τον ιστότοπο",
 "Allow them again": "Να επιτρέπονται ξανά",
-"Probable cause: this site's background programs are blocked.": "Πιθανή αιτία: τα προγράμματα παρασκηνίου αυτού του ιστότοπου είναι αποκλεισμένα."
+"Probable cause: this site's background programs are blocked.": "Πιθανή αιτία: τα προγράμματα παρασκηνίου αυτού του ιστότοπου είναι αποκλεισμένα.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Πιθανή αιτία: το επίπεδο Μέγιστο αποκλείει τα προγράμματα παρασκηνίου αυτού του ιστότοπου, επειδή δεν μπορούν να προστατευτούν.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "Το «Χρήση Kontrol σε αυτόν τον ιστότοπο» τους επιτρέπει να εκτελούνται μόνο σε αυτόν τον ιστότοπο, με τα πραγματικά χαρακτηριστικά του υπολογιστή σας· το Μέγιστο μένει ενεργό παντού αλλού.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Αυτός ο ιστότοπος χρησιμοποιεί προγράμματα παρασκηνίου που δεν μπορούν να προστατευτούν: μπορούν να δείξουν τα πραγματικά χαρακτηριστικά του υπολογιστή σας. Αποκλείστε τα αν προτιμάτε περισσότερη προστασία.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Το επίπεδο Μέγιστο αποκλείει τα προγράμματα παρασκηνίου αυτού του ιστότοπου, επειδή δεν μπορούν να προστατευτούν: ο ιστότοπος ίσως δεν λειτουργεί. Το Kontrol τους επιτρέπει να εκτελούνται σε αυτόν τον ιστότοπο.",
+"Use Kontrol on this site": "Χρήση Kontrol σε αυτόν τον ιστότοπο"
 }
 }

@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Egy védelem zavarhatja a webhely néhány funkcióját.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Egy védelem megakadályozhatja, hogy a webhely megfelelően működjön. Használja a „Webhely javítása” funkciót.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "Az I.K.E. nem talált semmi rendellenest az oldal betöltése közben. Ez nem bizonyítja, hogy a webhely biztonságos.",
-"This site uses background programs: it works better, but protects you a little less.": "Ez a webhely háttérprogramokat használ: jobban működik, de egy kicsit kevésbé véd.",
 "This site's background programs are blocked: more protection, but the site may not work.": "A webhely háttérprogramjai le vannak tiltva: több védelem, de a webhely lehet, hogy nem működik.",
 "Block them on this site": "Letiltás ezen a webhelyen",
 "Allow them again": "Újbóli engedélyezés",
-"Probable cause: this site's background programs are blocked.": "Valószínű ok: a webhely háttérprogramjai le vannak tiltva."
+"Probable cause: this site's background programs are blocked.": "Valószínű ok: a webhely háttérprogramjai le vannak tiltva.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Valószínű ok: a Maximum szint letiltja a webhely háttérprogramjait, mert nem lehet őket védeni.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "A „Kontrol használata ezen a webhelyen” csak ezen a webhelyen engedi futni őket, a számítógép valódi jellemzőivel; a Maximum minden más helyen bekapcsolva marad.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Ez a webhely olyan háttérprogramokat használ, amelyeket nem lehet védeni: megmutathatják a számítógép valódi jellemzőit. Tiltsa le őket, ha több védelmet szeretne.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "A Maximum szint letiltja a webhely háttérprogramjait, mert nem lehet őket védeni: a webhely lehet, hogy nem működik. A Kontrol engedi futni őket ezen a webhelyen.",
+"Use Kontrol on this site": "Kontrol használata ezen a webhelyen"
 }
 }

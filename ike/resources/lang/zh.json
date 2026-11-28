@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "某项保护可能会干扰此网站的部分功能。",
 "A protection may stop this site from working properly. Use “Repair this site”.": "某项保护可能会导致此网站无法正常工作。请使用“修复此网站”。",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. 在加载此页面时未发现异常。这并不能证明该网站是安全的。",
-"This site uses background programs: it works better, but protects you a little less.": "此网站使用后台程序：运行效果更好，但对你的保护会少一些。",
 "This site's background programs are blocked: more protection, but the site may not work.": "此网站的后台程序已被阻止：保护更强，但网站可能无法正常工作。",
 "Block them on this site": "在此网站上阻止",
 "Allow them again": "重新允许",
-"Probable cause: this site's background programs are blocked.": "可能的原因：此网站的后台程序已被阻止。"
+"Probable cause: this site's background programs are blocked.": "可能的原因：此网站的后台程序已被阻止。",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "可能的原因：由于此网站的后台程序无法受到保护，“最高”级别会阻止它们。",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“在此网站上使用 Kontrol”只允许它们在此网站上运行，并会使用你电脑的真实特征；其他所有地方仍保持“最高”。",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "此网站使用了无法受到保护的后台程序：它们可能会显示你电脑的真实特征。如果你希望获得更多保护，请阻止它们。",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "由于此网站的后台程序无法受到保护，“最高”级别会阻止它们：网站可能无法正常工作。Kontrol 允许它们在此网站上运行。",
+"Use Kontrol on this site": "在此网站上使用 Kontrol"
 }
 }

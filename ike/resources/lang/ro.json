@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "O protecție poate interfera cu unele funcții ale acestui site.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "O protecție poate împiedica acest site să funcționeze corect. Folosește „Repară acest site”.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. nu a găsit nimic suspect în timpul încărcării acestei pagini. Asta nu dovedește că site-ul este sigur.",
-"This site uses background programs: it works better, but protects you a little less.": "Acest site folosește programe de fundal: funcționează mai bine, dar te protejează puțin mai puțin.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Programele de fundal ale acestui site sunt blocate: mai multă protecție, dar site-ul poate să nu funcționeze.",
 "Block them on this site": "Blochează-le pe acest site",
 "Allow them again": "Permite-le din nou",
-"Probable cause: this site's background programs are blocked.": "Cauză probabilă: programele de fundal ale acestui site sunt blocate."
+"Probable cause: this site's background programs are blocked.": "Cauză probabilă: programele de fundal ale acestui site sunt blocate.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Cauză probabilă: nivelul Maxim blochează programele de fundal ale acestui site, pentru că nu pot fi protejate.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "„Folosește Kontrol pe acest site” le lasă să ruleze doar pe acest site, cu caracteristicile reale ale computerului tău; nivelul Maxim rămâne activ peste tot în rest.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Acest site folosește programe de fundal care nu pot fi protejate: ele pot arăta caracteristicile reale ale computerului tău. Blochează-le dacă preferi mai multă protecție.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Nivelul Maxim blochează programele de fundal ale acestui site, pentru că nu pot fi protejate: site-ul poate să nu funcționeze. Kontrol le lasă să ruleze pe acest site.",
+"Use Kontrol on this site": "Folosește Kontrol pe acest site"
 }
 }

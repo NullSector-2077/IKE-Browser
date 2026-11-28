@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Një mbrojtje mund të pengojë disa veçori të këtij sajti.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Një mbrojtje mund ta pengojë këtë sajt të funksionojë si duhet. Përdorni “Riparoje këtë sajt”.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. nuk gjeti asgjë të dyshimtë gjatë ngarkimit të kësaj faqeje. Kjo nuk provon se sajti është i sigurt.",
-"This site uses background programs: it works better, but protects you a little less.": "Ky sajt përdor programe në sfond: funksionon më mirë, por ju mbron pak më pak.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Programet në sfond të këtij sajti janë bllokuar: më shumë mbrojtje, por sajti mund të mos funksionojë.",
 "Block them on this site": "Bllokoji në këtë sajt",
 "Allow them again": "Lejoji përsëri",
-"Probable cause: this site's background programs are blocked.": "Shkaku i mundshëm: programet në sfond të këtij sajti janë bllokuar."
+"Probable cause: this site's background programs are blocked.": "Shkaku i mundshëm: programet në sfond të këtij sajti janë bllokuar.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Shkaku i mundshëm: niveli Maksimum bllokon programet në sfond të këtij sajti, sepse ato nuk mund të mbrohen.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“Përdor Kontrol në këtë sajt” i lejon ato të punojnë vetëm në këtë sajt, me karakteristikat e vërteta të kompjuterit tuaj; Maksimum mbetet aktiv kudo tjetër.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Ky sajt përdor programe në sfond që nuk mund të mbrohen: ato mund të tregojnë karakteristikat e vërteta të kompjuterit tuaj. Bllokojini nëse preferoni më shumë mbrojtje.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Niveli Maksimum bllokon programet në sfond të këtij sajti, sepse ato nuk mund të mbrohen: sajti mund të mos funksionojë. Kontrol i lejon ato të punojnë në këtë sajt.",
+"Use Kontrol on this site": "Përdor Kontrol në këtë sajt"
 }
 }

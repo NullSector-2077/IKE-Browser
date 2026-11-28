@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Kaitse võib segada selle saidi mõningaid funktsioone.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Kaitse võib takistada selle saidi korralikku toimimist. Kasuta valikut „Paranda see sait“.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. ei leidnud selle lehe laadimisel midagi kahtlast. See ei tõesta, et sait on ohutu.",
-"This site uses background programs: it works better, but protects you a little less.": "See sait kasutab taustaprogramme: see töötab paremini, kuid kaitseb sind veidi vähem.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Selle saidi taustaprogrammid on blokeeritud: rohkem kaitset, kuid sait ei pruugi töötada.",
 "Block them on this site": "Blokeeri need sellel saidil",
 "Allow them again": "Luba need uuesti",
-"Probable cause: this site's background programs are blocked.": "Tõenäoline põhjus: selle saidi taustaprogrammid on blokeeritud."
+"Probable cause: this site's background programs are blocked.": "Tõenäoline põhjus: selle saidi taustaprogrammid on blokeeritud.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Tõenäoline põhjus: tase Maksimum blokeerib selle saidi taustaprogrammid, sest neid ei saa kaitsta.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "„Kasuta sellel saidil taset Kontrol“ laseb neil töötada ainult sellel saidil, sinu arvuti tegelike omadustega; Maksimum jääb kõikjal mujal sisse.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "See sait kasutab taustaprogramme, mida ei saa kaitsta: need võivad näidata sinu arvuti tegelikke omadusi. Blokeeri need, kui eelistad rohkem kaitset.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Tase Maksimum blokeerib selle saidi taustaprogrammid, sest neid ei saa kaitsta: sait ei pruugi töötada. Tase Kontrol laseb neil sellel saidil töötada.",
+"Use Kontrol on this site": "Kasuta sellel saidil taset Kontrol"
 }
 }

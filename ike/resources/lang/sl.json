@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Zaščita lahko moti nekatere funkcije tega spletnega mesta.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Zaščita lahko prepreči pravilno delovanje tega spletnega mesta. Uporabite »Popravi to spletno mesto«.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. med nalaganjem te strani ni zaznal ničesar sumljivega. To ne dokazuje, da je spletno mesto varno.",
-"This site uses background programs: it works better, but protects you a little less.": "To spletno mesto uporablja programe v ozadju: deluje bolje, vendar vas ščiti nekoliko manj.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Programi tega spletnega mesta v ozadju so blokirani: več zaščite, vendar spletno mesto morda ne bo delovalo.",
 "Block them on this site": "Blokiraj jih na tem spletnem mestu",
 "Allow them again": "Znova jih dovoli",
-"Probable cause: this site's background programs are blocked.": "Verjeten vzrok: programi tega spletnega mesta v ozadju so blokirani."
+"Probable cause: this site's background programs are blocked.": "Verjeten vzrok: programi tega spletnega mesta v ozadju so blokirani.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Verjeten vzrok: Največja zaščita blokira programe tega spletnega mesta v ozadju, ker jih ni mogoče zaščititi.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "»Uporabi Kontrol na tem spletnem mestu« jim dovoli delovati samo na tem spletnem mestu, z resničnimi lastnostmi vašega računalnika; Največja zaščita ostane vklopljena povsod drugje.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "To spletno mesto uporablja programe v ozadju, ki jih ni mogoče zaščititi: lahko razkrijejo resnične lastnosti vašega računalnika. Blokirajte jih, če želite več zaščite.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Največja zaščita blokira programe tega spletnega mesta v ozadju, ker jih ni mogoče zaščititi: spletno mesto morda ne bo delovalo. Kontrol jim dovoli delovati na tem spletnem mestu.",
+"Use Kontrol on this site": "Uporabi Kontrol na tem spletnem mestu"
 }
 }

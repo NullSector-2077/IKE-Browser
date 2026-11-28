@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Babes batek webgune honen eginbide batzuk oztopa ditzake.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Babes batek webgune hau behar bezala ez funtzionatzea eragin dezake. Erabili “Konpondu webgune hau”.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E.k ez du ezer arraroa aurkitu orri hau kargatzean. Horrek ez du frogatzen webgunea segurua denik.",
-"This site uses background programs: it works better, but protects you a little less.": "Webgune honek atzeko planoko programak erabiltzen ditu: hobeto funtzionatzen du, baina pixka bat gutxiago babesten zaitu.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Webgune honen atzeko planoko programak blokeatuta daude: babes handiagoa, baina baliteke webguneak ez funtzionatzea.",
 "Block them on this site": "Blokeatu gune honetan",
 "Allow them again": "Baimendu berriro",
-"Probable cause: this site's background programs are blocked.": "Kausa probablea: webgune honen atzeko planoko programak blokeatuta daude."
+"Probable cause: this site's background programs are blocked.": "Kausa probablea: webgune honen atzeko planoko programak blokeatuta daude.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Kausa probablea: Gehienezkoa mailak webgune honen atzeko planoko programak blokeatzen ditu, ezin direlako babestu.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“Erabili Kontrol gune honetan” aukerak webgune honetan bakarrik exekutatzen uzten die, zure ordenagailuaren benetako ezaugarriekin; Gehienezkoa aktibo jarraitzen du beste leku guztietan.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Webgune honek babestu ezin diren atzeko planoko programak erabiltzen ditu: zure ordenagailuaren benetako ezaugarriak erakuts ditzakete. Blokeatu itzazu babes handiagoa nahiago baduzu.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Gehienezkoa mailak webgune honen atzeko planoko programak blokeatzen ditu, ezin direlako babestu: baliteke webguneak ez funtzionatzea. Kontrol mailak gune honetan exekutatzen uzten die.",
+"Use Kontrol on this site": "Erabili Kontrol gune honetan"
 }
 }

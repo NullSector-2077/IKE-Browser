@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Заштита може да омета неке функције овог сајта.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Заштита може да спречи правилан рад овог сајта. Користите „Поправи овај сајт“.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. није пронашао ништа сумњиво током учитавања ове странице. То не доказује да је сајт безбедан.",
-"This site uses background programs: it works better, but protects you a little less.": "Овај сајт користи позадинске програме: ради боље, али вас штити мало мање.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Позадински програми овог сајта су блокирани: више заштите, али сајт можда неће радити.",
 "Block them on this site": "Блокирај их на овом сајту",
 "Allow them again": "Поново их дозволи",
-"Probable cause: this site's background programs are blocked.": "Вероватан узрок: позадински програми овог сајта су блокирани."
+"Probable cause: this site's background programs are blocked.": "Вероватан узрок: позадински програми овог сајта су блокирани.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Вероватан узрок: ниво Максимално блокира позадинске програме овог сајта јер их није могуће заштитити.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "„Користи Kontrol на овом сајту“ им дозвољава да раде само на овом сајту, са стварним карактеристикама вашег рачунара; Максимално остаје укључено свуда другде.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Овај сајт користи позадинске програме које није могуће заштитити: могу открити стварне карактеристике вашег рачунара. Блокирајте их ако желите више заштите.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Ниво Максимално блокира позадинске програме овог сајта јер их није могуће заштитити: сајт можда неће радити. Kontrol им дозвољава да раде на овом сајту.",
+"Use Kontrol on this site": "Користи Kontrol на овом сајту"
 }
 }

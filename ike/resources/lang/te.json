@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "ఒక రక్షణ ఈ సైట్‌లోని కొన్ని ఫీచర్లకు ఆటంకం కలిగించవచ్చు.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "ఒక రక్షణ ఈ సైట్ సరిగ్గా పనిచేయకుండా ఆపవచ్చు. “ఈ సైట్‌ను మరమ్మతు చేయి”ని ఉపయోగించండి.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "ఈ పేజీ లోడ్ అవుతున్నప్పుడు I.K.E.కి ఏ సమస్యా కనిపించలేదు. ఇది సైట్ సురక్షితమని నిరూపించదు.",
-"This site uses background programs: it works better, but protects you a little less.": "ఈ సైట్ బ్యాక్‌గ్రౌండ్ ప్రోగ్రామ్‌లను ఉపయోగిస్తుంది: ఇది బాగా పనిచేస్తుంది, కానీ మీకు రక్షణ కొంచెం తగ్గుతుంది.",
 "This site's background programs are blocked: more protection, but the site may not work.": "ఈ సైట్ బ్యాక్‌గ్రౌండ్ ప్రోగ్రామ్‌లు నిరోధించబడ్డాయి: రక్షణ ఎక్కువ, కానీ సైట్ పని చేయకపోవచ్చు.",
 "Block them on this site": "ఈ సైట్‌లో వాటిని నిరోధించు",
 "Allow them again": "వాటిని మళ్లీ అనుమతించు",
-"Probable cause: this site's background programs are blocked.": "సంభావ్య కారణం: ఈ సైట్ బ్యాక్‌గ్రౌండ్ ప్రోగ్రామ్‌లు నిరోధించబడ్డాయి."
+"Probable cause: this site's background programs are blocked.": "సంభావ్య కారణం: ఈ సైట్ బ్యాక్‌గ్రౌండ్ ప్రోగ్రామ్‌లు నిరోధించబడ్డాయి.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "సంభావ్య కారణం: ఈ సైట్ బ్యాక్‌గ్రౌండ్ ప్రోగ్రామ్‌లను రక్షించడం సాధ్యం కానందున గరిష్టం స్థాయి వాటిని నిరోధిస్తుంది.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“ఈ సైట్‌లో Kontrol ఉపయోగించు” వాటిని ఈ సైట్‌లో మాత్రమే, మీ కంప్యూటర్ నిజమైన లక్షణాలతో పనిచేయనిస్తుంది; మిగతా అన్ని చోట్ల గరిష్టం ఆన్‌లోనే ఉంటుంది.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "ఈ సైట్ రక్షించలేని బ్యాక్‌గ్రౌండ్ ప్రోగ్రామ్‌లను ఉపయోగిస్తుంది: అవి మీ కంప్యూటర్ నిజమైన లక్షణాలను చూపించగలవు. మరింత రక్షణ కావాలంటే వాటిని నిరోధించండి.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "ఈ సైట్ బ్యాక్‌గ్రౌండ్ ప్రోగ్రామ్‌లను రక్షించడం సాధ్యం కానందున గరిష్టం స్థాయి వాటిని నిరోధిస్తుంది: సైట్ పని చేయకపోవచ్చు. Kontrol వాటిని ఈ సైట్‌లో పనిచేయనిస్తుంది.",
+"Use Kontrol on this site": "ఈ సైట్‌లో Kontrol ఉపయోగించు"
 }
 }

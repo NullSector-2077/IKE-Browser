@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Ochrana může narušovat některé funkce tohoto webu.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Ochrana může bránit správnému fungování tohoto webu. Použijte „Opravit tento web“.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. při načítání této stránky nezjistil nic podezřelého. To neznamená, že je web bezpečný.",
-"This site uses background programs: it works better, but protects you a little less.": "Tento web používá programy na pozadí: funguje lépe, ale chrání vás o něco méně.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Programy tohoto webu na pozadí jsou zablokované: více ochrany, ale web nemusí fungovat.",
 "Block them on this site": "Zablokovat je na tomto webu",
 "Allow them again": "Znovu je povolit",
-"Probable cause: this site's background programs are blocked.": "Pravděpodobná příčina: programy tohoto webu na pozadí jsou zablokované."
+"Probable cause: this site's background programs are blocked.": "Pravděpodobná příčina: programy tohoto webu na pozadí jsou zablokované.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Pravděpodobná příčina: úroveň Maximální blokuje programy tohoto webu na pozadí, protože je nelze ochránit.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "„Použít Kontrol na tomto webu“ jim dovolí běžet jen na tomto webu, se skutečnými vlastnostmi vašeho počítače; úroveň Maximální zůstane zapnutá všude jinde.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Tento web používá programy na pozadí, které nelze ochránit: mohou prozradit skutečné vlastnosti vašeho počítače. Pokud chcete více ochrany, zablokujte je.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Úroveň Maximální blokuje programy tohoto webu na pozadí, protože je nelze ochránit: web nemusí fungovat. Kontrol jim dovolí běžet na tomto webu.",
+"Use Kontrol on this site": "Použít Kontrol na tomto webu"
 }
 }

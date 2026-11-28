@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "保護がこのサイトの一部の機能を妨げている可能性があります。",
 "A protection may stop this site from working properly. Use “Repair this site”.": "保護がこのサイトの正常な動作を妨げている可能性があります。「このサイトを修復」を使ってください。",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. はこのページの読み込み中に問題を見つけませんでした。これはサイトが安全であることを保証するものではありません。",
-"This site uses background programs: it works better, but protects you a little less.": "このサイトはバックグラウンドでプログラムを動かしています：動作は良くなりますが、保護は少し弱くなります。",
 "This site's background programs are blocked: more protection, but the site may not work.": "このサイトのバックグラウンドのプログラムをブロックしています：保護は強くなりますが、サイトが動作しない可能性があります。",
 "Block them on this site": "このサイトでブロックする",
 "Allow them again": "もう一度許可する",
-"Probable cause: this site's background programs are blocked.": "考えられる原因：このサイトのバックグラウンドのプログラムがブロックされています。"
+"Probable cause: this site's background programs are blocked.": "考えられる原因：このサイトのバックグラウンドのプログラムがブロックされています。",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "考えられる原因：このサイトのバックグラウンドのプログラムは保護できないため、最大レベルがブロックしています。",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "「このサイトでKontrolを使う」を選ぶと、このサイトでだけそれらのプログラムが動作し、コンピューターの本当の特徴が使われます。ほかの場所では最大のままです。",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "このサイトは保護できないバックグラウンドのプログラムを使っています：コンピューターの本当の特徴が見えてしまう可能性があります。保護を強めたい場合はブロックしてください。",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "このサイトのバックグラウンドのプログラムは保護できないため、最大レベルがブロックしています：サイトが動作しない可能性があります。Kontrolなら、このサイトでそれらを動作させられます。",
+"Use Kontrol on this site": "このサイトでKontrolを使う"
 }
 }

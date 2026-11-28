@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Một biện pháp bảo vệ có thể cản trở một số tính năng của trang này.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Một biện pháp bảo vệ có thể khiến trang này không hoạt động đúng cách. Hãy dùng “Sửa trang này”.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. không phát hiện điều gì bất thường khi tải trang này. Điều này không chứng minh rằng trang an toàn.",
-"This site uses background programs: it works better, but protects you a little less.": "Trang này dùng các chương trình chạy nền: trang hoạt động tốt hơn, nhưng bảo vệ bạn ít hơn một chút.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Các chương trình chạy nền của trang này bị chặn: bảo vệ tốt hơn, nhưng trang có thể không hoạt động.",
 "Block them on this site": "Chặn trên trang này",
 "Allow them again": "Cho phép lại",
-"Probable cause: this site's background programs are blocked.": "Nguyên nhân có thể: các chương trình chạy nền của trang này bị chặn."
+"Probable cause: this site's background programs are blocked.": "Nguyên nhân có thể: các chương trình chạy nền của trang này bị chặn.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Nguyên nhân có thể: mức Tối đa chặn các chương trình chạy nền của trang này, vì không thể bảo vệ chúng.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“Dùng Kontrol trên trang này” cho phép chúng chạy chỉ trên trang này, với các đặc điểm thật của máy tính bạn; mức Tối đa vẫn bật ở mọi nơi khác.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Trang này dùng các chương trình chạy nền không thể bảo vệ: chúng có thể để lộ các đặc điểm thật của máy tính bạn. Hãy chặn chúng nếu bạn muốn được bảo vệ tốt hơn.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Mức Tối đa chặn các chương trình chạy nền của trang này, vì không thể bảo vệ chúng: trang có thể không hoạt động. Kontrol cho phép chúng chạy trên trang này.",
+"Use Kontrol on this site": "Dùng Kontrol trên trang này"
 }
 }

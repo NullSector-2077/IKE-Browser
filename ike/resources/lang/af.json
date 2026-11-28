@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "'n Beskerming kan sommige funksies van hierdie werf belemmer.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "'n Beskerming kan verhoed dat hierdie werf behoorlik werk. Gebruik “Herstel hierdie werf”.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. het niks verkeerd gevind terwyl hierdie bladsy gelaai het nie. Dit bewys nie dat die werf veilig is nie.",
-"This site uses background programs: it works better, but protects you a little less.": "Hierdie werf gebruik agtergrondprogramme: dit werk beter, maar beskerm jou 'n bietjie minder.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Hierdie werf se agtergrondprogramme is geblokkeer: meer beskerming, maar die werf werk dalk nie.",
 "Block them on this site": "Blokkeer hulle op hierdie werf",
 "Allow them again": "Laat hulle weer toe",
-"Probable cause: this site's background programs are blocked.": "Waarskynlike oorsaak: hierdie werf se agtergrondprogramme is geblokkeer."
+"Probable cause: this site's background programs are blocked.": "Waarskynlike oorsaak: hierdie werf se agtergrondprogramme is geblokkeer.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Waarskynlike oorsaak: Maksimum blokkeer hierdie werf se agtergrondprogramme, omdat hulle nie beskerm kan word nie.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“Gebruik Kontrol op hierdie werf” laat hulle slegs op hierdie werf loop, met jou rekenaar se werklike eienskappe; Maksimum bly oral elders aan.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Hierdie werf gebruik agtergrondprogramme wat nie beskerm kan word nie: hulle kan jou rekenaar se werklike eienskappe wys. Blokkeer hulle as jy meer beskerming verkies.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Maksimum blokkeer hierdie werf se agtergrondprogramme, omdat hulle nie beskerm kan word nie: die werf werk dalk nie. Kontrol laat hulle op hierdie werf loop.",
+"Use Kontrol on this site": "Gebruik Kontrol op hierdie werf"
 }
 }

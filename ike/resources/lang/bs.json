@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "Zaštita može ometati neke funkcije ove web stranice.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Zaštita može spriječiti ispravan rad ove web stranice. Koristite „Popravi ovu web stranicu”.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. nije pronašao ništa sumnjivo tokom učitavanja ove stranice. To ne dokazuje da je web stranica sigurna.",
-"This site uses background programs: it works better, but protects you a little less.": "Ova web stranica koristi pozadinske programe: radi bolje, ali vas štiti malo manje.",
 "This site's background programs are blocked: more protection, but the site may not work.": "Pozadinski programi ove web stranice su blokirani: više zaštite, ali stranica možda neće raditi.",
 "Block them on this site": "Blokiraj ih na ovoj stranici",
 "Allow them again": "Ponovo ih dozvoli",
-"Probable cause: this site's background programs are blocked.": "Vjerovatni uzrok: pozadinski programi ove web stranice su blokirani."
+"Probable cause: this site's background programs are blocked.": "Vjerovatni uzrok: pozadinski programi ove web stranice su blokirani.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "Vjerovatni uzrok: nivo Maksimalno blokira pozadinske programe ove web stranice jer ih nije moguće zaštititi.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "„Koristi Kontrol na ovoj stranici” im dozvoljava da rade samo na ovoj web stranici, sa stvarnim karakteristikama vašeg računara; Maksimalno ostaje uključeno svugdje drugdje.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "Ova web stranica koristi pozadinske programe koje nije moguće zaštititi: mogu otkriti stvarne karakteristike vašeg računara. Blokirajte ih ako želite više zaštite.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "Nivo Maksimalno blokira pozadinske programe ove web stranice jer ih nije moguće zaštititi: stranica možda neće raditi. Kontrol im dozvoljava da rade na ovoj stranici.",
+"Use Kontrol on this site": "Koristi Kontrol na ovoj stranici"
 }
 }

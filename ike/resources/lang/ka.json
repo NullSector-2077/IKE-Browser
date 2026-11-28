@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "დაცვამ შეიძლება ხელი შეუშალოს ამ საიტის ზოგიერთ ფუნქციას.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "დაცვამ შეიძლება ხელი შეუშალოს ამ საიტის გამართულ მუშაობას. გამოიყენეთ „ამ საიტის შეკეთება“.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E.-მ ამ გვერდის ჩატვირთვისას საეჭვო ვერაფერი აღმოაჩინა. ეს არ ამტკიცებს, რომ საიტი უსაფრთხოა.",
-"This site uses background programs: it works better, but protects you a little less.": "ეს საიტი იყენებს ფონურ პროგრამებს: ის უკეთ მუშაობს, მაგრამ ცოტა ნაკლებად გიცავთ.",
 "This site's background programs are blocked: more protection, but the site may not work.": "ამ საიტის ფონური პროგრამები დაბლოკილია: მეტი დაცვა, მაგრამ საიტმა შეიძლება არ იმუშაოს.",
 "Block them on this site": "დაბლოკეთ ისინი ამ საიტზე",
 "Allow them again": "კვლავ დაუშვით ისინი",
-"Probable cause: this site's background programs are blocked.": "სავარაუდო მიზეზი: ამ საიტის ფონური პროგრამები დაბლოკილია."
+"Probable cause: this site's background programs are blocked.": "სავარაუდო მიზეზი: ამ საიტის ფონური პროგრამები დაბლოკილია.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "სავარაუდო მიზეზი: მაქსიმალური დონე ბლოკავს ამ საიტის ფონურ პროგრამებს, რადგან მათი დაცვა შეუძლებელია.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "„გამოიყენეთ Kontrol ამ საიტზე“ მათ მხოლოდ ამ საიტზე აძლევს მუშაობის საშუალებას, თქვენი კომპიუტერის ნამდვილი მახასიათებლებით; მაქსიმალური დონე ყველგან სხვაგან ჩართული რჩება.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "ეს საიტი იყენებს ფონურ პროგრამებს, რომელთა დაცვაც შეუძლებელია: მათ შეუძლიათ აჩვენონ თქვენი კომპიუტერის ნამდვილი მახასიათებლები. დაბლოკეთ ისინი, თუ მეტ დაცვას ამჯობინებთ.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "მაქსიმალური დონე ბლოკავს ამ საიტის ფონურ პროგრამებს, რადგან მათი დაცვა შეუძლებელია: საიტმა შეიძლება არ იმუშაოს. Kontrol მათ ამ საიტზე მუშაობის საშუალებას აძლევს.",
+"Use Kontrol on this site": "გამოიყენეთ Kontrol ამ საიტზე"
 }
 }

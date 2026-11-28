@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "การป้องกันอาจรบกวนฟีเจอร์บางอย่างของไซต์นี้",
 "A protection may stop this site from working properly. Use “Repair this site”.": "การป้องกันอาจทำให้ไซต์นี้ทำงานไม่ถูกต้อง ใช้ “ซ่อมไซต์นี้”",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. ไม่พบสิ่งผิดปกติขณะโหลดหน้านี้ แต่ไม่ได้หมายความว่าไซต์นี้ปลอดภัย",
-"This site uses background programs: it works better, but protects you a little less.": "ไซต์นี้ใช้โปรแกรมเบื้องหลัง: ทำงานได้ดีขึ้น แต่ปกป้องคุณน้อยลงเล็กน้อย",
 "This site's background programs are blocked: more protection, but the site may not work.": "โปรแกรมเบื้องหลังของไซต์นี้ถูกบล็อก: ป้องกันได้มากขึ้น แต่ไซต์อาจไม่ทำงาน",
 "Block them on this site": "บล็อกบนไซต์นี้",
 "Allow them again": "อนุญาตอีกครั้ง",
-"Probable cause: this site's background programs are blocked.": "สาเหตุที่เป็นไปได้: โปรแกรมเบื้องหลังของไซต์นี้ถูกบล็อก"
+"Probable cause: this site's background programs are blocked.": "สาเหตุที่เป็นไปได้: โปรแกรมเบื้องหลังของไซต์นี้ถูกบล็อก",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "สาเหตุที่เป็นไปได้: ระดับสูงสุดบล็อกโปรแกรมเบื้องหลังของไซต์นี้ เพราะไม่สามารถป้องกันโปรแกรมเหล่านั้นได้",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“ใช้ Kontrol บนไซต์นี้” ให้โปรแกรมเหล่านั้นทำงานได้เฉพาะไซต์นี้ โดยใช้คุณลักษณะจริงของคอมพิวเตอร์คุณ ส่วนที่อื่นทั้งหมดยังใช้ระดับสูงสุดอยู่",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "ไซต์นี้ใช้โปรแกรมเบื้องหลังที่ไม่สามารถป้องกันได้: โปรแกรมเหล่านั้นอาจแสดงคุณลักษณะจริงของคอมพิวเตอร์คุณ บล็อกโปรแกรมเหล่านั้นหากคุณต้องการการป้องกันมากขึ้น",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "ระดับสูงสุดบล็อกโปรแกรมเบื้องหลังของไซต์นี้ เพราะไม่สามารถป้องกันโปรแกรมเหล่านั้นได้: ไซต์อาจไม่ทำงาน Kontrol ให้โปรแกรมเหล่านั้นทำงานบนไซต์นี้ได้",
+"Use Kontrol on this site": "ใช้ Kontrol บนไซต์นี้"
 }
 }

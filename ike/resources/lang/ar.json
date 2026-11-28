@@ -1624,10 +1624,14 @@
 "A protection may interfere with some features of this site.": "قد تتعارض إحدى الحمايات مع بعض ميزات هذا الموقع.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "قد تمنع إحدى الحمايات هذا الموقع من العمل بشكل صحيح. استخدم “إصلاح هذا الموقع”.",
 "I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "لم يجد I.K.E. أي مشكلة أثناء تحميل هذه الصفحة. هذا لا يثبت أن الموقع آمن.",
-"This site uses background programs: it works better, but protects you a little less.": "يستخدم هذا الموقع برامج تعمل في الخلفية: يعمل بشكل أفضل، لكن حمايتك أقل قليلًا.",
 "This site's background programs are blocked: more protection, but the site may not work.": "البرامج التي تعمل في خلفية هذا الموقع محظورة: حماية أكثر، لكن قد لا يعمل الموقع.",
 "Block them on this site": "حظرها على هذا الموقع",
 "Allow them again": "السماح بها مجددًا",
-"Probable cause: this site's background programs are blocked.": "السبب المحتمل: البرامج التي تعمل في خلفية هذا الموقع محظورة."
+"Probable cause: this site's background programs are blocked.": "السبب المحتمل: البرامج التي تعمل في خلفية هذا الموقع محظورة.",
+"Probable cause: Maximum blocks this site's background programs, because they cannot be protected.": "السبب المحتمل: يحظر مستوى الحد الأقصى البرامج التي تعمل في خلفية هذا الموقع، لأنه لا يمكن حمايتها.",
+"“Use Kontrol on this site” lets them run on this site only, with your computer's real details; Maximum stays on everywhere else.": "“استخدام Kontrol على هذا الموقع” يتيح تشغيلها على هذا الموقع فقط، مع الخصائص الحقيقية لحاسوبك؛ ويبقى مستوى الحد الأقصى مفعّلًا في كل مكان آخر.",
+"This site uses background programs that cannot be protected: they can show your computer's real details. Block them if you prefer more protection.": "يستخدم هذا الموقع برامج تعمل في الخلفية لا يمكن حمايتها: قد تكشف الخصائص الحقيقية لحاسوبك. احظرها إذا كنت تفضّل حماية أكثر.",
+"Maximum blocks this site's background programs, because they cannot be protected: the site may not work. Kontrol lets them run on this site.": "يحظر مستوى الحد الأقصى البرامج التي تعمل في خلفية هذا الموقع، لأنه لا يمكن حمايتها: قد لا يعمل الموقع. يتيح Kontrol تشغيلها على هذا الموقع.",
+"Use Kontrol on this site": "استخدام Kontrol على هذا الموقع"
 }
 }
