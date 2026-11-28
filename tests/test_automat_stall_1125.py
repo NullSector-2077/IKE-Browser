@@ -159,6 +159,16 @@ def test_nothing_is_learned_from_words_without_a_value(quota):
     assert quota.learned_quotas('quotaId: "GenerateRequestsPerDay-FreeTier", quotaValue: "0"') == {}
 
 
+def test_a_learned_limit_is_kept_for_the_next_days(quota):
+    """2026-11-27, the owner: what AUTOMAT learns of a provider's real quota replaces the data file's estimate
+    for the next days too (the latest day that said it), until the provider says otherwise."""
+    budget = quota.Budget(state=quota.empty_state(), candidate=CANDIDATE, now=NOW)
+    budget.note("Antigravity", 10, status=429, body=GEMINI_429)
+    state = quota.merge(quota.empty_state(), budget.delta(), now=NOW)
+    later = quota.Budget(state=state, candidate=CANDIDATE, now=NOW + dt.timedelta(days=2))
+    assert later.day_limit("Antigravity", "requests") == 250
+    assert quota.Budget(state=quota.empty_state(), candidate=CANDIDATE, now=NOW).day_limit(
+        "Antigravity", "requests") == quota.load_limits()["providers"]["Antigravity"]["requests_per_day"]
 def test_the_drill_may_use_the_quotas_at_any_hour_until_the_owners_date(quota):
     """The owner's temporary rule of 2026-11-27 (priority "drill_any_hour_until"): the drill outside the leftover
     window while nothing real is pending; never another background branch; back to the rule after the date."""
