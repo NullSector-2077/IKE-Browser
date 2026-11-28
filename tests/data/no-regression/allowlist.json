@@ -668,111 +668,111 @@
    "key": "fingerprint/*/intl.locale",
    "why": "One language everywhere (1.1.29): the engine is given the first language sites are told (--lang) at every level, so dates, numbers and workers say what the page says (main's engine said en-u-va-posix / the bare language under the system's locale).",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29"
+   "version": "1.1.30"
   },
   {
    "key": "fingerprint/*/intl.number",
    "why": "One language everywhere (1.1.29): the engine is given the first language sites are told (--lang) at every level, so dates, numbers and workers say what the page says (main's engine said en-u-va-posix / the bare language under the system's locale).",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29"
+   "version": "1.1.30"
   },
   {
    "key": "fingerprint2/*/intl.locale",
    "why": "One language everywhere (1.1.29): the engine is given the first language sites are told (--lang) at every level, so dates, numbers and workers say what the page says (main's engine said en-u-va-posix / the bare language under the system's locale).",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29"
+   "version": "1.1.30"
   },
   {
    "key": "fingerprint2/*/intl.number",
    "why": "One language everywhere (1.1.29): the engine is given the first language sites are told (--lang) at every level, so dates, numbers and workers say what the page says (main's engine said en-u-va-posix / the bare language under the system's locale).",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29"
+   "version": "1.1.30"
   },
   {
    "key": "fingerprint/off/shared_worker",
    "why": "One language everywhere (1.1.29): the engine is given the first language sites are told (--lang) at every level, so dates, numbers and workers say what the page says (main's engine said en-u-va-posix / the bare language under the system's locale). A shared worker's language is the page's one now.",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29"
+   "version": "1.1.30"
   },
   {
    "key": "fingerprint/compatibility/shared_worker",
    "why": "One language everywhere (1.1.29): the engine is given the first language sites are told (--lang) at every level, so dates, numbers and workers say what the page says (main's engine said en-u-va-posix / the bare language under the system's locale). A shared worker's language is the page's one now.",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29"
+   "version": "1.1.30"
   },
   {
    "key": "fingerprint2/off/shared_worker",
    "why": "One language everywhere (1.1.29): the engine is given the first language sites are told (--lang) at every level, so dates, numbers and workers say what the page says (main's engine said en-u-va-posix / the bare language under the system's locale). A shared worker's language is the page's one now.",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29"
+   "version": "1.1.30"
   },
   {
    "key": "fingerprint/*/permissions.*",
    "why": "Permissions answer as Chromium 140 (1.1.29, engine privacy study): Qt WebEngine said \"denied\" for every permission it has no prompt for, which no Chromium does; permissions.query now gives Chromium's own answers (prompt; granted for those Chromium grants by itself).",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29"
+   "version": "1.1.30"
   },
   {
    "key": "permissions/*/*",
    "why": "Permissions answer as Chromium 140 (1.1.29, engine privacy study): Qt WebEngine said \"denied\" for every permission it has no prompt for, which no Chromium does; permissions.query now gives Chromium's own answers (prompt; granted for those Chromium grants by itself).",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29"
+   "version": "1.1.30"
   },
   {
    "key": "headers/*/*/accept-language",
    "why": "The language header written as Chrome writes it (1.1.29): with weights (en-US,en;q=0.9); Qt sent the list without them, which no Chromium does.",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29"
+   "version": "1.1.30"
   },
   {
    "key": "profile/*/httpAcceptLanguage",
    "why": "The language header written as Chrome writes it (1.1.29): with weights (en-US,en;q=0.9); Qt sent the list without them, which no Chromium does.",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29"
+   "version": "1.1.30"
   },
   {
    "key": "request-headers/strict/*/accept-language",
    "why": "At Strict and Maximum the language header keeps the engine's own place among the headers (1.1.29: Qt's request hook put it last, a order no Chromium sends); the engine writes it from the profile, so the hook no longer sees it and the tool measures nothing there. The value is the profile's, measured in profile/*/httpAcceptLanguage.",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29",
+   "version": "1.1.30",
    "detail": "not measured on the candidate"
   },
   {
    "key": "request-headers/maximum/*/accept-language",
    "why": "At Strict and Maximum the language header keeps the engine's own place among the headers (1.1.29: Qt's request hook put it last, a order no Chromium sends); the engine writes it from the profile, so the hook no longer sees it and the tool measures nothing there. The value is the profile's, measured in profile/*/httpAcceptLanguage.",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29",
+   "version": "1.1.30",
    "detail": "not measured on the candidate"
   },
   {
    "key": "switches/added",
    "why": "No advertising measurement (1.1.29): Attribution Reporting and Topics are switched off in the engine (ConversionMeasurement, BrowsingTopics; their APIs taken from pages with --disable-blink-features=AttributionReporting,TopicsAPI). Qt WebEngine kept an advertiser's attribution source in the profile and sent the Topics header.",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29"
+   "version": "1.1.30"
   },
   {
    "key": "switches/disabled-features",
    "why": "No advertising measurement (1.1.29): Attribution Reporting and Topics are switched off in the engine (ConversionMeasurement, BrowsingTopics; their APIs taken from pages with --disable-blink-features=AttributionReporting,TopicsAPI). Qt WebEngine kept an advertiser's attribution source in the profile and sent the Topics header.",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29"
+   "version": "1.1.30"
   },
   {
    "key": "switches/hostile-disabled-features",
    "why": "No advertising measurement (1.1.29): Attribution Reporting and Topics are switched off in the engine (ConversionMeasurement, BrowsingTopics; their APIs taken from pages with --disable-blink-features=AttributionReporting,TopicsAPI). Qt WebEngine kept an advertiser's attribution source in the profile and sent the Topics header.",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29"
+   "version": "1.1.30"
   },
   {
    "key": "fingerprint/strict/navigator.plugins",
    "why": "Cover Your Tracks' \"randomized fingerprint\" (1.1.29, the owner's decision): it counts the plugins among the five values that must differ between two sites. At Strict and Maximum the list stays Chrome's own five PDF viewers with their two types, nothing invented, in an order of the site's own (another on every site and in every session); main gave the engine's order on every site.",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29"
+   "version": "1.1.30"
   },
   {
    "key": "fingerprint/maximum/navigator.plugins",
    "why": "Cover Your Tracks' \"randomized fingerprint\" (1.1.29, the owner's decision): it counts the plugins among the five values that must differ between two sites. At Strict and Maximum the list stays Chrome's own five PDF viewers with their two types, nothing invented, in an order of the site's own (another on every site and in every session); main gave the engine's order on every site.",
    "accepted": "the owner asked for these changes on 2026-11-26/28 (1.1.29: the Engine Privacy Layer study, and \"randomized\" on Cover Your Tracks); entry written by Claude",
-   "version": "1.1.29"
+   "version": "1.1.30"
   }
  ]
 }
