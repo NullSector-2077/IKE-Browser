@@ -91,9 +91,11 @@ def test_the_lists_are_written_as_the_browser_reads_them(tmp_path):
 
 
 def test_the_builder_uses_the_browsers_reader():
-    from ike import darklists
+    """The builder reads the lists with the checkout's own ike/darklists.py (the copy it builds for), never a
+    reader of its own; in the installed package's shards the imported I.K.E. is the installed copy, so the
+    checkout's file is compared, not the imported module (tests/test_lessons.py, lesson 1)."""
     tool = load()
-    assert Path(tool.darklists().__file__).resolve() == Path(darklists.__file__).resolve()
+    assert Path(tool.darklists().__file__).resolve() == (ROOT / "ike" / "darklists.py").resolve()
     assert "PyQt6" not in TOOL.read_text("utf-8") and "PATCHES" not in TOOL.read_text("utf-8")
 
 
