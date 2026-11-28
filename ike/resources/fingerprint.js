@@ -590,8 +590,17 @@
   // areas and known test patterns stay exact), one in 32 of them. getImageData
   // is left as it was (a second read gives the same pixels: pages that edit
   // pictures read and write them back). Large pictures: a part of the pixels.
-  // (Not applied since 1.1.30, the owner's decision: an exported picture is the
-  // site's own, see exported(); kept for the workers' prelude, which takes it.)
+  // Since 1.1.30 (the owner's decision) its key is the site's, the same at every
+  // export: two exports of a drawing are equal on a site and differ between
+  // sites (Cover Your Tracks: "randomized fingerprint"), see exported().
+  // the key of an exported picture's own noise: the site's, the same at every export (1.1.30)
+  var EXPORT_SALT = (function () {
+    var h = (seed ^ 0x9E3779B1) | 0;
+    h ^= h >>> 16; h = mul32(h, 0x85EBCA6B);
+    h ^= h >>> 13; h = mul32(h, 0xC2B2AE35);
+    h ^= h >>> 16;
+    return h | 1;
+  })();
   function jitter(data, w, h, salt) {
     var row = w * 4, n = w * h, step = n > 100000 ? ((n + 99999) / 100000) | 0 : 1;
     var at = function (q) {
@@ -1525,8 +1534,21 @@
       else if (tg === 'Uint8ClampedArray') farble(px, c.seed, rng, RAW(LENG, px, []));
       else if (tg === 'Float16Array') viewNoise(TW, px, 0, -1, c.seed, rng, farble, true);
     };
-    // an exported picture: as it is, with the site's noise, as in the page (1.1.30)
-    var exported = function () {};
+    // an exported picture: its own little noise from a key of the site's, the
+    // same at every export, as in the page (1.1.30)
+    var exportKey = (function () {
+      var k = (c.seed ^ 40503) | 0;
+      k = (k + (k << 1) + (k << 4) + (k << 7) + (k << 8) + (k << 24)) | 0;
+      k ^= k >>> 15;
+      k = (k + (k << 1) + (k << 4) + (k << 7) + (k << 8) + (k << 24)) | 0;
+      k ^= k >>> 13;
+      return k | 1;
+    })();
+    var exported = function (img, w, h) {
+      var px = RAW(IMGD, img, []);
+      if (RAW(TAGG, px, []) !== 'Uint8ClampedArray') return;
+      jitter(px, w, h, exportKey);
+    };
     var OCW = self.OffscreenCanvas, OCWP = OCW && OCW.prototype;
     var O2WP = self.OffscreenCanvasRenderingContext2D && OffscreenCanvasRenderingContext2D.prototype;
     var OCV = { w: getOf(OCWP, 'width'), h: getOf(OCWP, 'height'), ctx: OCWP && OCWP.getContext,
@@ -2399,7 +2421,12 @@
     // "randomized" on both sites equal: the variation of every export of
     // 1.1.27 to 1.1.28 made it never count. The same picture on a site, another
     // on every other site and in every session, as Brave does.)
+    // The export keeps the little noise of its own it had since 1.1.27 (the same
+    // amount: "Nothing gets worse"), from a key of the site's instead of a new
+    // one at every export, so it is the same at every export on a site.
     function exported(img, cw, ch) {
+      var px = pixels(img);
+      if (TAG(px) === 'Uint8ClampedArray') jitter(px, cw, ch, EXPORT_SALT);
       return img;
     }
     function noisyCopy(canvas) {
