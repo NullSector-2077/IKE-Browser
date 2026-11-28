@@ -37,13 +37,17 @@
   large for a second row of sites): the clock 32 px (42), the weather's
   symbol about 1.15 cm (2 cm); in a narrow window its details now fit too.
 - **The logo lights up on the new tab page** (the owner's choice): every four
-  seconds a short light runs along the circuit of the logo, a little wider
-  than its white traces, full colour over them and fading outwards, and at
-  the pads a small discreet glow opens and fades. Only with the interface's effects on (so not with reduced motion
-  asked, nor with the battery saver at work), nothing moves between two
-  pulses and a tab that is not shown runs none; one pulse costs about 2 % of
-  one processor core while it lasts on a computer drawing without a graphics
-  card (tests/test_newtab_logo.py).
+  seconds a light starts from the left and the right ends of both lines of
+  the logo's circuit at once and runs to the middle; each branch lights up as
+  the light passes it, at the same speed, and its pad gives a small discreet
+  glow when the light reaches it (the lengths and the timings come from the
+  logo's own drawing). The light is a little wider than the white traces,
+  full colour over them and fading outwards. Only with the interface's
+  effects on (so not with reduced motion asked, nor with the battery saver
+  at work); nothing moves between two pulses and a tab that is not shown
+  runs none. Measured on a computer drawing without a graphics card, the new
+  tab page with the pulses takes about 3.5 % of one processor core more than
+  without (tests/test_newtab_logo.py).
 - **Pages change softly** (the owner: "pages come in abruptly"): the old
   page's picture stays over the tab until the new page has drawn its first
   content, then fades away in a fifth of a second; turning dark mode on or
