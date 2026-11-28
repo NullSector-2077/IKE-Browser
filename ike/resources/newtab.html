@@ -177,15 +177,13 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
 /* an open panel lies over the rest of the page (the corner comes first in the page, the tiles after it) */
 .corner:has(.np-wrap.on),.stats:has(.np-wrap.on){position:relative;z-index:40}
 .corner:has(.np-wrap.on){position:fixed}
-.corner .np-gear{position:absolute;right:calc(100% + 12px);top:0}
+.corner .np-gear{position:absolute;right:calc(100% + 10px);bottom:0}
 .np-gear{display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:6px;
  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;opacity:.55;
  transition:opacity .15s,border-color .12s}
 .np-gear svg{width:18px;height:18px}
-/* the corner's gear shows when the mouse is over the corner (as Plasma's widgets show their handle), or
-   always when the clock and the weather are both off */
-.corner .np-gear{opacity:0}
-.corner:not(:has(.clock,.weather)) .np-gear{opacity:.55}
+/* the corner's gear always shows, discreet, as the counter's (the owner did not find it when it showed
+   only under the mouse) */
 .corner:hover .np-gear,.stats:hover .np-gear,.np-gear:focus-visible,.np-wrap.on .np-gear{opacity:1}
 .np-gear:hover,.np-gear:focus-visible,.np-wrap.on .np-gear{border-color:var(--acc);outline:none}
 .np{display:none;position:absolute;z-index:30;bottom:calc(100% + 10px);width:310px;max-width:calc(100vw - 16px);
