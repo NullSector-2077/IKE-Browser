@@ -33,16 +33,28 @@ workers end with "error" here, as Turnstile's did).
 import http.server
 import json
 import threading
+import time
 
 import pytest
 
 LEVELS = ["balanced", "strict", "maximum"]
 
 COMMON = r"""
+// the refusals of policies the page can learn of: as events from now on, and
+// the ones before its first script through a ReportingObserver's buffer
 var V = [];
 document.addEventListener('securitypolicyviolation', function (e) {
   V.push(e.violatedDirective + ':' + e.sample);
 });
+function earlier() {
+  var out = [];
+  try {
+    new ReportingObserver(function () {}, { buffered: true, types: ['csp-violation'] }).takeRecords().forEach(function (r) {
+      out.push(r.body.effectiveDirective + ':' + r.body.sample);
+    });
+  } catch (e) { out.push('no observer: ' + e); }
+  return out;
+}
 function hash(d) {
   var h = 2166136261;
   for (var i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); }
@@ -82,7 +94,7 @@ window.__run = async function () {
   var b = await start(function () { return new Worker(mine.createScriptURL(blobUrl())); });
   var f = await start(function () { return new Worker(mine.createScriptURL('/w.js')); });
   await new Promise(function (ok) { setTimeout(ok, 300); });
-  return { a: a, b: b, file: f, tripped: window.tripped, violations: V };
+  return { a: a, b: b, file: f, tripped: window.tripped, violations: V, earlier: earlier() };
 };
 </script></body>"""
 
@@ -95,14 +107,60 @@ window.__run = async function () {
 };
 </script></body>"""
 
+# Ways a page's script could try to have a worker without the protection (the
+# independent review of this change): Trusted Types names without requiring
+# them (in a header, or in a <meta> a script adds), a <meta> that requires them
+# with a pass-through default policy of the page's, and an exhausted stack
+# while the protection makes its policy. The protection's policy is made as the
+# document starts, so none of them refuses it.
+NAMES = r"""<!doctype html><title>tt</title><body><script>
+""" + COMMON + r"""
+var mine = trustedTypes.createPolicy('site', { createScriptURL: function (u) { return u; } });
+window.__run = async function () {
+  var w = await start(function () { return new Worker(mine.createScriptURL(blobUrl())); });
+  return { worker: w, page: 'pic:' + draw(new OffscreenCanvas(96, 40)), violations: V };
+};
+</script></body>"""
+
+TRICKS = r"""<!doctype html><title>tt</title><body><script>
+""" + COMMON + r"""
+var mine = trustedTypes.createPolicy('site', { createScriptURL: function (u) { return u; } });
+window.__run = async function () {
+  var page = 'pic:' + draw(new OffscreenCanvas(96, 40)), out = { page: page };
+  // the stack used up, then a worker at every depth on the way back
+  var made = null, u = mine.createScriptURL(blobUrl());
+  function deep() { try { deep(); } catch (e) {} if (!made) { try { made = new Worker(u); } catch (e) {} } }
+  deep();
+  out.deep = made ? await start(function () { return made; }) : 'none';
+  out.after = await start(function () { return new Worker(mine.createScriptURL(blobUrl())); });
+  // a <meta> that requires Trusted Types and allows only the page's names
+  var m = document.createElement('meta');
+  m.httpEquiv = 'Content-Security-Policy';
+  m.content = "require-trusted-types-for 'script'; trusted-types site default";
+  document.head.appendChild(m);
+  trustedTypes.createPolicy('default', { createScriptURL: function (u) { return u; } });
+  out.meta = await start(function () { return new Worker(mine.createScriptURL(blobUrl())); });
+  out.metaPlain = await start(function () { return new Worker(blobUrl()); });
+  out.violations = V;
+  out.earlier = earlier();
+  return out;
+};
+</script></body>"""
+
 FILE_WORKER = b"postMessage({pic: ''});"
 
 PAGES = {
     "/allow.html": (ALLOWLIST.encode(), "text/html; charset=utf-8",
-                    "require-trusted-types-for 'script'; trusted-types site default; worker-src 'self' blob:"),
+                    "require-trusted-types-for 'script'; trusted-types site default; worker-src 'self' blob:; "
+                    "report-uri /csp-report"),
     "/open.html": (OPEN.encode(), "text/html; charset=utf-8", "require-trusted-types-for 'script'"),
+    "/names.html": (NAMES.encode(), "text/html; charset=utf-8", "trusted-types site"),
+    "/tricks.html": (TRICKS.encode(), "text/html; charset=utf-8", None),
     "/w.js": (FILE_WORKER, "text/javascript", None),
 }
+
+
+REPORTS = []                # what the pages' report-uri received
 
 
 @pytest.fixture
@@ -125,8 +183,16 @@ def site():
             self.end_headers()
             self.wfile.write(body)
 
+        def do_POST(self):
+            body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            if self.path == "/csp-report":
+                REPORTS.append(json.loads(body or b"null"))
+            self.send_response(204)
+            self.end_headers()
+
         def log_message(self, *a):
             pass
+    REPORTS.clear()
     srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield srv.server_address[1]
@@ -160,16 +226,19 @@ def steps(ike, qapp, out):
 '''
 
 
-def run(run_ike, port, level):
-    pages = [("allow1", "http://127.0.0.1:%d/allow.html"), ("allow2", "http://127.0.0.1:%d/allow.html"),
-             ("open1", "http://127.0.0.1:%d/open.html"), ("open2", "http://localhost:%d/open.html")]
+def run(run_ike, port, level, pages=None):
+    pages = pages or [("allow1", "http://127.0.0.1:%d/allow.html"), ("allow2", "http://127.0.0.1:%d/allow.html"),
+                      ("open1", "http://127.0.0.1:%d/open.html"), ("open2", "http://localhost:%d/open.html")]
     script = "PAGES = %r\n" % [(k, u % port) for k, u in pages] + STEPS
     out = run_ike(script, settings={"shield_level": level}, timeout=200)
     return {k: json.loads(out[k]) for k, _ in pages}
 
 
 def policy_names(r):
-    return [v.split(":", 1)[1] for v in r["violations"] if v.startswith("trusted-types:")]
+    """The names of the refused Trusted Types policies a page can learn of."""
+    seen = r["violations"] + r.get("earlier", [])
+    assert not any(v.startswith("no observer") for v in seen), seen
+    return [v.split(":", 1)[1] for v in seen if v.startswith("trusted-types:")]
 
 
 @pytest.mark.parametrize("level", LEVELS)
@@ -181,15 +250,25 @@ def test_workers_start_where_the_page_refuses_the_protections_policy(run_ike, si
         assert r["a"].startswith("pic:") and r["b"].startswith("pic:"), (level, r)
         # nothing of I.K.E.'s reached the page's own default policy
         assert r["tripped"] == 0, (level, r)
-        # one refusal in a document, not one for every worker
-        assert len(policy_names(r)) == 1, (level, r)
+        # at most one refusal the page can see (made as the document starts,
+        # it usually comes before the page's first script listens)
+        assert len(policy_names(r)) <= 1, (level, r)
         # a worker from a file: Balanced starts it as the page asked; Kontrol
         # and Maximum never run it without the protection (refused, as before)
         assert r["file"] == ("data" if level == "balanced" else "error"), (level, r)
-    # the refused policy's name is not the site's seed: another one in every
-    # document of the same site in the same session ('p' + seed was the same)
-    n1, n2 = policy_names(got["allow1"])[0], policy_names(got["allow2"])[0]
-    assert n1 != n2, (n1, n2)
+    # what the site's server is told (report-uri): one refusal in each of the
+    # two documents, not one for every worker, and another name in each: not
+    # the site's seed ('p' + seed was the same in both)
+    def names():
+        return [r["csp-report"]["script-sample"] for r in REPORTS
+                if r["csp-report"]["violated-directive"] == "trusted-types"]
+    for _ in range(50):                 # the engine sends its reports a moment later
+        if len(names()) >= 2:
+            break
+        time.sleep(0.1)
+    time.sleep(0.3)
+    names = names()
+    assert len(names) == 2 and names[0] != names[1], (level, names)
 
 
 @pytest.mark.parametrize("level", LEVELS)
@@ -203,3 +282,20 @@ def test_workers_keep_the_protection_where_the_policy_is_allowed(run_ike, site, 
         assert r["worker"].startswith("pic:") and r["worker"] == r["page"], (level, r)
     # another picture on another site: the noise is the site's own
     assert a["worker"] != b["worker"], (level, a, b)
+
+
+@pytest.mark.parametrize("level", LEVELS)
+def test_a_pages_script_cannot_refuse_the_protection(run_ike, site, level):
+    got = run(run_ike, site, level, [("names", "http://127.0.0.1:%d/names.html"),
+                                     ("tricks", "http://127.0.0.1:%d/tricks.html")])
+    n, t = got["names"], got["tricks"]
+    # Trusted Types names in the header, not required: the protection's policy
+    # is refused, the bare address is taken, and the worker keeps the protection
+    assert n["worker"].startswith("pic:") and n["worker"] == n["page"], (level, n)
+    # a worker after the stack was used up, and one made after a <meta> a
+    # script added (with a pass-through default policy): the same noise as the
+    # page, and no refusal of the protection's policy
+    for key in ("after", "meta", "metaPlain"):
+        assert t[key].startswith("pic:") and t[key] == t["page"], (level, key, t)
+    assert t["deep"] in ("none", t["page"]), (level, t)
+    assert policy_names(t) == [], (level, t)

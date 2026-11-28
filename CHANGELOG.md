@@ -11,18 +11,24 @@
   name; I.K.E. starts a page's worker from an address with its protection in
   it, made trusted by a policy of its own, which that frame refuses. The bare
   address went on, the frame's own default policy turned it into an address
-  its worker-src refuses, and Turnstile's workers never started. Now, where a
-  page refuses I.K.E.'s policy, the worker starts as the page asked (its
-  values are the engine's there; the page stays protected, and on such a page
-  only code the site authorized can start a worker); everywhere else nothing
-  changes. Verified on turnstile.pages.dev: Off, Compatibility, Balanced,
+  its worker-src refuses, and Turnstile's workers never started. Now, where
+  the site refuses I.K.E.'s policy and has a default policy of its own, the
+  worker starts as the page asked (its values are the engine's there; the
+  page itself stays protected); everywhere else workers keep the protection
+  as before. Verified on turnstile.pages.dev: Off, Compatibility, Balanced,
   Kontrol and Maximum all pass (`ike/resources/fingerprint.js`,
   tests/test_trusted_types_workers.py).
+- **A page's script cannot take the protection out of its workers** (found by
+  the independent review of the change above): I.K.E.'s policy is made as
+  the document starts, before any script of the page, so only the policy the
+  site's server sent can refuse it, not a `<meta>` a script adds later; and a
+  page that used up the stack before starting a worker gets the engine's own
+  error instead of a worker without the protection (until now it got one).
 - **The noise's seed is no longer handed to such a page**: the protection's
-  policy was named 'p' + the site's seed, and a page that refuses it reads
-  the name in the refusal's report (`securitypolicyviolation`, `sample`);
-  with the seed the noise can be taken off. The name is now random, and the
-  policy is asked for once in a page, not for every worker.
+  policy was named 'p' + the site's seed, and a site that refuses it reads the
+  name in the refusal (`securitypolicyviolation`'s `sample`, and the report its
+  server receives); with the seed the noise can be taken off. The name is now
+  random, another in every document.
 - **Pages that steal passwords are stopped** (the owner's choice after the
   comparison with the best-known browsers): the Phishing URL Blocklist
   (curben's malware-filter, from OpenPhish, IPThreat and PhishTank, updated

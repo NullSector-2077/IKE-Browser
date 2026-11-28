@@ -80,6 +80,7 @@
   function sindex(s, x, from) { return RAPPLY(S_INDEX, s, from === undefined ? [x] : [x, from]); }
   function lower(s) { return RAPPLY(S_LOWER, s, []); }
   var HASOWN = Object.prototype.hasOwnProperty, RE_EXEC = RegExp.prototype.exec, RE_TEST = RegExp.prototype.test;
+  var IS_PROTO = Object.prototype.isPrototypeOf, RANGE_PROTO = RangeError.prototype;
   function own(o, k) { return RAPPLY(HASOWN, o, [k]); }
   var M_ = Map, M_GET = Map.prototype.get, M_SET = Map.prototype.set, M_DEL = Map.prototype['delete'];
   function hardStrongMap() {
@@ -2951,34 +2952,59 @@
     // Trusted Types (verification V-13): a TrustedScriptURL is read through
     // its own method and passed on as it is when nothing is added; an
     // address with the prelude gets a policy of the protection's own.
-    // A page whose security policy allows only its own policies by name
-    // (Cloudflare's challenge frame: `trusted-types <name> default`) refuses
-    // that policy (1.1.31): the worker then starts with the page's own
-    // TrustedScriptURL, as the page asked. Until 1.1.31 the bare address went
-    // on, the page's own default policy turned it into an address its
-    // worker-src refuses, and the worker never started (Turnstile failed at
-    // Balanced and above). The policy is asked for once in a realm, so a page
-    // that refuses it sees one refusal, and its name is random: it was
-    // 'p' + the site's seed, which the refusal's report hands to the page
-    // (securitypolicyviolation, `sample`), and the seed gives the noise away.
+    // 1.1.31 (Cloudflare's Turnstile failed at Balanced and above): that
+    // policy is made as the document starts, before any script of the page,
+    // so only the policy the site's server sent can refuse it (a policy a
+    // script adds later, in a <meta>, cannot: the independent review). Its
+    // name is random: it was 'p' + the site's seed, which a refusal's report
+    // hands to the page (securitypolicyviolation, `sample`), and the seed
+    // gives the noise away. Where the site allows only its own policies by
+    // name (Cloudflare's challenge frame: `trusted-types <name> default`) and
+    // has a default policy of its own, the worker starts with the page's own
+    // TrustedScriptURL, as the page asked: until 1.1.31 the bare address went
+    // on, the page's default policy turned it into an address its worker-src
+    // refuses, and the worker never started. With no default policy the bare
+    // address goes on as before (the engine takes it where Trusted Types are
+    // not required, and refuses it, with the worker the page asked for as
+    // the fallback below, where they are).
     var TTP = w.trustedTypes, TT_MAKE = TTP && TTP.createPolicy;
     var TT_URL = w.TrustedTypePolicy && w.TrustedTypePolicy.prototype.createScriptURL;
+    var TT_DEFAULT = getterOf(w.TrustedTypePolicyFactory && w.TrustedTypePolicyFactory.prototype, 'defaultPolicy');
+    var TT_TYPEERR = w.TypeError && w.TypeError.prototype, W_RANGE = w.RangeError && w.RangeError.prototype;
+    var outOfStack = function (e) {
+      try { return RAPPLY(IS_PROTO, RANGE_PROTO, [e]) || (!!W_RANGE && RAPPLY(IS_PROTO, W_RANGE, [e])); }
+      catch (x) { return false; }
+    };
     var TSU_STR = w.TrustedScriptURL && w.TrustedScriptURL.prototype.toString, ttPolicy = null, ttRefused = false;
     var trustedText = function (v) {
       if (!TSU_STR || v === null || typeof v !== 'object') return null;
       try { return RAPPLY(TSU_STR, v, []); } catch (e) { return null; }
     };
-    // the address as a TrustedScriptURL of the protection's policy, or null
-    // when the page's security policy refuses that policy
-    var asTrusted = function (u) {
-      if (ttRefused) return null;
+    // only the engine's refusal of the policy (a TypeError) counts: another
+    // error (a page that used up the stack first, the review) leaves it to be
+    // asked for again
+    var makePolicy = function () {
+      if (ttPolicy || ttRefused || !TT_MAKE || !TT_URL) return;
       try {
-        if (!ttPolicy) {
-          RAPPLY(RND_GET, CRYPTO, [RND]);
-          ttPolicy = RAPPLY(TT_MAKE, TTP, ['p' + RND[0], { createScriptURL: function (x) { return x; } }]);
-        }
-        return RAPPLY(TT_URL, ttPolicy, [u]);
-      } catch (e) { ttRefused = true; return null; }
+        RAPPLY(RND_GET, CRYPTO, [RND]);
+        ttPolicy = RAPPLY(TT_MAKE, TTP, ['p' + RND[0], { createScriptURL: function (x) { return x; } }]);
+      } catch (e) {
+        try { if (TT_TYPEERR && RAPPLY(IS_PROTO, TT_TYPEERR, [e])) ttRefused = true; } catch (x) {}
+      }
+    };
+    makePolicy();
+    // the page refused the policy and has a default policy of its own: its
+    // worker starts as it asked
+    var asAsked = function () {
+      if (!ttRefused) return false;
+      try { return !!(TT_DEFAULT && RAPPLY(TT_DEFAULT, TTP, [])); } catch (e) { return false; }
+    };
+    // the address as a TrustedScriptURL of the protection's policy, or the
+    // bare address when there is none
+    var asTrusted = function (u) {
+      makePolicy();
+      if (!ttPolicy) return u;
+      try { return RAPPLY(TT_URL, ttPolicy, [u]); } catch (e) { return u; }
     };
     var xStatus = getterOf(XP, 'status'), xText = getterOf(XP, 'responseText');
     // Strict and Maximum (1.1.25, independent review): a dedicated worker the
@@ -3100,11 +3126,12 @@
             var send = function (u) { return opt.given ? [u, opt.value] : [u]; };
             var call = send(tt !== null ? first : url), asked = call;
             try {
-              if (strict && name === 'Worker' && sslice(url, 0, 5) !== 'blob:' && lower(sslice(url, 0, 5)) !== 'data:') {
+              if (tt !== null && asAsked()) {
+                // nothing to add: the worker the page asked for (a file of the
+                // site's at Strict and above: refused by the request check)
+              } else if (strict && name === 'Worker' && sslice(url, 0, 5) !== 'blob:' && lower(sslice(url, 0, 5)) !== 'data:') {
                 file = fromFile(url, opt.module);
-                // refused: the file as the page asked, which the request check refuses
-                var fv = file && (tt !== null ? asTrusted(file) : file);
-                if (fv) call = send(fv); else file = null;
+                if (file) call = send(tt !== null ? asTrusted(file) : file);
               } else if (sslice(url, 0, 5) === 'blob:') {
                 var blob = blobs.get(url);
                 if (!blob) {
@@ -3121,13 +3148,10 @@
                 if (blob) {
                   var patched = RAPPLY(rawCreate, U, [new NBlob([preludeFor(url, opt.module), blob],
                     { type: RAPPLY(BLOB_TYPE, blob, []) || 'text/javascript' })]);
-                  var tv = tt !== null ? asTrusted(patched) : patched;
-                  if (tv) {
-                    call = send(tv);
-                    PATCHED.set(patched, url);
-                    // the prelude revokes it at once; this is the fallback
-                    RAPPLY(nLater, w, [function () { RAPPLY(rawRevoke, U, [patched]); }, 30000]);
-                  } else RAPPLY(rawRevoke, U, [patched]);
+                  call = send(tt !== null ? asTrusted(patched) : patched);
+                  PATCHED.set(patched, url);
+                  // the prelude revokes it at once; this is the fallback
+                  RAPPLY(nLater, w, [function () { RAPPLY(rawRevoke, U, [patched]); }, 30000]);
                 }
               } else if (lower(sslice(url, 0, 5)) === 'data:') {
                 var comma = sindex(url, ',');
@@ -3136,17 +3160,25 @@
                   var pre = preludeFor(url, true);
                   var made = sslice(url, 0, comma + 1) +
                     (b64 ? RAPPLY(nBtoa, w, [pre]) : RAPPLY(nEnc, w, [pre])) + sslice(url, comma + 1);
-                  var dv = tt !== null ? asTrusted(made) : made;
-                  if (dv) { call = send(dv); PATCHED.set(made, url); }
+                  call = send(tt !== null ? asTrusted(made) : made);
+                  PATCHED.set(made, url);
                 }
               }
-            } catch (e) {}
+            } catch (e) {
+              // a page that used up the stack first made the protection fail
+              // here, and got the worker it asked for without it (1.1.31, the
+              // independent review): the engine's own error instead, as a
+              // native call that deep would throw
+              if (outOfStack(e)) { clean(e); throw e; }
+            }
             // the engine's own errors (a policy of Trusted Types, say) without
             // the protection's lines in their stack (M-5); a blob address a
             // policy refuses: the worker the page asked for (see fromFile)
             var made;
             try { made = nConstruct(target, call, nt); } catch (e) {
-              if (call !== asked) { try { return nConstruct(target, asked, nt); } catch (e2) { clean(e2); throw e2; } }
+              if (call !== asked && !outOfStack(e)) {
+                try { return nConstruct(target, asked, nt); } catch (e2) { clean(e2); throw e2; }
+              }
               clean(e); throw e;
             }
             if (file) sameErrors(made, file);

@@ -88,7 +88,7 @@ kind; fixed too:
 | N3 | Noise removable by a majority vote over reads with one corner changed, and audio factors read from a buffer of known samples | The noise depends on each pixel's colour and its neighbour's, each sample's value and the one before it: neither the place nor the whole picture | Areas of one plain colour are left as they are (they say nothing about the computer); noise of any kind cannot resist a script written against it (audit, I-1) |
 | FP-M-5 | Error stacks named the protection (`userscript:ike-fp`) | Neutral script names; the protection's lines taken out of stacks | A page that sets `Error.prepareStackTrace` still sees the frames |
 | FP-M-6 | The plugin list recognisable (the prototype's `item()`/`length`/`name` threw; own properties on the invented entries) | The engine's own getters and methods answer for the list and the invented entries | - |
-| FP-V (second pass) | 13 more ways around the fixes: a getter on `Promise`/`Array.prototype.constructor` (species), setters on `Array.prototype`'s index names, module workers (imports run before the prelude), workers inside workers from a page-made address, WebGL numbers given as text or objects, float16 reads rounded to 8 bits, `local()` written with escapes, comments or objects, quiet audio sharing one factor, `SharedArrayBuffer`, the plugin list's own keys, `split()` in the stack cleaning, Trusted Types and `Worker()` with no argument | The engine's promises get an own constructor; loops instead of `filter()`; elements written with `defineProperty`; internal tables without a prototype; module workers get a seed of their own; nested blob addresses read and given the prelude; WebGL numbers read once and passed on as read; float16 noise at the 8-bit scale; every `local()` taken out of FontFace sources; audio factors from each sample's own bits; `SharedArrayBuffer` noised; `ownKeys` and descriptors of the plugin list; a TrustedScriptURL kept, or the prelude's address given a policy of its own (1.1.31: asked for once, under a random name; where the page refuses it, the worker starts as the page asked) | See "Known limits of the noise" below |
+| FP-V (second pass) | 13 more ways around the fixes: a getter on `Promise`/`Array.prototype.constructor` (species), setters on `Array.prototype`'s index names, module workers (imports run before the prelude), workers inside workers from a page-made address, WebGL numbers given as text or objects, float16 reads rounded to 8 bits, `local()` written with escapes, comments or objects, quiet audio sharing one factor, `SharedArrayBuffer`, the plugin list's own keys, `split()` in the stack cleaning, Trusted Types and `Worker()` with no argument | The engine's promises get an own constructor; loops instead of `filter()`; elements written with `defineProperty`; internal tables without a prototype; module workers get a seed of their own; nested blob addresses read and given the prelude; WebGL numbers read once and passed on as read; float16 noise at the 8-bit scale; every `local()` taken out of FontFace sources; audio factors from each sample's own bits; `SharedArrayBuffer` noised; `ownKeys` and descriptors of the plugin list; a TrustedScriptURL kept, or the prelude's address given a policy of its own (1.1.31: made as the document starts, under a random name; where the site's server refuses it and the page has a default policy, the worker starts as the page asked; an exhausted stack gives the engine's error, not a worker without the protection) | See "Known limits of the noise" below |
 | FP-M-4 | The storage quota gave the disk size | `StaticStorageQuota`: 10 GiB for everyone | - |
 | N5 | Maximum: an empty language list, or a language the engine lacks, fell back to the system's language | Such a list means the language shown (en-US), in pages and workers; the list is read once, as the engine reads it | At the global level Maximum the engine itself speaks en-US too (form messages, Date's zone names, every kind of worker; owner's decision, audit M-7). A site set to Maximum by itself keeps the engine's texts in the system's language: the engine has one language for all sites |
 
@@ -118,16 +118,23 @@ routes useless; it cannot stop a script written against it:
 - **A site set to Maximum by itself** (not the global level) keeps the
   engine's own texts and the time zone's name in the system's language.
 - **Workers of a page that refuses I.K.E.'s Trusted Types policy** (1.1.31):
-  a page whose content security policy allows only its own policies by name
-  (`trusted-types <names>` with `require-trusted-types-for 'script'`, as
-  Cloudflare's challenge frame) cannot be given a worker address with the
-  protection in it without breaking its policy. Such a worker starts as the
-  page asked, with the engine's own values; the page itself stays protected.
-  On such a page only code the site authorized can start a worker at all.
+  a site whose content security policy allows only its own Trusted Types
+  policies by name and has a default policy of its own (Cloudflare's
+  challenge frame) cannot be given a worker address with the protection in it
+  without breaking its policy. Such a worker starts as the page asked, with
+  the engine's own values; the page itself stays protected. Only the policy
+  the site's server sends can do this: I.K.E.'s policy is made before any
+  script of the page, so a `<meta>` a script adds later cannot refuse it.
   Until 1.1.31 the worker did not start (Cloudflare's Turnstile failed at
-  Balanced and above), and the refused policy's name, which the page reads in
-  the refusal, was made from the site's seed. A worker from a site's file at
-  Kontrol and Maximum is still refused rather than run without the protection.
+  Balanced and above), and the refused policy's name was made from the
+  site's seed. A worker from a site's file at Kontrol and Maximum is still
+  refused rather than run without the protection.
+- **The refusal itself can be seen by such a site**: its server's report
+  (`report-uri`) and, now and then, the page's `securitypolicyviolation`
+  event name the refused policy (a random name) and give `userscript` as the
+  source: a site that allows only its own policies by name and collects these
+  reports can tell that a script was added to its page. Before 1.1.31 the same
+  happened when the page started a worker.
 
 ## Fingerprinting: the audit's remaining points (1.1.21)
 
