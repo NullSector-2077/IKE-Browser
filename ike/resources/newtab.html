@@ -154,6 +154,93 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
 @keyframes ike-menu-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 .fx .eng.on .eng-menu{animation:ike-menu-in .14s ease-out}
 @media (prefers-reduced-motion:reduce){.fx .eng.on .eng-menu{animation:none}}
+/* 1.1.31 (the owner: the names of the favourite sites were grey and hard to read): in the text
+   colour, a little heavier, in the light and the dark theme alike; the dimmed colour stays for the
+   small words elsewhere */
+.tile>a:first-child,.tile .open{color:var(--fg)}
+.tile .name{font-weight:500}
+/* 1.1.31: the page's own small panels, in the style of Plasma's widgets (newtab.panel_html): a gear
+   beside the corner (clock and weather) and one beside the counter, discreet until the mouse is over
+   them; each opens a small panel with the settings of that part of the page */
+.np-wrap{position:relative;display:flex;align-items:center}
+.corner .np-wrap{position:static}
+/* the counter's gear beside it, out of its row: the row keeps its width (the weather's details beside it
+   are measured against it, newtab.html "fitMore") */
+.stats{position:relative}
+.stats .np-wrap{position:absolute;left:100%;top:50%;margin:-15px 0 0 10px}
+/* an open panel lies over the rest of the page (the corner comes first in the page, the tiles after it) */
+.corner:has(.np-wrap.on),.stats:has(.np-wrap.on){position:relative;z-index:40}
+.corner:has(.np-wrap.on){position:fixed}
+.corner .np-gear{position:absolute;right:calc(100% + 12px);top:0}
+.np-gear{display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border-radius:6px;
+ border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;opacity:.55;
+ transition:opacity .15s,border-color .12s}
+.np-gear svg{width:18px;height:18px}
+/* the corner's gear shows when the mouse is over the corner (as Plasma's widgets show their handle), or
+   always when the clock and the weather are both off */
+.corner .np-gear{opacity:0}
+.corner:not(:has(.clock,.weather)) .np-gear{opacity:.55}
+.corner:hover .np-gear,.stats:hover .np-gear,.np-gear:focus-visible,.np-wrap.on .np-gear{opacity:1}
+.np-gear:hover,.np-gear:focus-visible,.np-wrap.on .np-gear{border-color:var(--acc);outline:none}
+.np{display:none;position:absolute;z-index:30;bottom:calc(100% + 10px);width:310px;max-width:calc(100vw - 16px);
+ padding:6px;overflow:auto;translate:var(--dx,0px) 0;text-align:start;text-shadow:none;
+ font:13px/1.3 system-ui,"Noto Sans",sans-serif;letter-spacing:normal;color:var(--fg);
+ background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.4)}
+.corner .np{right:0}
+.stats .np{left:15px;margin-left:-155px}
+.np-wrap.on .np{display:block}
+.fx .np-wrap.on .np{animation:ike-menu-in .14s ease-out}
+.np span{font-size:inherit;line-height:inherit;color:inherit;letter-spacing:inherit}
+.np-head{padding:5px 8px 8px;margin-bottom:4px;border-bottom:1px solid var(--line);font-weight:600}
+.np-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:34px;padding:4px 8px;
+ border-radius:5px;color:var(--fg);text-decoration:none}
+.np-choice{flex-wrap:wrap;row-gap:4px}
+a.np-row:hover,a.np-row:focus-visible,.np-radio:hover,.np-radio:focus-visible,.np-foot:hover,.np-foot:focus-visible{
+ background:color-mix(in srgb,var(--acc) 16%,transparent);outline:none}
+/* the switches as the interface's own (uistyle.paint_switch, the owner's choice): squared with slightly
+   rounded corners, not a pill; the track in the accent when on, a square knob in the field colour */
+.np-knob{flex:none;position:relative;width:34px;height:18px;border-radius:3px;
+ border:1px solid color-mix(in srgb,var(--fg) 45%,transparent);background:var(--line);
+ transition:background-color .15s,border-color .15s}
+.np-knob::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:2px;
+ background:var(--card);transition:transform .15s}
+.np-sw[aria-checked="true"] .np-knob{background:var(--acc);border-color:var(--line)}
+.np-sw[aria-checked="true"] .np-knob::after{transform:translateX(16px)}
+.np-segs{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.np-seg{padding:3px 8px;border-left:1px solid var(--line);color:var(--fg);text-decoration:none;font-size:12px;
+ white-space:nowrap}
+.np-seg:first-child{border-left:0}
+.np-seg:hover,.np-seg:focus-visible{background:color-mix(in srgb,var(--acc) 14%,transparent);outline:none}
+.np-seg[aria-checked="true"]{background:color-mix(in srgb,var(--acc) 32%,var(--card));font-weight:600}
+.np-group{padding:2px 0 4px}
+.np-sub{padding:6px 8px 3px;font-weight:600}
+.np-radio{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:5px;color:var(--fg);
+ text-decoration:none}
+.np-dot{flex:none;width:14px;height:14px;border-radius:50%;border:1px solid var(--line);background:var(--card)}
+.np-radio[aria-checked="true"] .np-dot{border-color:var(--acc);background:var(--acc);box-shadow:inset 0 0 0 3px var(--card)}
+.np-v{font-weight:600;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.np-v::after{content:" \203A"}
+.np-foot{display:block;margin-top:4px;padding:8px;border-top:1px solid var(--line);border-radius:0 0 5px 5px;
+ color:var(--fg);text-decoration:none;text-align:end}
+.still .tile,.still .greet,.still .np{animation:none!important}
+@media (prefers-reduced-motion:reduce){.fx .np-wrap.on .np{animation:none}.np-knob,.np-knob::after,.np-gear{transition:none}}
+/* 1.1.31 (the owner): the logo's circuit lights up while the new tab is shown: every 4 seconds a short
+   light runs along its traces, from the main lines to the pads, which flash. Only with "Interface
+   effects" on (that is also off with reduced motion asked and with the battery saver at work); nothing
+   moves between two pulses, and a tab not shown runs none (the page's script, at the end) */
+.logo-wrap{position:relative;line-height:0}
+.logo-glow{display:none;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.fx .logo-glow{display:block}
+.logo-glow path{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:26 200;stroke-dashoffset:26}
+.lg-halo path{stroke:#3fd2ff;stroke-width:70;opacity:.42}
+.lg-core path{stroke:#f2fdff;stroke-width:20}
+.lg-pads circle{fill:#dff8ff;stroke:#3fd2ff;stroke-width:22;stroke-opacity:.5;opacity:0}
+@keyframes ike-trace{from{stroke-dashoffset:26}to{stroke-dashoffset:-100}}
+@keyframes ike-pad{0%,100%{opacity:0}35%{opacity:1}}
+.logo-glow.on .lg-m{animation:ike-trace .6s ease-in both}
+.logo-glow.on .lg-b{animation:ike-trace .45s .4s ease-out both}
+.logo-glow.on .lg-pads circle{animation:ike-pad .45s .75s ease-out both}
+@media (prefers-reduced-motion:reduce){.logo-glow{display:none!important}}
 </style>
 <script>
 // an engine's icon not known yet: the magnifier shows, and the icon is asked for once more
@@ -165,7 +252,7 @@ function ikeIconLater(img) {
   setTimeout(function () { img.src = img.src + "&again=1"; }, 2500);
 }
 </script>{{background}}</head>
-<body class="{{fx}}{{photo}}">
+<body class="{{fx}}{{photo}}{{again}}">
 <div class="corner">{{corner}}</div>
 <svg class="wx-defs" aria-hidden="true" focusable="false">
 <symbol id="wx-feels" viewBox="0 0 16 16"><path d="M6.5 9.4V3.2a1.5 1.5 0 0 1 3 0v6.2a3 3 0 1 1-3 0z"/><path d="M8 6.2v5"/></symbol>
@@ -176,7 +263,7 @@ function ikeIconLater(img) {
 </svg>
 {{buttons}}
 {{greeting}}
-<img class="logo" src="ike:logo" alt="I.K.E.">
+<div class="logo-wrap"><img class="logo" src="ike:logo" alt="I.K.E."><svg class="logo-glow" viewBox="0 0 1254 1254" aria-hidden="true" focusable="false"><g class="lg-halo"><path class="lg-m" pathLength="100" d="M132 384 H230 L263 352 H981 L1014 384 H1122"/><path class="lg-m" pathLength="100" d="M132 869 H230 L263 901 H981 L1014 869 H1122"/><path class="lg-b" pathLength="100" d="M505 352 V309 L456 264 H365"/><path class="lg-b" pathLength="100" d="M643 352 V259 L624 235 V175"/><path class="lg-b" pathLength="100" d="M777 352 V310 L826 263 H886"/><path class="lg-b" pathLength="100" d="M465 901 V936 L390 1008"/><path class="lg-b" pathLength="100" d="M625 901 V1007 L643 1032 V1086"/><path class="lg-b" pathLength="100" d="M783 901 V936 L852 1003"/></g><g class="lg-core"><path class="lg-m" pathLength="100" d="M132 384 H230 L263 352 H981 L1014 384 H1122"/><path class="lg-m" pathLength="100" d="M132 869 H230 L263 901 H981 L1014 869 H1122"/><path class="lg-b" pathLength="100" d="M505 352 V309 L456 264 H365"/><path class="lg-b" pathLength="100" d="M643 352 V259 L624 235 V175"/><path class="lg-b" pathLength="100" d="M777 352 V310 L826 263 H886"/><path class="lg-b" pathLength="100" d="M465 901 V936 L390 1008"/><path class="lg-b" pathLength="100" d="M625 901 V1007 L643 1032 V1086"/><path class="lg-b" pathLength="100" d="M783 901 V936 L852 1003"/></g><g class="lg-pads"><circle cx="344" cy="264" r="40"/><circle cx="624" cy="153" r="40"/><circle cx="908" cy="263" r="40"/><circle cx="378" cy="1020" r="40"/><circle cx="643" cy="1100" r="40"/><circle cx="865" cy="1016" r="40"/></g></svg></div>
 <h1><img src="ike:wordmark" alt="Internet Kontrol Experience"></h1>
 <div class="search"><form action="ike:search" method="get"><input name="q" autofocus autocomplete="off" placeholder="{{placeholder}}"></form>{{engines}}</div>
 {{tiles}}
@@ -214,7 +301,7 @@ function ikeIconLater(img) {
   // for a screen reader. Other lines appear as before.
   function think(el, text, key) {
     if (!el || el.textContent === text) return;
-    var still = !document.body.classList.contains("fx") ||
+    var still = !document.body.classList.contains("fx") || document.body.classList.contains("still") ||
       (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
     if (key.indexOf("thought") !== 0 || still || !window.requestAnimationFrame) { put(el, text); return; }
     // whole letters, as each script draws them (Hindi, Thai...: a letter with its marks)
@@ -284,6 +371,95 @@ function ikeIconLater(img) {
         e.preventDefault();
       }
     });
+  }
+  // 1.1.31: the logo's light (see the CSS). The pulse's own animations are held still and moved on
+  // by the page 30 times a second (left to themselves they would draw the page 60 times a second:
+  // half the work, the same light); one pulse, then nothing at all until the next, 4 seconds on;
+  // none while the tab is not shown, none without the interface's effects or with reduced motion
+  var glow = document.querySelector(".logo-glow");
+  if (glow && document.body.classList.contains("fx") && getComputedStyle(glow).display !== "none") {
+    var pulseAt = null, stepAt = null;
+    var stop = function () { clearTimeout(pulseAt); clearTimeout(stepAt); pulseAt = stepAt = null; glow.classList.remove("on"); };
+    var pulse = function () {
+      stop();
+      if (document.hidden) return;
+      glow.classList.add("on");
+      var anims = glow.getAnimations({subtree: true}), end = 0, t0 = performance.now();
+      anims.forEach(function (x) {
+        x.pause();
+        var tm = x.effect.getComputedTiming();
+        end = Math.max(end, tm.endTime);
+      });
+      var step = function () {
+        var t = performance.now() - t0;
+        anims.forEach(function (x) { x.currentTime = Math.min(t, end); });
+        if (t < end) stepAt = setTimeout(step, 33);
+        else { glow.classList.remove("on"); stepAt = null; pulseAt = setTimeout(pulse, Math.max(0, 4000 - end)); }
+      };
+      step();
+    };
+    document.addEventListener("visibilitychange", function () {
+      stop();
+      if (!document.hidden) pulseAt = setTimeout(pulse, 700);
+    });
+    if (!document.hidden) pulseAt = setTimeout(pulse, document.body.classList.contains("still") ? 4000 : 1100);
+  }
+  // 1.1.31: the page's own small panels (newtab.panel_html). A gear opens its panel, Escape or a click
+  // elsewhere closes it; a choice in it changes the setting (ike:ntset) and the page is shown again in
+  // place (no new step in the history), drawn by I.K.E. with the same panel open (data-np on the body)
+  var panels = document.querySelectorAll(".np-wrap");
+  var fitPanel = function (w) {
+    var p = w.querySelector(".np");
+    p.style.maxHeight = ""; p.style.setProperty("--dx", "0px");
+    var r = p.getBoundingClientRect();
+    if (r.top < 8) p.style.maxHeight = Math.max(120, r.bottom - 8) + "px";
+    if (r.left < 8) p.style.setProperty("--dx", (8 - r.left) + "px");
+    else if (r.right > innerWidth - 8) p.style.setProperty("--dx", (innerWidth - 8 - r.right) + "px");
+  };
+  var setPanel = function (w, on) {
+    Array.prototype.forEach.call(panels, function (o) {
+      if (o !== w && o.classList.contains("on")) setPanel(o, false);
+    });
+    w.classList.toggle("on", on);
+    w.querySelector(".np-gear").setAttribute("aria-expanded", on ? "true" : "false");
+    if (on) fitPanel(w);
+  };
+  Array.prototype.forEach.call(panels, function (w) {
+    var gear = w.querySelector(".np-gear");
+    gear.addEventListener("click", function (e) {
+      e.stopPropagation();
+      setPanel(w, !w.classList.contains("on"));
+      if (w.classList.contains("on")) { var f = w.querySelector(".np [aria-checked='true'], .np a"); if (f) f.focus(); }
+    });
+    w.querySelector(".np").addEventListener("click", function (e) {
+      var a = e.target.closest("a");
+      if (!a) return;
+      var s = a.getAttribute("data-s");
+      if (!s) { setPanel(w, false); return; }         // Settings: the window opens, the panel closes
+      e.preventDefault();
+      location.replace(a.href);
+    });
+    w.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && w.classList.contains("on")) { setPanel(w, false); gear.focus(); e.preventDefault(); }
+    });
+  });
+  if (panels.length) {
+    document.addEventListener("click", function (e) {
+      Array.prototype.forEach.call(panels, function (w) { if (w.classList.contains("on") && !w.contains(e.target)) setPanel(w, false); });
+    });
+    window.addEventListener("resize", function () {
+      Array.prototype.forEach.call(panels, function (w) { if (w.classList.contains("on")) fitPanel(w); });
+    });
+    var back = /^(\w+)\.(\w+)$/.exec(document.body.getAttribute("data-np") || "");
+    if (back) {
+      var w0 = document.querySelector(".np-wrap.np-" + back[1]);
+      if (w0) {
+        setPanel(w0, true);
+        var f0 = w0.querySelector('.np [data-s="' + back[2] + '"][aria-checked="true"]') ||
+                 w0.querySelector('.np [data-s="' + back[2] + '"]') || w0.querySelector(".np-gear");
+        f0.focus();
+      }
+    }
   }
   // 1.1.25: the weather's symbol in the middle of its box by its ink. Where a font draws a symbol in
   // its line differs from font to font: the symbol is drawn once on a small canvas, in the same font,

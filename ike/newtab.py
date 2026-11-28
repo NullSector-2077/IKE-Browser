@@ -257,3 +257,114 @@ def put_first(config, url):
     hidden = config.data.get("newtab_tiles_hidden")
     if isinstance(hidden, list) and url in hidden:
         config.data["newtab_tiles_hidden"] = [h for h in hidden if h != url]
+
+
+# --- the page's own small panels (1.1.31) -------------------------------------
+# The owner: "a small panel in I.K.E./KDE style, with its own settings, so that the new tab
+# page is customised from the new tab page itself". A gear beside the corner (clock and
+# weather) and one beside the counter open a small panel; each choice in it is a link of the
+# page itself (ike:ntset, with the session's key, see shields.py) that changes one of the
+# settings below to one of its values, nothing else, and shows the page again. The texts are
+# the Settings window's own, so every language already has them.
+def _panel_settings():
+    from .config import WEATHER_CHOICES
+    out = {"newtab_clock": ("1", "0"), "newtab_weather": ("1", "0"),
+           "blocked_counter": ("month", "total"), "newtab_tiles": ("bookmarks", "visited", "none"),
+           "newtab_tiles_hidden": ("clear",)}
+    out.update(WEATHER_CHOICES)
+    return out
+
+
+PANEL_SETTINGS = _panel_settings()
+PANELS = ("corner", "stats")
+
+
+def set_from_panel(config, name, value):
+    """A choice made in one of the page's panels. Only the settings and values of
+    PANEL_SETTINGS; returns True when a setting changed."""
+    choices = PANEL_SETTINGS.get(name)
+    if not choices or value not in choices:
+        return False
+    if name == "newtab_tiles_hidden":
+        new = []
+    elif choices == ("1", "0"):
+        new = value == "1"
+    else:
+        new = value
+    if config.data.get(name) == new:
+        return False
+    config.data[name] = new
+    return True
+
+
+def _set_link(name, value, which):
+    return "ike:ntset?s=%s&amp;v=%s&amp;p=%s" % (name, value, which)
+
+
+def _switch(config, name, label, which):
+    on = bool(config.data.get(name))
+    return ('<a class="np-row np-sw" role="switch" aria-checked="%s" data-s="%s" href="%s">'
+            '<span class="np-l">%s</span><span class="np-knob" aria-hidden="true"></span></a>' % (
+                "true" if on else "false", name, _set_link(name, "0" if on else "1", which), html.escape(label)))
+
+
+def _segments(config, name, label, items, which):
+    """A row of small buttons, one of them pressed (as Plasma's own)."""
+    now = config.data.get(name)
+    buttons = "".join('<a class="np-seg" role="radio" aria-checked="%s" data-s="%s" href="%s">%s</a>' % (
+        "true" if key == now else "false", name, _set_link(name, key, which), html.escape(text))
+        for key, text in items)
+    return ('<div class="np-row np-choice"><span class="np-l">%s</span>'
+            '<span class="np-segs" role="radiogroup" aria-label="%s">%s</span></div>' % (
+                html.escape(label), html.escape(label, quote=True), buttons))
+
+
+def _radios(config, name, label, items, which):
+    """A short list, one line each, the chosen one marked (for the longer choices)."""
+    now = config.data.get(name)
+    rows = "".join('<a class="np-radio" role="radio" aria-checked="%s" data-s="%s" href="%s">'
+                   '<span class="np-dot" aria-hidden="true"></span><span>%s</span></a>' % (
+                       "true" if key == now else "false", name, _set_link(name, key, which), html.escape(text))
+                   for key, text in items)
+    return ('<div class="np-group" role="radiogroup" aria-label="%s"><div class="np-sub">%s</div>%s</div>' % (
+        html.escape(label, quote=True), html.escape(label), rows))
+
+
+def panel_html(config, which, gear):
+    """The gear and its panel: "corner" (clock and weather) or "stats" (counter and tiles)."""
+    rows = []
+    if which == "corner":
+        title = T("New tab page")
+        rows.append(_switch(config, "newtab_clock", T("Show the clock and the date"), which))
+        rows.append(_switch(config, "newtab_weather", T("Show the weather"), which))
+        if config.data.get("newtab_weather"):
+            city = config.data.get("weather_city") if isinstance(config.data.get("weather_city"), str) else ""
+            rows.append('<a class="np-row np-city" href="ike:open?what=newtab"><span class="np-l">%s</span>'
+                        '<span class="np-v">%s</span></a>' % (html.escape(T("City for the weather")),
+                                                              html.escape(city[:60] or "…")))
+            rows.append(_segments(config, "weather_unit", T("Temperature"),
+                                  (("celsius", "°C"), ("fahrenheit", "°F")), which))
+            rows.append(_segments(config, "weather_wind_unit", T("Wind"),
+                                  (("auto", T("Automatic")), ("kmh", "km/h"), ("mph", "mph"), ("ms", "m/s"), ("kn", "kn")), which))
+            rows.append(_segments(config, "weather_pressure_unit", T("Pressure"),
+                                  (("auto", T("Automatic")), ("hpa", "hPa"), ("mbar", "mbar"), ("inhg", "inHg"),
+                                   ("mmhg", "mmHg")), which))
+    else:
+        title = T("New tab page")
+        rows.append(_radios(config, "blocked_counter", T("Blocked counter"),
+                            (("month", T("This month (starts again on the first of each month)")),
+                             ("total", T("Since I.K.E. was installed"))), which))
+        rows.append(_radios(config, "newtab_tiles", T("Site tiles"),
+                            (("bookmarks", T("My bookmarks")), ("visited", T("The sites I visit most")),
+                             ("none", T("None"))), which))
+        hidden = config.data.get("newtab_tiles_hidden")
+        if isinstance(hidden, list) and hidden:
+            rows.append('<a class="np-row np-act" data-s="newtab_tiles_hidden" href="%s">%s</a>' % (
+                _set_link("newtab_tiles_hidden", "clear", which), html.escape(T("Show the hidden tiles again"))))
+    label = html.escape(T("Customize…"), quote=True)
+    return ('<div class="np-wrap np-%s"><button type="button" class="np-gear" aria-haspopup="dialog" '
+            'aria-expanded="false" title="%s" aria-label="%s">%s</button>'
+            '<div class="np" role="dialog" aria-label="%s"><div class="np-head">%s</div>%s'
+            '<a class="np-foot" href="ike:open?what=newtab">%s</a></div></div>' % (
+                which, label, label, gear, html.escape(title, quote=True), html.escape(title), "".join(rows),
+                html.escape(T("Settings"))))

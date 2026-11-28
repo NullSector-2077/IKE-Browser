@@ -887,7 +887,7 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
             q = q.replace("+", " ")
             job.redirect(QUrl(self.s.search_url(q)))
             return
-        if path in ("open", "engine", "tile", "greet") and not secrets.compare_digest(
+        if path in ("open", "engine", "tile", "greet", "ntset") and not secrets.compare_digest(
                 QUrlQuery_value(url, "k") or "", self.s.action_key):
             # an address that changes something works only from the new tab
             # page itself, which carries this session's key in its links: a
@@ -898,7 +898,7 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
         if path == "open":
             # the Settings or the background photo, asked for on the new tab page itself
             what = QUrlQuery_value(url, "what")
-            if what in ("settings", "background"):
+            if what in ("settings", "background", "newtab"):
                 self.s.open_requested.emit(what)
             job.redirect(QUrl("ike:newtab"))
             return
@@ -909,6 +909,12 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
             buf.setData(QByteArray(b""))
             buf.open(QIODevice.OpenModeFlag.ReadOnly)
             job.reply(b"image/gif", buf)
+            return
+        if path == "ntset":
+            # 1.1.31: a choice made in one of the page's own small panels (newtab.panel_html);
+            # the page is shown again with the same panel open (newtab_html, once, at once)
+            self.s.panel_setting(QUrlQuery_value(url, "s"), QUrlQuery_value(url, "v"), QUrlQuery_value(url, "p"))
+            job.redirect(QUrl("ike:newtab"))
             return
         if path == "engine":
             # an engine chosen in the new tab page's search box: the default from now on
@@ -1065,6 +1071,29 @@ class Shields(QObject):
                     QTimer.singleShot(0, refresh)             # the bookmarks bar and menu
         self.config.save()
 
+    def panel_setting(self, name, value, panel=""):
+        """A setting changed in one of the new tab page's own panels (1.1.31): saved, and
+        the menus follow. The page drawn right after it (the same tab, shown again) has
+        that panel open, with the choice in focus."""
+        import time as _time
+
+        from . import newtab
+        if panel in newtab.PANELS and name in newtab.PANEL_SETTINGS:
+            self._panel_again = (panel, name, _time.monotonic() + 3)
+        if not newtab.set_from_panel(self.config, name, value):
+            return
+        self.config.save()
+        app = self.parent()
+        weather = getattr(app, "weather", None)
+        if name == "weather_unit" and weather is not None:
+            weather.forget()                  # the temperature comes in the unit asked for
+        if name == "newtab_weather" and weather is not None and self.config["newtab_weather"]:
+            weather.current()                 # its data asked for again if old
+        refresh = getattr(app, "refresh_windows", None)
+        if refresh is not None:
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(0, refresh)       # the menus (the weather's switch is also there)
+
     def choose_engine(self, name):
         """The default engine, chosen on the new tab page (before the page is shown again)."""
         if name and name != self.config["default_engine"] and any(
@@ -1139,7 +1168,10 @@ class Shields(QObject):
                 if sym else "",
                 '<span class="wtxt">%s</span>' % _html.escape(rest) if rest else "",
                 more.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026"))
-        from . import i18n, newtabbg
+        from . import i18n, newtab, newtabbg
+        # 1.1.31: the corner's own small panel (clock and weather), there also with both off
+        gear = self._newtab_gear()
+        corner = newtab.panel_html(self.config, "corner", gear) + corner
         html = html.replace("{{corner}}", corner).replace("{{lang}}", i18n.current().replace("_", "-"))
         from . import timezone
         # the clock in the user's own zone while pages see UTC (1.1.24); a checked name only
@@ -1160,12 +1192,14 @@ class Shields(QObject):
             # tiles lift on hover, only with the interface effects on (polish.py)
             "{{fx}}": "fx" if effects.on(self.config) else "",
             "{{photo}}": " photo glass" if photo else "",
+            "{{again}}": self._panel_open_again(),
             "{{buttons}}": self._newtab_buttons(),
             "{{greeting}}": self._newtab_greeting(),
             "{{engines}}": newtab.engines_html(self.config),
             "{{tiles}}": newtab.tiles_html(self.config, getattr(app, "storage", None)),
             "{{stats}}": newtab.stats_html(self.config, T("Protection level"),
-                                           T(LEVEL_NAMES[self.config["shield_level"]])),
+                                           T(LEVEL_NAMES[self.config["shield_level"]]))
+            + newtab.panel_html(self.config, "stats", gear),
         }.items():
             html = html.replace(k, v)
         return self.with_action_key(html)
@@ -1176,13 +1210,35 @@ class Shields(QObject):
         key never reaches a web page."""
         import re
         key = self.action_key
-        html = re.sub(r'href="(ike:(?:open|engine|tile)\?[^"]*)"', lambda m: 'href="%s&amp;k=%s"' % (m.group(1), key), html)
+        html = re.sub(r'href="(ike:(?:open|engine|tile|ntset)\?[^"]*)"', lambda m: 'href="%s&amp;k=%s"' % (m.group(1), key), html)
         # the key goes last in the form: the page's script looks for its first field
         start = html.find('action="ike:tile"')
         end = html.find("</form>", start) if start >= 0 else -1
         if end < 0:
             return html
         return html[:end] + '<input type="hidden" name="k" value="%s">' % key + html[end:]
+
+    def _panel_open_again(self):
+        """' still" data-np="corner.weather_unit' for the page drawn right after a choice in one of
+        its panels (once, within 3 seconds): drawn as it was, nothing comes in again, the panel open."""
+        import time as _time
+        again, self._panel_again = getattr(self, "_panel_again", None), None
+        if not again or _time.monotonic() > again[2]:
+            return ""
+        return ' still" data-np="%s.%s' % (again[0], again[1])
+
+    def _newtab_gear(self):
+        """The small gear of the page's own panels (1.1.31): the desktop's Settings icon, as on the
+        page's Settings button, the shipped one otherwise."""
+        from . import icons
+        from .config import RES_DIR
+        svg = icons.theme_svg("configure")
+        if not svg:
+            try:
+                svg = (RES_DIR / "icons" / "sets" / "lucide" / "configure.svg").read_text("utf-8")
+            except OSError:
+                svg = ""
+        return svg
 
     def _newtab_buttons(self):
         """Settings (top right) and the background photo (bottom left) on the new tab page;
