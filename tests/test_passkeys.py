@@ -7,7 +7,9 @@ answer the first two, none the third): a sign-in page that waits for them
 waits for ever, at every level and in Falkon too. From Compatibility up they
 are answered as Chromium 140 answers them on Linux (measured with Chrome for
 Testing 140.0.7339.207): false, true, and the same capabilities in the same
-order; the functions look like the engine's own. Off changes nothing in a
+order, but no conditional create (Qt WebEngine has no password manager, and a
+silent passkey upgrade would start a security key's request); the functions
+look like the engine's own. Off changes nothing in a
 page, as always.
 
 SIMULATION: a local page (localhost: a secure context and a name passkeys accept).
@@ -73,6 +75,11 @@ CHROMIUM_140 = [["conditionalCreate", True], ["conditionalGet", True], ["extensi
                 ["signalUnknownCredential", True], ["userVerifyingPlatformAuthenticator", False]]
 
 
+# I.K.E.'s answer: Chromium's, but no conditional create (Qt WebEngine has no
+# password manager: a silent passkey upgrade starts a security key's request)
+IKE_CAPS = [["conditionalCreate", False]] + CHROMIUM_140[1:]
+
+
 @pytest.fixture
 def site():
     class H(http.server.BaseHTTPRequestHandler):
@@ -125,7 +132,7 @@ def test_passkey_questions_are_answered_as_chromium_140(run_ike, site, level):
     # request after it reaches I.K.E.'s window
     assert r["conditionalBefore"] == "pending", (level, r)
     assert len(out["ux"]) == 1, (level, out["ux"])
-    assert r["caps"] == CHROMIUM_140 and r["capsProto"] is True, (level, r)
+    assert r["caps"] == IKE_CAPS and r["capsProto"] is True, (level, r)
     assert r["promise"] is True, r
     for text, name in zip(r["texts"], ["isUserVerifyingPlatformAuthenticatorAvailable",
                                        "isConditionalMediationAvailable", "getClientCapabilities"]):

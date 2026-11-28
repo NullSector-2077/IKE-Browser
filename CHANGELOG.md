@@ -9,7 +9,10 @@
   at every level, in Falkon too. From Compatibility up I.K.E. answers as
   Chromium 140 answers on Linux (measured with Chrome for Testing
   140.0.7339.207): no passkey built into the computer, the browser's list of
-  passkeys available, and the same capabilities in the same order; on
+  passkeys available, and the same capabilities in the same order, except a
+  silent passkey upgrade after a password sign-in (`conditionalCreate`),
+  which Qt WebEngine cannot do (it would start a request for a security key
+  instead); on
   Google's sites, where I.K.E. is a Firefox, as Firefox 161 answers on Linux
   (measured). The answers come a moment later, as the engine's would; at
   Compatibility the three functions are the engine's own behind a proxy and
