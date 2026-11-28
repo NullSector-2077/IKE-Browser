@@ -17,10 +17,12 @@ sliding switch by SwitchStyle); the entries of a list that are turned on and
 off are drawn the same way by SwitchDelegate (tests/test_switches.py).
 """
 
-from PyQt6.QtCore import QEvent, QPointF, QRect, QRectF, QSize, Qt
+from PyQt6 import sip
+from PyQt6.QtCore import QEvent, QObject, QPointF, QRect, QRectF, QSize, Qt
 from PyQt6.QtGui import QColor, QFontMetrics, QIcon, QPainter, QPalette, QPen, QPolygonF
 from PyQt6.QtWidgets import (
     QCheckBox,
+    QMenu,
     QProxyStyle,
     QStyle,
     QStyledItemDelegate,
@@ -324,6 +326,32 @@ def _toggle(action):
     return action.isCheckable() and not (g is not None and g.isExclusive())
 
 
+def _real_widget(widget):
+    """The widget a style method is asked about, as a menu when it is one.
+    PyQt 6.12 can hand a style method the wrapper of a deleted object of
+    another kind found at the same address (see IkeStyle._button_text); a
+    menu taken for something else was measured by the desktop's style when it
+    opened and by I.K.E.'s afterwards, 20 to 40 px apart, and its entries
+    stuck out of it (1.1.30's test round, once in a while after windows had
+    been closed). A fresh wrapper of the menu is made for it."""
+    if widget is None or isinstance(widget, QMenu):
+        return widget
+    try:
+        menu = widget.inherits("QMenu")
+    except (AttributeError, RuntimeError, TypeError):
+        menu = None                      # not even the wrapper of an object
+    if menu is False:
+        return widget
+    try:
+        address = sip.unwrapinstance(widget)
+        if menu is None and not sip.wrapinstance(address, QObject).inherits("QMenu"):
+            return widget
+        real = sip.wrapinstance(address, QMenu)
+        return real if isinstance(real, QMenu) else widget
+    except Exception:            # noqa: BLE001 (a style method must never raise)
+        return widget
+
+
 def _is_menu(widget):
     """Is widget a menu? Asked of the object itself, not of the type of its
     Python wrapper: PyQt can hand a style method a wrapper left by a deleted
@@ -608,6 +636,7 @@ class IkeStyle(QProxyStyle):
         return menu_switch_size(opt.fontMetrics)[0] + 6
 
     def drawControl(self, element, opt, p, widget=None):
+        widget = _real_widget(widget)
         if self._own_menu(widget):
             if element == QStyle.ControlElement.CE_MenuItem and isinstance(opt, QStyleOptionMenuItem) \
                     and opt.menuItemType in (QStyleOptionMenuItem.MenuItemType.Normal,
@@ -667,6 +696,7 @@ class IkeStyle(QProxyStyle):
                          rtl=rtl, selected=selected)
 
     def drawPrimitive(self, element, opt, p, widget=None):
+        widget = _real_widget(widget)
         if self._own_menu(widget):
             PE = QStyle.PrimitiveElement
             if element == PE.PE_PanelMenu:
@@ -678,6 +708,7 @@ class IkeStyle(QProxyStyle):
         super().drawPrimitive(element, opt, p, widget)
 
     def pixelMetric(self, metric, opt=None, widget=None):
+        widget = _real_widget(widget)
         if self._own_menu(widget):
             PM = QStyle.PixelMetric
             if metric == PM.PM_MenuPanelWidth:
@@ -739,6 +770,7 @@ class IkeStyle(QProxyStyle):
         return getattr(opt, "text", ""), getattr(opt, "toolButtonStyle", None)
 
     def sizeFromContents(self, kind, opt, size, widget=None):
+        widget = _real_widget(widget)
         if kind == QStyle.ContentsType.CT_MenuItem and self._own_menu(widget) \
                 and isinstance(opt, QStyleOptionMenuItem) and opt.menuItemType in (
                     QStyleOptionMenuItem.MenuItemType.Normal, QStyleOptionMenuItem.MenuItemType.DefaultItem,
