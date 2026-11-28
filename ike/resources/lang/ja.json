@@ -1589,6 +1589,11 @@
 "Developer": "開発",
 "Edit": "編集",
 "Undo, cut, copy and paste": "元に戻す、切り取り、コピー、貼り付け",
-"Recently visited": "最近アクセスしたページ"
+"Recently visited": "最近アクセスしたページ",
+"What I.K.E. stopped for you, counted on this computer only.": "I.K.E. があなたのために止めたもの。このコンピューターだけで数えています。",
+"This session, by kind": "このセッション、種類別",
+"This session, the sites that tried most": "このセッション、最も多く試みたサイト",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "これらはいずれもコンピューターの外に出ません。このセッションの数は I.K.E. の起動時にリセットされます。",
+"Nothing blocked yet in this session.": "このセッションではまだ何もブロックされていません。"
 }
 }

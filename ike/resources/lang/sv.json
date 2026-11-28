@@ -1589,6 +1589,11 @@
 "Developer": "Utvecklare",
 "Edit": "Redigera",
 "Undo, cut, copy and paste": "Ångra, klipp ut, kopiera och klistra in",
-"Recently visited": "Nyligen besökta"
+"Recently visited": "Nyligen besökta",
+"What I.K.E. stopped for you, counted on this computer only.": "Vad I.K.E. har stoppat åt dig, räknat bara på den här datorn.",
+"This session, by kind": "Den här sessionen, efter typ",
+"This session, the sites that tried most": "Den här sessionen, webbplatserna som försökte mest",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Inget av detta lämnar din dator. Siffrorna för den här sessionen börjar om när I.K.E. startar.",
+"Nothing blocked yet in this session.": "Inget blockerat ännu i den här sessionen."
 }
 }

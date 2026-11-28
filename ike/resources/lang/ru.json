@@ -1589,6 +1589,11 @@
 "Developer": "Разработка",
 "Edit": "Правка",
 "Undo, cut, copy and paste": "Отменить, вырезать, копировать и вставить",
-"Recently visited": "Недавно посещённые"
+"Recently visited": "Недавно посещённые",
+"What I.K.E. stopped for you, counted on this computer only.": "Что I.K.E. остановил для вас, подсчитано только на этом компьютере.",
+"This session, by kind": "Этот сеанс, по видам",
+"This session, the sites that tried most": "Этот сеанс, сайты, которые пытались больше всех",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Ничто из этого не покидает ваш компьютер. Числа этого сеанса начинаются заново при запуске I.K.E.",
+"Nothing blocked yet in this session.": "В этом сеансе пока ничего не заблокировано."
 }
 }

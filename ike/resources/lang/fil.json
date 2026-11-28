@@ -1589,6 +1589,11 @@
 "Developer": "Developer",
 "Edit": "I-edit",
 "Undo, cut, copy and paste": "I-undo, i-cut, kopyahin at i-paste",
-"Recently visited": "Binisita kamakailan"
+"Recently visited": "Binisita kamakailan",
+"What I.K.E. stopped for you, counted on this computer only.": "Ang pinigilan ng I.K.E. para sa iyo, binilang sa computer na ito lamang.",
+"This session, by kind": "Ang session na ito, ayon sa uri",
+"This session, the sites that tried most": "Ang session na ito, ang mga site na pinakamaraming sumubok",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Wala rito ang umaalis sa iyong computer. Ang mga bilang ng session na ito ay magsisimula muli kapag nagsimula ang I.K.E.",
+"Nothing blocked yet in this session.": "Wala pang na-block sa session na ito."
 }
 }

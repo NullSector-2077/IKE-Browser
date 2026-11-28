@@ -1589,6 +1589,11 @@
 "Developer": "개발자",
 "Edit": "편집",
 "Undo, cut, copy and paste": "실행 취소, 잘라내기, 복사, 붙여넣기",
-"Recently visited": "최근 방문"
+"Recently visited": "최근 방문",
+"What I.K.E. stopped for you, counted on this computer only.": "I.K.E.가 당신을 위해 막은 것, 이 컴퓨터에서만 집계됩니다.",
+"This session, by kind": "이번 세션, 종류별",
+"This session, the sites that tried most": "이번 세션, 가장 많이 시도한 사이트",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "이 중 어떤 것도 컴퓨터 밖으로 나가지 않습니다. 이번 세션의 수치는 I.K.E.가 시작될 때 다시 시작됩니다.",
+"Nothing blocked yet in this session.": "이번 세션에서 아직 차단된 것이 없습니다."
 }
 }

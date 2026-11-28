@@ -1589,6 +1589,11 @@
 "Developer": "Kehittäjä",
 "Edit": "Muokkaa",
 "Undo, cut, copy and paste": "Kumoa, leikkaa, kopioi ja liitä",
-"Recently visited": "Äskettäin vieraillut"
+"Recently visited": "Äskettäin vieraillut",
+"What I.K.E. stopped for you, counted on this computer only.": "Mitä I.K.E. pysäytti puolestasi, laskettu vain tällä tietokoneella.",
+"This session, by kind": "Tämä istunto, lajeittain",
+"This session, the sites that tried most": "Tämä istunto, eniten yrittäneet sivustot",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Mikään tästä ei lähde tietokoneeltasi. Tämän istunnon luvut alkavat alusta, kun I.K.E. käynnistyy.",
+"Nothing blocked yet in this session.": "Tässä istunnossa ei ole vielä estetty mitään."
 }
 }

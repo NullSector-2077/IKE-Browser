@@ -1589,6 +1589,11 @@
 "Developer": "Dla programistów",
 "Edit": "Edycja",
 "Undo, cut, copy and paste": "Cofnij, wytnij, kopiuj i wklej",
-"Recently visited": "Ostatnio odwiedzone"
+"Recently visited": "Ostatnio odwiedzone",
+"What I.K.E. stopped for you, counted on this computer only.": "Co I.K.E. zatrzymał dla Ciebie, liczone tylko na tym komputerze.",
+"This session, by kind": "Ta sesja, według rodzaju",
+"This session, the sites that tried most": "Ta sesja, strony, które próbowały najczęściej",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nic z tego nie opuszcza Twojego komputera. Liczby tej sesji zaczynają się od nowa przy uruchomieniu I.K.E.",
+"Nothing blocked yet in this session.": "W tej sesji nic jeszcze nie zostało zablokowane."
 }
 }

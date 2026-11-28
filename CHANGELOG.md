@@ -41,6 +41,14 @@
 - **The page mode's sun turns into the moon** and back, instead of a plain
   swap of icons, and **the shield's octagon turns half a turn**, as a coin,
   to show the new protection level. With the interface's effects only.
+- **I.K.E. Kontrol** (`ike:kontrol`, also from the counter's panel on the new
+  tab page): what I.K.E. blocked, counted on this computer only: this month,
+  the month before and since installation, and this session's counts by
+  kind and the sites that tried most, as traces of the logo's circuit ending
+  in a small octagonal pad (the owner's choice). The sites of private
+  windows are never listed, they only add to the totals; a web page can
+  neither open nor read the page (`ike/resources/kontrol.html`,
+  tests/test_kontrol.py).
 - **About I.K.E. names Dark Reader's lists**, with the date of the lists in
   use, and no longer a Dark Reader version: since 1.1.30 only its lists are
   part of I.K.E.

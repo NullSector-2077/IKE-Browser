@@ -361,6 +361,9 @@ def panel_html(config, which, gear):
         if isinstance(hidden, list) and hidden:
             rows.append('<a class="np-row np-act" data-s="newtab_tiles_hidden" href="%s">%s</a>' % (
                 _set_link("newtab_tiles_hidden", "clear", which), html.escape(T("Show the hidden tiles again"))))
+        # 1.1.31: what was blocked, in detail (ike:kontrol)
+        rows.append('<a class="np-row np-kontrol" href="ike:kontrol"><span class="np-l">I.K.E. Kontrol</span>'
+                    '<span class="np-v"></span></a>')
     label = html.escape(T("Customize…"), quote=True)
     return ('<div class="np-wrap np-%s"><button type="button" class="np-gear" aria-haspopup="dialog" '
             'aria-expanded="false" title="%s" aria-label="%s">%s</button>'
@@ -368,3 +371,50 @@ def panel_html(config, which, gear):
             '<a class="np-foot" href="ike:open?what=newtab">%s</a></div></div>' % (
                 which, label, label, gear, html.escape(title, quote=True), html.escape(title), "".join(rows),
                 html.escape(T("Settings"))))
+
+
+# --- ike:kontrol (1.1.31) -------------------------------------------------------
+# What I.K.E. blocked, counted on this computer only: the month, the month before and the total (kept in
+# the settings), and this session's counts by kind and by site (kept in memory, Shields.stats). The sites
+# of private windows are never listed (Shields.private_hosts): they only add to the totals.
+KONTROL_SITES = 10
+
+
+def _trace(n, top):
+    width = max(1.5, n * 100.0 / top) if top and n else 0
+    return '<span class="trace">%s</span>' % ('<i style="width:%.1f%%"></i>' % width if width else "")
+
+
+def kontrol_parts(config, stats, private_hosts, now=None):
+    """{"readouts", "kinds", "sites"}: the HTML of the page's three parts."""
+    m = roll(config, now)
+    cells = [(_number(m["count"]), T("blocked in %s") % month_name(m["key"]))]
+    if m["prev_key"]:
+        cells.append((_number(m["prev"]), month_name(m["prev_key"])))
+    cells.append((_number(config["blocked_total"]), T("Since I.K.E. was installed")))
+    readouts = "".join('<div class="ro cut"><b>%s</b><span>%s</span></div>' % (v, html.escape(label))
+                       for v, label in cells)
+    sums = dict.fromkeys(("ads", "scripts", "cookies", "https", "params"), 0)
+    sites = []
+    for host, st in stats.items():
+        if not isinstance(st, dict):
+            continue
+        for k in sums:
+            sums[k] += int(st.get(k, 0) or 0)
+        n = int(st.get("ads", 0) or 0) + int(st.get("scripts", 0) or 0)
+        if n and host and host not in private_hosts:
+            sites.append((n, host))
+    kinds = ((T("Ads and trackers"), sums["ads"]), (T("Scripts blocked"), sums["scripts"]),
+             (T("Cross-site cookies refused"), sums["cookies"]), (T("Upgrades to HTTPS"), sums["https"]),
+             (T("Tracking parameters removed"), sums["params"]))
+    top = max(n for _l, n in kinds)
+    empty = '<div class="empty">%s</div>' % html.escape(T("Nothing blocked yet in this session."))
+    kinds_html = "".join('<div class="row"><span>%s</span>%s<b>%s</b></div>' % (
+        html.escape(label), _trace(n, top), _number(n)) for label, n in kinds) if top else empty
+    sites.sort(key=lambda x: (-x[0], x[1]))
+    sites = sites[:KONTROL_SITES]
+    top = sites[0][0] if sites else 0
+    sites_html = "".join('<div class="row"><span class="site" title="%s">%s</span>%s<b>%s</b></div>' % (
+        html.escape(_name(h), quote=True), html.escape(_name(h)), _trace(n, top), _number(n))
+        for n, h in sites) if sites else empty
+    return {"readouts": readouts, "kinds": kinds_html, "sites": sites_html}

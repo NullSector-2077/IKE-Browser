@@ -1589,6 +1589,11 @@
 "Developer": "დეველოპერი",
 "Edit": "ჩასწორება",
 "Undo, cut, copy and paste": "დაბრუნება, ამოჭრა, კოპირება და ჩასმა",
-"Recently visited": "ბოლოს მონახულებული"
+"Recently visited": "ბოლოს მონახულებული",
+"What I.K.E. stopped for you, counted on this computer only.": "რაც I.K.E.-მ თქვენთვის შეაჩერა, დათვლილი მხოლოდ ამ კომპიუტერზე.",
+"This session, by kind": "ეს სესია, სახეობის მიხედვით",
+"This session, the sites that tried most": "ეს სესია, საიტები, რომლებიც ყველაზე მეტად ცდილობდნენ",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "ამათგან არაფერი ტოვებს თქვენს კომპიუტერს. ამ სესიის რიცხვები თავიდან იწყება I.K.E.-ის გაშვებისას.",
+"Nothing blocked yet in this session.": "ამ სესიაში ჯერ არაფერია დაბლოკილი."
 }
 }

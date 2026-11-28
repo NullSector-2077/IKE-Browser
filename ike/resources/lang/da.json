@@ -1589,6 +1589,11 @@
 "Developer": "Udvikler",
 "Edit": "Rediger",
 "Undo, cut, copy and paste": "Fortryd, klip, kopiér og indsæt",
-"Recently visited": "Nyligt besøgt"
+"Recently visited": "Nyligt besøgt",
+"What I.K.E. stopped for you, counted on this computer only.": "Hvad I.K.E. har stoppet for dig, kun talt på denne computer.",
+"This session, by kind": "Denne session, efter type",
+"This session, the sites that tried most": "Denne session, de websteder der prøvede mest",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Intet af dette forlader din computer. Tallene for denne session starter forfra, når I.K.E. starter.",
+"Nothing blocked yet in this session.": "Intet blokeret endnu i denne session."
 }
 }

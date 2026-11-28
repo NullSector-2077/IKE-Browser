@@ -1589,6 +1589,11 @@
 "Developer": "Әзірлеуші",
 "Edit": "Түзету",
 "Undo, cut, copy and paste": "Болдырмау, қиып алу, көшіру және қою",
-"Recently visited": "Жуырда ашылғандар"
+"Recently visited": "Жуырда ашылғандар",
+"What I.K.E. stopped for you, counted on this computer only.": "I.K.E. сіз үшін тоқтатқандар, тек осы компьютерде есептелген.",
+"This session, by kind": "Осы сеанс, түрі бойынша",
+"This session, the sites that tried most": "Осы сеанс, ең көп әрекеттенген сайттар",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Мұның ешқайсысы компьютеріңізден шықпайды. Осы сеанстың сандары I.K.E. іске қосылғанда қайта басталады.",
+"Nothing blocked yet in this session.": "Осы сеанста әлі ештеңе бұғатталмаған."
 }
 }

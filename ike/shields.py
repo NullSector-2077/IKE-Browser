@@ -495,15 +495,18 @@ def strip_tracking(url):
 
 
 class Interceptor(QWebEngineUrlRequestInterceptor):
-    def __init__(self, shields, quiet=False):
+    def __init__(self, shields, quiet=False, private=False):
         super().__init__(shields)
         self.s = shields
         # quiet: the same protections, but nothing is counted in the shield
         # (pages loaded by I.K.E. itself, such as the page watcher)
         self.quiet = quiet
+        self.private = private          # a private window's: its sites are never listed (ike:kontrol)
 
     def _count(self, host, kind):
         if not self.quiet:
+            if self.private:
+                self.s.private_hosts.add(host)
             self.s.count(host, kind)
 
     def _local_file(self, info, url):
@@ -935,6 +938,9 @@ class IkeSchemeHandler(QWebEngineUrlSchemeHandler):
             if not data:
                 job.fail(QWebEngineUrlRequestJob.Error.UrlNotFound)
                 return
+        elif path == "kontrol":
+            data = self.s.kontrol_html().encode("utf-8")       # 1.1.31: what was blocked, on this computer
+            mime = b"text/html"
         elif path == "logo":
             data = (RES_DIR / "ike.svg").read_bytes()
             mime = b"image/svg+xml"
@@ -979,6 +985,7 @@ class Shields(QObject):
         self.media_keys = {}
         self.action_key = secrets.token_hex(16)   # the new tab page's own links (IkeSchemeHandler)
         self.stats = {}
+        self.private_hosts = set()       # sites seen in private windows: never listed on ike:kontrol (1.1.31)
         self.requests = {}               # site -> requests made for it (see resources)
         self.page_sites = {}             # site -> other sites its pages loaded (the broom's panel, 1.1.30)
         self.redirected = set()
@@ -1204,6 +1211,46 @@ class Shields(QObject):
             html = html.replace(k, v)
         return self.with_action_key(html)
 
+    def kontrol_html(self):
+        """ike:kontrol (1.1.31): what I.K.E. blocked, counted on this computer only (newtab.kontrol_parts)."""
+        import html as _html
+
+        from PyQt6.QtGui import QGuiApplication, QPalette
+
+        from . import cyberfont, effects, newtab
+        from .i18n import T
+        from .uistyle import readable
+        page = (RES_DIR / "kontrol.html").read_text("utf-8")
+        pal, R = QGuiApplication.palette(), QPalette.ColorRole
+        colors = {"{{bg}}": pal.color(R.Window), "{{fg}}": pal.color(R.WindowText), "{{card}}": pal.color(R.Base),
+                  "{{acc}}": pal.color(R.Highlight), "{{line}}": pal.color(R.Mid),
+                  "{{mute}}": pal.color(R.PlaceholderText)}
+        bg, fg = colors["{{bg}}"], colors["{{fg}}"]
+        colors["{{mute}}"] = readable(colors["{{mute}}"], bg, fg)
+        colors["{{acc}}"] = readable(colors["{{acc}}"], bg, fg, 3.0)
+        colors["{{k}}"] = cyberfont.k_colour(bg, fg)
+        for k, c in colors.items():
+            page = page.replace(k, c.name())
+        face = cyberfont.data_url()
+        page = page.replace("{{cyberfont}}", '@font-face{font-family:"IKE Cyber";src:url(%s) format("truetype");'
+                            'font-weight:400 900;font-display:block}' % face if face else "")
+        parts = newtab.kontrol_parts(self.config, self.stats, self.private_hosts)
+        for k, v in {
+            "{{fx}}": "fx" if effects.on(self.config) else "",
+            "{{sub}}": _html.escape(T("What I.K.E. stopped for you, counted on this computer only.")),
+            "{{level}}": _html.escape(T(LEVEL_NAMES[self.config["shield_level"]])),
+            "{{level_label}}": _html.escape(T("Protection level")),
+            "{{readouts}}": parts["readouts"],
+            "{{kinds_title}}": _html.escape(T("This session, by kind")),
+            "{{kinds}}": parts["kinds"],
+            "{{sites_title}}": _html.escape(T("This session, the sites that tried most")),
+            "{{sites}}": parts["sites"],
+            "{{note}}": _html.escape(T("Nothing of this leaves your computer. The figures of this session "
+                                       "start again when I.K.E. starts.")),
+        }.items():
+            page = page.replace(k, v)
+        return page
+
     def with_action_key(self, html):
         """The new tab page's addresses that change something carry the
         session's key (see IkeSchemeHandler); the page is built by I.K.E., the
@@ -1392,6 +1439,10 @@ class Shields(QObject):
         self._identity(profile)
         if quiet:
             profile._ike_interceptor = Interceptor(self, quiet=True)
+            profile.setUrlRequestInterceptor(profile._ike_interceptor)
+        elif private:
+            # 1.1.31: counted as everywhere, and its sites never listed on ike:kontrol
+            profile._ike_interceptor = Interceptor(self, private=True)
             profile.setUrlRequestInterceptor(profile._ike_interceptor)
         else:
             profile.setUrlRequestInterceptor(self.interceptor)

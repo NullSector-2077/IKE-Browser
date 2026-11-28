@@ -1589,6 +1589,11 @@
 "Developer": "Za programere",
 "Edit": "Uredi",
 "Undo, cut, copy and paste": "Poništi, izreži, kopiraj i zalijepi",
-"Recently visited": "Nedavno posjećeno"
+"Recently visited": "Nedavno posjećeno",
+"What I.K.E. stopped for you, counted on this computer only.": "Šta je I.K.E. zaustavio za vas, brojano samo na ovom računaru.",
+"This session, by kind": "Ova sesija, po vrsti",
+"This session, the sites that tried most": "Ova sesija, stranice koje su najviše pokušavale",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Ništa od ovoga ne napušta vaš računar. Brojevi ove sesije počinju ispočetka kada se I.K.E. pokrene.",
+"Nothing blocked yet in this session.": "U ovoj sesiji još ništa nije blokirano."
 }
 }

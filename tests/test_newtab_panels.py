@@ -43,7 +43,8 @@ def test_the_panels_html_holds_only_page_links():
     for which in ("corner", "stats"):
         text = newtab.panel_html(cfg, which, "<svg></svg>")
         links = re.findall(r'href="([^"]*)"', text)
-        assert links and all(u.startswith(("ike:ntset?", "ike:open?what=newtab")) for u in links), links
+        assert links and all(u.startswith(("ike:ntset?", "ike:open?what=newtab")) or u == "ike:kontrol"
+                             for u in links), links
         for u in links:
             if u.startswith("ike:ntset?"):
                 q = dict(p.split("=", 1) for p in u.split("?", 1)[1].split("&amp;"))
@@ -139,7 +140,8 @@ def test_the_panels_on_the_page(run_ike):
     f = out["first"]
     assert f["gears"] == 2 and f["open"] == 0, f
     assert f["name"] == f["body"] and int(f["weight"]) >= 500, f       # the names in the text colour
-    assert all(u.startswith(("ike:ntset?", "ike:open?what=newtab")) and "k=" in u for u in f["links"]), f["links"]
+    assert all(u.startswith(("ike:ntset?", "ike:open?what=newtab")) and "k=" in u or u == "ike:kontrol"
+               for u in f["links"]), f["links"]
     o = out["opened"]
     assert o["open"] == 1 and o["shown"] == "block" and o["inside"] and o["onTop"], o
     assert o["focus"] == "newtab_clock", o

@@ -1589,6 +1589,11 @@
 "Developer": "Pro vývojáře",
 "Edit": "Úpravy",
 "Undo, cut, copy and paste": "Zpět, vyjmout, kopírovat a vložit",
-"Recently visited": "Nedávno navštívené"
+"Recently visited": "Nedávno navštívené",
+"What I.K.E. stopped for you, counted on this computer only.": "Co pro vás I.K.E. zastavil, počítáno jen na tomto počítači.",
+"This session, by kind": "Tato relace, podle druhu",
+"This session, the sites that tried most": "Tato relace, stránky, které se snažily nejvíc",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nic z toho neopouští váš počítač. Čísla této relace začínají znovu při spuštění I.K.E.",
+"Nothing blocked yet in this session.": "V této relaci zatím nebylo nic zablokováno."
 }
 }

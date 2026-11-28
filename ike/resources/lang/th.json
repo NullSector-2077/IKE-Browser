@@ -1589,6 +1589,11 @@
 "Developer": "นักพัฒนา",
 "Edit": "แก้ไข",
 "Undo, cut, copy and paste": "เลิกทำ ตัด คัดลอก และวาง",
-"Recently visited": "เข้าชมล่าสุด"
+"Recently visited": "เข้าชมล่าสุด",
+"What I.K.E. stopped for you, counted on this computer only.": "สิ่งที่ I.K.E. หยุดไว้ให้คุณ นับเฉพาะในคอมพิวเตอร์เครื่องนี้",
+"This session, by kind": "เซสชันนี้ ตามประเภท",
+"This session, the sites that tried most": "เซสชันนี้ เว็บไซต์ที่พยายามมากที่สุด",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "ไม่มีสิ่งใดในนี้ออกจากคอมพิวเตอร์ของคุณ ตัวเลขของเซสชันนี้จะเริ่มใหม่เมื่อ I.K.E. เริ่มทำงาน",
+"Nothing blocked yet in this session.": "ยังไม่มีสิ่งใดถูกบล็อกในเซสชันนี้"
 }
 }

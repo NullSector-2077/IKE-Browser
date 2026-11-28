@@ -1589,6 +1589,11 @@
 "Developer": "Utvikler",
 "Edit": "Rediger",
 "Undo, cut, copy and paste": "Angre, klipp ut, kopier og lim inn",
-"Recently visited": "Nylig besøkt"
+"Recently visited": "Nylig besøkt",
+"What I.K.E. stopped for you, counted on this computer only.": "Det I.K.E. har stoppet for deg, bare telt på denne datamaskinen.",
+"This session, by kind": "Denne økten, etter type",
+"This session, the sites that tried most": "Denne økten, nettstedene som prøvde mest",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Ingenting av dette forlater datamaskinen din. Tallene for denne økten starter på nytt når I.K.E. starter.",
+"Nothing blocked yet in this session.": "Ingenting blokkert ennå i denne økten."
 }
 }

@@ -1589,6 +1589,11 @@
 "Developer": "Geliştirici",
 "Edit": "Düzen",
 "Undo, cut, copy and paste": "Geri al, kes, kopyala ve yapıştır",
-"Recently visited": "Son ziyaret edilenler"
+"Recently visited": "Son ziyaret edilenler",
+"What I.K.E. stopped for you, counted on this computer only.": "I.K.E.'nin sizin için durdurdukları, yalnızca bu bilgisayarda sayıldı.",
+"This session, by kind": "Bu oturum, türe göre",
+"This session, the sites that tried most": "Bu oturum, en çok deneyen siteler",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Bunların hiçbiri bilgisayarınızdan çıkmaz. Bu oturumun sayıları I.K.E. başladığında yeniden başlar.",
+"Nothing blocked yet in this session.": "Bu oturumda henüz hiçbir şey engellenmedi."
 }
 }

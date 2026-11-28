@@ -1589,6 +1589,11 @@
 "Developer": "开发者",
 "Edit": "编辑",
 "Undo, cut, copy and paste": "撤销、剪切、复制和粘贴",
-"Recently visited": "最近访问"
+"Recently visited": "最近访问",
+"What I.K.E. stopped for you, counted on this computer only.": "I.K.E. 为你拦下的内容，仅在这台计算机上统计。",
+"This session, by kind": "本次会话，按类型",
+"This session, the sites that tried most": "本次会话，尝试最多的网站",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "这些内容都不会离开你的计算机。本次会话的数字会在 I.K.E. 启动时重新开始。",
+"Nothing blocked yet in this session.": "本次会话中尚未拦截任何内容。"
 }
 }

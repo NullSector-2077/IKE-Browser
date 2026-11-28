@@ -1589,6 +1589,11 @@
 "Developer": "Desenvolupament",
 "Edit": "Edita",
 "Undo, cut, copy and paste": "Desfés, retalla, copia i enganxa",
-"Recently visited": "Visitades recentment"
+"Recently visited": "Visitades recentment",
+"What I.K.E. stopped for you, counted on this computer only.": "El que I.K.E. ha aturat per a tu, comptat només en aquest ordinador.",
+"This session, by kind": "Aquesta sessió, per tipus",
+"This session, the sites that tried most": "Aquesta sessió, els llocs que més ho han intentat",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Res d'això surt del teu ordinador. Les xifres d'aquesta sessió tornen a començar quan s'inicia I.K.E.",
+"Nothing blocked yet in this session.": "Encara no s'ha blocat res en aquesta sessió."
 }
 }
