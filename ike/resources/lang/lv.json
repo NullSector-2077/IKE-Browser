@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Briesmas: šīs vietnes sertifikāts nav derīgs, tāpēc savienojums var nebūt privāts.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Briesmas: I.K.E. šajā vietnē atrada reālu risku jūsu drošībai. Izlasiet brīdinājumu virs lapas.",
 "A protection may interfere with some features of this site.": "Aizsardzība var traucēt dažas šīs vietnes funkcijas.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Aizsardzība var traucēt šīs vietnes pareizu darbību. Izmantojiet „Salabot šo vietni“."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Aizsardzība var traucēt šīs vietnes pareizu darbību. Izmantojiet „Salabot šo vietni“.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. šīs lapas ielādes laikā neatrada neko aizdomīgu. Tas nepierāda, ka vietne ir droša."
 }
 }

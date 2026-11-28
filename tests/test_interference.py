@@ -139,6 +139,12 @@ def test_detectors_and_the_life_of_a_finding(run_ike):
 def site():
     class H(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
+            if self.path.startswith("/redir"):
+                self.send_response(302)
+                self.send_header("Location", "/page?after-redirect")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
             if self.path.startswith("/forge"):
                 # a page that tries to raise a finding by itself: the report's
                 # words with no key, with a guessed key, and an empty body
@@ -210,7 +216,8 @@ def steps(ike, qapp, out):
     # another tab: its own story; back: the finding is still there
     other = win.add_tab(QUrl("http://127.0.0.1:%d/page"))
     yield 1500
-    out["other_tab"] = [win.interference_state()[0], anim.state, anim._timer.isActive()]
+    # (its page loaded well: at most its own short green confirmation)
+    out["other_tab"] = [win.interference_state()[0], anim.state, anim._timer.isActive() and not anim.confirming()]
     win.set_current(view) if hasattr(win, "set_current") else win.tabs.setCurrentIndex(win.tabs.indexOf(view))
     yield 200
     out["back"] = anim.state
@@ -330,3 +337,140 @@ def steps(ike, qapp, out):
 def test_a_private_window_has_its_own_evidence(run_ike):
     out = run_ike(PRIVATE, timeout=60)
     assert (out["scopes_differ"], out["normal"], out["private"]) == (True, True, True), out
+
+
+GREEN = r"""
+import time
+from PyQt6.QtCore import QUrl
+
+def load(view, url):
+    done = {}
+    view.page().loadFinished.connect(lambda ok, d=done: d.setdefault("ok", ok))
+    view.load(QUrl(url))
+    while "ok" not in done:
+        yield 20
+    return done["ok"]
+
+def steps(ike, qapp, out):
+    from ike import incompat as I
+    win = ike.windows[0]
+    anim = win.shield_btn.interference
+    view = win.current_view()
+    base = "http://127.0.0.1:%d"
+    yield from load(view, base + "/page")
+    yield 800
+    out["first"] = [anim.confirms, anim.confirming(), win.shield_btn.toolTip().split("\n")[0]]
+    out["first_timer"] = anim._timer.isActive()
+    yield 2000
+    out["after"] = [anim.confirming(), anim.style is None, anim._timer.isActive()]
+    # the same site again at once (a web app reloading itself): not again
+    yield from load(view, base + "/page?again")
+    yield 900
+    out["same_site_again"] = anim.confirms
+    # another site: its own green
+    yield from load(view, "http://localhost:%d/page")
+    yield 900
+    out["other_site"] = anim.confirms
+    yield 2000
+    # a redirect: one green for the page it ends on
+    view._ike_confirmed_site = None
+    yield from load(view, base + "/redir")
+    yield 900
+    out["redirect"] = [anim.confirms, view.url().toString().endswith("after-redirect")]
+    yield 2000
+    # a load that fails: none
+    view._ike_confirmed_site = None
+    n = anim.confirms
+    ok = yield from load(view, "http://127.0.0.1:9/nothing")
+    yield 900
+    out["failed"] = [ok, anim.confirms - n]
+    # two pages at once (a quick click): at most one green, for the last one
+    view._ike_confirmed_site = None
+    n = anim.confirms
+    view.load(QUrl(base + "/page?one"))
+    yield 30
+    yield from load(view, "http://localhost:%d/page?two")
+    yield 900
+    out["rapid"] = anim.confirms - n
+    yield 2000
+    # a tab in the background: none
+    view._ike_confirmed_site = None
+    n = anim.confirms
+    bg = win.add_tab(QUrl(base + "/page?bg"), background=True)
+    yield 2500
+    out["background"] = anim.confirms - n
+    # an exception on the site, the protection off, the effects off: none
+    for key, setup, undo in (
+            ("exception", lambda: ike.config["site_opts"].__setitem__("127.0.0.1", {"ads": False}),
+             lambda: ike.config["site_opts"].pop("127.0.0.1", None)),
+            ("off", lambda: ike.config["site_levels"].__setitem__("127.0.0.1", "off"),
+             lambda: ike.config["site_levels"].pop("127.0.0.1", None)),
+            ("effects_off", lambda: ike.config.__setitem__("ui_effects", False),
+             lambda: ike.config.__setitem__("ui_effects", True))):
+        setup()
+        view._ike_confirmed_site = None
+        n = anim.confirms
+        yield from load(view, base + "/page?" + key)
+        yield 900
+        out[key] = anim.confirms - n
+        undo()
+    # a danger in effect: none (red instead)
+    view._ike_confirmed_site = None
+    n = anim.confirms
+    yield from load(view, base + "/page?danger")
+    view.lookalike, view.lookalike_host = "Example Bank", "127.0.0.1"
+    win.sync_interference()
+    yield 900
+    out["danger"] = [anim.confirms - n, anim.state]
+    view.lookalike = None
+    win.sync_interference()
+    yield 600
+    # something the diagnosis still looks at: none
+    view._ike_confirmed_site = None
+    ike.config["site_levels"]["127.0.0.1"] = "maximum"
+    out["pending_settled"] = []
+    yield from load(view, base + "/page?pending")
+    d = ike.diagnosis
+    d.ledger.note(d.scope_of(view), "127.0.0.1", "worker:shared")
+    out["pending"] = win.confirm_due(view)
+    ike.config["site_levels"].pop("127.0.0.1", None)
+    # a finding while the green plays: at once the finding's colour
+    view._ike_confirmed_site = None
+    yield from load(view, "http://localhost:%d/page?cut")
+    yield 700
+    out["cut_before"] = anim.confirming()
+    view._ike_diag["quiet"] = set()
+    d._set(view, I.Finding("workers", "localhost", ("workers",), I.SiteWorkers.CAUSE, I.SERIOUS))
+    yield 50
+    out["cut_after"] = [anim.confirming(), anim.state]
+    d.resolved(view)
+    yield 800
+    # another tab in front while it plays: it stops
+    view._ike_confirmed_site = None
+    other = win.add_tab(QUrl("about:blank"), background=True)
+    yield from load(view, base + "/page?switch")
+    yield 650
+    out["switch_before"] = anim.confirming()
+    win.set_current(other)
+    yield 100
+    out["switch_after"] = [anim.confirming(), anim.style is None]
+"""
+
+
+def test_the_green_confirmation(run_ike, site):
+    out = run_ike(GREEN % ((site,) * 4), timeout=200)
+    assert out["first"][0] == 1 and out["first"][1] is True, out
+    assert out["first"][2].startswith("I.K.E. found nothing wrong") and "does not prove" in out["first"][2], out
+    assert out["first_timer"] is True, out
+    assert out["after"] == [False, True, False], out              # 1.8 s, then nothing at all
+    assert out["same_site_again"] == 1, out
+    assert out["other_site"] == 2, out
+    assert out["redirect"] == [3, True], out
+    assert out["failed"] == [False, 0], out
+    assert out["rapid"] <= 1, out
+    assert out["background"] == 0, out
+    assert out["exception"] == 0 and out["off"] == 0 and out["effects_off"] == 0, out
+    assert out["danger"] == [0, "danger"], out
+    assert out["pending"] is False, out
+    assert out["cut_before"] is True and out["cut_after"] == [False, "serious"], out
+    assert out["switch_before"] is True and out["switch_after"] == [False, True], out

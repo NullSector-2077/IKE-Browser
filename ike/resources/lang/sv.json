@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Fara: certifikatet för den här webbplatsen är inte giltigt, så anslutningen kanske inte är privat.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Fara: I.K.E. har hittat en verklig risk för din säkerhet på den här webbplatsen. Läs varningen ovanför sidan.",
 "A protection may interfere with some features of this site.": "Ett skydd kan störa vissa funktioner på den här webbplatsen.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Ett skydd kan hindra den här webbplatsen från att fungera ordentligt. Använd “Reparera den här webbplatsen”."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Ett skydd kan hindra den här webbplatsen från att fungera ordentligt. Använd “Reparera den här webbplatsen”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. hittade inget konstigt medan den här sidan laddades. Det bevisar inte att webbplatsen är säker."
 }
 }

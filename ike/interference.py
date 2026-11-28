@@ -36,7 +36,7 @@ the desktop, a still rim in the style's colour, drawn once.
 import math
 import time
 
-from PyQt6.QtCore import QEvent, QObject, QPointF, QRectF, Qt, QTimer, QVariantAnimation
+from PyQt6.QtCore import QEvent, QObject, QPointF, QRectF, Qt, QTimer, QVariantAnimation, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen, QRadialGradient
 
 FRAME_MS = 42                    # about 24 pictures a second
@@ -45,7 +45,11 @@ MEET_WIDTH = 0.07                # of a cycle, around each meeting
 BLEND_MS = 600                   # from one style to another
 FADE_MS = 400                    # the end
 
-ATTENTION, SERIOUS, DANGER = "attention", "serious", "danger"
+ATTENTION, SERIOUS, DANGER, CONFIRM = "attention", "serious", "danger", "confirm"
+# the green confirmation (1.1.32, the owner's fourth colour): played once, then gone
+CONFIRM_RUN_S = 1.3              # the two pulses from the top to their meeting at the bottom
+CONFIRM_FADE_S = 0.5             # then the octagon fades back to itself: 1.8 s in all
+CONFIRM_IN_S = 0.15
 
 # Qt's enumerations looked up once (each lookup costs a call at every picture)
 _SOLID, _ROUND_CAP, _ROUND_JOIN = Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin
@@ -92,6 +96,9 @@ STYLES = {
                    trail_alpha=0.80, rim=0.0, meet=0.45, inner=0.20, wave=0.50, head=0.55),
     DANGER: Style("#FF254F", "#FFD3DC", cycle=2.0, glow=2.2, glow_alpha=0.65, trail=0.34,
                   trail_alpha=0.95, rim=0.08, meet=0.35, inner=0.10, wave=0.0, head=0.60),
+    # once, never as a state: its cycle is the time of one run (top to bottom is half a cycle)
+    CONFIRM: Style("#00E676", "#C8FFE3", cycle=2 * CONFIRM_RUN_S, glow=1.8, glow_alpha=0.45, trail=0.26,
+                   trail_alpha=0.70, rim=0.0, meet=0.35, inner=0.12, wave=0.40, head=0.50),
 }
 
 
@@ -105,6 +112,8 @@ def _bump(t):
 
 class Interference(QObject):
     """The animation's state for one shield button."""
+
+    confirm_ended = pyqtSignal()     # the green confirmation finished or was cut short
 
     def __init__(self, button, config):
         super().__init__(button)
@@ -125,6 +134,8 @@ class Interference(QObject):
         self._path = None
         self._pens = (None, None)    # (key, trail pens) for the style and strength drawn
         self.frames = 0              # pictures drawn (the tests measure the cost)
+        self._confirm_at = None      # when the green confirmation started (monotonic), or None
+        self.confirms = 0            # how many were played (the tests count them)
         button.installEventFilter(self)
         self._watched = None
         self._watch_window()
@@ -149,6 +160,8 @@ class Interference(QObject):
             return
         old, self.state = self.state, state
         self._stop_anim()
+        if state is not None and self._confirm_at is not None:
+            self._end_confirm(cut=True)       # something more important: at once, no blend
         if state is not None:
             target = STYLES[state]
             if old is not None and self.style is not None and self.moving() and self._shown():
@@ -165,6 +178,59 @@ class Interference(QObject):
         else:
             self._fade_done()
         self.button.update()
+
+    # --- the green confirmation (one run, no state) ---------------------------
+    def confirm(self):
+        """Play the green confirmation once: the pulses run from the top to
+        their meeting at the bottom, a short wave, then the octagon fades back
+        to itself (1.8 s). Never over a state (red, orange, yellow), never
+        twice at once (a new page while it plays: it simply goes on), never
+        with the effects off or the button out of sight. True if it started."""
+        if self.state is not None or self._anim is not None or not self.moving() or not self._shown():
+            return False
+        if self._confirm_at is not None:
+            return False
+        self._confirm_at = time.monotonic()
+        self.style = STYLES[CONFIRM]
+        self.phase = 0.0
+        self.strength = 0.0
+        self.confirms += 1
+        self._run()
+        self._update()
+        return True
+
+    def cancel_confirm(self):
+        """Another tab in front, a page that failed: the confirmation stops at once."""
+        if self._confirm_at is not None:
+            self._end_confirm(cut=True)
+
+    def confirming(self):
+        return self._confirm_at is not None
+
+    def _end_confirm(self, cut=False):
+        self._confirm_at = None
+        if self.state is None:
+            self.style = None
+            self.strength = 0.0
+            if self._anim is None:
+                self._stop()
+        self._update()
+        self.confirm_ended.emit()
+
+    def _confirm_step(self, now):
+        t = now - self._confirm_at
+        if t >= CONFIRM_RUN_S + CONFIRM_FADE_S or not self.moving():
+            self._end_confirm()
+            return
+        # on past their meeting while fading, as the wave opens (no stop, no edge)
+        self.phase = 0.5 * t / CONFIRM_RUN_S
+        if t < CONFIRM_IN_S:
+            self.strength = t / CONFIRM_IN_S
+        elif t < CONFIRM_RUN_S:
+            self.strength = 1.0
+        else:
+            x = (t - CONFIRM_RUN_S) / CONFIRM_FADE_S
+            self.strength = 0.5 * (1 + math.cos(math.pi * x))      # a soft end, no edge
 
     def _animate(self, a, b, ms, step, done):
         anim = self._anim = QVariantAnimation(self)
@@ -205,7 +271,7 @@ class Interference(QObject):
         self.button.update()
 
     def _running(self):
-        return self.state is not None or self._anim is not None
+        return self.state is not None or self._anim is not None or self._confirm_at is not None
 
     def _run(self):
         if not self._running():
@@ -236,9 +302,17 @@ class Interference(QObject):
 
     def _tick(self):
         if not self._shown():
+            if self._confirm_at is not None:
+                self._end_confirm(cut=True)   # out of sight: a confirmation is not kept for later
+                return
             self._stop()              # suspended: the phase stays where it was
             return
         now = time.monotonic()
+        if self._confirm_at is not None and self.state is None:
+            self._last = now
+            self._confirm_step(now)
+            self._update()
+            return
         if self._last is not None and self.style is not None:
             self.phase = (self.phase + (now - self._last) / max(0.5, self.style.cycle)) % 1.0
         self._last = now
@@ -296,6 +370,8 @@ class Interference(QObject):
         path = self._rim(polygon)
         t = self.phase
         bump = _bump(t)
+        if self._confirm_at is not None and self.state is None and t < 0.25:
+            bump = 0.0                # the green starts quietly: its one meeting is at the bottom
         centre = polygon.boundingRect().center()
         # the rim keeps the level's own colour; it lights up only where the
         # pulses meet (the red keeps a very faint tint all the time)

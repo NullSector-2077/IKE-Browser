@@ -312,6 +312,23 @@ class Diagnosis(QObject):
         st = getattr(view, "_ike_diag", None)
         return st["finding"] if st else None
 
+    def settled(self, view):
+        """Nothing found and nothing left to look at for the page in `view`:
+        no finding, no evaluation pending, no intervention a detector would
+        look into (the green confirmation waits for this, 1.1.32)."""
+        st = getattr(view, "_ike_diag", None)
+        if st is None or st["finding"] is not None or st["pending"]:
+            return False
+        try:
+            host, scope = self.host_of(view), self.scope_of(view)
+        except RuntimeError:
+            return False
+        ev = self.ledger.get(scope, host) if host else None
+        if ev is None:
+            return True
+        ctx = Context(self.app, host)
+        return not any(d.relevant(ev, ctx) for d in DETECTORS)
+
     def _url_changed(self, view, url):
         st = view._ike_diag
         host = url.host().lower() if url.scheme() in ("http", "https") else ""

@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Təhlükə: bu saytın sertifikatı etibarlı deyil, ona görə də bağlantı məxfi olmaya bilər.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Təhlükə: I.K.E. bu saytda təhlükəsizliyiniz üçün real risk aşkar etdi. Səhifənin üstündəki xəbərdarlığı oxuyun.",
 "A protection may interfere with some features of this site.": "Bir qoruma bu saytın bəzi funksiyalarına mane ola bilər.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Bir qoruma bu saytın düzgün işləməsinə mane ola bilər. “Bu saytı təmir et” seçimindən istifadə edin."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Bir qoruma bu saytın düzgün işləməsinə mane ola bilər. “Bu saytı təmir et” seçimindən istifadə edin.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. bu səhifə yüklənərkən heç bir problem aşkar etmədi. Bu, saytın təhlükəsiz olduğunu sübut etmir."
 }
 }

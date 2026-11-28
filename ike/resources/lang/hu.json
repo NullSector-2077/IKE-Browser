@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Veszély: ennek a webhelynek a tanúsítványa nem érvényes, ezért előfordulhat, hogy a kapcsolat nem privát.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Veszély: az I.K.E. valódi kockázatot talált az ön biztonságára ezen a webhelyen. Olvassa el az oldal fölötti figyelmeztetést.",
 "A protection may interfere with some features of this site.": "Egy védelem zavarhatja a webhely néhány funkcióját.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Egy védelem megakadályozhatja, hogy a webhely megfelelően működjön. Használja a „Webhely javítása” funkciót."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Egy védelem megakadályozhatja, hogy a webhely megfelelően működjön. Használja a „Webhely javítása” funkciót.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "Az I.K.E. nem talált semmi rendellenest az oldal betöltése közben. Ez nem bizonyítja, hogy a webhely biztonságos."
 }
 }

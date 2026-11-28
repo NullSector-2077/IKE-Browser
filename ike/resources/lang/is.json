@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Hætta: skilríki þessa vefsvæðis eru ekki gild, svo aðrir gætu hugsanlega séð tenginguna.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Hætta: I.K.E. fann raunverulega hættu fyrir öryggi þitt á þessu vefsvæði. Lestu viðvörunina fyrir ofan síðuna.",
 "A protection may interfere with some features of this site.": "Vörn gæti truflað suma eiginleika þessa vefsvæðis.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Vörn gæti komið í veg fyrir að þetta vefsvæði virki rétt. Notaðu „Laga þetta vefsvæði“."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Vörn gæti komið í veg fyrir að þetta vefsvæði virki rétt. Notaðu „Laga þetta vefsvæði“.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. fann ekkert athugavert á meðan þessi síða hlóðst. Það sannar ekki að vefsvæðið sé öruggt."
 }
 }

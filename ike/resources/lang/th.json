@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "อันตราย: ใบรับรองของไซต์นี้ไม่ถูกต้อง การเชื่อมต่อจึงอาจไม่เป็นส่วนตัว",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "อันตราย: I.K.E. พบความเสี่ยงจริงต่อความปลอดภัยของคุณบนไซต์นี้ โปรดอ่านคำเตือนด้านบนของหน้า",
 "A protection may interfere with some features of this site.": "การป้องกันอาจรบกวนฟีเจอร์บางอย่างของไซต์นี้",
-"A protection may stop this site from working properly. Use “Repair this site”.": "การป้องกันอาจทำให้ไซต์นี้ทำงานไม่ถูกต้อง ใช้ “ซ่อมไซต์นี้”"
+"A protection may stop this site from working properly. Use “Repair this site”.": "การป้องกันอาจทำให้ไซต์นี้ทำงานไม่ถูกต้อง ใช้ “ซ่อมไซต์นี้”",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. ไม่พบสิ่งผิดปกติขณะโหลดหน้านี้ แต่ไม่ได้หมายความว่าไซต์นี้ปลอดภัย"
 }
 }

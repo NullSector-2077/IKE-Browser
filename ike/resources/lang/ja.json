@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "危険：このサイトの証明書は有効ではないため、接続がプライベートではない可能性があります。",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "危険：I.K.E. はこのサイトであなたの安全に対する実際の危険を見つけました。ページの上の警告をお読みください。",
 "A protection may interfere with some features of this site.": "保護がこのサイトの一部の機能を妨げている可能性があります。",
-"A protection may stop this site from working properly. Use “Repair this site”.": "保護がこのサイトの正常な動作を妨げている可能性があります。「このサイトを修復」を使ってください。"
+"A protection may stop this site from working properly. Use “Repair this site”.": "保護がこのサイトの正常な動作を妨げている可能性があります。「このサイトを修復」を使ってください。",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. はこのページの読み込み中に問題を見つけませんでした。これはサイトが安全であることを保証するものではありません。"
 }
 }

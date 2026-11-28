@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Pavojus: šios svetainės sertifikatas negalioja, todėl ryšys gali būti neprivatus.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Pavojus: I.K.E. šioje svetainėje rado realią grėsmę jūsų saugumui. Perskaitykite įspėjimą virš puslapio.",
 "A protection may interfere with some features of this site.": "Apsauga gali trukdyti kai kurioms šios svetainės funkcijoms.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Apsauga gali trukdyti šiai svetainei tinkamai veikti. Naudokite „Pataisyti šią svetainę“."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Apsauga gali trukdyti šiai svetainei tinkamai veikti. Naudokite „Pataisyti šią svetainę“.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. įkeliant šį puslapį nerado nieko įtartino. Tai neįrodo, kad svetainė yra saugi."
 }
 }

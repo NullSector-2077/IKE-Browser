@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Panganib: hindi valid ang certificate ng site na ito, kaya maaaring hindi pribado ang koneksyon.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Panganib: nakakita ang I.K.E. ng tunay na panganib sa iyong kaligtasan sa site na ito. Basahin ang babala sa itaas ng page.",
 "A protection may interfere with some features of this site.": "Maaaring makasagabal ang isang proteksyon sa ilang feature ng site na ito.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Maaaring pigilan ng isang proteksyon ang site na ito na gumana nang maayos. Gamitin ang “Ayusin ang site na ito”."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Maaaring pigilan ng isang proteksyon ang site na ito na gumana nang maayos. Gamitin ang “Ayusin ang site na ito”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "Walang nakitang mali ang I.K.E. habang nilo-load ang page na ito. Hindi nito pinapatunayan na ligtas ang site."
 }
 }

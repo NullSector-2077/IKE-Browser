@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "위험: 이 사이트의 인증서가 유효하지 않으므로 연결이 비공개가 아닐 수 있습니다.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "위험: I.K.E.가 이 사이트에서 사용자의 안전에 대한 실제 위험을 발견했습니다. 페이지 위의 경고를 읽어 보세요.",
 "A protection may interfere with some features of this site.": "보호 기능이 이 사이트의 일부 기능을 방해할 수 있습니다.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "보호 기능 때문에 이 사이트가 제대로 작동하지 않을 수 있습니다. “이 사이트 복구”를 사용하세요."
+"A protection may stop this site from working properly. Use “Repair this site”.": "보호 기능 때문에 이 사이트가 제대로 작동하지 않을 수 있습니다. “이 사이트 복구”를 사용하세요.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E.가 이 페이지를 불러오는 동안 문제를 발견하지 못했습니다. 이것이 사이트가 안전하다는 증거는 아닙니다."
 }
 }

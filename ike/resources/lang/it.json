@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Pericolo: il certificato di questo sito non è valido, quindi la connessione potrebbe non essere privata.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Pericolo: I.K.E. ha trovato un rischio reale per la tua sicurezza su questo sito. Leggi l'avviso sopra la pagina.",
 "A protection may interfere with some features of this site.": "Una protezione potrebbe interferire con alcune funzionalità del sito.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Una protezione potrebbe impedire il corretto funzionamento del sito. Usa «Ripara questo sito»."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Una protezione potrebbe impedire il corretto funzionamento del sito. Usa «Ripara questo sito».",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. non ha rilevato anomalie durante il caricamento di questa pagina. Questo non garantisce che il sito sia sicuro."
 }
 }

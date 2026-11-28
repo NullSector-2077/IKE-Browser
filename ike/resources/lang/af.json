@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Gevaar: die sertifikaat van hierdie werf is nie geldig nie, so die verbinding is dalk nie privaat nie.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Gevaar: I.K.E. het 'n werklike risiko vir jou veiligheid op hierdie werf gevind. Lees die waarskuwing bo die bladsy.",
 "A protection may interfere with some features of this site.": "'n Beskerming kan sommige funksies van hierdie werf belemmer.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "'n Beskerming kan verhoed dat hierdie werf behoorlik werk. Gebruik “Herstel hierdie werf”."
+"A protection may stop this site from working properly. Use “Repair this site”.": "'n Beskerming kan verhoed dat hierdie werf behoorlik werk. Gebruik “Herstel hierdie werf”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. het niks verkeerd gevind terwyl hierdie bladsy gelaai het nie. Dit bewys nie dat die werf veilig is nie."
 }
 }

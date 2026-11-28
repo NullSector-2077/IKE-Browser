@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Rrezik: certifikata e këtij sajti nuk është e vlefshme, prandaj lidhja mund të mos jetë private.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Rrezik: I.K.E. gjeti një rrezik real për sigurinë tuaj në këtë sajt. Lexoni paralajmërimin mbi faqe.",
 "A protection may interfere with some features of this site.": "Një mbrojtje mund të pengojë disa veçori të këtij sajti.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Një mbrojtje mund ta pengojë këtë sajt të funksionojë si duhet. Përdorni “Riparoje këtë sajt”."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Një mbrojtje mund ta pengojë këtë sajt të funksionojë si duhet. Përdorni “Riparoje këtë sajt”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. nuk gjeti asgjë të dyshimtë gjatë ngarkimit të kësaj faqeje. Kjo nuk provon se sajti është i sigurt."
 }
 }

@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Tehlike: bu sitenin sertifikası geçerli değil, bu yüzden bağlantı gizli olmayabilir.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Tehlike: I.K.E. bu sitede güvenliğiniz için gerçek bir risk buldu. Sayfanın üstündeki uyarıyı okuyun.",
 "A protection may interfere with some features of this site.": "Bir koruma bu sitenin bazı özelliklerini etkileyebilir.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Bir koruma bu sitenin düzgün çalışmasını engelleyebilir. “Bu siteyi onar” seçeneğini kullanın."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Bir koruma bu sitenin düzgün çalışmasını engelleyebilir. “Bu siteyi onar” seçeneğini kullanın.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. bu sayfa yüklenirken bir sorun bulmadı. Bu, sitenin güvenli olduğunu kanıtlamaz."
 }
 }

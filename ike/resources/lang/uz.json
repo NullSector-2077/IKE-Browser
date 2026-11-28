@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Xavf: bu saytning sertifikati yaroqsiz, shuning uchun ulanish shaxsiy boʻlmasligi mumkin.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Xavf: I.K.E. bu saytda xavfsizligingiz uchun haqiqiy xavf topdi. Sahifa ustidagi ogohlantirishni oʻqing.",
 "A protection may interfere with some features of this site.": "Himoya bu saytning baʼzi funksiyalariga xalaqit berishi mumkin.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Himoya bu saytning toʻgʻri ishlashiga xalaqit berishi mumkin. “Bu saytni tuzatish” buyrugʻidan foydalaning."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Himoya bu saytning toʻgʻri ishlashiga xalaqit berishi mumkin. “Bu saytni tuzatish” buyrugʻidan foydalaning.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. bu sahifa yuklanayotganda hech qanday muammo topmadi. Bu saytning xavfsiz ekanini isbotlamaydi."
 }
 }

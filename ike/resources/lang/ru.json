@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Опасность: сертификат этого сайта недействителен, поэтому соединение может быть не конфиденциальным.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Опасность: I.K.E. обнаружил на этом сайте реальный риск для вашей безопасности. Прочитайте предупреждение над страницей.",
 "A protection may interfere with some features of this site.": "Защита может мешать некоторым функциям этого сайта.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Защита может мешать нормальной работе этого сайта. Воспользуйтесь функцией «Исправить этот сайт»."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Защита может мешать нормальной работе этого сайта. Воспользуйтесь функцией «Исправить этот сайт».",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. не обнаружил ничего подозрительного при загрузке этой страницы. Это не доказывает, что сайт безопасен."
 }
 }

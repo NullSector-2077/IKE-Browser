@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Κίνδυνος: το πιστοποιητικό αυτού του ιστότοπου δεν είναι έγκυρο, οπότε η σύνδεση μπορεί να μην είναι ιδιωτική.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Κίνδυνος: το I.K.E. εντόπισε πραγματικό κίνδυνο για την ασφάλειά σας σε αυτόν τον ιστότοπο. Διαβάστε την προειδοποίηση πάνω από τη σελίδα.",
 "A protection may interfere with some features of this site.": "Μια προστασία μπορεί να επηρεάζει ορισμένες λειτουργίες αυτού του ιστότοπου.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Μια προστασία μπορεί να εμποδίζει τη σωστή λειτουργία αυτού του ιστότοπου. Χρησιμοποιήστε το «Επισκευή αυτού του ιστότοπου»."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Μια προστασία μπορεί να εμποδίζει τη σωστή λειτουργία αυτού του ιστότοπου. Χρησιμοποιήστε το «Επισκευή αυτού του ιστότοπου».",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "Το I.K.E. δεν εντόπισε κάτι ύποπτο κατά τη φόρτωση αυτής της σελίδας. Αυτό δεν αποδεικνύει ότι ο ιστότοπος είναι ασφαλής."
 }
 }

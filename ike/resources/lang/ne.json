@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "खतरा: यो साइटको प्रमाणपत्र मान्य छैन, त्यसैले जडान निजी नहुन सक्छ।",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "खतरा: I.K.E. ले यो साइटमा तपाईंको सुरक्षाका लागि वास्तविक जोखिम फेला पार्‍यो। पृष्ठमाथिको चेतावनी पढ्नुहोस्।",
 "A protection may interfere with some features of this site.": "कुनै सुरक्षाले यो साइटका केही सुविधामा बाधा पुर्‍याउन सक्छ।",
-"A protection may stop this site from working properly. Use “Repair this site”.": "कुनै सुरक्षाले यो साइटलाई राम्रोसँग काम गर्नबाट रोक्न सक्छ। “यो साइट मर्मत गर्नुहोस्” प्रयोग गर्नुहोस्।"
+"A protection may stop this site from working properly. Use “Repair this site”.": "कुनै सुरक्षाले यो साइटलाई राम्रोसँग काम गर्नबाट रोक्न सक्छ। “यो साइट मर्मत गर्नुहोस्” प्रयोग गर्नुहोस्।",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "यो पृष्ठ लोड हुँदा I.K.E. ले केही गडबड फेला पारेन। यसले साइट सुरक्षित छ भनेर प्रमाणित गर्दैन।"
 }
 }

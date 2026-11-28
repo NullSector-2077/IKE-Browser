@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Vaara: tämän sivuston varmenne ei ole kelvollinen, joten yhteys ei ehkä ole yksityinen.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Vaara: I.K.E. löysi tältä sivustolta todellisen riskin turvallisuudellesi. Lue varoitus sivun yläpuolelta.",
 "A protection may interfere with some features of this site.": "Suojaus saattaa häiritä joitakin tämän sivuston toimintoja.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Suojaus saattaa estää tätä sivustoa toimimasta kunnolla. Käytä toimintoa “Korjaa tämä sivusto”."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Suojaus saattaa estää tätä sivustoa toimimasta kunnolla. Käytä toimintoa “Korjaa tämä sivusto”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. ei havainnut mitään poikkeavaa tämän sivun latautuessa. Tämä ei todista, että sivusto on turvallinen."
 }
 }

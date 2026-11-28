@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Nebezpečí: certifikát tohoto webu není platný, takže připojení nemusí být soukromé.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Nebezpečí: I.K.E. na tomto webu zjistil skutečné riziko pro vaši bezpečnost. Přečtěte si varování nad stránkou.",
 "A protection may interfere with some features of this site.": "Ochrana může narušovat některé funkce tohoto webu.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Ochrana může bránit správnému fungování tohoto webu. Použijte „Opravit tento web“."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Ochrana může bránit správnému fungování tohoto webu. Použijte „Opravit tento web“.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. při načítání této stránky nezjistil nic podezřelého. To neznamená, že je web bezpečný."
 }
 }

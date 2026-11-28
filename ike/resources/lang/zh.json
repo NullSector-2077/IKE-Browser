@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "危险：此网站的证书无效，因此连接可能不是私密的。",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "危险：I.K.E. 在此网站上发现了对你安全的真实风险。请阅读页面上方的警告。",
 "A protection may interfere with some features of this site.": "某项保护可能会干扰此网站的部分功能。",
-"A protection may stop this site from working properly. Use “Repair this site”.": "某项保护可能会导致此网站无法正常工作。请使用“修复此网站”。"
+"A protection may stop this site from working properly. Use “Repair this site”.": "某项保护可能会导致此网站无法正常工作。请使用“修复此网站”。",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. 在加载此页面时未发现异常。这并不能证明该网站是安全的。"
 }
 }

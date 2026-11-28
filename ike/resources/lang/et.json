@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Oht: selle saidi sertifikaat ei kehti, seega ei pruugi ühendus olla privaatne.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Oht: I.K.E. leidis sellel saidil tõelise ohu sinu turvalisusele. Loe hoiatust lehe kohal.",
 "A protection may interfere with some features of this site.": "Kaitse võib segada selle saidi mõningaid funktsioone.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Kaitse võib takistada selle saidi korralikku toimimist. Kasuta valikut „Paranda see sait“."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Kaitse võib takistada selle saidi korralikku toimimist. Kasuta valikut „Paranda see sait“.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. ei leidnud selle lehe laadimisel midagi kahtlast. See ei tõesta, et sait on ohutu."
 }
 }

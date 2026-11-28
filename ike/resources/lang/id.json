@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Bahaya: sertifikat situs ini tidak valid, jadi koneksi mungkin tidak privat.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Bahaya: I.K.E. menemukan risiko nyata bagi keamanan Anda di situs ini. Baca peringatan di atas halaman.",
 "A protection may interfere with some features of this site.": "Sebuah perlindungan mungkin mengganggu beberapa fitur situs ini.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Sebuah perlindungan mungkin membuat situs ini tidak berfungsi dengan baik. Gunakan “Perbaiki situs ini”."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Sebuah perlindungan mungkin membuat situs ini tidak berfungsi dengan baik. Gunakan “Perbaiki situs ini”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. tidak menemukan masalah saat memuat halaman ini. Ini tidak membuktikan bahwa situs ini aman."
 }
 }

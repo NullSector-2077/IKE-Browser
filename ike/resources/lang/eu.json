@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Arriskua: webgune honen ziurtagiria ez da baliozkoa, beraz baliteke konexioa pribatua ez izatea.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Arriskua: I.K.E.k benetako arrisku bat aurkitu du zure segurtasunerako webgune honetan. Irakurri orriaren gaineko abisua.",
 "A protection may interfere with some features of this site.": "Babes batek webgune honen eginbide batzuk oztopa ditzake.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Babes batek webgune hau behar bezala ez funtzionatzea eragin dezake. Erabili “Konpondu webgune hau”."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Babes batek webgune hau behar bezala ez funtzionatzea eragin dezake. Erabili “Konpondu webgune hau”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E.k ez du ezer arraroa aurkitu orri hau kargatzean. Horrek ez du frogatzen webgunea segurua denik."
 }
 }

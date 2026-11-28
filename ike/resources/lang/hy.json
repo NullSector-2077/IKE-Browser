@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Վտանգ՝ այս կայքի վկայականը վավեր չէ, ուստի կապը կարող է գաղտնի չլինել։",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Վտանգ՝ I.K.E.-ն այս կայքում իրական ռիսկ է հայտնաբերել ձեր անվտանգության համար։ Կարդացեք էջի վերևում գտնվող զգուշացումը։",
 "A protection may interfere with some features of this site.": "Պաշտպանությունը կարող է խանգարել այս կայքի որոշ գործառույթների։",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Պաշտպանությունը կարող է խանգարել այս կայքի ճիշտ աշխատանքին։ Օգտագործեք «Վերանորոգել այս կայքը» գործառույթը։"
+"A protection may stop this site from working properly. Use “Repair this site”.": "Պաշտպանությունը կարող է խանգարել այս կայքի ճիշտ աշխատանքին։ Օգտագործեք «Վերանորոգել այս կայքը» գործառույթը։",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E.-ն այս էջի բեռնման ընթացքում խնդիր չի հայտնաբերել։ Դա չի ապացուցում, որ կայքն անվտանգ է։"
 }
 }

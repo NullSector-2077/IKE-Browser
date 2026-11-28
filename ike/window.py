@@ -745,6 +745,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         # safety warning is in effect (red); one painter, drawn by the button
         from .interference import Interference
         self.shield_btn.interference = Interference(self.shield_btn, self.app.config)
+        self.shield_btn.interference.confirm_ended.connect(self.sync_interference)
         self.app.diagnosis.changed.connect(self._diagnosis_changed)
         # "+N" when it grows; on the window, as it rises right of the field's end
         self.shield_count = polish.ShieldCount(self.shield_btn, self.app.config, self)
@@ -1373,6 +1374,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         view.urlChanged.connect(lambda _u, v=view: self._url_changed(v))
         view.loadStarted.connect(lambda v=view: self._load_state(v, True))
         view.loadFinished.connect(lambda ok, v=view: self._load_finished(v, ok))
+        view.loadStarted.connect(lambda v=view: self._load_began(v))
         view.loadProgress.connect(lambda pc, v=view: self._load_progress(v, pc))
         page.windowCloseRequested.connect(lambda v=view: self.close_tab(v))
         page.recentlyAudibleChanged.connect(lambda _a, v=view: self._tab_changed(v))
@@ -2393,8 +2395,21 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if view is self.current_view() and getattr(view, "loading", False):
             self.loading_line.set_state(True, percent, getattr(view, "loading_since", None))
 
+    def _load_began(self, view):
+        """A new main page: its own green confirmation, at most one (1.1.32)."""
+        view._ike_loads = getattr(view, "_ike_loads", 0) + 1
+        if view is self.current_view():
+            self.shield_btn.interference.cancel_confirm()
+
     def _load_finished(self, view, ok):
         self._load_state(view, False)
+        if ok and view is self.current_view():
+            # the green confirmation: a moment later, once the checks of this
+            # page have spoken (a worker refused just after the load...)
+            n = getattr(view, "_ike_loads", 0)
+            QTimer.singleShot(self.CONFIRM_AFTER_MS, lambda v=view, n=n: self._confirm(v, n))
+        elif not ok and view is self.current_view():
+            self.shield_btn.interference.cancel_confirm()
         if ok:
             self.site_tint.page_loaded(view)
         if ok and view.url().scheme() == "ike":
@@ -2685,6 +2700,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     DANGER_TEXT = {
         "cert": _t("Danger: the certificate of this site is not valid, so the connection may not be private."),
     }
+    CONFIRM_TEXT = _t("I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.")
     DANGER_ANY = _t("Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.")
     FINDING_TEXT = {
         "attention": _t("A protection may interfere with some features of this site."),
@@ -2718,7 +2734,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         fade = (state is None and anim.state in ("attention", "serious") and v is not None
                 and getattr(self, "_interference_view", None) is v
                 and self.app.diagnosis.ended(v) == "resolved")
+        if getattr(self, "_interference_view", None) is not v:
+            anim.cancel_confirm()               # another tab in front: its green is not this one's
         self._interference_view = v
+        if state is None and anim.confirming():
+            text = self.CONFIRM_TEXT
         anim.set_state(state, fade=fade)
         level = self._shield_shown or self.app.config["shield_level"]
         tip = "%s — %s" % (T("I.K.E. Shield: choose the protection level"), T(LEVEL_NAMES[level]))
@@ -2730,6 +2750,54 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             self.shield_btn.setAccessibleDescription(T(text) if text else "")
         if self.shield_menu.isVisible():
             self.shield_panel.show_diagnosis()
+
+    CONFIRM_AFTER_MS = 500        # after the load, before the green confirmation
+    CONFIRM_REST_S = 30.0         # the same site in the same tab: not again before this
+
+    def confirm_due(self, view, load_no=None):
+        """May the green confirmation play for the page in `view` now? Only for
+        the tab in front, once per main page, after a load that succeeded, with
+        nothing to say (no danger, no incompatibility, nothing the diagnosis
+        still looks at), protection on and no exception on the site (the
+        green must not suggest that every protection is on when some are
+        off), over a secure connection. It says nothing more than that."""
+        from . import repair
+        from .securebar import danger_of
+        try:
+            if view is None or view is not self.current_view() or not self.isVisible() or self.isMinimized():
+                return False
+            if load_no is not None and getattr(view, "_ike_loads", 0) != load_no:
+                return False                    # another page meanwhile (a fast click, a redirect)
+            if getattr(view, "loading", False) or getattr(view, "_ike_confirmed", None) == view._ike_loads:
+                return False
+            url = view.url()
+        except (RuntimeError, AttributeError):
+            return False
+        host = url.host().lower()
+        if url.scheme() not in ("http", "https") or not host or is_not_secure(url):
+            return False
+        cfg = self.app.config
+        level = cfg.level_for(host)
+        if level == "off" or LEVELS.index(level) < LEVELS.index(cfg["shield_level"]):
+            return False
+        if repair.repaired(cfg, host) or any(v is False for v in (cfg["site_opts"].get(host) or {}).values()):
+            return False
+        if danger_of(view) is not None or self.interference_state(view)[0] is not None:
+            return False
+        if not self.app.diagnosis.settled(view):
+            return False
+        last = getattr(view, "_ike_confirmed_site", None)
+        if last and last[0] == host and time.monotonic() - last[1] < self.CONFIRM_REST_S:
+            return False                        # a web app reloading itself: once is enough
+        return True
+
+    def _confirm(self, view, load_no):
+        if not self.confirm_due(view, load_no):
+            return
+        if self.shield_btn.interference.confirm():
+            view._ike_confirmed = load_no
+            view._ike_confirmed_site = (view.url().host().lower(), time.monotonic())
+            self.sync_interference()
 
     def _diagnosis_changed(self, view):
         if view is self.current_view():

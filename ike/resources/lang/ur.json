@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "خطرہ: اس سائٹ کا سرٹیفکیٹ درست نہیں ہے، اس لیے ہو سکتا ہے کنکشن نجی نہ ہو۔",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "خطرہ: I.K.E. کو اس سائٹ پر آپ کی حفاظت کے لیے ایک حقیقی خطرہ ملا ہے۔ صفحے کے اوپر دی گئی تنبیہ پڑھیں۔",
 "A protection may interfere with some features of this site.": "کوئی تحفظ اس سائٹ کی کچھ خصوصیات میں رکاوٹ ڈال سکتا ہے۔",
-"A protection may stop this site from working properly. Use “Repair this site”.": "کوئی تحفظ اس سائٹ کو ٹھیک سے کام کرنے سے روک سکتا ہے۔ “اس سائٹ کی مرمت کریں” استعمال کریں۔"
+"A protection may stop this site from working properly. Use “Repair this site”.": "کوئی تحفظ اس سائٹ کو ٹھیک سے کام کرنے سے روک سکتا ہے۔ “اس سائٹ کی مرمت کریں” استعمال کریں۔",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "اس صفحے کے لوڈ ہوتے وقت I.K.E. کو کوئی خرابی نہیں ملی۔ اس سے یہ ثابت نہیں ہوتا کہ سائٹ محفوظ ہے۔"
 }
 }

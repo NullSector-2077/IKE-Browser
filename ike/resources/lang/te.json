@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "ప్రమాదం: ఈ సైట్ సర్టిఫికెట్ చెల్లుబాటు కాదు, కాబట్టి కనెక్షన్ ప్రైవేట్‌గా ఉండకపోవచ్చు.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "ప్రమాదం: ఈ సైట్‌లో మీ భద్రతకు నిజమైన ముప్పును I.K.E. కనుగొంది. పేజీ పైన ఉన్న హెచ్చరికను చదవండి.",
 "A protection may interfere with some features of this site.": "ఒక రక్షణ ఈ సైట్‌లోని కొన్ని ఫీచర్లకు ఆటంకం కలిగించవచ్చు.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "ఒక రక్షణ ఈ సైట్ సరిగ్గా పనిచేయకుండా ఆపవచ్చు. “ఈ సైట్‌ను మరమ్మతు చేయి”ని ఉపయోగించండి."
+"A protection may stop this site from working properly. Use “Repair this site”.": "ఒక రక్షణ ఈ సైట్ సరిగ్గా పనిచేయకుండా ఆపవచ్చు. “ఈ సైట్‌ను మరమ్మతు చేయి”ని ఉపయోగించండి.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "ఈ పేజీ లోడ్ అవుతున్నప్పుడు I.K.E.కి ఏ సమస్యా కనిపించలేదు. ఇది సైట్ సురక్షితమని నిరూపించదు."
 }
 }

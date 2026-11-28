@@ -1623,6 +1623,7 @@
 "Danger: the certificate of this site is not valid, so the connection may not be private.": "Опасност: сертификат овог сајта није важећи, па веза можда није приватна.",
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Опасност: I.K.E. је пронашао стваран ризик за вашу безбедност на овом сајту. Прочитајте упозорење изнад странице.",
 "A protection may interfere with some features of this site.": "Заштита може да омета неке функције овог сајта.",
-"A protection may stop this site from working properly. Use “Repair this site”.": "Заштита може да спречи правилан рад овог сајта. Користите „Поправи овај сајт“."
+"A protection may stop this site from working properly. Use “Repair this site”.": "Заштита може да спречи правилан рад овог сајта. Користите „Поправи овај сајт“.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. није пронашао ништа сумњиво током учитавања ове странице. То не доказује да је сајт безбедан."
 }
 }
