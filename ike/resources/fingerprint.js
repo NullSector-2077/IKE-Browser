@@ -169,6 +169,10 @@
   // the scheme of this script's own document, read before any script of the
   // page: only a document from the network has a policy its server alone sent
   var DOC_PROTO = location.protocol;
+  // a frame whose parent is of its own origin: the parent can give it a
+  // policy (<iframe csp="...">) without its server (the independent review)
+  var SAME_PARENT = false;
+  try { SAME_PARENT = window.parent !== window && !!window.parent.document; } catch (e) {}
   try {
     var ao = location.ancestorOrigins;
     if (ao && ao.length) host = new URL(ao[ao.length - 1]).hostname || host;
@@ -2172,17 +2176,22 @@
     'origin: R(OR, e, []), lastEventId: R(LI, e, []), source: R(SO, e, []), ports: pl })]); }\n'];
   var RND = new Uint32Array(1), RND_GET = crypto.getRandomValues, CRYPTO = crypto;
   // run: a classic worker from a file, whose prelude then runs the file
+  // JSON text in ASCII only (1.1.31, the independent review): a data:
+  // address, or an installed font's name, with a character beyond Latin-1
+  // made btoa() throw, and the worker started as the page asked, without the
+  // protection; the same characters as \uXXXX escapes, as JSON allows
+  function ascii(json) {
+    var out = '';
+    for (var i = 0; i < json.length; i++) {
+      var ch = RAPPLY(S_CODE, json, [i]);
+      out += ch < 127 ? json[i] : '\\u' + sslice('000' + RAPPLY(NUM_STR, ch, [16]), -4);
+    }
+    return out;
+  }
   function preludeFor(address, ownSeed, run) {
     var sd = seed;
     if (ownSeed) { RAPPLY(RND_GET, CRYPTO, [RND]); sd = RND[0] || 1; }
-    // the address in ASCII only (1.1.31, the independent review): a data:
-    // address with a character beyond Latin-1 made btoa() throw, and the
-    // worker started as the page asked, without the protection
-    var json = RAPPLY(JSON_STR, JSON, [address]), at = '';
-    for (var i = 0; i < json.length; i++) {
-      var ch = RAPPLY(S_CODE, json, [i]);
-      at += ch < 127 ? json[i] : '\\u' + sslice('000' + RAPPLY(NUM_STR, ch, [16]), -4);
-    }
+    var at = ascii(RAPPLY(JSON_STR, JSON, [address]));
     var p = WP_HEAD + WCFG + WP_TAIL + sd + ',' + at + (run ? ')(' + at + ');\n' : ');\n');
     while (p.length % 3) p += ' ';               // so it can be joined to base64 data
     return p;
@@ -2228,10 +2237,10 @@
   // the workers' configuration, made before any page script (its arrays
   // could otherwise be turned into something else by the page's toJSON);
   // at Strict and above it carries the masks for the workers' own fonts
-  WCFG = JSON_STR({ cores: cores, mem: strict ? 8 : 0, langs: workerLangs, strict: strict, maximum: maximum,
+  WCFG = ascii(JSON_STR({ cores: cores, mem: strict ? 8 : 0, langs: workerLangs, strict: strict, maximum: maximum,
     gpus: GPUS, pick: PICK, hidden: hiddenExt, lines: PRELUDE_LINES, glx: GLX, net: NET,
     mtop: MODULE_TOP,
-    fonts: strict ? MASKED : null, blank: strict ? BLANK_FONT : null });
+    fonts: strict ? MASKED : null, blank: strict ? BLANK_FONT : null }));
   // A FontFace source written by the page at Strict and above: every local()
   // entry taken out, so no installed font can be asked for by name, however
   // it is spelt (fingerprinting audit H-D; verification V-7: tabs, CSS
@@ -2990,6 +2999,7 @@
       catch (x) { return false; }
     };
     var TSU_STR = w.TrustedScriptURL && w.TrustedScriptURL.prototype.toString, ttPolicy = null, ttRefused = false;
+    var ttName = '';
     var trustedText = function (v) {
       if (!TSU_STR || v === null || typeof v !== 'object') return null;
       try { return RAPPLY(TSU_STR, v, []); } catch (e) { return null; }
@@ -3001,7 +3011,8 @@
       if (ttPolicy || ttRefused || !TT_MAKE || !TT_URL) return;
       try {
         RAPPLY(RND_GET, CRYPTO, [RND]);
-        ttPolicy = RAPPLY(TT_MAKE, TTP, ['p' + RND[0], { createScriptURL: function (x) { return x; } }]);
+        ttName = 'p' + RND[0];
+        ttPolicy = RAPPLY(TT_MAKE, TTP, [ttName, { createScriptURL: function (x) { return x; } }]);
       } catch (e) {
         try { if (TT_TYPEERR && RAPPLY(IS_PROTO, TT_TYPEERR, [e])) ttRefused = true; } catch (x) {}
       }
@@ -3012,7 +3023,7 @@
     // them, a <meta> a script added included (the independent review): there
     // a refusal counts only if the server's policy refused it in this
     // script's own document as well.
-    var netDoc = w === window && (DOC_PROTO === 'https:' || DOC_PROTO === 'http:');
+    var netDoc = w === window && !SAME_PARENT && (DOC_PROTO === 'https:' || DOC_PROTO === 'http:');
     makePolicy();
     if (netDoc && ttRefused) MAIN_REFUSED = true;
     var serverRefused = ttRefused && (netDoc || (w !== window && MAIN_REFUSED));
@@ -3107,15 +3118,23 @@
     // report a server asked for (report-uri) cannot be held back.
     var SPV = w.SecurityPolicyViolationEvent && w.SecurityPolicyViolationEvent.prototype;
     var vBlocked = getterOf(SPV, 'blockedURI'), vSource = getterOf(SPV, 'sourceFile');
-    var vDirective = getterOf(SPV, 'effectiveDirective');
+    var vDirective = getterOf(SPV, 'effectiveDirective'), vSample = getterOf(SPV, 'sample');
     if (vBlocked && vSource) {
       try {
         RAPPLY(eAdd, w, ['securitypolicyviolation', function (e) {
           try {
-            if (sindex(`${RAPPLY(vSource, e, [])}`, 'userscript') !== 0) return;
+            // only the engine's own events (isTrusted cannot be changed by a
+            // page): an event a page makes is the page's (the review)
+            if (e.isTrusted !== true || sindex(`${RAPPLY(vSource, e, [])}`, 'userscript') !== 0) return;
+            // only what the protection caused: the refusal of its own policy,
+            // and of the bare address it gives where its policy was refused;
+            // a page's own Trusted Types errors through a replaced function
+            // (innerHTML, the Worker proxy) name "userscript" too and stay
+            // the page's (the review)
             var d = vDirective ? `${RAPPLY(vDirective, e, [])}` : '';
-            if ((strict && RAPPLY(vBlocked, e, []) === 'blob') || d === 'trusted-types' ||
-                d === 'require-trusted-types-for') RAPPLY(eStop, e, []);
+            if ((strict && RAPPLY(vBlocked, e, []) === 'blob') ||
+                (d === 'trusted-types' && ttName && vSample && RAPPLY(vSample, e, []) === ttName) ||
+                (d === 'require-trusted-types-for' && ttRefused)) RAPPLY(eStop, e, []);
           } catch (x) {}
         }, true]);
       } catch (e) {}

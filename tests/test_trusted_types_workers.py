@@ -103,7 +103,17 @@ OPEN = r"""<!doctype html><title>tt</title><body><script>
 var mine = trustedTypes.createPolicy('site', { createScriptURL: function (u) { return u; } });
 window.__run = async function () {
   var w = await start(function () { return new Worker(mine.createScriptURL(blobUrl())); });
-  return { worker: w, page: 'pic:' + draw(new OffscreenCanvas(96, 40)), violations: V };
+  var out = { worker: w, page: 'pic:' + draw(new OffscreenCanvas(96, 40)), violations: V.slice() };
+  // the page's own Trusted Types error, through a function the protection
+  // replaced (innerHTML), and an event the page makes itself: both are the
+  // page's, and it gets them
+  try { document.createElement('div').innerHTML = '<b>x</b>'; } catch (e) {}
+  document.dispatchEvent(new SecurityPolicyViolationEvent('securitypolicyviolation', {
+    documentURI: location.href, violatedDirective: 'trusted-types', effectiveDirective: 'trusted-types',
+    originalPolicy: 'x', disposition: 'enforce', statusCode: 200, sourceFile: 'userscript', sample: 'made-here' }));
+  await new Promise(function (ok) { setTimeout(ok, 500); });
+  out.own = V.slice(out.violations.length);
+  return out;
 };
 </script></body>"""
 
@@ -174,6 +184,16 @@ function inFrame(f) {
 }
 window.__run = async function () {
   var out = { page: 'pic:' + draw(new OffscreenCanvas(96, 40)) };
+  // a frame of the page's own site given a policy by the page (<iframe csp>),
+  // not by its server
+  out.cspAttr = await new Promise(function (ok) {
+    var c = document.createElement('iframe');
+    c.setAttribute('csp', "trusted-types site default");
+    c.onload = function () { inFrame(c).then(ok, function (e) { ok({ worker: 'throw ' + e, seen: [] }); }); };
+    c.src = '/plain.html';
+    document.body.appendChild(c);
+    setTimeout(function () { ok({ worker: 'no answer', seen: [] }); }, 8000);
+  });
   // a data: worker whose address has a character beyond Latin-1
   out.dataWide = await start(function () {
     return new Worker('data:text/javascript;base64,' + btoa(WORKER) + '#\u65e5');
@@ -213,6 +233,7 @@ PAGES = {
     "/names.html": (NAMES.encode(), "text/html; charset=utf-8", "trusted-types site"),
     "/tricks.html": (TRICKS.encode(), "text/html; charset=utf-8", None),
     "/child.html": (CHILD.encode(), "text/html; charset=utf-8", None),
+    "/plain.html": (b"<!doctype html><title>plain</title><body>plain</body>", "text/html; charset=utf-8", None),
     "/w.js": (FILE_WORKER, "text/javascript", None),
 }
 
@@ -336,6 +357,9 @@ def test_workers_keep_the_protection_where_the_policy_is_allowed(run_ike, site, 
         # no refusal, and the worker the page made trusted by its own policy
         # draws as the page does (the same noise: the protection runs in it)
         assert policy_names(r) == [], (level, r)
+        # the page's own violations reach it, and its own events
+        assert "trusted-types:made-here" in r["own"], (level, r)
+        assert [v for v in r["own"] if v.startswith("require-trusted-types-for:")], (level, r)
         assert r["worker"].startswith("pic:") and r["worker"] == r["page"], (level, r)
     # another picture on another site: the noise is the site's own
     assert a["worker"] != b["worker"], (level, a, b)
@@ -368,7 +392,7 @@ def test_frames_that_take_a_scripts_policy_never_run_a_worker_without_the_protec
     safe = (t["page"], "error", "timeout")
     # a data: worker has a seed of its own: another noise, never none
     assert t["dataWide"].startswith("pic:") and t["dataWide"] != real, (level, t, real)
-    for key in ("blank", "required"):
+    for key in ("cspAttr", "blank", "required"):
         assert t[key]["worker"] in safe or t[key]["worker"].startswith("throw"), (level, key, t)
         # the page does not see the protection's own refusals
         assert not [v for v in t[key]["seen"] if v.endswith(":userscript")], (level, key, t)
