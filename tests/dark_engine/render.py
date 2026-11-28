@@ -425,6 +425,7 @@ def main():
             # as I.K.E. does (webview.py set_backdrop): before the page paints, the
             # window shows the engine's dark background, not Qt's white
             from PyQt6.QtGui import QColor
+
             from ike import darkengine as _de
             page.setBackgroundColor(QColor(_de.background(None)))
         channel = QWebChannel(page)
