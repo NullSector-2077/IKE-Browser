@@ -263,7 +263,7 @@ this release.
   element, keeps what the user writes in editors and mails as written, prints
   the page's own colours, and a page cannot stop it. Measured against Dark
   Reader's own test scenarios (122 of 125 alike, the 3 others deliberate) and
-  page by page (docs/DARK-ENGINE-EXPERIMENT.md).
+  page by page (docs/DARK-ENGINE.md).
 - **Its own panel** under the toolbar's Dark mode button (a moon when the page
   is dark, a sun when it is not), in I.K.E.'s Plasma look: "I.K.E. Dark
   Engine", on everywhere and on this site, four styles drawn in their own

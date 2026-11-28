@@ -1,5 +1,5 @@
-"""The big-site check of the I.K.E. Dark Engine experiment, for the owner's own
-computer (the sites below cannot be reached from the machines that built the
+"""The big-site check of the I.K.E. Dark Engine, for a computer that can reach
+the sites (the sites below cannot be reached from the machines that built the
 engine). Started by owner-check.sh; not part of the automatic tests.
 
 Each site is opened three times, in a private profile that keeps nothing (no
@@ -157,7 +157,7 @@ def main():
     ap.add_argument("--url", action="append", default=[],
                     help="any other address to check (repeatable); kept on this computer only")
     ap.add_argument("--click", default="",
-                    help="click first a button or link with this text (an age or cookie question), e.g. \"I'm Over 18\"")
+                    help="click first a button or link with this text (an age or cookie question), e.g. \"Accept\"")
     ap.add_argument("--modes", default="",
                     help="the renders to compare (default off,proto); with DE_JS_<mode>=file a mode runs another "
                          "copy of the engine, e.g. --modes off,proto128,proto with DE_JS_proto128=an older darkengine.js")

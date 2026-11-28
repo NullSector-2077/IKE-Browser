@@ -8,7 +8,7 @@ printing), then handles what the page adds, once a frame. Dark Reader's lists
 (darkfixes.py, the rules the engine can use: engine_css) give the per-site
 fixes and the sites that are dark already; its own detector finds sites dark
 by design that do not say so. It works at every protection level (the owner's
-decision). Measured by tests/dark_engine/ (docs/DARK-ENGINE-EXPERIMENT.md).
+decision). Measured by tests/dark_engine/ (docs/DARK-ENGINE.md).
 
 The experiment's hidden switch ("dark_engine_experiment": true with the method
 "Dark Reader", 1.1.26-27) becomes the choice by itself (config.py).
