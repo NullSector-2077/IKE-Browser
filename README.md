@@ -90,9 +90,10 @@ profiles: `ike-browser --profile NAME`.
   in plain colours); a worker a page's script makes gets the same
   protection. The site's own background workers (service workers, shared
   workers, workers from its files: WhatsApp and Telegram need them) run at
-  Kontrol, and the shield counts them; Maximum refuses them, and when that
-  breaks a site the shield says so and "Repair this site" turns off only
-  them, for that site alone. Maximum also tells sites English only, with
+  Kontrol and Maximum, and the shield counts them and says so in one quiet
+  line, with "Block them on this site"; they stay out on a page of one of
+  I.K.E.'s safety warnings (a page of the malware and phishing lists opened
+  anyway, a lookalike site...). Maximum also tells sites English only, with
   dates and numbers written the American way.
 - The shield's octagon says what I.K.E. found on the page in front (1.1.32):
   a short green run when the page loaded well with nothing to say (it does

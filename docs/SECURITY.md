@@ -134,8 +134,11 @@ routes useless; it cannot stop a script written against it:
   the page; elsewhere such a worker keeps the protection or does not start.
   A worker from a site's file at Maximum is still refused rather than run
   without the protection (at Kontrol see the next point).
-- **The site's own workers at Kontrol** (1.1.32, the owner's decision after
-  the web compatibility campaign, docs/review/web-compat-2026-11.md): a
+- **The site's own workers at Kontrol and Maximum** (1.1.32, the owner's
+  decisions after the web compatibility campaign,
+  docs/review/web-compat-2026-11.md, and for Maximum the same day: "i siti
+  devono funzionare, almeno quelli fidati"; docs/review/fp-audit-1.1.32.md
+  measured what they show): a
   site's service workers, shared workers, and dedicated workers from its own
   files when its policy refuses the protected copy (WhatsApp, Telegram,
   Google's apps, GitHub) run with the engine's own values: the real graphics
@@ -146,14 +149,22 @@ routes useless; it cannot stop a script written against it:
   can make one either), plus what those files import themselves (a push
   notification library, for example). Every worker a page's script can make
   from its own text keeps the protection. Balanced has always let them run
-  (the same values); Maximum refuses them, except on a site where the user
-  allowed them ("Repair this site", put forward by the shield when their
-  refusal breaks the site). A site raised to Maximum while a tab of it still
-  runs its workers: a page at Maximum gets a shared worker of its own (whose
-  file the request check refuses) and cannot take back an unregistered
-  service worker with register(); the page that still uses the old service
-  worker keeps it until it is left, as the engine's unregister() does, and
-  nothing the site stored is deleted.
+  (the same values). They stay out, at Kontrol and Maximum, on a page of one
+  of I.K.E.'s safety warnings (`shields.worker_danger`: a page of the
+  malware and phishing lists opened anyway, a site opened without its secure
+  connection or allowed into the home network, a lookalike of a famous
+  site) and on a site where the user blocked them in the shield (the quiet
+  line "This site uses background programs: it works better, but protects
+  you a little less.", "Block them on this site"; the octagon does not light
+  up for them). The request check refuses their files there; fingerprint.js
+  is told (`wkout`) and unregisters an older service worker. A block made
+  while a tab of the site still runs its workers: a page there gets a shared
+  worker of its own (whose file the request check refuses) and cannot take
+  back an unregistered service worker with register(); the page that still
+  uses the old service worker keeps it until it is left, as the engine's
+  unregister() does, and nothing the site stored is deleted. A lookalike
+  found by Sosia on a page already open: the request check refuses at once,
+  fingerprint.js from the next page.
   Only the site the user visits: a frame of another site (a widget, an ad)
   gets no free worker at Kontrol either, nor is offered to the user. Known
   limits (the independent review of 1.1.32): a dedicated worker whose

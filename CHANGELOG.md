@@ -87,26 +87,40 @@
   its own evidence. Nothing runs without a finding; with one, about 24
   pictures a second of the octagon alone (0.2 ms each), none while the
   window is hidden; with the interface's effects off, a still rim (and no
-  green). The bar above the page for Maximum's refused workers is gone,
-  absorbed into the shield (`ike/incompat.py`, `ike/interference.py`,
+  green). The bar above the page for refused workers is gone, absorbed into
+  the shield (`ike/incompat.py`, `ike/interference.py`,
   `ike/securebar.py` `danger_of`, `ike/shieldpanel.py`, `ike/window.py`,
   `ike/repair.py`; tests/test_interference.py, tests/test_site_workers.py;
   twelve new texts in every language pack, two gone). "Repair this site"
   also knows dark mode and WebRTC's local addresses as protections of their
   own.
-- **Maximum keeps the sites' own workers out after a change of level**
-  (the brief's level transitions): a shared worker started at Kontrol in a
-  tab still open could be joined by a page at Maximum without its file being
-  asked for, and a service worker unregistered at Maximum was taken back by
-  the page's own register(), both with the engine's own values. Now a page
-  at Maximum (or a frame of another site) gets a shared worker of its own,
-  whose file the request check refuses, and register() of a scope
-  unregistered there answers as the engine does when the file is refused.
-  Nothing stored by the site is deleted (`ike/resources/fingerprint.js`;
-  tests/test_site_workers.py).
+- **The sites' own workers run at Maximum too, except where it is not safe**
+  (the owner's decision of 2026-11-28: "i siti devono funzionare, almeno
+  quelli fidati"). Maximum now treats a site's own service workers, shared
+  workers and workers from its files as Kontrol does (only the site's own
+  files can be in them; every worker a page's script makes from its own text
+  keeps the protection; a frame of another site gets none). They stay out
+  on a page of one of I.K.E.'s safety warnings (a page on the malware and
+  phishing lists opened anyway, a site opened without its secure connection
+  or allowed into the home network, a lookalike of a famous site: the facts
+  the warnings act on, no list of sites of its own) and on a site where the
+  user blocked them. The octagon does not light up for them (nearly every
+  big site uses them); the shield panel says, for whoever opens it, "This
+  site uses background programs: it works better, but protects you a
+  little less." with "Block them on this site" (remembered for the site,
+  "Allow them again" takes it back), at Kontrol too. "Repair this site"
+  offers only the user's own block, never a page of a safety warning, and
+  "Undo the repair" brings the block back. Where they stay out, a page cannot
+  join a shared worker started before in a tab still open, nor take back a
+  service worker unregistered there with register() (it answers as the
+  engine does when the file is refused). Nothing the site stored is deleted
+  (`ike/shields.py` `worker_danger`, `ike/resources/fingerprint.js`,
+  `ike/repair.py`, `ike/shieldpanel.py`, `ike/securebar.py`; tests/test_site_workers.py,
+  tests/test_fingerprint_125.py, tests/test_fingerprint_125_workers.py,
+  tests/test_trusted_types_workers.py; four new texts in every language pack).
 - **The protected workers behave as the engine's own**: a page of the
   compatibility suite (tests/compat/webtech/conformance.html) compares
-  I.K.E. at Kontrol with Chrome for Testing 140 on 22 points (order of 100
+  I.K.E. at Kontrol and Maximum with Chrome for Testing 140 on 22 points (order of 100
   messages, transferred buffers, ports, OffscreenCanvas, copies made when
   posting, clone and transfer errors in the engine's words, terminate(),
   late listeners, errors, nested, module and concurrent workers): all the

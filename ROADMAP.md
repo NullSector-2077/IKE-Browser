@@ -80,9 +80,16 @@ are agreed with the project owner; do not reopen them without asking.
   (#FF9100, something essential may not work: "Repair this site"), red
   (#FF254F, only I.K.E.'s safety warnings, never "Repair this site").
   Precedence red, orange, yellow, green. The bar for Maximum's workers is
-  absorbed into the shield. "Non indebolire ulteriormente Maximum senza una
-  mia autorizzazione esplicita": Maximum was made stricter only (level
-  changes no longer leave a running worker to the page).
+  absorbed into the shield.
+- 2026-11-28, **Maximum runs the sites' own workers too, except where it is
+  not safe** (the owner's explicit authorisation to change Maximum, in the
+  Cloudflare session: "no lo sblocchi anche a maximum, i siti devono
+  funzionare, almeno quelli fidati", then "ok fai come hai detto te" and
+  "ok fai così"). As Kontrol: a site's own service, shared and file workers
+  run; they stay out on a page of I.K.E.'s safety warnings (no list of
+  sites of its own) and where the user blocked them. The shield does not
+  light up for them (alarm fatigue): one quiet line in its panel with
+  "Block them on this site", at Kontrol too.
 - 2026-11-28, **compatibility first, and the user told what is turned off**
   (the owner, after the web compatibility campaign,
   docs/review/web-compat-2026-11.md: "deve essere utilizzabile il
