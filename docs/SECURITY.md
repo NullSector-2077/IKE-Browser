@@ -88,7 +88,7 @@ kind; fixed too:
 | N3 | Noise removable by a majority vote over reads with one corner changed, and audio factors read from a buffer of known samples | The noise depends on each pixel's colour and its neighbour's, each sample's value and the one before it: neither the place nor the whole picture | Areas of one plain colour are left as they are (they say nothing about the computer); noise of any kind cannot resist a script written against it (audit, I-1) |
 | FP-M-5 | Error stacks named the protection (`userscript:ike-fp`) | Neutral script names; the protection's lines taken out of stacks | A page that sets `Error.prepareStackTrace` still sees the frames |
 | FP-M-6 | The plugin list recognisable (the prototype's `item()`/`length`/`name` threw; own properties on the invented entries) | The engine's own getters and methods answer for the list and the invented entries | - |
-| FP-V (second pass) | 13 more ways around the fixes: a getter on `Promise`/`Array.prototype.constructor` (species), setters on `Array.prototype`'s index names, module workers (imports run before the prelude), workers inside workers from a page-made address, WebGL numbers given as text or objects, float16 reads rounded to 8 bits, `local()` written with escapes, comments or objects, quiet audio sharing one factor, `SharedArrayBuffer`, the plugin list's own keys, `split()` in the stack cleaning, Trusted Types and `Worker()` with no argument | The engine's promises get an own constructor; loops instead of `filter()`; elements written with `defineProperty`; internal tables without a prototype; module workers get a seed of their own; nested blob addresses read and given the prelude; WebGL numbers read once and passed on as read; float16 noise at the 8-bit scale; every `local()` taken out of FontFace sources; audio factors from each sample's own bits; `SharedArrayBuffer` noised; `ownKeys` and descriptors of the plugin list; a TrustedScriptURL kept, or the prelude's address given a policy of its own (1.1.31: made as the document starts, under a random name; where the site's server refuses it and the page has a default policy, the worker starts as the page asked; an exhausted stack or an address the prelude cannot be added to gives an error, never an inline worker without the protection) | See "Known limits of the noise" below |
+| FP-V (second pass) | 13 more ways around the fixes: a getter on `Promise`/`Array.prototype.constructor` (species), setters on `Array.prototype`'s index names, module workers (imports run before the prelude), workers inside workers from a page-made address, WebGL numbers given as text or objects, float16 reads rounded to 8 bits, `local()` written with escapes, comments or objects, quiet audio sharing one factor, `SharedArrayBuffer`, the plugin list's own keys, `split()` in the stack cleaning, Trusted Types and `Worker()` with no argument | The engine's promises get an own constructor; loops instead of `filter()`; elements written with `defineProperty`; internal tables without a prototype; module workers get a seed of their own; nested blob addresses read and given the prelude; WebGL numbers read once and passed on as read; float16 noise at the 8-bit scale; every `local()` taken out of FontFace sources; audio factors from each sample's own bits; `SharedArrayBuffer` noised; `ownKeys` and descriptors of the plugin list; a TrustedScriptURL kept, or the prelude's address given a policy of its own (1.1.32: made as the document starts, under a random name; where the site's server refuses it and the page has a default policy, the worker starts as the page asked; an exhausted stack or an address the prelude cannot be added to gives an error, never an inline worker without the protection) | See "Known limits of the noise" below |
 | FP-M-4 | The storage quota gave the disk size | `StaticStorageQuota`: 10 GiB for everyone | - |
 | N5 | Maximum: an empty language list, or a language the engine lacks, fell back to the system's language | Such a list means the language shown (en-US), in pages and workers; the list is read once, as the engine reads it | At the global level Maximum the engine itself speaks en-US too (form messages, Date's zone names, every kind of worker; owner's decision, audit M-7). A site set to Maximum by itself keeps the engine's texts in the system's language: the engine has one language for all sites |
 
@@ -117,14 +117,14 @@ routes useless; it cannot stop a script written against it:
   effect (a computed style).
 - **A site set to Maximum by itself** (not the global level) keeps the
   engine's own texts and the time zone's name in the system's language.
-- **Workers of a site that refuses I.K.E.'s Trusted Types policy** (1.1.31):
+- **Workers of a site that refuses I.K.E.'s Trusted Types policy** (1.1.32):
   a site whose server sends a content security policy that allows only its
   own Trusted Types policies by name (`trusted-types <names>`) refuses the
   policy that makes a worker address with the protection in it trusted. Where
   that site also has a default policy of its own (Cloudflare's challenge
   frame), the worker starts as the page asked, with the engine's own values
   (canvas, WebGL, navigator in that worker): one header is enough for a site
-  to have its own workers without the protection. Until 1.1.31 such workers
+  to have its own workers without the protection. Until 1.1.32 such workers
   did not start at all (Cloudflare's Turnstile failed at Balanced and above),
   and the refused policy's name was made from the site's seed. Only the
   server can do this: I.K.E.'s policy is made before any script of a
@@ -132,8 +132,52 @@ routes useless; it cannot stop a script written against it:
   (which take the policy of the document that made them, a `<meta>` a script
   added included) a refusal counts only when the server already refused it in
   the page; elsewhere such a worker keeps the protection or does not start.
-  A worker from a site's file at Kontrol and Maximum is still refused rather
-  than run without the protection.
+  A worker from a site's file at Maximum is still refused rather than run
+  without the protection (at Kontrol see the next point).
+- **The site's own workers at Kontrol and Maximum** (1.1.32, the owner's
+  decisions after the web compatibility campaign,
+  docs/review/web-compat-2026-11.md, and for Maximum the same day: "i siti
+  devono funzionare, almeno quelli fidati"; docs/review/fp-audit-1.1.32.md
+  measured what they show): a
+  site's service workers, shared workers, and dedicated workers from its own
+  files when its policy refuses the protected copy (WhatsApp, Telegram,
+  Google's apps, GitHub) run with the engine's own values: the real graphics
+  card through `OffscreenCanvas` WebGL, a canvas without noise, Chrome's full
+  version, the real number of cores above 8, `languages` with the first
+  language only. Only the site's own files can be in them (the engine allows
+  nothing else; where a policy refuses blob: workers no script of the page
+  can make one either), plus what those files import themselves (a push
+  notification library, for example). Every worker a page's script can make
+  from its own text keeps the protection. Balanced has always let them run
+  (the same values). They stay out, at Kontrol and Maximum, on a page of one
+  of I.K.E.'s safety warnings (`shields.worker_danger`: a page of the
+  malware and phishing lists opened anyway, a site opened without its secure
+  connection or allowed into the home network, a lookalike of a famous
+  site) and on a site where the user blocked them in the shield (the quiet
+  line "This site uses background programs: it works better, but protects
+  you a little less.", "Block them on this site"; the octagon does not light
+  up for them). The request check refuses their files there; fingerprint.js
+  is told (`wkout`) and unregisters an older service worker. A block made
+  while a tab of the site still runs its workers: a page there gets a shared
+  worker of its own (whose file the request check refuses) and cannot take
+  back an unregistered service worker with register(); the page that still
+  uses the old service worker keeps it until it is left, as the engine's
+  unregister() does, and nothing the site stored is deleted. A lookalike
+  found by Sosia on a page already open: the request check refuses at once,
+  fingerprint.js from the next page.
+  Only the site the user visits: a frame of another site (a widget, an ad)
+  gets no free worker at Kontrol either, nor is offered to the user. Known
+  limits (the independent review of 1.1.32): a dedicated worker whose
+  protected copy the policy refused is started from the site's file inside
+  the same Worker object, so the first such worker of each document hands
+  its messages and errors to the page as events of the protection's
+  (`isTrusted` false), as is the error of a worker whose file is missing
+  (the protected worker loads the file itself;
+  tests/test_worker_conformance.py checks every other point against Chrome
+  140); and a script of the page that adds a `<meta>` policy
+  refusing blob workers makes that document's later file workers start from
+  the site's own file (a `<meta>` cannot be told from the server's policy).
+  Either way only the site's own files run there.
 - **The refusal can be seen by such a site's server**: the report it asked for
   (`report-uri`) names the refused policy (a random name) and gives
   `userscript` as the source, so a site that allows only its own policies by
@@ -143,15 +187,32 @@ routes useless; it cannot stop a script written against it:
   of the address it gives where its policy was refused; the page's own
   Trusted Types errors and events it makes reach it), but a
   `ReportingObserver` of `csp-violation` reports still sees them, and so
-  does a listener after `document.open()`. Before 1.1.31 the same report was
+  does a listener after `document.open()`. Before 1.1.32 the same report was
   sent when the page started a worker.
-- **Inline workers that still start without the protection** (found by the
-  independent review of 1.1.31, older than it): a worker address the proxy
-  does not recognise as blob: or data: because of leading spaces or capital
-  letters (`' blob:…'`, `'BLOB:…'`), which the engine accepts; and a blob
-  address made in another frame or in a worker whose text cannot be read
-  (a `connect-src` that leaves out blob:). Both still to be fixed.
-- **A srcdoc frame of a site that refuses the policy** (1.1.31): its worker
+- **Inline workers whose address looked different** (found by the
+  independent review of 1.1.32, older than it, closed in 1.1.32): an address
+  the engine takes but the protection did not see as blob: or data: (leading
+  spaces, capital letters), and a blob address made in another frame or in a
+  worker whose text could not be read (a `connect-src` that leaves out
+  blob:), started without the protection. The address is now read as the
+  engine reads it, an unreadable blob (or a `filesystem:` address) is
+  started from the protection, which then loads it, and the protection's
+  address is always trusted by I.K.E.'s own Trusted Types policy, so a
+  default policy of the page's never sees it (tests/test_worker_addresses.py,
+  tests/test_trusted_types_workers.py). Blobs made in the
+  page's own empty frames are read directly. Where the worker itself cannot
+  load such a blob either (a policy whose script-src leaves out blob:, the
+  blob revoked by its own frame or worker right after the worker was asked
+  for), the worker does not start: never without the protection.
+- **The passkey answers at Compatibility** (1.1.32): there the three
+  `PublicKeyCredential` functions are proxies of the engine's own, so that
+  `Function.prototype.toString` stays the engine's on every page (the sign-in
+  pages kept at Compatibility included); their own text reads
+  `function () { [native code] }` instead of Chromium's
+  `function isConditionalMediationAvailable() { [native code] }`. A script
+  that reads the text of these three functions can tell; replacing `toString`
+  instead would be seen by any page that reads it from a clean frame.
+- **A srcdoc frame of a site that refuses the policy** (1.1.32): its worker
   does not start (its own script cannot know that the server refused the
   policy in the page); an empty frame of the same page starts it as asked.
 
@@ -320,6 +381,46 @@ the shield off on a Google site, or "Make sign-in work" off, Google sees the
 engine as it is. The varying part of an export is in the page's world:
 like the rest of the noise it cannot resist a script written against it
 (see "Known limits of the noise").
+
+## The diagnosis of "Repair this site" and the shield's colours (1.1.32)
+
+`ike/incompat.py`, `ike/interference.py`. What a page can and cannot do to it:
+
+- **Evidence.** A finding needs an intervention the request check
+  (`shields.Interceptor`, I.K.E.'s own process) saw for that page, per
+  profile and site: a page cannot write there. The page's own world can only
+  add weak evidence, through a console message carrying a key made at
+  start (`secrets.token_hex`) and handed only to fingerprint.js's closure;
+  messages without it, with a guessed one, or with an unknown kind are
+  ignored and never logged. Weak evidence alone never raises anything. The
+  probe that looks whether the page is empty runs in I.K.E.'s isolated world:
+  the page can draw what it likes, but cannot run or answer it.
+- **What a finding can do.** Only colour the octagon yellow or orange and
+  put forward, in the shield panel, the one narrow repair its evidence
+  names, for that same site. Nothing is turned off until the user presses
+  "Repair this site" and answers that the page works; the trial lives in
+  memory and is undone on cancel. A page that fakes a breakage can at most
+  make I.K.E. propose, to the user, a change for itself: the narrow one its
+  own requests made relevant, or (an empty page, a player in error after a
+  block of the site's own address: yellow only, since such a block is often
+  an ordinary tracker) the search "Repair this site" has always been, step
+  by step with the user's answers, which may end by offering the shield off
+  for that site. Never another site, never by itself, never the sandbox,
+  TLS, certificates or the engine's isolation (none of them is a repair
+  key). Red never comes from what a page prints: the notice for "a part of
+  this page" (read from the engine's console words) stays a notice. The
+  probe reads web components' shadow roots and form fields, so a page of
+  components or a sign-in form is not "empty". The request check cannot
+  tell tabs apart: the evidence of a site belongs to its page whose load
+  started last.
+- **Red** comes only from I.K.E.'s safety warnings already in effect
+  (`securebar.danger_of`: it reads them, never shows, hides or decides one)
+  and never offers "Repair this site". **Green** says only that nothing was
+  found during that load; it never plays with the protection off, with an
+  exception on the site, over plain http, after a failed load, with a
+  warning or with evidence still being looked at, and its words say it does
+  not prove the site is safe.
+- **Nothing leaves the computer**: no report, no network request, no AI.
 
 ## Known limits (not solved)
 

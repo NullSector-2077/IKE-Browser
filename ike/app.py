@@ -61,6 +61,11 @@ class IkeApp(QObject):
         self.blocker = Blocker(config, self)
         self.blocker.prepare()               # built meanwhile; start() waits for it before any page
         self.shields = Shields(config, self.blocker, self)
+        # the diagnosis of incompatibilities (1.1.32, incompat.py): evidence from the
+        # request check, findings per tab, "Repair this site" from the shield
+        from .incompat import Diagnosis
+        self.diagnosis = Diagnosis(self)
+        self.shields.diagnosis = self.diagnosis
         from .fontcheck import Checker as FontCheck
         self.font_check = FontCheck(self.shields, self)   # fonts a page could find (Strict / Maximum)
         self.font_check.start()

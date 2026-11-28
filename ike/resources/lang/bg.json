@@ -1609,6 +1609,25 @@
 "This session, by kind": "Тази сесия, по вид",
 "This session, the sites that tried most": "Тази сесия, сайтовете, които опитаха най-много",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Нищо от това не напуска компютъра ви. Числата на тази сесия започват отначало при стартиране на I.K.E.",
-"Nothing blocked yet in this session.": "Все още нищо не е блокирано в тази сесия."
+"Nothing blocked yet in this session.": "Все още нищо не е блокирано в тази сесия.",
+"Blocking of the site's own background workers": "Блокиране на собствените фонови процеси на сайта",
+"Background workers blocked": "Блокирани фонови процеси",
+"Site's own workers allowed": "Разрешени собствени процеси на сайта",
+"Probable cause: a protection blocked something the page needs.": "Вероятна причина: защита е блокирала нещо, от което страницата се нуждае.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Поправяне: вероятната причина е изключена на този сайт за момент, всички други защити остават включени. Страницата работи ли сега?",
+"This site works fine": "Този сайт работи добре",
+"The octagon goes back to normal for this site in this tab": "Осмоъгълникът се връща към нормалното за този сайт в този раздел",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "„Поправи този сайт“ изключва само тази защита, само за този сайт; всички други защити остават включени.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. може да ви помогне да го поправите, като запази всички други защити включени.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Опасност: сертификатът на този сайт не е валиден, така че връзката може да не е поверителна.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Опасност: I.K.E. откри реален риск за вашата сигурност на този сайт. Прочетете предупреждението над страницата.",
+"A protection may interfere with some features of this site.": "Защита може да пречи на някои функции на този сайт.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Защита може да попречи на правилната работа на този сайт. Използвайте „Поправи този сайт“.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. не откри нищо нередно при зареждането на тази страница. Това не доказва, че сайтът е безопасен.",
+"This site uses background programs: it works better, but protects you a little less.": "Този сайт използва фонови програми: работи по-добре, но ви защитава малко по-слабо.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Фоновите програми на този сайт са блокирани: повече защита, но сайтът може да не работи.",
+"Block them on this site": "Блокирай ги на този сайт",
+"Allow them again": "Разреши ги отново",
+"Probable cause: this site's background programs are blocked.": "Вероятна причина: фоновите програми на този сайт са блокирани."
 }
 }

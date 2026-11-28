@@ -1609,6 +1609,25 @@
 "This session, by kind": "Bu sessiya, növə görə",
 "This session, the sites that tried most": "Bu sessiya, ən çox cəhd edən saytlar",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Bunların heç biri kompüterinizdən çıxmır. Bu sessiyanın rəqəmləri I.K.E. başlayanda yenidən başlayır.",
-"Nothing blocked yet in this session.": "Bu sessiyada hələ heç nə bloklanmayıb."
+"Nothing blocked yet in this session.": "Bu sessiyada hələ heç nə bloklanmayıb.",
+"Blocking of the site's own background workers": "Saytın öz fon işçilərinin bloklanması",
+"Background workers blocked": "Bloklanmış fon işçiləri",
+"Site's own workers allowed": "Saytın öz işçilərinə icazə verildi",
+"Probable cause: a protection blocked something the page needs.": "Ehtimal olunan səbəb: bir qoruma səhifənin ehtiyac duyduğu nəyisə blokladı.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Düzəliş: ehtimal olunan səbəb bu saytda bir anlıq söndürülüb, bütün digər qorumalar aktiv qalır. Səhifə indi işləyirmi?",
+"This site works fine": "Bu sayt yaxşı işləyir",
+"The octagon goes back to normal for this site in this tab": "Səkkizbucaq bu vərəqdə bu sayt üçün normal vəziyyətinə qayıdır",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Bu saytı təmir et” yalnız həmin qorumanı, yalnız bu sayt üçün söndürür; bütün digər qorumalar aktiv qalır.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. bütün digər qorumaları aktiv saxlayaraq bunu düzəltməyə kömək edə bilər.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Təhlükə: bu saytın sertifikatı etibarlı deyil, ona görə də bağlantı məxfi olmaya bilər.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Təhlükə: I.K.E. bu saytda təhlükəsizliyiniz üçün real risk aşkar etdi. Səhifənin üstündəki xəbərdarlığı oxuyun.",
+"A protection may interfere with some features of this site.": "Bir qoruma bu saytın bəzi funksiyalarına mane ola bilər.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Bir qoruma bu saytın düzgün işləməsinə mane ola bilər. “Bu saytı təmir et” seçimindən istifadə edin.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. bu səhifə yüklənərkən heç bir problem aşkar etmədi. Bu, saytın təhlükəsiz olduğunu sübut etmir.",
+"This site uses background programs: it works better, but protects you a little less.": "Bu sayt fon proqramlarından istifadə edir: daha yaxşı işləyir, amma sizi bir az daha az qoruyur.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Bu saytın fon proqramları bloklanıb: daha çox qoruma, amma sayt işləməyə bilər.",
+"Block them on this site": "Bu saytda onları blokla",
+"Allow them again": "Onlara yenidən icazə ver",
+"Probable cause: this site's background programs are blocked.": "Ehtimal olunan səbəb: bu saytın fon proqramları bloklanıb."
 }
 }

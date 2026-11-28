@@ -1609,6 +1609,25 @@
 "This session, by kind": "ეს სესია, სახეობის მიხედვით",
 "This session, the sites that tried most": "ეს სესია, საიტები, რომლებიც ყველაზე მეტად ცდილობდნენ",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "ამათგან არაფერი ტოვებს თქვენს კომპიუტერს. ამ სესიის რიცხვები თავიდან იწყება I.K.E.-ის გაშვებისას.",
-"Nothing blocked yet in this session.": "ამ სესიაში ჯერ არაფერია დაბლოკილი."
+"Nothing blocked yet in this session.": "ამ სესიაში ჯერ არაფერია დაბლოკილი.",
+"Blocking of the site's own background workers": "საიტის საკუთარი ფონური პროცესების დაბლოკვა",
+"Background workers blocked": "დაბლოკილი ფონური პროცესები",
+"Site's own workers allowed": "საიტის საკუთარი პროცესები დაშვებულია",
+"Probable cause: a protection blocked something the page needs.": "სავარაუდო მიზეზი: დაცვამ დაბლოკა რაღაც, რაც გვერდს სჭირდება.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "გამოსწორება: სავარაუდო მიზეზი ამ საიტზე ერთი წუთით გამორთულია, ყველა სხვა დაცვა ჩართული რჩება. გვერდი ახლა მუშაობს?",
+"This site works fine": "ეს საიტი კარგად მუშაობს",
+"The octagon goes back to normal for this site in this tab": "რვაკუთხედი ამ ჩანართში ამ საიტისთვის ჩვეულ მდგომარეობას უბრუნდება",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "„ამ საიტის შეკეთება“ გამორთავს მხოლოდ იმ დაცვას, მხოლოდ ამ საიტისთვის; ყველა სხვა დაცვა ჩართული რჩება.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. დაგეხმარებათ ამის გამოსწორებაში ისე, რომ ყველა სხვა დაცვა ჩართული დარჩება.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "საფრთხე: ამ საიტის სერტიფიკატი არ არის მოქმედი, ამიტომ კავშირი შეიძლება არ იყოს პირადი.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "საფრთხე: I.K.E.-მ ამ საიტზე თქვენი უსაფრთხოებისთვის რეალური რისკი აღმოაჩინა. წაიკითხეთ გაფრთხილება გვერდის ზემოთ.",
+"A protection may interfere with some features of this site.": "დაცვამ შეიძლება ხელი შეუშალოს ამ საიტის ზოგიერთ ფუნქციას.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "დაცვამ შეიძლება ხელი შეუშალოს ამ საიტის გამართულ მუშაობას. გამოიყენეთ „ამ საიტის შეკეთება“.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E.-მ ამ გვერდის ჩატვირთვისას საეჭვო ვერაფერი აღმოაჩინა. ეს არ ამტკიცებს, რომ საიტი უსაფრთხოა.",
+"This site uses background programs: it works better, but protects you a little less.": "ეს საიტი იყენებს ფონურ პროგრამებს: ის უკეთ მუშაობს, მაგრამ ცოტა ნაკლებად გიცავთ.",
+"This site's background programs are blocked: more protection, but the site may not work.": "ამ საიტის ფონური პროგრამები დაბლოკილია: მეტი დაცვა, მაგრამ საიტმა შეიძლება არ იმუშაოს.",
+"Block them on this site": "დაბლოკეთ ისინი ამ საიტზე",
+"Allow them again": "კვლავ დაუშვით ისინი",
+"Probable cause: this site's background programs are blocked.": "სავარაუდო მიზეზი: ამ საიტის ფონური პროგრამები დაბლოკილია."
 }
 }

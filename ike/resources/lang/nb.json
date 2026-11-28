@@ -1609,6 +1609,25 @@
 "This session, by kind": "Denne økten, etter type",
 "This session, the sites that tried most": "Denne økten, nettstedene som prøvde mest",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Ingenting av dette forlater datamaskinen din. Tallene for denne økten starter på nytt når I.K.E. starter.",
-"Nothing blocked yet in this session.": "Ingenting blokkert ennå i denne økten."
+"Nothing blocked yet in this session.": "Ingenting blokkert ennå i denne økten.",
+"Blocking of the site's own background workers": "Blokkering av nettstedets egne bakgrunnsprosesser",
+"Background workers blocked": "Bakgrunnsprosesser blokkert",
+"Site's own workers allowed": "Nettstedets egne prosesser tillatt",
+"Probable cause: a protection blocked something the page needs.": "Sannsynlig årsak: en beskyttelse blokkerte noe siden trenger.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Reparasjon: den sannsynlige årsaken er slått av på dette nettstedet et øyeblikk, alle andre beskyttelser forblir på. Fungerer siden nå?",
+"This site works fine": "Dette nettstedet fungerer fint",
+"The octagon goes back to normal for this site in this tab": "Åttekanten blir normal igjen for dette nettstedet i denne fanen",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "«Reparer dette nettstedet» slår av bare den beskyttelsen, kun for dette nettstedet; alle andre beskyttelser forblir på.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. kan hjelpe deg med å fikse det mens alle andre beskyttelser forblir på.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Fare: sertifikatet til dette nettstedet er ikke gyldig, så tilkoblingen er kanskje ikke privat.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Fare: I.K.E. har funnet en reell risiko for sikkerheten din på dette nettstedet. Les advarselen over siden.",
+"A protection may interfere with some features of this site.": "En beskyttelse kan forstyrre noen funksjoner på dette nettstedet.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "En beskyttelse kan hindre dette nettstedet i å fungere som det skal. Bruk «Reparer dette nettstedet».",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. fant ingenting galt mens denne siden ble lastet inn. Det beviser ikke at nettstedet er trygt.",
+"This site uses background programs: it works better, but protects you a little less.": "Dette nettstedet bruker bakgrunnsprogrammer: det fungerer bedre, men beskytter deg litt mindre.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Bakgrunnsprogrammene til dette nettstedet er blokkert: mer beskyttelse, men nettstedet virker kanskje ikke.",
+"Block them on this site": "Blokker dem på dette nettstedet",
+"Allow them again": "Tillat dem igjen",
+"Probable cause: this site's background programs are blocked.": "Sannsynlig årsak: bakgrunnsprogrammene til dette nettstedet er blokkert."
 }
 }

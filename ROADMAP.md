@@ -66,6 +66,43 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Owner's decisions
 
+- 2026-11-28, **"Ripara sito" becomes a diagnosis centre, and the octagon
+  has four colours** (the owner's brief "Evoluzione strutturale della
+  compatibilità, delle protezioni e di «Ripara sito»" and its two additions):
+  "Proteggere il più possibile, interferire il meno possibile e intervenire
+  esclusivamente sulle protezioni che compromettono realmente il
+  funzionamento di un sito." A finding needs a protection that really acted
+  (I.K.E.'s request check), a coherent error, a real impairment and a narrow
+  repair; nothing is turned off by itself, the page cannot raise or settle
+  anything by itself, nothing leaves the computer. The shield's octagon:
+  green (#00E676, once, nothing found on a page that loaded well; never a
+  safety guarantee), yellow (#FACC15, a feature may not work), orange
+  (#FF9100, something essential may not work: "Repair this site"), red
+  (#FF254F, only I.K.E.'s safety warnings, never "Repair this site").
+  Precedence red, orange, yellow, green. The bar for Maximum's workers is
+  absorbed into the shield.
+- 2026-11-28, **Maximum runs the sites' own workers too, except where it is
+  not safe** (the owner's explicit authorisation to change Maximum, in the
+  Cloudflare session: "no lo sblocchi anche a maximum, i siti devono
+  funzionare, almeno quelli fidati", then "ok fai come hai detto te" and
+  "ok fai così"). As Kontrol: a site's own service, shared and file workers
+  run; they stay out on a page of I.K.E.'s safety warnings (no list of
+  sites of its own) and where the user blocked them. The shield does not
+  light up for them (alarm fatigue): one quiet line in its panel with
+  "Block them on this site", at Kontrol too.
+- 2026-11-28, **compatibility first, and the user told what is turned off**
+  (the owner, after the web compatibility campaign,
+  docs/review/web-compat-2026-11.md: "deve essere utilizzabile il
+  browser... rendiamo consapevole l'utente che verranno disattivati i worker
+  o alcune protezioni per far funzionare il sito"). Kontrol lets the sites'
+  own workers run (service workers, shared workers, workers from their own
+  files: WhatsApp and Telegram need them); every worker a page's script can
+  make from its own text keeps the protection. Maximum keeps refusing them,
+  says so (a bar above the page and the shield) and lets the user allow them
+  for one site; "Repair this site" turns off only the workers there, not the
+  whole fingerprinting protection. Nothing is turned off by itself. This
+  replaces, for Kontrol, the worker rule of 2026-11-24. Done together with
+  the Cloudflare fix (#233).
 - 2026-11-24, **a stricter gate for an AI's change of the fingerprint
   protection, permanent** (the owner's decision; the owner never has to
   intervene). An independent review showed weakened copies of
@@ -245,10 +282,16 @@ are agreed with the project owner; do not reopen them without asking.
   history kept for a chosen time, print preview). Published on 2026-11-28
   (#227, two test rounds: the first found `kontrol.html` missing from
   `tools/inventory.py` and a fade test that raced on a fast runner).
-- **Next: 1.1.32**, the site-compatibility work of two other conversations.
-  Until it is published AUTOMAT merges nothing into `main` (the owner's
-  decision of 2026-11-28): "Merge green fixes" (`automerge.yml`) is disabled
-  and AUTOMAT re-enables it when 1.1.32 is out. AUTOMAT's own fixes (#229,
+- **1.1.32** is prepared as one release (one pull request, one test round):
+  the sites' own workers at Kontrol and Maximum (WhatsApp, Telegram) except
+  on pages of I.K.E.'s safety warnings or where the user blocks them, the
+  Cloudflare fix, passkeys answered, "Repair this site" as a diagnosis
+  centre and the shield's four colours (I.K.E. Interference), the worker
+  queue checked against Chrome 140, lower bars, the fingerprinting audit;
+  reviewed by Fable 5.2 (its findings fixed). Until it is published AUTOMAT
+  merges nothing into `main` (the owner's decision of 2026-11-28): "Merge
+  green fixes" (`automerge.yml`) is disabled and AUTOMAT re-enables it when
+  1.1.32 is out. AUTOMAT's own fixes (#229,
   #230, #231, #234) go in together as #235, at the owner's request.
 - **Dark Engine**: the white flash on a fast dark site (1.1.31 gives the
   backdrop again at every new page and fades pages) and the white box on one

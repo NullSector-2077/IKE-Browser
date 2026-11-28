@@ -1609,6 +1609,25 @@
 "This session, by kind": "यह सत्र, प्रकार के अनुसार",
 "This session, the sites that tried most": "यह सत्र, वे साइटें जिन्होंने सबसे अधिक कोशिश की",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "इसमें से कुछ भी आपके कंप्यूटर से बाहर नहीं जाता। I.K.E. शुरू होने पर इस सत्र के आँकड़े फिर से शुरू होते हैं।",
-"Nothing blocked yet in this session.": "इस सत्र में अभी तक कुछ भी ब्लॉक नहीं हुआ।"
+"Nothing blocked yet in this session.": "इस सत्र में अभी तक कुछ भी ब्लॉक नहीं हुआ।",
+"Blocking of the site's own background workers": "साइट के अपने बैकग्राउंड वर्कर रोकना",
+"Background workers blocked": "बैकग्राउंड वर्कर रोके गए",
+"Site's own workers allowed": "साइट के अपने वर्कर की अनुमति",
+"Probable cause: a protection blocked something the page needs.": "संभावित कारण: किसी सुरक्षा ने कुछ ऐसा रोक दिया जिसकी पेज को ज़रूरत है।",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "मरम्मत: कुछ क्षण के लिए इस साइट पर संभावित कारण बंद है, बाकी हर सुरक्षा चालू रहती है। क्या पेज अब काम करता है?",
+"This site works fine": "यह साइट ठीक काम करती है",
+"The octagon goes back to normal for this site in this tab": "इस टैब में इस साइट के लिए अष्टभुज फिर से सामान्य हो जाता है",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“इस साइट की मरम्मत करें” केवल उसी सुरक्षा को बंद करता है, केवल इस साइट के लिए; बाकी हर सुरक्षा चालू रहती है।",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. बाकी हर सुरक्षा चालू रखते हुए इसे ठीक करने में आपकी मदद कर सकता है।",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "खतरा: इस साइट का प्रमाणपत्र मान्य नहीं है, इसलिए कनेक्शन शायद निजी न हो।",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "खतरा: I.K.E. को इस साइट पर आपकी सुरक्षा के लिए एक वास्तविक जोखिम मिला है। पेज के ऊपर दी गई चेतावनी पढ़ें।",
+"A protection may interfere with some features of this site.": "कोई सुरक्षा इस साइट की कुछ सुविधाओं में बाधा डाल सकती है।",
+"A protection may stop this site from working properly. Use “Repair this site”.": "कोई सुरक्षा इस साइट को ठीक से काम करने से रोक सकती है। “इस साइट की मरम्मत करें” का उपयोग करें।",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "इस पेज के लोड होते समय I.K.E. को कुछ गलत नहीं मिला। इससे यह साबित नहीं होता कि साइट सुरक्षित है।",
+"This site uses background programs: it works better, but protects you a little less.": "यह साइट बैकग्राउंड प्रोग्राम इस्तेमाल करती है: यह बेहतर काम करती है, लेकिन आपको थोड़ी कम सुरक्षा मिलती है।",
+"This site's background programs are blocked: more protection, but the site may not work.": "इस साइट के बैकग्राउंड प्रोग्राम रोके गए हैं: ज़्यादा सुरक्षा, लेकिन साइट शायद काम न करे।",
+"Block them on this site": "इस साइट पर इन्हें रोकें",
+"Allow them again": "इन्हें फिर से अनुमति दें",
+"Probable cause: this site's background programs are blocked.": "संभावित कारण: इस साइट के बैकग्राउंड प्रोग्राम रोके गए हैं।"
 }
 }

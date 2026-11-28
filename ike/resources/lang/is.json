@@ -1609,6 +1609,25 @@
 "This session, by kind": "Þessi lota, eftir tegund",
 "This session, the sites that tried most": "Þessi lota, vefirnir sem reyndu mest",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Ekkert af þessu fer úr tölvunni þinni. Tölur þessarar lotu byrja upp á nýtt þegar I.K.E. ræsist.",
-"Nothing blocked yet in this session.": "Ekkert hefur verið lokað á í þessari lotu enn."
+"Nothing blocked yet in this session.": "Ekkert hefur verið lokað á í þessari lotu enn.",
+"Blocking of the site's own background workers": "Lokun á eigin bakgrunnsferlum vefsvæðisins",
+"Background workers blocked": "Bakgrunnsferli lokuð",
+"Site's own workers allowed": "Eigin ferli vefsvæðisins leyfð",
+"Probable cause: a protection blocked something the page needs.": "Líkleg orsök: vörn lokaði á eitthvað sem síðan þarf.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Viðgerð: slökkt er á líklegu orsökinni á þessu vefsvæði í smá stund, allar aðrar varnir eru áfram virkar. Virkar síðan núna?",
+"This site works fine": "Þetta vefsvæði virkar vel",
+"The octagon goes back to normal for this site in this tab": "Átthyrningurinn verður aftur eðlilegur fyrir þetta vefsvæði í þessum flipa",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "„Laga þetta vefsvæði“ slekkur aðeins á þeirri vörn, aðeins fyrir þetta vefsvæði; allar aðrar varnir eru áfram virkar.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. getur hjálpað þér að laga þetta á meðan allar aðrar varnir eru áfram virkar.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Hætta: skilríki þessa vefsvæðis eru ekki gild, svo aðrir gætu hugsanlega séð tenginguna.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Hætta: I.K.E. fann raunverulega hættu fyrir öryggi þitt á þessu vefsvæði. Lestu viðvörunina fyrir ofan síðuna.",
+"A protection may interfere with some features of this site.": "Vörn gæti truflað suma eiginleika þessa vefsvæðis.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Vörn gæti komið í veg fyrir að þetta vefsvæði virki rétt. Notaðu „Laga þetta vefsvæði“.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. fann ekkert athugavert á meðan þessi síða hlóðst. Það sannar ekki að vefsvæðið sé öruggt.",
+"This site uses background programs: it works better, but protects you a little less.": "Þetta vefsvæði notar bakgrunnsforrit: það virkar betur en verndar þig aðeins minna.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Bakgrunnsforrit þessa vefsvæðis eru lokuð: meiri vernd, en vefsvæðið virkar hugsanlega ekki.",
+"Block them on this site": "Loka á þau á þessu vefsvæði",
+"Allow them again": "Leyfa þau aftur",
+"Probable cause: this site's background programs are blocked.": "Líkleg orsök: bakgrunnsforrit þessa vefsvæðis eru lokuð."
 }
 }

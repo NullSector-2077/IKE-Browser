@@ -1609,6 +1609,25 @@
 "This session, by kind": "Sesi ini, menurut jenis",
 "This session, the sites that tried most": "Sesi ini, situs yang paling banyak mencoba",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Tidak ada dari ini yang keluar dari komputer Anda. Angka sesi ini dimulai lagi saat I.K.E. dijalankan.",
-"Nothing blocked yet in this session.": "Belum ada yang diblokir di sesi ini."
+"Nothing blocked yet in this session.": "Belum ada yang diblokir di sesi ini.",
+"Blocking of the site's own background workers": "Pemblokiran proses latar milik situs",
+"Background workers blocked": "Proses latar diblokir",
+"Site's own workers allowed": "Proses milik situs diizinkan",
+"Probable cause: a protection blocked something the page needs.": "Kemungkinan penyebab: sebuah perlindungan memblokir sesuatu yang dibutuhkan halaman.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Perbaikan: kemungkinan penyebabnya dimatikan sejenak di situs ini, semua perlindungan lain tetap aktif. Apakah halaman berfungsi sekarang?",
+"This site works fine": "Situs ini berfungsi dengan baik",
+"The octagon goes back to normal for this site in this tab": "Segi delapan kembali normal untuk situs ini di tab ini",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Perbaiki situs ini” hanya mematikan perlindungan itu, khusus untuk situs ini; semua perlindungan lain tetap aktif.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. dapat membantu Anda memperbaikinya sambil tetap mengaktifkan semua perlindungan lain.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Bahaya: sertifikat situs ini tidak valid, jadi koneksi mungkin tidak privat.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Bahaya: I.K.E. menemukan risiko nyata bagi keamanan Anda di situs ini. Baca peringatan di atas halaman.",
+"A protection may interfere with some features of this site.": "Sebuah perlindungan mungkin mengganggu beberapa fitur situs ini.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Sebuah perlindungan mungkin membuat situs ini tidak berfungsi dengan baik. Gunakan “Perbaiki situs ini”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. tidak menemukan masalah saat memuat halaman ini. Ini tidak membuktikan bahwa situs ini aman.",
+"This site uses background programs: it works better, but protects you a little less.": "Situs ini menggunakan program latar: berfungsi lebih baik, tetapi perlindungan Anda sedikit berkurang.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Program latar situs ini diblokir: perlindungan lebih kuat, tetapi situs mungkin tidak berfungsi.",
+"Block them on this site": "Blokir di situs ini",
+"Allow them again": "Izinkan lagi",
+"Probable cause: this site's background programs are blocked.": "Kemungkinan penyebab: program latar situs ini diblokir."
 }
 }

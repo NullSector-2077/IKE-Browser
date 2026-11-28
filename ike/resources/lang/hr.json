@@ -1609,6 +1609,25 @@
 "This session, by kind": "Ova sesija, po vrsti",
 "This session, the sites that tried most": "Ova sesija, stranice koje su najviše pokušavale",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Ništa od ovoga ne napušta vaše računalo. Brojke ove sesije kreću ispočetka kad se I.K.E. pokrene.",
-"Nothing blocked yet in this session.": "U ovoj sesiji još ništa nije blokirano."
+"Nothing blocked yet in this session.": "U ovoj sesiji još ništa nije blokirano.",
+"Blocking of the site's own background workers": "Blokiranje vlastitih pozadinskih procesa stranice",
+"Background workers blocked": "Blokirani pozadinski procesi",
+"Site's own workers allowed": "Dopušteni vlastiti procesi stranice",
+"Probable cause: a protection blocked something the page needs.": "Vjerojatni uzrok: zaštita je blokirala nešto što je stranici potrebno.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Popravak: vjerojatni uzrok je na trenutak isključen na ovoj web-stranici, sve ostale zaštite ostaju uključene. Radi li stranica sada?",
+"This site works fine": "Ova web-stranica radi dobro",
+"The octagon goes back to normal for this site in this tab": "Osmerokut se vraća u normalu za ovu web-stranicu u ovoj kartici",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "„Popravi ovu web-stranicu” isključuje samo tu zaštitu, samo za ovu web-stranicu; sve ostale zaštite ostaju uključene.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. vam može pomoći da to popravite, a da sve ostale zaštite ostanu uključene.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Opasnost: certifikat ove web-stranice nije valjan, pa veza možda nije privatna.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Opasnost: I.K.E. je pronašao stvaran rizik za vašu sigurnost na ovoj web-stranici. Pročitajte upozorenje iznad stranice.",
+"A protection may interfere with some features of this site.": "Zaštita može ometati neke značajke ove web-stranice.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Zaštita može spriječiti ispravan rad ove web-stranice. Upotrijebite „Popravi ovu web-stranicu”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. nije pronašao ništa sumnjivo tijekom učitavanja ove stranice. To ne dokazuje da je web-stranica sigurna.",
+"This site uses background programs: it works better, but protects you a little less.": "Ova web-stranica koristi pozadinske programe: radi bolje, ali vas štiti malo manje.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Pozadinski programi ove web-stranice su blokirani: više zaštite, ali stranica možda neće raditi.",
+"Block them on this site": "Blokiraj ih na ovoj stranici",
+"Allow them again": "Ponovno ih dopusti",
+"Probable cause: this site's background programs are blocked.": "Vjerojatni uzrok: pozadinski programi ove web-stranice su blokirani."
 }
 }

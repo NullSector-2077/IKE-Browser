@@ -1609,6 +1609,25 @@
 "This session, by kind": "Deze sessie, per soort",
 "This session, the sites that tried most": "Deze sessie, de sites die het vaakst probeerden",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Niets hiervan verlaat je computer. De cijfers van deze sessie beginnen opnieuw wanneer I.K.E. start.",
-"Nothing blocked yet in this session.": "Nog niets geblokkeerd in deze sessie."
+"Nothing blocked yet in this session.": "Nog niets geblokkeerd in deze sessie.",
+"Blocking of the site's own background workers": "Blokkeren van de eigen achtergrondprocessen van de site",
+"Background workers blocked": "Achtergrondprocessen geblokkeerd",
+"Site's own workers allowed": "Eigen processen van de site toegestaan",
+"Probable cause: a protection blocked something the page needs.": "Waarschijnlijke oorzaak: een bescherming heeft iets geblokkeerd dat de pagina nodig heeft.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Reparatie: de waarschijnlijke oorzaak is heel even uitgeschakeld op deze site, alle andere beschermingen blijven aan. Werkt de pagina nu?",
+"This site works fine": "Deze site werkt goed",
+"The octagon goes back to normal for this site in this tab": "De achthoek wordt weer normaal voor deze site in dit tabblad",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Deze site repareren” schakelt alleen die bescherming uit, alleen voor deze site; alle andere beschermingen blijven aan.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. kan je helpen dit op te lossen terwijl alle andere beschermingen aan blijven.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Gevaar: het certificaat van deze site is niet geldig, dus de verbinding is misschien niet privé.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Gevaar: I.K.E. heeft op deze site een echt risico voor je veiligheid gevonden. Lees de waarschuwing boven de pagina.",
+"A protection may interfere with some features of this site.": "Een bescherming kan sommige functies van deze site hinderen.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Een bescherming kan verhinderen dat deze site goed werkt. Gebruik “Deze site repareren”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. heeft niets verdachts gevonden tijdens het laden van deze pagina. Dit bewijst niet dat de site veilig is.",
+"This site uses background programs: it works better, but protects you a little less.": "Deze site gebruikt achtergrondprogramma's: hij werkt beter, maar beschermt je iets minder.",
+"This site's background programs are blocked: more protection, but the site may not work.": "De achtergrondprogramma's van deze site zijn geblokkeerd: meer bescherming, maar de site werkt misschien niet.",
+"Block them on this site": "Op deze site blokkeren",
+"Allow them again": "Weer toestaan",
+"Probable cause: this site's background programs are blocked.": "Waarschijnlijke oorzaak: de achtergrondprogramma's van deze site zijn geblokkeerd."
 }
 }

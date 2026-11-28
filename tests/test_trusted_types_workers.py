@@ -1,11 +1,11 @@
-"""Workers on pages that use Trusted Types (1.1.31: Cloudflare's Turnstile).
+"""Workers on pages that use Trusted Types (1.1.32: Cloudflare's Turnstile).
 
 Cloudflare's challenge frame allows only its own Trusted Types policies by
 name (`trusted-types <name> default; require-trusted-types-for 'script';
 worker-src blob:`) and starts its workers from blob addresses wrapped by its
 policy. I.K.E. adds its protection to a worker by starting it from a new blob
 address (the protection, then the site's script), made trusted by a policy of
-its own. The page refuses that policy; until 1.1.31 the bare address went on,
+its own. The page refuses that policy; until 1.1.32 the bare address went on,
 the page's own default policy turned it into an address worker-src refuses,
 and the worker never started: Turnstile failed at Balanced, Kontrol and
 Maximum and worked at Compatibility (verified on turnstile.pages.dev, see
@@ -20,8 +20,10 @@ Now:
   in every document, never the seed);
 - where the page's Trusted Types allow the policy, the worker keeps the
   protection (the same noise as the page, another on every site);
-- a worker from a file at Kontrol and Maximum still never runs without the
-  protection (refused, as before).
+- a worker from a file at Maximum still never runs without the protection
+  (refused, as before); at Kontrol the site's own file runs (1.1.32, the
+  owner's decision after the web compatibility campaign,
+  tests/test_site_workers.py).
 
 SIMULATION: a local server; 127.0.0.1 and localhost are two sites. The
 "allowlist" page copies the policy of Cloudflare's frame and adds a default
@@ -223,6 +225,49 @@ window.__run = async function () {
 };
 </script></body>"""
 
+# A page that requires Trusted Types itself (a <meta> its script adds) and
+# whose default policy reads what it is given and puts the page's own address
+# in its place (the final review of 1.1.32): the protection's address, given
+# as a bare string, reached it, with the prelude and the seed in it, and the
+# worker ran the page's text without the protection. Now the protection's
+# address is always trusted by its own policy, so the default policy never
+# sees it; in a worker too.
+READER = r"""<!doctype html><title>tt</title><body><script>
+""" + COMMON + r"""
+var own = [], seen = [];
+function mine() { var u = blobUrl(); own.push(u); return u; }
+window.__run = async function () {
+  var out = { page: 'pic:' + draw(new OffscreenCanvas(96, 40)) };
+  var m = document.createElement('meta');
+  m.httpEquiv = 'Content-Security-Policy';
+  m.content = "require-trusted-types-for 'script'";
+  document.head.appendChild(m);
+  var swap = mine();
+  trustedTypes.createPolicy('default', { createScriptURL: function (u) {
+    var text = '';
+    try { var x = new XMLHttpRequest(); x.open('GET', u, false); x.send(); text = x.responseText; } catch (e) {}
+    seen.push({ u: String(u), own: own.indexOf(String(u)) >= 0 || String(u).indexOf('/w.js') >= 0, size: text.length });
+    return swap;
+  } });
+  out.blob = await start(function () { return new Worker(mine()); });
+  out.data = await start(function () { return new Worker('data:text/javascript,' + encodeURIComponent(WORKER)); });
+  out.file = await start(function () { return new Worker('/w.js'); });
+  // a worker whose own code sets such a default policy, then starts a worker
+  var inner = 'var swapped = 0; trustedTypes.createPolicy("default", { createScriptURL: function (u) { swapped++; return u; } });' +
+    'var n = new Worker(URL.createObjectURL(new Blob([' + JSON.stringify(WORKER) + '])));' +
+    'n.onmessage = function (e) { postMessage({ pic: e.data.pic, swapped: swapped }); }; n.onerror = function () { postMessage({}); };';
+  var site = trustedTypes.createPolicy('site', { createScriptURL: function (u) { return u; } });
+  out.nested = await new Promise(function (ok) {
+    var outer = new Worker(site.createScriptURL(URL.createObjectURL(new Blob([inner], { type: 'text/javascript' }))));
+    outer.onmessage = function (e) { ok(e.data); };
+    outer.onerror = function () { ok('error'); };
+    setTimeout(function () { ok('timeout'); }, 5000);
+  });
+  out.seen = seen;
+  return out;
+};
+</script></body>"""
+
 FILE_WORKER = b"postMessage({pic: ''});"
 
 PAGES = {
@@ -234,6 +279,7 @@ PAGES = {
     "/tricks.html": (TRICKS.encode(), "text/html; charset=utf-8", None),
     "/child.html": (CHILD.encode(), "text/html; charset=utf-8", None),
     "/plain.html": (b"<!doctype html><title>plain</title><body>plain</body>", "text/html; charset=utf-8", None),
+    "/reader.html": (READER.encode(), "text/html; charset=utf-8", None),
     "/w.js": (FILE_WORKER, "text/javascript", None),
 }
 
@@ -324,16 +370,18 @@ def test_workers_start_where_the_page_refuses_the_protections_policy(run_ike, si
     got = run(run_ike, site, level)
     for key in ("allow1", "allow2"):
         r = got[key]
-        # the page's blob workers run (Turnstile's did not until 1.1.31)
+        # the page's blob workers run (Turnstile's did not until 1.1.32)
         assert r["a"].startswith("pic:") and r["b"].startswith("pic:"), (level, r)
         # nothing of I.K.E.'s reached the page's own default policy
         assert r["tripped"] == 0, (level, r)
         # at most one refusal the page can see (made as the document starts,
         # it usually comes before the page's first script listens)
         assert len(policy_names(r)) <= 1, (level, r)
-        # a worker from a file: Balanced starts it as the page asked; Kontrol
-        # and Maximum never run it without the protection (refused, as before)
-        assert r["file"] == ("data" if level == "balanced" else "error"), (level, r)
+        # a worker from a file: started as the page asked at every level
+        # (Kontrol 1.1.32, Maximum too by the owner's decision of 2026-11-28;
+        # refused only where the user blocked them or on a page of a safety
+        # warning: tests/test_site_workers.py)
+        assert r["file"] == "data", (level, r)
     # what the site's server is told (report-uri): one refusal in each of the
     # two documents, not one for every worker, and another name in each: not
     # the site's seed ('p' + seed was the same in both)
@@ -397,3 +445,20 @@ def test_frames_that_take_a_scripts_policy_never_run_a_worker_without_the_protec
         # the page does not see the protection's own refusals
         assert not [v for v in t[key]["seen"] if v.endswith(":userscript")], (level, key, t)
     assert t["srcdoc"] in safe or str(t["srcdoc"]).startswith("throw"), (level, t)
+
+
+@pytest.mark.parametrize("level", LEVELS)
+def test_a_default_policy_of_the_page_never_sees_the_protections_address(run_ike, site, level):
+    t = run(run_ike, site, level, [("reader", "http://127.0.0.1:%d/reader.html")])["reader"]
+    # only the page's own addresses ever reach its default policy, and none
+    # of them holds the protection
+    assert all(v["own"] for v in t["seen"]), (level, t["seen"])
+    # the page's workers keep the protection (a data: worker: a noise of its own)
+    assert t["blob"] == t["page"], (level, t)
+    assert t["data"].startswith("pic:"), (level, t)
+    if level != "balanced":
+        assert t["file"] in ("data", "error"), (level, t)        # the site's file: protected or refused
+    # in a worker that sets a default policy, its worker keeps the protection
+    # and the policy is never handed the protection's address
+    assert isinstance(t["nested"], dict) and "pic:" + str(t["nested"].get("pic")) == t["page"], (level, t)
+    assert t["nested"]["swapped"] == 0, (level, t)

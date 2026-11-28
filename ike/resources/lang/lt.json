@@ -1609,6 +1609,25 @@
 "This session, by kind": "Šis seansas, pagal rūšį",
 "This session, the sites that tried most": "Šis seansas, daugiausia bandžiusios svetainės",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Niekas iš to nepalieka jūsų kompiuterio. Šio seanso skaičiai prasideda iš naujo, kai paleidžiama I.K.E.",
-"Nothing blocked yet in this session.": "Šiame seanse dar nieko neužblokuota."
+"Nothing blocked yet in this session.": "Šiame seanse dar nieko neužblokuota.",
+"Blocking of the site's own background workers": "Svetainės pačios foninių procesų blokavimas",
+"Background workers blocked": "Užblokuoti foniniai procesai",
+"Site's own workers allowed": "Svetainės procesai leidžiami",
+"Probable cause: a protection blocked something the page needs.": "Tikėtina priežastis: apsauga užblokavo tai, ko reikia puslapiui.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Taisymas: tikėtina priežastis šioje svetainėje trumpam išjungta, visos kitos apsaugos lieka įjungtos. Ar puslapis dabar veikia?",
+"This site works fine": "Ši svetainė veikia gerai",
+"The octagon goes back to normal for this site in this tab": "Aštuonkampis šiai svetainei šiame skirtuke vėl tampa įprastas",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "„Pataisyti šią svetainę“ išjungia tik tą apsaugą, tik šiai svetainei; visos kitos apsaugos lieka įjungtos.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. gali padėti tai sutvarkyti, paliekant įjungtas visas kitas apsaugas.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Pavojus: šios svetainės sertifikatas negalioja, todėl ryšys gali būti neprivatus.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Pavojus: I.K.E. šioje svetainėje rado realią grėsmę jūsų saugumui. Perskaitykite įspėjimą virš puslapio.",
+"A protection may interfere with some features of this site.": "Apsauga gali trukdyti kai kurioms šios svetainės funkcijoms.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Apsauga gali trukdyti šiai svetainei tinkamai veikti. Naudokite „Pataisyti šią svetainę“.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. įkeliant šį puslapį nerado nieko įtartino. Tai neįrodo, kad svetainė yra saugi.",
+"This site uses background programs: it works better, but protects you a little less.": "Ši svetainė naudoja fonines programas: ji veikia geriau, bet jus saugo šiek tiek mažiau.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Šios svetainės foninės programos užblokuotos: daugiau apsaugos, bet svetainė gali neveikti.",
+"Block them on this site": "Blokuoti jas šioje svetainėje",
+"Allow them again": "Vėl jas leisti",
+"Probable cause: this site's background programs are blocked.": "Tikėtina priežastis: šios svetainės foninės programos užblokuotos."
 }
 }

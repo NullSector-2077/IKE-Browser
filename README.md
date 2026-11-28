@@ -11,7 +11,7 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is made for KDE Plasma on
 Arch Linux and CachyOS and works on the other Arch-based desktops.
 
-**Version 1.1.31** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.32** - see [CHANGELOG.md](CHANGELOG.md).
 
 What is marked *(next version)* below is already in this repository and comes
 with the next release.
@@ -22,7 +22,7 @@ Install a ready-made package from the
 [releases page](https://github.com/NullSector-2077/IKE-Browser/releases):
 
 ```bash
-sudo pacman -U ike-browser-1.1.31-1-x86_64.pkg.tar.zst
+sudo pacman -U ike-browser-1.1.32-1-x86_64.pkg.tar.zst
 ```
 
 or build it from a clone of this repository:
@@ -87,10 +87,22 @@ profiles: `ike-browser --profile NAME`.
   never above the real ones), Chrome's own PDF plugins in an order of the
   site's own, a common screen, fonts, memory and voices, generic Client Hints
   and no WebGPU; their canvas noise is only where a drawing has edges (never
-  in plain colours); a worker a site starts from a file of its own gets the
-  same protection, and they start no service worker and no shared worker from
-  a site's file. Maximum also tells sites English only, with dates and numbers
-  written the American way.
+  in plain colours); a worker a page's script makes gets the same
+  protection. The site's own background workers (service workers, shared
+  workers, workers from its files: WhatsApp and Telegram need them) run at
+  Kontrol and Maximum, and the shield counts them and says so in one quiet
+  line, with "Block them on this site"; they stay out on a page of one of
+  I.K.E.'s safety warnings (a page of the malware and phishing lists opened
+  anyway, a lookalike site...). Maximum also tells sites English only, with
+  dates and numbers written the American way.
+- The shield's octagon says what I.K.E. found on the page in front (1.1.32):
+  a short green run when the page loaded well with nothing to say (it does
+  not prove the site is safe), slow yellow pulses when a protection may stop
+  a feature of the site, orange ones when it may stop something essential
+  ("Repair this site" in the shield turns off only the probable cause, for
+  that site), red ones while one of I.K.E.'s safety warnings is in effect.
+  The words are in its tooltip and in the shield panel; nothing is turned
+  off by itself.
 - The engine's advertising measurement (Attribution Reporting, Topics) is
   off; WebRTC does not show your local IP addresses (Settings → Privacy);
   HTTP/3 is on, as in Chrome, and connections are kept apart for each site.

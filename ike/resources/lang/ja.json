@@ -1609,6 +1609,25 @@
 "This session, by kind": "このセッション、種類別",
 "This session, the sites that tried most": "このセッション、最も多く試みたサイト",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "これらはいずれもコンピューターの外に出ません。このセッションの数は I.K.E. の起動時にリセットされます。",
-"Nothing blocked yet in this session.": "このセッションではまだ何もブロックされていません。"
+"Nothing blocked yet in this session.": "このセッションではまだ何もブロックされていません。",
+"Blocking of the site's own background workers": "サイト自身のバックグラウンドワーカーのブロック",
+"Background workers blocked": "ブロックしたバックグラウンドワーカー",
+"Site's own workers allowed": "許可したサイト自身のワーカー",
+"Probable cause: a protection blocked something the page needs.": "考えられる原因：保護がページに必要なものをブロックしました。",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "修復：考えられる原因をこのサイトで一時的にオフにしました。ほかの保護はすべてオンのままです。ページは動きますか？",
+"This site works fine": "このサイトは正常に動作しています",
+"The octagon goes back to normal for this site in this tab": "このタブのこのサイトについて、八角形が通常の表示に戻ります",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "「このサイトを修復」はその保護だけを、このサイトだけでオフにします。ほかの保護はすべてオンのままです。",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. は、ほかの保護をすべてオンにしたまま、問題の解決をお手伝いできます。",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "危険：このサイトの証明書は有効ではないため、接続がプライベートではない可能性があります。",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "危険：I.K.E. はこのサイトであなたの安全に対する実際の危険を見つけました。ページの上の警告をお読みください。",
+"A protection may interfere with some features of this site.": "保護がこのサイトの一部の機能を妨げている可能性があります。",
+"A protection may stop this site from working properly. Use “Repair this site”.": "保護がこのサイトの正常な動作を妨げている可能性があります。「このサイトを修復」を使ってください。",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. はこのページの読み込み中に問題を見つけませんでした。これはサイトが安全であることを保証するものではありません。",
+"This site uses background programs: it works better, but protects you a little less.": "このサイトはバックグラウンドでプログラムを動かしています：動作は良くなりますが、保護は少し弱くなります。",
+"This site's background programs are blocked: more protection, but the site may not work.": "このサイトのバックグラウンドのプログラムをブロックしています：保護は強くなりますが、サイトが動作しない可能性があります。",
+"Block them on this site": "このサイトでブロックする",
+"Allow them again": "もう一度許可する",
+"Probable cause: this site's background programs are blocked.": "考えられる原因：このサイトのバックグラウンドのプログラムがブロックされています。"
 }
 }

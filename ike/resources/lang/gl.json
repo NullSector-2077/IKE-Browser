@@ -1609,6 +1609,25 @@
 "This session, by kind": "Esta sesión, por tipo",
 "This session, the sites that tried most": "Esta sesión, os sitios que máis o intentaron",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nada disto sae do teu ordenador. As cifras desta sesión comezan de novo cando se inicia I.K.E.",
-"Nothing blocked yet in this session.": "Aínda non se bloqueou nada nesta sesión."
+"Nothing blocked yet in this session.": "Aínda non se bloqueou nada nesta sesión.",
+"Blocking of the site's own background workers": "Bloqueo dos procesos en segundo plano do sitio",
+"Background workers blocked": "Procesos en segundo plano bloqueados",
+"Site's own workers allowed": "Procesos propios do sitio permitidos",
+"Probable cause: a protection blocked something the page needs.": "Causa probable: unha protección bloqueou algo que a páxina necesita.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Reparación: a causa probable está desactivada neste sitio web por un momento, todas as demais proteccións seguen activas. A páxina funciona agora?",
+"This site works fine": "Este sitio web funciona ben",
+"The octagon goes back to normal for this site in this tab": "O octógono volve á normalidade para este sitio web nesta lapela",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Reparar este sitio web” desactiva só esa protección, só para este sitio web; todas as demais proteccións seguen activas.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. pode axudarte a solucionalo mantendo activas todas as demais proteccións.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Perigo: o certificado deste sitio web non é válido, polo que a conexión pode non ser privada.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Perigo: I.K.E. atopou un risco real para a túa seguridade neste sitio web. Le o aviso que hai enriba da páxina.",
+"A protection may interfere with some features of this site.": "Unha protección pode interferir con algunhas funcións deste sitio web.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Unha protección pode impedir que este sitio web funcione correctamente. Usa “Reparar este sitio web”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. non atopou nada estraño ao cargar esta páxina. Isto non demostra que o sitio web sexa seguro.",
+"This site uses background programs: it works better, but protects you a little less.": "Este sitio web usa programas en segundo plano: funciona mellor, pero protéxete un pouco menos.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Os programas en segundo plano deste sitio web están bloqueados: máis protección, pero pode que o sitio non funcione.",
+"Block them on this site": "Bloquealos neste sitio",
+"Allow them again": "Permitilos de novo",
+"Probable cause: this site's background programs are blocked.": "Causa probable: os programas en segundo plano deste sitio web están bloqueados."
 }
 }

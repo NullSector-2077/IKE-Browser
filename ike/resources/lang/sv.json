@@ -1609,6 +1609,25 @@
 "This session, by kind": "Den här sessionen, efter typ",
 "This session, the sites that tried most": "Den här sessionen, webbplatserna som försökte mest",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Inget av detta lämnar din dator. Siffrorna för den här sessionen börjar om när I.K.E. startar.",
-"Nothing blocked yet in this session.": "Inget blockerat ännu i den här sessionen."
+"Nothing blocked yet in this session.": "Inget blockerat ännu i den här sessionen.",
+"Blocking of the site's own background workers": "Blockering av webbplatsens egna bakgrundsprocesser",
+"Background workers blocked": "Bakgrundsprocesser blockerade",
+"Site's own workers allowed": "Webbplatsens egna processer tillåtna",
+"Probable cause: a protection blocked something the page needs.": "Trolig orsak: ett skydd blockerade något som sidan behöver.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Reparation: den troliga orsaken är avstängd på den här webbplatsen en liten stund, alla andra skydd förblir på. Fungerar sidan nu?",
+"This site works fine": "Den här webbplatsen fungerar bra",
+"The octagon goes back to normal for this site in this tab": "Åttahörningen blir normal igen för den här webbplatsen i den här fliken",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Reparera den här webbplatsen” stänger bara av det skyddet, endast för den här webbplatsen; alla andra skydd förblir på.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. kan hjälpa dig att åtgärda det medan alla andra skydd förblir på.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Fara: certifikatet för den här webbplatsen är inte giltigt, så anslutningen kanske inte är privat.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Fara: I.K.E. har hittat en verklig risk för din säkerhet på den här webbplatsen. Läs varningen ovanför sidan.",
+"A protection may interfere with some features of this site.": "Ett skydd kan störa vissa funktioner på den här webbplatsen.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Ett skydd kan hindra den här webbplatsen från att fungera ordentligt. Använd “Reparera den här webbplatsen”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. hittade inget konstigt medan den här sidan laddades. Det bevisar inte att webbplatsen är säker.",
+"This site uses background programs: it works better, but protects you a little less.": "Den här webbplatsen använder bakgrundsprogram: den fungerar bättre, men skyddar dig lite mindre.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Den här webbplatsens bakgrundsprogram är blockerade: mer skydd, men webbplatsen kanske inte fungerar.",
+"Block them on this site": "Blockera dem på den här webbplatsen",
+"Allow them again": "Tillåt dem igen",
+"Probable cause: this site's background programs are blocked.": "Trolig orsak: den här webbplatsens bakgrundsprogram är blockerade."
 }
 }

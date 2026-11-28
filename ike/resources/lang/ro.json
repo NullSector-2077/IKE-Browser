@@ -1609,6 +1609,25 @@
 "This session, by kind": "Această sesiune, după tip",
 "This session, the sites that tried most": "Această sesiune, site-urile care au încercat cel mai mult",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nimic din toate acestea nu părăsește computerul tău. Cifrele acestei sesiuni pornesc din nou când pornește I.K.E.",
-"Nothing blocked yet in this session.": "Nimic blocat încă în această sesiune."
+"Nothing blocked yet in this session.": "Nimic blocat încă în această sesiune.",
+"Blocking of the site's own background workers": "Blocarea proceselor de fundal ale site-ului",
+"Background workers blocked": "Procese de fundal blocate",
+"Site's own workers allowed": "Procesele proprii ale site-ului permise",
+"Probable cause: a protection blocked something the page needs.": "Cauză probabilă: o protecție a blocat ceva de care pagina are nevoie.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Reparare: cauza probabilă este dezactivată pe acest site pentru un moment, toate celelalte protecții rămân active. Funcționează pagina acum?",
+"This site works fine": "Acest site funcționează bine",
+"The octagon goes back to normal for this site in this tab": "Octogonul revine la normal pentru acest site în această filă",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "„Repară acest site” dezactivează doar acea protecție, doar pentru acest site; toate celelalte protecții rămân active.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. te poate ajuta să rezolvi problema, păstrând active toate celelalte protecții.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Pericol: certificatul acestui site nu este valid, deci conexiunea poate să nu fie privată.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Pericol: I.K.E. a găsit un risc real pentru siguranța ta pe acest site. Citește avertismentul de deasupra paginii.",
+"A protection may interfere with some features of this site.": "O protecție poate interfera cu unele funcții ale acestui site.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "O protecție poate împiedica acest site să funcționeze corect. Folosește „Repară acest site”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. nu a găsit nimic suspect în timpul încărcării acestei pagini. Asta nu dovedește că site-ul este sigur.",
+"This site uses background programs: it works better, but protects you a little less.": "Acest site folosește programe de fundal: funcționează mai bine, dar te protejează puțin mai puțin.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Programele de fundal ale acestui site sunt blocate: mai multă protecție, dar site-ul poate să nu funcționeze.",
+"Block them on this site": "Blochează-le pe acest site",
+"Allow them again": "Permite-le din nou",
+"Probable cause: this site's background programs are blocked.": "Cauză probabilă: programele de fundal ale acestui site sunt blocate."
 }
 }

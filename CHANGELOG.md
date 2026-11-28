@@ -1,7 +1,152 @@
 # Changelog
 
-## 1.1.31
+## 1.1.32
 
+- **Sign-in pages no longer wait for ever for passkeys** (the owner: "we must
+  find a solution"): Arch's Qt WebEngine never answers a page that asks
+  whether passkeys can be used (`PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()`,
+  `isConditionalMediationAvailable()`; no build answers `getClientCapabilities()`),
+  at every level, in Falkon too. From Compatibility up I.K.E. answers as
+  Chromium 140 answers on Linux (measured with Chrome for Testing
+  140.0.7339.207): no passkey built into the computer, the browser's list of
+  passkeys available, and the same capabilities in the same order, except a
+  silent passkey upgrade after a password sign-in (`conditionalCreate`),
+  which Qt WebEngine cannot do (it would start a request for a security key
+  instead); on
+  Google's sites, where I.K.E. is a Firefox, as Firefox 161 answers on Linux
+  (measured). The answers come a moment later, as the engine's would; at
+  Compatibility the three functions are the engine's own behind a proxy and
+  nothing else of the page changes (an independent review: a replaced
+  `toString` would have shown on the sign-in pages kept at Compatibility). A
+  site's silent passkey request waits without a word, as in Chromium with no
+  passkey saved, and a security key still reaches I.K.E.'s own window. Off,
+  and PayPal's and Stripe's pages and frames, which I.K.E. leaves as they are,
+  still meet the engine as it is (`ike/resources/fingerprint.js`,
+  tests/test_passkeys.py).
+
+- **WhatsApp and Telegram work at Kontrol** (the owner: they worked only at
+  Compatibility and Balanced; WhatsApp turned into a white page after a
+  change of level). The web compatibility campaign of 2026-11-28
+  (docs/review/web-compat-2026-11.md: I.K.E. built with makepkg and
+  installed in Arch, 44 sites at the four levels against Chromium 140 and
+  Brave) proved the cause by lifting one rule at a time: since 1.1.25
+  Kontrol and Maximum refused the sites' own service workers, shared
+  workers and workers from their files, and unregistered older service
+  workers; and where a site's policy refuses blob: workers (WhatsApp,
+  Telegram, Google's apps, GitHub) the protected copy of a dedicated worker
+  was refused a moment after the Worker object was made, so the fallback
+  never ran and the site had no worker at all. WhatsApp's QR code was never
+  drawn, Telegram Web K was an empty page (white without dark mode); the
+  Dark Engine was not involved. Now Kontrol lets the site's own workers run
+  (only the site's files can be in them) and keeps older service workers; a
+  dedicated worker whose protected copy the policy refuses gets the site's
+  own file inside the same Worker object (the messages posted meanwhile are
+  delivered, the refusal is not shown to the page), and the document's later
+  workers start from the file at once (only for a policy the page enforces:
+  one that only reports changes nothing). Every worker a page's script makes
+  from its own text keeps the protection, and a frame of another site gets no
+  free worker. Messages the page posts meanwhile are copied at once, as the
+  engine does (a later change of the data, a transferred buffer, an object
+  that cannot be copied behave exactly as in Chromium; found by the
+  independent review). What these workers can read is in
+  docs/SECURITY.md. The shield counts them ("Site's own workers allowed").
+- **"Repair this site" becomes a diagnosis and repair centre, and the
+  shield's octagon says what it found** (the owner's brief "Ripara sito" and
+  its colours). Philosophy: protect as much as possible, interfere as little
+  as possible, act only on a protection that really breaks a site. A finding
+  needs a protection that really acted on the page, as I.K.E.'s request
+  check saw it (a page cannot report anything into it), an error coherent
+  with it, a real sign that something important does not work (a worker the
+  page waits on refused, a page that stays empty or a player in error, looked
+  at once by a probe in I.K.E.'s own world a few seconds after the load) and
+  a repair narrower than "everything off" where one exists. What the page
+  itself reports, through a channel with a key it cannot read, only adds to
+  that; ordinary blocks (ads, trackers, cookies, a service worker alone, the
+  site's own errors) never raise anything. Nothing is turned off by itself,
+  the level never changes by itself, nothing is sent anywhere, no other site
+  is touched. The octagon keeps its shape, size, place, colour and letter;
+  over its rim two pulses run in opposite directions:
+  **yellow** (#FACC15, slow, 5 s) when a protection may stop some feature
+  of a site that stays usable; **orange** (#FF9100, 2.8 s, a short wave
+  where they meet) when it may stop something essential; **red** (#FF254F,
+  2 s) only while one of I.K.E.'s own safety warnings is in effect (a
+  lookalike site, a page on the malware and phishing lists, a missing
+  secure connection, an attack on the home network, a certificate the
+  engine refused), never with "Repair this site"; and a short **green**
+  (#00E676, once, 1.8 s) when a main page loaded well over a secure
+  connection with nothing to say, protection on and no exception on the
+  site ("I.K.E. found nothing wrong while loading this page. This does not
+  prove the site is safe."). Red comes first, then orange, yellow, green.
+  The words are in the shield's tooltip, for screen readers and in the
+  shield panel, with the probable cause and what the repair changes; there
+  "Repair this site" is put forward and turns off the probable cause first,
+  for that site only, and "This site works fine" ends the finding. Yellow
+  and orange stay until the site works again (a repair kept and the page
+  verified by the probe, or the user's word), not when the panel opens or
+  closes; then a short fade. Per tab and per site; a private window keeps
+  its own evidence. Nothing runs without a finding; with one, about 24
+  pictures a second of the octagon alone (0.2 ms each), none while the
+  window is hidden; with the interface's effects off, a still rim (and no
+  green). The bar above the page for refused workers is gone, absorbed into
+  the shield (`ike/incompat.py`, `ike/interference.py`,
+  `ike/securebar.py` `danger_of`, `ike/shieldpanel.py`, `ike/window.py`,
+  `ike/repair.py`; tests/test_interference.py, tests/test_site_workers.py;
+  new texts in every language pack, three gone). "Repair this site" also
+  knows dark mode and WebRTC's local addresses as protections of their own.
+  An independent review (Fable 5.2) tried to break all of it in the real
+  browser; what it found is fixed and tested (tests/test_diagnosis_review.py):
+  a frame's console message could turn the octagon red, the green could play
+  on a page of the lists opened anyway or with a parent domain's exception,
+  an empty-looking page of web components or a sign-in form, or a missing
+  video, could turn it orange after an ordinary tracker block (now the
+  probe reads them, and those two causes are yellow), a kept repair did not
+  end the finding by itself, a service worker could come back on a site's
+  second page where its workers are blocked, and the worker queue answered
+  three odd calls differently from Chrome 140.
+- **The sites' own workers run at Maximum too, except where it is not safe**
+  (the owner's decision of 2026-11-28: "i siti devono funzionare, almeno
+  quelli fidati"). Maximum now treats a site's own service workers, shared
+  workers and workers from its files as Kontrol does (only the site's own
+  files can be in them; every worker a page's script makes from its own text
+  keeps the protection; a frame of another site gets none). They stay out
+  on a page of one of I.K.E.'s safety warnings (a page on the malware and
+  phishing lists opened anyway, a site opened without its secure connection
+  or allowed into the home network, a lookalike of a famous site: the facts
+  the warnings act on, no list of sites of its own) and on a site where the
+  user blocked them. The octagon does not light up for them (nearly every
+  big site uses them); the shield panel says, for whoever opens it, "This
+  site uses background programs: it works better, but protects you a
+  little less." with "Block them on this site" (remembered for the site,
+  "Allow them again" takes it back), at Kontrol too. "Repair this site"
+  offers only the user's own block, never a page of a safety warning, and
+  "Undo the repair" brings the block back. Where they stay out, a page cannot
+  join a shared worker started before in a tab still open, nor take back a
+  service worker unregistered there with register() (it answers as the
+  engine does when the file is refused). Nothing the site stored is deleted
+  (`ike/shields.py` `worker_danger`, `ike/resources/fingerprint.js`,
+  `ike/repair.py`, `ike/shieldpanel.py`, `ike/securebar.py`; tests/test_site_workers.py,
+  tests/test_fingerprint_125.py, tests/test_fingerprint_125_workers.py,
+  tests/test_trusted_types_workers.py; four new texts in every language pack).
+- **The protected workers behave as the engine's own**: a page of the
+  compatibility suite (tests/compat/webtech/conformance.html) compares
+  I.K.E. at Kontrol and Maximum with Chrome for Testing 140 on 22 points (order of 100
+  messages, transferred buffers, ports, OffscreenCanvas, copies made when
+  posting, clone and transfer errors in the engine's words, terminate(),
+  late listeners, errors, nested, module and concurrent workers): all the
+  same, but for isTrusted of an event I.K.E. passes on (a missing worker
+  file, and the first worker of a document whose policy refuses blob:
+  workers), written down in docs/SECURITY.md
+  (tests/test_worker_conformance.py).
+- **Lower navigation and bookmarks bars** (the owner chose "A" from a
+  preview): only the empty room above and below the buttons goes (2 px left
+  instead of 5): with KDE's Breeze the address bar's row is 40 px (46) and the
+  bookmarks bar 34 px (40). Buttons, icons and the address field keep their
+  size (`ike/polish.py` `SlimBarStyle`).
+- **A reusable web compatibility suite** (tests/compat/, outside the
+  automatic tests, GitHub Actions and AUTOMAT): real sites at every level
+  with their own checks, a local page of web technologies (workers,
+  WebAssembly, WebGL, codecs, DASH/HLS/Widevine, WebRTC, storage, upload and
+  download) and the same checks in Chromium or Brave.
 - **Cloudflare's checks pass again at Balanced, Kontrol and Maximum** (the
   owner saw Turnstile fail at every level but Compatibility; Brave at its
   highest protection passed). Found by switching I.K.E.'s protections off one
@@ -29,14 +174,29 @@
   without the protection until now and gets an error or a protected worker;
   and the page no longer sees the protection's own refusals (in an empty
   frame it always saw one, from "userscript"), while its own Trusted Types
-  errors and events still reach it. Two older ways to an unprotected inline
-  worker found by the review are still open (docs/SECURITY.md, "Known
-  limits of the noise").
+  errors and events still reach it.
+- **Older ways to a worker without the protection are closed** (found by the
+  independent reviews): an address the engine takes but I.K.E. did not
+  recognise (`' blob:…'`, `'BLOB:…'`, `' data:…'`), in a page or in a worker;
+  a blob address made in another frame or a worker whose text the page cannot
+  read (a policy without blob: in connect-src); a `filesystem:` address
+  holding the page's own text; and, the most serious, a page that requires
+  Trusted Types itself (a `<meta>` its script adds) with a default policy of
+  its own: the protection's address reached that policy as a bare string, so
+  the page could read the protection with the site's seed in it, or start
+  its own text in its place. The protection's address is now always made
+  trusted by I.K.E.'s own policy (in workers too), the page's default policy
+  never sees it, and where that cannot be done the worker is refused as the
+  engine refuses an untrusted address, never started without the protection
+  (tests/test_worker_addresses.py, tests/test_trusted_types_workers.py).
+
 - **The noise's seed is no longer handed to such a page**: the protection's
   policy was named 'p' + the site's seed, and a site that refuses it reads the
   name in the refusal (`securitypolicyviolation`'s `sample`, and the report its
   server receives); with the seed the noise can be taken off. The name is now
   random, another in every document.
+## 1.1.31
+
 - **Pages that steal passwords are stopped** (the owner's choice after the
   comparison with the best-known browsers): the Phishing URL Blocklist
   (curben's malware-filter, from OpenPhish, IPThreat and PhishTank, updated

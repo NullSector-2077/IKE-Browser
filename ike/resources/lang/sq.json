@@ -1609,6 +1609,25 @@
 "This session, by kind": "Ky sesion, sipas llojit",
 "This session, the sites that tried most": "Ky sesion, sajtet që provuan më shumë",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Asgjë nga kjo nuk largohet nga kompjuteri juaj. Shifrat e këtij sesioni nisin nga e para kur niset I.K.E.",
-"Nothing blocked yet in this session.": "Ende asgjë e bllokuar në këtë sesion."
+"Nothing blocked yet in this session.": "Ende asgjë e bllokuar në këtë sesion.",
+"Blocking of the site's own background workers": "Bllokimi i proceseve të sfondit të vetë sajtit",
+"Background workers blocked": "Procese sfondi të bllokuara",
+"Site's own workers allowed": "Proceset e vetë sajtit të lejuara",
+"Probable cause: a protection blocked something the page needs.": "Shkaku i mundshëm: një mbrojtje bllokoi diçka që i nevojitet faqes.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Ndreqje: shkaku i mundshëm është çaktivizuar për një çast në këtë sajt, të gjitha mbrojtjet e tjera mbeten aktive. A funksionon faqja tani?",
+"This site works fine": "Ky sajt funksionon mirë",
+"The octagon goes back to normal for this site in this tab": "Tetëkëndëshi kthehet në gjendje normale për këtë sajt në këtë skedë",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Riparoje këtë sajt” çaktivizon vetëm atë mbrojtje, vetëm për këtë sajt; të gjitha mbrojtjet e tjera mbeten aktive.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. mund t'ju ndihmojë ta ndreqni duke i mbajtur aktive të gjitha mbrojtjet e tjera.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Rrezik: certifikata e këtij sajti nuk është e vlefshme, prandaj lidhja mund të mos jetë private.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Rrezik: I.K.E. gjeti një rrezik real për sigurinë tuaj në këtë sajt. Lexoni paralajmërimin mbi faqe.",
+"A protection may interfere with some features of this site.": "Një mbrojtje mund të pengojë disa veçori të këtij sajti.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Një mbrojtje mund ta pengojë këtë sajt të funksionojë si duhet. Përdorni “Riparoje këtë sajt”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. nuk gjeti asgjë të dyshimtë gjatë ngarkimit të kësaj faqeje. Kjo nuk provon se sajti është i sigurt.",
+"This site uses background programs: it works better, but protects you a little less.": "Ky sajt përdor programe në sfond: funksionon më mirë, por ju mbron pak më pak.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Programet në sfond të këtij sajti janë bllokuar: më shumë mbrojtje, por sajti mund të mos funksionojë.",
+"Block them on this site": "Bllokoji në këtë sajt",
+"Allow them again": "Lejoji përsëri",
+"Probable cause: this site's background programs are blocked.": "Shkaku i mundshëm: programet në sfond të këtij sajti janë bllokuar."
 }
 }

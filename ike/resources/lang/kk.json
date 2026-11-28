@@ -1609,6 +1609,25 @@
 "This session, by kind": "Осы сеанс, түрі бойынша",
 "This session, the sites that tried most": "Осы сеанс, ең көп әрекеттенген сайттар",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Мұның ешқайсысы компьютеріңізден шықпайды. Осы сеанстың сандары I.K.E. іске қосылғанда қайта басталады.",
-"Nothing blocked yet in this session.": "Осы сеанста әлі ештеңе бұғатталмаған."
+"Nothing blocked yet in this session.": "Осы сеанста әлі ештеңе бұғатталмаған.",
+"Blocking of the site's own background workers": "Сайттың өз фондық процестерін бұғаттау",
+"Background workers blocked": "Бұғатталған фондық процестер",
+"Site's own workers allowed": "Сайттың өз процестеріне рұқсат берілді",
+"Probable cause: a protection blocked something the page needs.": "Ықтимал себеп: бір қорғау бетке қажет нәрсені бұғаттады.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Жөндеу: ықтимал себеп осы сайтта біраз уақытқа өшірілді, қалған барлық қорғаулар қосулы қалады. Бет қазір жұмыс істей ме?",
+"This site works fine": "Бұл сайт дұрыс жұмыс істейді",
+"The octagon goes back to normal for this site in this tab": "Осы қойындыда осы сайт үшін сегізбұрыш қалыпты күйіне оралады",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Осы сайтты жөндеу” тек сол қорғауды, тек осы сайт үшін өшіреді; қалған барлық қорғаулар қосулы қалады.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. қалған барлық қорғауларды қосулы қалдырып, мұны түзетуге көмектесе алады.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Қауіп: бұл сайттың сертификаты жарамсыз, сондықтан байланыс жеке болмауы мүмкін.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Қауіп: I.K.E. бұл сайтта қауіпсіздігіңізге нақты қатер тапты. Беттің үстіндегі ескертуді оқыңыз.",
+"A protection may interfere with some features of this site.": "Қорғау бұл сайттың кейбір мүмкіндіктеріне кедергі келтіруі мүмкін.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Қорғау бұл сайттың дұрыс жұмыс істеуіне кедергі келтіруі мүмкін. “Осы сайтты жөндеу” пәрменін пайдаланыңыз.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. осы бетті жүктеу кезінде ешқандай ақау тапқан жоқ. Бұл сайттың қауіпсіз екенін дәлелдемейді.",
+"This site uses background programs: it works better, but protects you a little less.": "Бұл сайт фондық бағдарламаларды пайдаланады: ол жақсырақ жұмыс істейді, бірақ сізді сәл азырақ қорғайды.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Бұл сайттың фондық бағдарламалары бұғатталған: қорғау көбірек, бірақ сайт жұмыс істемеуі мүмкін.",
+"Block them on this site": "Бұл сайтта оларды бұғаттау",
+"Allow them again": "Оларға қайта рұқсат беру",
+"Probable cause: this site's background programs are blocked.": "Ықтимал себеп: бұл сайттың фондық бағдарламалары бұғатталған."
 }
 }

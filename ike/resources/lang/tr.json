@@ -1609,6 +1609,25 @@
 "This session, by kind": "Bu oturum, türe göre",
 "This session, the sites that tried most": "Bu oturum, en çok deneyen siteler",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Bunların hiçbiri bilgisayarınızdan çıkmaz. Bu oturumun sayıları I.K.E. başladığında yeniden başlar.",
-"Nothing blocked yet in this session.": "Bu oturumda henüz hiçbir şey engellenmedi."
+"Nothing blocked yet in this session.": "Bu oturumda henüz hiçbir şey engellenmedi.",
+"Blocking of the site's own background workers": "Sitenin kendi arka plan işlemlerinin engellenmesi",
+"Background workers blocked": "Engellenen arka plan işlemleri",
+"Site's own workers allowed": "Sitenin kendi işlemlerine izin verildi",
+"Probable cause: a protection blocked something the page needs.": "Olası neden: bir koruma sayfanın ihtiyaç duyduğu bir şeyi engelledi.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Onarım: olası neden bu sitede bir anlığına kapalı, diğer tüm korumalar açık kalır. Sayfa şimdi çalışıyor mu?",
+"This site works fine": "Bu site düzgün çalışıyor",
+"The octagon goes back to normal for this site in this tab": "Sekizgen bu sekmede bu site için normale döner",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Bu siteyi onar” yalnızca o korumayı, yalnızca bu site için kapatır; diğer tüm korumalar açık kalır.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E., diğer tüm korumaları açık tutarak bunu düzeltmenize yardımcı olabilir.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Tehlike: bu sitenin sertifikası geçerli değil, bu yüzden bağlantı gizli olmayabilir.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Tehlike: I.K.E. bu sitede güvenliğiniz için gerçek bir risk buldu. Sayfanın üstündeki uyarıyı okuyun.",
+"A protection may interfere with some features of this site.": "Bir koruma bu sitenin bazı özelliklerini etkileyebilir.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Bir koruma bu sitenin düzgün çalışmasını engelleyebilir. “Bu siteyi onar” seçeneğini kullanın.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. bu sayfa yüklenirken bir sorun bulmadı. Bu, sitenin güvenli olduğunu kanıtlamaz.",
+"This site uses background programs: it works better, but protects you a little less.": "Bu site arka plan programları kullanıyor: daha iyi çalışır ama sizi biraz daha az korur.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Bu sitenin arka plan programları engellendi: daha fazla koruma, ama site çalışmayabilir.",
+"Block them on this site": "Bu sitede engelle",
+"Allow them again": "Yeniden izin ver",
+"Probable cause: this site's background programs are blocked.": "Olası neden: bu sitenin arka plan programları engellendi."
 }
 }

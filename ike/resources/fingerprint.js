@@ -46,6 +46,7 @@
       add: function (o) { RAPPLY(WS_ADD, s, [o]); return this; }
     });
   }
+
   function hardMap() {
     var m = new WM_();
     return FREEZE({
@@ -217,6 +218,27 @@
     };
     FIREFOX = googleSite(host) || (CFG.ffsignin || []).indexOf(lower(location.hostname)) >= 0;
   }
+  // Chromium 140's passkey capabilities on Linux, in its order (see passkeys)
+  // conditionalCreate is false, not Chromium's true (1.1.32 audit): Qt
+  // WebEngine has no password manager to upgrade a sign-in silently, and
+  // starts a request for a security key (I.K.E.'s window, a key that
+  // blinks) for what a site meant as a silent upgrade
+  var PASSKEY_CAPS = [['conditionalCreate', false], ['conditionalGet', true], ['extension:appid', true],
+    ['extension:appidExclude', true], ['extension:credBlob', true], ['extension:credProps', true],
+    ['extension:credentialProtectionPolicy', true], ['extension:enforceCredentialProtectionPolicy', true],
+    ['extension:getCredBlob', true], ['extension:hmacCreateSecret', true], ['extension:largeBlob', true],
+    ['extension:minPinLength', true], ['extension:payment', false], ['extension:prf', true],
+    ['hybridTransport', false], ['passkeyPlatformAuthenticator', false], ['relatedOrigins', true],
+    ['signalAllAcceptedCredentials', true], ['signalCurrentUserDetails', true], ['signalUnknownCredential', true],
+    ['userVerifyingPlatformAuthenticator', false]];
+  // Firefox 161's on Linux (measured), where I.K.E. is a Firefox (Google's sites)
+  var PASSKEY_CAPS_FF = [['conditionalCreate', false], ['conditionalGet', true], ['extension:appid', true],
+    ['extension:credProps', true], ['extension:credentialProtectionPolicy', true],
+    ['extension:enforceCredentialProtectionPolicy', true], ['extension:hmacCreateSecret', true],
+    ['extension:largeBlob', false], ['extension:minPinLength', true], ['extension:prf', true],
+    ['hybridTransport', false], ['passkeyPlatformAuthenticator', false], ['relatedOrigins', true],
+    ['signalAllAcceptedCredentials', false], ['signalCurrentUserDetails', false], ['signalUnknownCredential', false],
+    ['userVerifyingPlatformAuthenticator', false]];
   var RANK = { off: 0, compatibility: 1, balanced: 2, strict: 3, maximum: 4 };
   var lv = RANK[levelFor(host)];
   if (lv === undefined) lv = 2;
@@ -230,7 +252,8 @@
       h = h.slice(i + 1);
     }
   })();
-  // Global Privacy Control is the only page-visible change in Compatibility.
+  // Global Privacy Control and the passkey answers (see passkeys) are the
+  // only page-visible changes in Compatibility.
   if (CFG.gpc && lv < 2) {
     try {
       Object.defineProperty(Navigator.prototype, 'globalPrivacyControl', {
@@ -240,7 +263,9 @@
   }
   if (lv < 2) {
     // Compatibility, or the fingerprint protection off for this site: no
-    // protection, but Google's sites still see Firefox, as in the headers
+    // protection, but Google's sites still see Firefox, as in the headers,
+    // and the passkey questions are answered (1.1.32: a sign-in page waited
+    // for ever at every level)
     if (FIREFOX) {
       try {
         wrap(Function.prototype, 'toString', function (orig) {
@@ -249,13 +274,51 @@
             return s !== undefined ? s : RAPPLY(orig, this, []);
           };
         });
+        passkeys(window, false);
         firefoxIdentity(window);
       } catch (e) {}
-    }
+    } else passkeys(window, true);
     return;
   }
   var strict = lv >= 3;
   var maximum = lv >= 4;
+  // The sites' own workers (service workers, shared workers, dedicated
+  // workers from the site's files) run at Kontrol and Maximum (1.1.32: the web
+  // compatibility campaign, then the owner's decision for Maximum: "i siti
+  // devono funzionare, almeno quelli fidati"), except where they stay out
+  // (CFG.wkout): a site where the user blocked them (the shield), or a page of
+  // one of I.K.E.'s safety warnings (shields.py worker_danger). Only the
+  // site's own files can be in them; every worker a page's script can make
+  // from its own text (blob:, data:) keeps the protection at every level.
+  // Reports to I.K.E.'s diagnosis of incompatibilities (1.1.32, incompat.py):
+  // a console message beginning with the session's report key, which only
+  // this closure holds (a page cannot read it, so it cannot report in I.K.E.'s
+  // name, nor see the reports: console functions taken before its scripts).
+  // Weak evidence: it only adds to what the request check saw. Once per kind
+  // and document.
+  var REPORT_KEY = typeof CFG.rk === 'string' ? CFG.rk : '', REPORT_LOG = console.debug, REPORT_CON = console;
+  var reported = Object.create(null);
+  function report(kind) {
+    if (!REPORT_KEY || reported[kind] === 1) return;
+    reported[kind] = 1;
+    try { RAPPLY(REPORT_LOG, REPORT_CON, [REPORT_KEY + ' ' + kind]); } catch (e) {}
+  }
+  var keepWorkersOut = strict && (function () {
+    // the request check's own rules (shields.py workers_out, the review)
+    var W = CFG.wkout || {}, map = W.map || {}, exact = W.exact || [], sites = W.sites || [];
+    if (exact.indexOf(host) >= 0) return true;
+    var h = host;
+    while (h) {
+      if (Object.prototype.hasOwnProperty.call(map, h)) {
+        if (map[h] === true) return true;
+        break;            // allowed by the user here: only a warning can keep them out
+      }
+      var i = h.indexOf('.');
+      if (i < 0) break;
+      h = h.slice(i + 1);
+    }
+    return null;          // the home network's sites: below, once siteOf is known
+  })();
 
   // ---- seed: random per browser session, different for every site ----------
   function hash(str) {
@@ -305,6 +368,20 @@
     if (p.length <= 2) return h;
     var three = HOSTED.test(h) || (p[p.length - 1].length === 2 && SLD[p[p.length - 2]] === 1);
     return p.slice(three ? -3 : -2).join('.');
+  }
+  // A frame of another site than the page's (an embedded widget, an ad): at
+  // Kontrol its workers stay out as at Maximum (1.1.32, the independent
+  // review): only the site the user visits gets its own workers; the request
+  // check refuses the frame's worker scripts the same way (shields.py).
+  if (keepWorkersOut === null) {
+    var wkSites = (CFG.wkout && CFG.wkout.sites) || [];
+    keepWorkersOut = wkSites.length > 0 && wkSites.indexOf(siteOf(lower(host))) >= 0;
+  }
+  if (strict && !keepWorkersOut) {
+    try {
+      var frameHost = location.hostname;
+      if (frameHost && siteOf(lower(frameHost)) !== siteOf(lower(host))) keepWorkersOut = true;
+    } catch (e) {}
   }
   // SHA-256, for the values derived from the session's key (1.1.18,
   // independent review): the key itself never reaches anything a page can
@@ -1441,6 +1518,57 @@
       });
     } catch (e) {}
   }
+  // Passkeys (1.1.32): Arch's Qt WebEngine never settles the promises of
+  // PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(),
+  // isConditionalMediationAvailable() and getClientCapabilities() (other
+  // builds answer the first two; none the third), so a sign-in page that
+  // waits for them waits for ever. They are answered as Chromium 140 answers
+  // them on Linux (measured, Chrome for Testing 140.0.7339.207): no platform
+  // authenticator, conditional mediation available (a conditional request
+  // then waits, as in Chromium with no passkey saved: Qt shows no list), and
+  // the same capabilities, in the same order. Security keys are unchanged
+  // (passwords.handle_webauthn). Where I.K.E. is a Firefox (Google's sites)
+  // the answers are Firefox 161's on Linux (measured). An answer comes in a
+  // task of its own, as the engine's do (after a round trip to the browser),
+  // not in the same task. At Compatibility, where nothing else of the page is
+  // changed and Function.prototype.toString stays the engine's, the three
+  // are proxies of the engine's own functions (the review: a replaced
+  // toString was a tell on every page, the sign-in pages kept at
+  // Compatibility included).
+  function passkeys(w, asProxy) {
+    try {
+      var PKC = w.PublicKeyCredential, PR = w.Promise, WO = w.Object, LATER = w.setTimeout;
+      if (typeof PKC !== 'function' || typeof PR !== 'function' || typeof LATER !== 'function') return;
+      var answer = function (v) {
+        return new PR(function (ok) { RAPPLY(LATER, w, [function () { ok(v); }, 0]); });
+      };
+      var caps = FIREFOX ? PASSKEY_CAPS_FF : PASSKEY_CAPS;
+      var made = {
+        isUserVerifyingPlatformAuthenticatorAvailable: function () { return answer(false); },
+        isConditionalMediationAvailable: function () { return answer(true); },
+        getClientCapabilities: function () {
+          var o = new WO();
+          for (var i = 0; i < caps.length; i++) {
+            DEFPROP(o, caps[i][0], { value: caps[i][1], writable: true, enumerable: true, configurable: true });
+          }
+          return answer(o);
+        }
+      };
+      // a loop of the protection's own (a page's forEach may have been
+      // replaced when an empty frame of it is protected)
+      var names = ['isUserVerifyingPlatformAuthenticatorAvailable', 'isConditionalMediationAvailable',
+        'getClientCapabilities'];
+      for (var k = 0; k < names.length; k++) {
+        (function (name, impl) {
+          if (!asProxy) { wrap(PKC, name, function () { return impl; }); return; }
+          var d = GOPD(PKC, name);
+          if (!d || typeof d.value !== 'function') return;
+          d.value = new w.Proxy(d.value, { apply: function () { return impl(); } });
+          DEFPROP(PKC, name, d);
+        })(names[k], made[names[k]]);
+      }
+    } catch (e) {}
+  }
   // A current Firefox on Linux, in one realm (1.1.27): its navigator's texts,
   // its own oscpu and buildID, and none of Chromium's userAgentData or
   // window.chrome. The getters read as the engine's own (natives).
@@ -1529,6 +1657,25 @@
     var lower = function (x) { return RAW(SLO, x, []); };
     var major = function (x) { var t = `${x}`, i = RAW(SIX, t, ['.']); return i < 0 ? t : RAW(SSL, t, [0, i]); };
     var getOf = function (proto, name) { var d = proto && GD(proto, name); return d && d.get; };
+    // a Trusted Types policy of the protection's own, made before the
+    // worker's code runs, for the addresses of the workers it starts: never
+    // a bare string a default policy of the worker's code would be handed
+    // (1.1.32, as in the page: that policy could read the prelude)
+    var wPolicy = null, TTF = self.trustedTypes;
+    var wDefault = getOf(self.TrustedTypePolicyFactory && TrustedTypePolicyFactory.prototype, 'defaultPolicy');
+    var wMakeURL = self.TrustedTypePolicy && TrustedTypePolicy.prototype.createScriptURL;
+    try {
+      if (TTF && wMakeURL) {
+        var wr = new Uint32Array(1);
+        crypto.getRandomValues(wr);
+        wPolicy = RAW(TTF.createPolicy, TTF, ['p' + wr[0], { createScriptURL: function (x) { return x; } }]);
+      }
+    } catch (e) {}
+    var oursW = function (x) {
+      if (wPolicy) { try { return RAW(wMakeURL, wPolicy, [x]); } catch (e) { return null; } }
+      try { if (wDefault && RAW(wDefault, TTF, [])) return null; } catch (e) { return null; }
+      return x;
+    };
     var TAP = Object.getPrototypeOf(Uint8Array.prototype);
     var LENG = getOf(TAP, 'length'), TAGG = getOf(TAP, Symbol.toStringTag);
     var IMGD = getOf(self.ImageData && ImageData.prototype, 'data');
@@ -2076,11 +2223,20 @@
             var send = function (x) { return given ? [x, ov] : [x]; };
             u = absW(u);
             args = send(u);
-            var asked = args, nestedMade = null;
+            var asked = args, nestedMade = null, wRefused = false;
+            var giveW = function (x) { var v = oursW(x); if (v === null) wRefused = true; else args = send(v); };
+            // the address as the engine reads it (' blob:', 'BLOB:', 1.1.32)
+            try {
+              var nu = RAW(hrefW, new URLC(u), []);
+              if (RAW(SSL, nu, [0, 5]) === 'blob:' || RAW(SSL, nu, [0, 5]) === 'data:' ||
+                  RAW(SSL, nu, [0, 11]) === 'filesystem:') u = nu;
+            } catch (e) {}
+            // a filesystem: address holds the page's text as a blob does (1.1.32)
+            var nBlob = RAW(SSL, u, [0, 5]) === 'blob:' || RAW(SSL, u, [0, 11]) === 'filesystem:';
+            var nData = RAW(SSL, u, [0, 5]) === 'data:';
             try {
               var b = made.get(u);
-              if (c.strict && name === 'Worker' && lower(RAW(SSL, u, [0, 5])) !== 'blob:' &&
-                  lower(RAW(SSL, u, [0, 5])) !== 'data:' && XR && NB) {
+              if (c.strict && name === 'Worker' && !nBlob && !nData && XR && NB) {
                 // a worker from a file of the site, as in the page (1.1.25)
                 var fx = new URLC(u, FILE || undefined), fp = fx.protocol;
                 if ((fp === 'http:' || fp === 'https:') && fx.origin === self.origin) {
@@ -2092,10 +2248,10 @@
                   } else {
                     nestedMade = RA(mk, Ur, [new NB([preludeOf(fa, false, true)], js)]);
                   }
-                  args = send(nestedMade);
+                  giveW(nestedMade);
                 }
               }
-              if (!b && lower(RAW(SSL, u, [0, 5])) === 'blob:' && XR) {
+              if (!b && nBlob && XR) {
                 // an address made elsewhere (by the page, say): its text read
                 // here, once (verification V-4: such a worker had nothing)
                 try {
@@ -2108,18 +2264,38 @@
               }
               if (b) {
                 var pu = RA(mk, Ur, [new NB([preludeOf(u, module), b], { type: RAW(BTY, b, []) || 'text/javascript' })]);
-                args = send(pu);
+                giveW(pu);
                 RA(LT, self, [function () { RA(rv, Ur, [pu]); }, 30000]);
-              } else if (lower(RAW(SSL, u, [0, 5])) === 'data:' && RAW(SIX, u, [',']) > 0) {
+              } else if (nBlob && NB) {
+                // its text cannot be read: the prelude, which loads it (1.1.32)
+                var ljs = { type: 'text/javascript' };
+                if (module) {
+                  var lpre = RA(mk, Ur, [new NB([preludeOf(u, true)], ljs)]);
+                  nestedMade = RA(mk, Ur, [new NB([c.mtop[0] + RAW(JS, JSON, [lpre]) + c.mtop[1] +
+                    RAW(JS, JSON, [u]) + c.mtop[2]], ljs)]);
+                } else {
+                  nestedMade = RA(mk, Ur, [new NB([preludeOf(u, false, true)], ljs)]);
+                }
+                giveW(nestedMade);
+              } else if (nData && RAW(SIX, u, [',']) > 0) {
                 var k = RAW(SIX, u, [',']), b64 = lower(RAW(SSL, u, [k - 7 < 0 ? 0 : k - 7, k])) === ';base64';
                 var mine = preludeOf(u, true);
-                args = send(RAW(SSL, u, [0, k + 1]) + (b64 ? RA(b2a, self, [mine]) : RA(enc, self, [mine])) +
+                giveW(RAW(SSL, u, [0, k + 1]) + (b64 ? RA(b2a, self, [mine]) : RA(enc, self, [mine])) +
                   RAW(SSL, u, [k + 1]));
               }
-            } catch (e) {}
+            } catch (e) {
+              // an inline worker the protection could not be added to: the
+              // error, never the worker as asked without it (1.1.32)
+              if (nBlob || nData) throw e;
+            }
+            if (wRefused) {
+              // the address could not be given without handing it to the
+              // worker's own code: the engine's refusal, never the worker without it
+              throw new TypeError("Failed to construct '" + name + "': This document requires 'TrustedScriptURL' assignment.");
+            }
             var wk;
             try { wk = RC(t, args, nt); } catch (e) {
-              if (args !== asked) return RC(t, asked, nt);
+              if (args !== asked && !nBlob && !nData) return RC(t, asked, nt);
               throw e;
             }
             if (nestedMade) errorsAsAsked(wk, nestedMade);
@@ -2176,7 +2352,7 @@
     'origin: R(OR, e, []), lastEventId: R(LI, e, []), source: R(SO, e, []), ports: pl })]); }\n'];
   var RND = new Uint32Array(1), RND_GET = crypto.getRandomValues, CRYPTO = crypto;
   // run: a classic worker from a file, whose prelude then runs the file
-  // JSON text in ASCII only (1.1.31, the independent review): a data:
+  // JSON text in ASCII only (1.1.32, the independent review): a data:
   // address, or an installed font's name, with a character beyond Latin-1
   // made btoa() throw, and the worker started as the page asked, without the
   // protection; the same characters as \uXXXX escapes, as JSON allows
@@ -2188,11 +2364,14 @@
     }
     return out;
   }
-  function preludeFor(address, ownSeed, run) {
+  // hello: a message the worker posts before anything else, so the page's
+  // protection knows the protected copy started (Kontrol, see adopt below)
+  function preludeFor(address, ownSeed, run, hello) {
     var sd = seed;
     if (ownSeed) { RAPPLY(RND_GET, CRYPTO, [RND]); sd = RND[0] || 1; }
     var at = ascii(RAPPLY(JSON_STR, JSON, [address]));
-    var p = WP_HEAD + WCFG + WP_TAIL + sd + ',' + at + (run ? ')(' + at + ');\n' : ');\n');
+    var p = (hello ? 'postMessage(' + RAPPLY(JSON_STR, JSON, [hello]) + ');' : '') +
+      WP_HEAD + WCFG + WP_TAIL + sd + ',' + at + (run ? ')(' + at + ');\n' : ');\n');
     while (p.length % 3) p += ' ';               // so it can be joined to base64 data
     return p;
   }
@@ -2379,6 +2558,10 @@
   // the site's server refused the protection's policy in this script's own
   // document (see makePolicy): its empty frames may refuse it too
   var MAIN_REFUSED = false;
+  // the blobs made in every realm this script protects (the page and its
+  // empty frames): a blob made in a frame and started in the page is read
+  // here, not through the network (1.1.32, the review)
+  var ALL_BLOBS = hardStrongMap();
   function install(w) {
     var WPr = w.Promise;            // this realm's, for then()
     if (!w) return;
@@ -2400,6 +2583,7 @@
       if (strict) maskFonts(w);
       return;
     }
+    passkeys(w, false);
     if (FIREFOX) firefoxIdentity(w);
     else {
       chromeObject(w);
@@ -2964,7 +3148,7 @@
     }
 
     // ---- inline workers get the same values ----
-    var U = w.URL, blobs = hardStrongMap();
+    var U = w.URL, blobs = ALL_BLOBS;
     var rawCreate = U && U.createObjectURL, rawRevoke = U && U.revokeObjectURL;
     // taken before the page's scripts: the prelude (with this site's seed)
     // is never handed to a function the page could have replaced since
@@ -2975,7 +3159,7 @@
     // Trusted Types (verification V-13): a TrustedScriptURL is read through
     // its own method and passed on as it is when nothing is added; an
     // address with the prelude gets a policy of the protection's own.
-    // 1.1.31 (Cloudflare's Turnstile failed at Balanced and above): that
+    // 1.1.32 (Cloudflare's Turnstile failed at Balanced and above): that
     // policy is made as the document starts, before any script of the page,
     // so only the policy the site's server sent can refuse it (a policy a
     // script adds later, in a <meta>, cannot: the independent review). Its
@@ -2984,7 +3168,7 @@
     // gives the noise away. Where the site allows only its own policies by
     // name (Cloudflare's challenge frame: `trusted-types <name> default`) and
     // has a default policy of its own, the worker starts with the page's own
-    // TrustedScriptURL, as the page asked: until 1.1.31 the bare address went
+    // TrustedScriptURL, as the page asked: until 1.1.32 the bare address went
     // on, the page's default policy turned it into an address its worker-src
     // refuses, and the worker never started. With no default policy the bare
     // address goes on as before (the engine takes it where Trusted Types are
@@ -3033,12 +3217,19 @@
       if (!serverRefused) return false;
       try { return !!(TT_DEFAULT && RAPPLY(TT_DEFAULT, TTP, [])); } catch (e) { return false; }
     };
-    // the address as a TrustedScriptURL of the protection's policy, or the
-    // bare address when there is none
-    var asTrusted = function (u) {
+    // The protection's address as the engine is given it: a TrustedScriptURL
+    // of the protection's own policy, whatever the page gave (1.1.32, the
+    // independent review: given as a bare string, it went to the page's own
+    // default policy where the page requires Trusted Types, and that policy
+    // could read the prelude, the seed with it, or put the page's own
+    // address in its place). Without a policy of the protection's, a bare
+    // string only where the page has no default policy; null: the address
+    // cannot be given without handing it to the page.
+    var ours = function (u) {
       makePolicy();
-      if (!ttPolicy) return u;
-      try { return RAPPLY(TT_URL, ttPolicy, [u]); } catch (e) { return u; }
+      if (ttPolicy) { try { return RAPPLY(TT_URL, ttPolicy, [u]); } catch (e) { return null; } }
+      try { if (TT_DEFAULT && RAPPLY(TT_DEFAULT, TTP, [])) return null; } catch (e) { return null; }
+      return u;
     };
     var xStatus = getterOf(XP, 'status'), xText = getterOf(XP, 'responseText');
     // Strict and Maximum (1.1.25, independent review): a dedicated worker the
@@ -3050,9 +3241,12 @@
     // and the script's own "use strict"; review round 3: the page read it
     // before, and waited for it), a module by import() after a prelude
     // module (MODULE_TOP). If that cannot be done (a content security policy
-    // refuses blob workers) the worker is started as the page asked, and the
-    // request check refuses its script at these levels
-    // (shields._WORKER_SCRIPTS): it never runs without the protection.
+    // refuses blob workers) the worker is started as the page asked: at
+    // Maximum the request check refuses its script (shields._WORKER_SCRIPTS),
+    // so it never runs without the protection; at Kontrol (1.1.32) it runs
+    // the site's own file (see adopt below): where a site refuses blob
+    // workers no script of the page can make one either, so only the site's
+    // own code can be in it.
     var UPR = U && U.prototype, uHref = getterOf(UPR, 'href'), uOrigin = getterOf(UPR, 'origin');
     var uProto = getterOf(UPR, 'protocol'), baseOf = getterOf(w.Node && w.Node.prototype, 'baseURI');
     var later = function (u) { RAPPLY(nLater, w, [function () { RAPPLY(rawRevoke, U, [u]); }, 30000]); };
@@ -3062,20 +3256,38 @@
     // (review round 3: location.origin let a sandboxed frame start one)
     var ownOrigin = null;
     try { ownOrigin = `${w.origin}`; } catch (e) {}
-    function fromFile(url, module) {
+    function fromFile(url, module, hello) {
       var x = nConstruct(U, [url, RAPPLY(baseOf, w.document, [])]), pr = RAPPLY(uProto, x, []);
       if ((pr !== 'http:' && pr !== 'https:') || RAPPLY(uOrigin, x, []) !== ownOrigin) return null;
       var abs = RAPPLY(uHref, x, []), js = { type: 'text/javascript' };
       if (module) {
-        var pre = RAPPLY(rawCreate, U, [new NBlob([preludeFor(abs, true)], js)]);
+        var pre = RAPPLY(rawCreate, U, [new NBlob([preludeFor(abs, true, false, hello)], js)]);
         var top = RAPPLY(rawCreate, U, [new NBlob([MODULE_TOP[0] + RAPPLY(JSON_STR, JSON, [pre]) + MODULE_TOP[1] +
           RAPPLY(JSON_STR, JSON, [abs]) + MODULE_TOP[2]], js)]);
         PATCHED.set(top, abs);
         later(pre); later(top);
         return top;
       }
-      var made = RAPPLY(rawCreate, U, [new NBlob([preludeFor(abs, false, true)], js)]);
+      var made = RAPPLY(rawCreate, U, [new NBlob([preludeFor(abs, false, true, hello)], js)]);
       PATCHED.set(made, abs);
+      later(made);
+      return made;
+    }
+    // a worker started from a blob address whose text cannot be read: the
+    // prelude, then the address loaded by the worker itself (importScripts,
+    // or import() for a module), as for a site's file (1.1.32)
+    function blobLoader(address, module) {
+      var js = { type: 'text/javascript' };
+      if (module) {
+        var pre = RAPPLY(rawCreate, U, [new NBlob([preludeFor(address, true)], js)]);
+        var top = RAPPLY(rawCreate, U, [new NBlob([MODULE_TOP[0] + RAPPLY(JSON_STR, JSON, [pre]) + MODULE_TOP[1] +
+          RAPPLY(JSON_STR, JSON, [address]) + MODULE_TOP[2]], js)]);
+        PATCHED.set(top, address);
+        later(pre); later(top);
+        return top;
+      }
+      var made = RAPPLY(rawCreate, U, [new NBlob([preludeFor(address, false, true)], js)]);
+      PATCHED.set(made, address);
       later(made);
       return made;
     }
@@ -3109,16 +3321,182 @@
         }]);
       } catch (e) {}
     }
+    // Kontrol (1.1.32, the web compatibility campaign): the engine refuses a
+    // blob worker the site's policy does not allow only after the Worker
+    // object is made (an "error" event a moment later, never an exception),
+    // so the fallback to the page's own address below never ran, and
+    // WhatsApp and Telegram (worker-src without blob:) got no worker at all.
+    // A worker started from the protected copy is watched until its prelude
+    // says hello: the messages the page posts meanwhile wait; if the copy
+    // is refused instead, the site's own file is started and takes its
+    // place inside the same object (its messages and errors come out of the
+    // object the page holds, what was posted goes to it), the refusal's
+    // error is not the page's, and the document's further workers start
+    // from the file at once. Not at Maximum, where the file is refused.
+    var blobRefused = false;
+    var PENDING = hardMap();
+    var WPP = w.Worker && w.Worker.prototype, nPost = WPP && WPP.postMessage, nTerm = WPP && WPP.terminate;
+    var MEP = w.MessageEvent && w.MessageEvent.prototype, NMessageEvent = w.MessageEvent;
+    var mData = getterOf(MEP, 'data'), mPorts = getterOf(MEP, 'ports');
+    var eLineOf = getterOf(EEP, 'lineno'), eColOf = getterOf(EEP, 'colno');
+    var newHello = function () {
+      RAPPLY(RND_GET, CRYPTO, [RND]);
+      var a = RND[0];
+      RAPPLY(RND_GET, CRYPTO, [RND]);
+      return 'ike-hello-' + a + '-' + RND[0];
+    };
+    // A message posted before the hello is cloned at once, as the engine
+    // does it (1.1.32, the independent review: kept as given, it was
+    // serialised later, so a change made after posting reached the worker,
+    // a transferred buffer stayed usable and an object that cannot be cloned
+    // threw nothing): the copy and its transferred objects wait, the
+    // originals are detached now, and a clone error is thrown now, in the
+    // engine's words.
+    var nClone = w.structuredClone, NDOMEx = w.DOMException, IS_ARRAY = Array.isArray;
+    var NTypeError = w.TypeError, TYPEERR_P = NTypeError && NTypeError.prototype;
+    var CLONE_WHERE = "'structuredClone' on 'Window'", POST_WHERE = "'postMessage' on 'Worker'";
+    var SYM_IT = Symbol.iterator;
+    // a sequence as the engine reads it: an array as it is, any other
+    // iterable walked once (a Set: the independent review)
+    var seqOf = function (x) {
+      if (RAPPLY(IS_ARRAY, Array, [x])) return x;
+      var f = x[SYM_IT];
+      if (typeof f !== 'function') {
+        var te = new NTypeError("Failed to execute 'postMessage' on 'Worker': The provided value cannot be converted to a sequence.");
+        clean(te);
+        throw te;
+      }
+      var it = RAPPLY(f, x, []), nx = it.next, arr = [];
+      for (;;) {
+        var step = RAPPLY(nx, it, []);
+        if (step.done) break;
+        arr[arr.length] = step.value;
+      }
+      return arr;
+    };
+    var argsOf = function (list) {
+      var msg = list[0], opt = list.length > 1 ? list[1] : undefined, tr = [];
+      if (opt !== undefined && opt !== null) {
+        if (typeof opt !== 'object' && typeof opt !== 'function') {
+          // the engine's overloads take a sequence or a dictionary only
+          var oe = new NTypeError("Failed to execute 'postMessage' on 'Worker': Overload resolution failed.");
+          clean(oe);
+          throw oe;
+        }
+        var itf = opt[SYM_IT];
+        if (itf !== undefined && itf !== null) tr = seqOf(opt);
+        else { var t = opt.transfer; if (t !== undefined) tr = seqOf(t); }
+      }
+      var c;
+      try {
+        c = RAPPLY(nClone, w, [{ m: msg, t: tr }, { transfer: tr }]);
+      } catch (e) {
+        var ex = e;
+        try {
+          var m = `${e.message}`, at = sindex(m, CLONE_WHERE);
+          if (at >= 0) m = sslice(m, 0, at) + POST_WHERE + sslice(m, at + CLONE_WHERE.length);
+          ex = RAPPLY(IS_PROTO, TYPEERR_P, [e]) ? new NTypeError(m) : new NDOMEx(m, `${e.name}`);
+        } catch (x) {}
+        clean(ex);
+        throw ex;
+      }
+      return [c.m, c.t];
+    };
+    var flush = function (st, to) {
+      var q = st.q;
+      st.q = [];
+      for (var i = 0; i < q.length; i++) { try { RAPPLY(nPost, to, q[i]); } catch (e) {} }
+    };
+    function adopt(made, hello, target, asked) {
+      var st = { q: [], ok: false, real: null, dead: false };
+      PENDING.set(made, st);
+      try {
+        RAPPLY(eAdd, made, ['message', function (e) {
+          if (st.ok || st.real) return;
+          var d;
+          try { d = RAPPLY(mData, e, []); } catch (x) { return; }
+          if (d !== hello) return;
+          RAPPLY(eStop, e, []);
+          st.ok = true;
+          flush(st, made);
+        }]);
+        RAPPLY(eAdd, made, ['error', function (e) {
+          // only the refusal of the protected copy (its report came first,
+          // securitypolicyviolation below): any other error is the page's.
+          // Held back even when the page terminated the worker meanwhile
+          // (the engine reports nothing for a terminated worker: review)
+          if (st.ok || st.real || !blobRefused) return;
+          RAPPLY(eStop, e, []);
+          RAPPLY(ePrevent, e, []);
+          if (st.dead) return;
+          var real;
+          try { real = nConstruct(target, asked, target); } catch (x) {
+            st.dead = true;
+            try { RAPPLY(eFire, made, [new NEvent('error', { cancelable: true })]); } catch (y) {}
+            return;
+          }
+          st.real = real;
+          var pass = function (type) {
+            RAPPLY(eAdd, real, [type, function (m) {
+              try {
+                var ports = RAPPLY(mPorts, m, []), list = [];
+                for (var i = 0; i < ports.length; i++) list[i] = ports[i];
+                RAPPLY(eFire, made, [new NMessageEvent(type, { data: RAPPLY(mData, m, []), ports: list })]);
+              } catch (x) {}
+            }]);
+          };
+          pass('message');
+          pass('messageerror');
+          RAPPLY(eAdd, real, ['error', function (x) {
+            try {
+              var again = new NErrorEvent('error', { message: `${RAPPLY(eMsg, x, [])}`, filename: RAPPLY(eFile, x, []),
+                lineno: RAPPLY(eLineOf, x, []), colno: RAPPLY(eColOf, x, []), cancelable: true });
+              if (!RAPPLY(eFire, made, [again])) RAPPLY(ePrevent, x, []);
+            } catch (y) {}
+          }]);
+          flush(st, real);
+        }]);
+      } catch (e) {}
+    }
+    if (strict && !keepWorkersOut && WPP && nPost && nTerm) {
+      wrap(WPP, 'postMessage', function (orig) {
+        return function () {
+          var st = arguments.length ? PENDING.get(this) : undefined;
+          if (st && !st.ok) {
+            if (st.real) return RAPPLY(orig, st.real, arguments);
+            // copied even after terminate(): its errors are thrown as the engine's (the review)
+            var copy = argsOf(arguments);
+            if (!st.dead) st.q[st.q.length] = copy;
+            return;
+          }
+          return RAPPLY(orig, this, arguments);
+        };
+      });
+      wrap(WPP, 'terminate', function (orig) {
+        return function () {
+          var st = PENDING.get(this);
+          if (st) {
+            st.dead = true;
+            st.q = [];
+            if (st.real) RAPPLY(orig, st.real, []);
+          }
+          return RAPPLY(orig, this, arguments);
+        };
+      });
+    }
     // a content security policy that refuses the blob address: its report of
     // the protection's own attempt is not the page's (review round 3, N-6);
     // the worker the page asked for is then refused (see above). The same
     // for a refusal of the protection's Trusted Types policy or of its
-    // address (1.1.31, the independent review: in an empty frame the page
+    // address (1.1.32, the independent review: in an empty frame the page
     // always saw it, named as coming from "userscript"), at every level. The
     // report a server asked for (report-uri) cannot be held back.
     var SPV = w.SecurityPolicyViolationEvent && w.SecurityPolicyViolationEvent.prototype;
     var vBlocked = getterOf(SPV, 'blockedURI'), vSource = getterOf(SPV, 'sourceFile');
     var vDirective = getterOf(SPV, 'effectiveDirective'), vSample = getterOf(SPV, 'sample');
+    var vDisposition = getterOf(SPV, 'disposition');
+    var WORKER_DIRECTIVES = Object.create(null);
+    ['worker-src', 'child-src', 'script-src', 'script-src-elem', 'default-src'].forEach(function (k) { WORKER_DIRECTIVES[k] = 1; });
     if (vBlocked && vSource) {
       try {
         RAPPLY(eAdd, w, ['securitypolicyviolation', function (e) {
@@ -3132,6 +3510,15 @@
             // (innerHTML, the Worker proxy) name "userscript" too and stay
             // the page's (the review)
             var d = vDirective ? `${RAPPLY(vDirective, e, [])}` : '';
+            // the document refuses blob workers for good: only an enforced
+            // policy of workers (not a report-only one, not another
+            // directive: the independent review)
+            if (strict && RAPPLY(vBlocked, e, []) === 'blob' && vDisposition &&
+                RAPPLY(vDisposition, e, []) === 'enforce' && WORKER_DIRECTIVES[d] === 1) {
+              blobRefused = true;
+              // Maximum: that worker cannot start at all (the diagnosis)
+              if (keepWorkersOut) report('protected_worker_refused');
+            }
             if ((strict && RAPPLY(vBlocked, e, []) === 'blob') ||
                 (d === 'trusted-types' && ttName && vSample && RAPPLY(vSample, e, []) === ttName) ||
                 (d === 'require-trusted-types-for' && ttRefused)) RAPPLY(eStop, e, []);
@@ -3172,16 +3559,60 @@
             var url = tt !== null ? tt : `${first}`;
             var opt = workerOptions(args[1], args.length > 1);
             var send = function (u) { return opt.given ? [u, opt.value] : [u]; };
-            var call = send(tt !== null ? first : url), asked = call;
-            var inline = sslice(url, 0, 5) === 'blob:' || lower(sslice(url, 0, 5)) === 'data:';
+            var call = send(tt !== null ? first : url), asked = call, hello = null, loader = null, refused = false;
+            // the address as the engine reads it (1.1.32, the independent
+            // review): ' blob:...' or 'BLOB:...', which the engine takes, were
+            // no inline worker here and started without the protection
             try {
-              if (tt !== null && asAsked()) {
+              // against the document's own base (the review: 'https:w.js' is
+              // relative to it, and a <base> may be a blob: address)
+              var nu = RAPPLY(uHref, nConstruct(U, [url, RAPPLY(baseOf, w.document, [])]), []);
+              if (sslice(nu, 0, 5) === 'blob:' || sslice(nu, 0, 5) === 'data:' || sslice(nu, 0, 11) === 'filesystem:') url = nu;
+            } catch (e) {}
+            // a filesystem: address holds the page's own text, as a blob does
+            // (1.1.32, the review): read, or loaded by the prelude, the same way
+            var isBlob = sslice(url, 0, 5) === 'blob:' || sslice(url, 0, 11) === 'filesystem:';
+            var isData = sslice(url, 0, 5) === 'data:';
+            var inline = isBlob || isData;
+            if (keepWorkersOut && name === 'SharedWorker' && !inline) {
+              // Maximum, or a frame of another site (1.1.32, the owner's
+              // brief 3.2): a shared worker of this file started at a lower
+              // level, in a tab still open, would be joined without its file
+              // being asked for, so the request check would never see it and
+              // the page would get a worker with the engine's own values. A
+              // name of its own makes the engine ask for the file, which the
+              // request check refuses, as for any shared worker here.
+              try {
+                var ov = opt.value, own = {};
+                if (opt.given && ov !== null && typeof ov === 'object') {
+                  for (var oi = 0; oi < OPT_KEYS.length; oi++) {
+                    var ok = OPT_KEYS[oi];
+                    if (ov[ok] !== undefined) DEFPROP(own, ok, { value: ov[ok], writable: true, enumerable: true, configurable: true });
+                  }
+                }
+                var nm = opt.given && ov !== null && ov !== undefined && typeof ov !== 'object' ? `${ov}`
+                  : (own.name !== undefined ? own.name : '');
+                // a mark of its own, random, that names nothing (the review)
+                DEFPROP(own, 'name', { value: nm + '\u2063' + sslice(newHello(), 10), writable: true, enumerable: true, configurable: true });
+                call = [tt !== null ? first : url, own];
+              } catch (e) {}
+            }
+            try {
+              if (asAsked()) {
                 // nothing to add: the worker the page asked for (a file of the
                 // site's at Strict and above: refused by the request check)
-              } else if (strict && name === 'Worker' && sslice(url, 0, 5) !== 'blob:' && lower(sslice(url, 0, 5)) !== 'data:') {
-                file = fromFile(url, opt.module);
-                if (file) call = send(tt !== null ? asTrusted(file) : file);
-              } else if (sslice(url, 0, 5) === 'blob:') {
+              } else if (strict && name === 'Worker' && !inline) {
+                if (!keepWorkersOut && blobRefused) {
+                  // Kontrol: this document's policy refuses the protected
+                  // copy: the site's own file, as the page asked (see adopt)
+                } else {
+                  hello = keepWorkersOut ? null : newHello();
+                  file = fromFile(url, opt.module, hello);
+                  var fv = file ? ours(file) : null;
+                  if (fv !== null) call = send(fv);
+                  else { file = null; hello = null; }   // the site's file as asked (refused where they stay out)
+                }
+              } else if (isBlob) {
                 var blob = blobs.get(url);
                 if (!blob) {
                   // a blob address made elsewhere (in a worker, another frame):
@@ -3197,26 +3628,36 @@
                 if (blob) {
                   var patched = RAPPLY(rawCreate, U, [new NBlob([preludeFor(url, opt.module), blob],
                     { type: RAPPLY(BLOB_TYPE, blob, []) || 'text/javascript' })]);
-                  call = send(tt !== null ? asTrusted(patched) : patched);
+                  var pv = ours(patched);
+                  if (pv === null) refused = true; else call = send(pv);
                   PATCHED.set(patched, url);
                   // the prelude revokes it at once; this is the fallback
                   RAPPLY(nLater, w, [function () { RAPPLY(rawRevoke, U, [patched]); }, 30000]);
+                } else {
+                  // its text cannot be read here (a policy without blob: in
+                  // connect-src, the independent review): the prelude, which
+                  // then loads the address itself, as a site's file at Strict;
+                  // never the worker as asked, without the protection
+                  loader = blobLoader(url, opt.module);
+                  var lv = ours(loader);
+                  if (lv === null) refused = true; else call = send(lv);
                 }
-              } else if (lower(sslice(url, 0, 5)) === 'data:') {
+              } else if (isData) {
                 var comma = sindex(url, ',');
                 if (comma > 0) {
                   var b64 = lower(sslice(url, comma - 7 < 0 ? 0 : comma - 7, comma)) === ';base64';
                   var pre = preludeFor(url, true);
                   var made = sslice(url, 0, comma + 1) +
                     (b64 ? RAPPLY(nBtoa, w, [pre]) : RAPPLY(nEnc, w, [pre])) + sslice(url, comma + 1);
-                  call = send(tt !== null ? asTrusted(made) : made);
+                  var dv = ours(made);
+                  if (dv === null) refused = true; else call = send(dv);
                   PATCHED.set(made, url);
                 }
               }
             } catch (e) {
               // a page that used up the stack first, or gave an address the
               // protection could not be added to, got the worker it asked for
-              // without it (1.1.31, the independent review): the error
+              // without it (1.1.32, the independent review): the error
               // instead, for an inline worker (a file's is refused anyway at
               // these levels, by the request check)
               if (outOfStack(e) || (!file && inline)) { clean(e); throw e; }
@@ -3228,6 +3669,13 @@
             // from the network, whose policy only its server sent. An inline
             // worker anywhere else is not started without the protection: a
             // script could have given an empty frame the policy that refuses it
+            // the protection's address could not be given without handing it
+            // to the page (see ours): the engine's refusal of an untrusted
+            // address, never the worker without the protection
+            if (refused) {
+              var te = new w.TypeError("Failed to construct '" + name + "': This document requires 'TrustedScriptURL' assignment.");
+              clean(te); throw te;
+            }
             var made;
             try { made = nConstruct(target, call, nt); } catch (e) {
               if (call !== asked && !outOfStack(e) && (file || netDoc || !inline)) {
@@ -3235,7 +3683,9 @@
               }
               clean(e); throw e;
             }
+            if (file && hello) adopt(made, hello, target, asked);
             if (file) sameErrors(made, file);
+            else if (loader) sameErrors(made, loader);
             return made;
           }
         });
@@ -3245,6 +3695,66 @@
             { value: P, writable: true, configurable: true });
           Object.defineProperty(w, name, { value: P, writable: true, configurable: true });
         } catch (e) {}
+      });
+    }
+    // Where the site's own workers stay out (1.1.32, the owner's brief 3.2):
+    // a service worker registered before is unregistered (below, at the end),
+    // but while a tab still uses it the engine keeps it, and a register() of
+    // its scope takes it back without asking for the file, in any later
+    // document (the independent review: a list of the dropped scopes kept per
+    // document missed the second one). The site's own file is refused here
+    // by the request check in any case, so register() of a script and scope
+    // of the page's own origin always answers as the engine does when the
+    // file is refused, without asking it to. The page's arguments are read
+    // once: what goes to the engine (another origin, another scheme...) is
+    // that reading, never the page's objects read again.
+    var SWCP = w.ServiceWorkerContainer && w.ServiceWorkerContainer.prototype;
+    if (keepWorkersOut && SWCP && typeof SWCP.register === 'function') {
+      var NPromiseSW = w.Promise, NTypeErrorSW = w.TypeError;
+      wrap(SWCP, 'register', function (orig) {
+        return function (scriptURL) {
+          if (!arguments.length) return RAPPLY(orig, this, arguments);
+          var ex = null, call = null, conv = true;
+          try {
+            var tts = trustedText(scriptURL), script = tts !== null ? scriptURL : `${scriptURL}`;
+            call = [script];
+            var opts = arguments.length > 1 ? arguments[1] : undefined, given;
+            if (arguments.length > 1) {
+              if (opts !== undefined && opts !== null && (typeof opts === 'object' || typeof opts === 'function')) {
+                // the dictionary's members, once, in the engine's order
+                var o2 = {}, sv = opts.scope, tv = opts.type, uv = opts.updateViaCache;
+                if (sv !== undefined) { given = `${sv}`; o2.scope = given; }
+                if (tv !== undefined) o2.type = `${tv}`;
+                if (uv !== undefined) o2.updateViaCache = `${uv}`;
+                call[1] = o2;
+              } else call[1] = opts;
+            }
+            conv = false;
+            if (ownOrigin) {
+              var base = RAPPLY(baseOf, w.document, []);
+              var su = nConstruct(U, [tts !== null ? tts : script, base]);
+              var sp = RAPPLY(uProto, su, []);
+              if ((sp === 'http:' || sp === 'https:') && RAPPLY(uOrigin, su, []) === ownOrigin) {
+                var sc = given !== undefined ? nConstruct(U, [given, base]) : nConstruct(U, ['./', RAPPLY(uHref, su, [])]);
+                var scHref = RAPPLY(uHref, sc, []), scProto = RAPPLY(uProto, sc, []), scLow = lower(scHref);
+                if ((scProto === 'http:' || scProto === 'https:') && RAPPLY(uOrigin, sc, []) === ownOrigin &&
+                    sindex(scLow, '%2f') < 0 && sindex(scLow, '%5c') < 0) {   // never the page's RegExp methods
+                  ex = new NTypeErrorSW("Failed to register a ServiceWorker for scope ('" + scHref + "') with script ('" +
+                    RAPPLY(uHref, su, []) + "'): An unknown error occurred when fetching the script.");
+                  clean(ex);
+                }
+              }
+            }
+          } catch (e) {
+            if (outOfStack(e)) throw e;
+            // the page's own toString threw while its arguments were read: a
+            // rejected promise, as the engine's conversion gives
+            if (conv) { var ce = e; return new NPromiseSW(function (ok, no) { no(ce); }); }
+            ex = null;
+          }
+          if (ex === null) return RAPPLY(orig, this, call);
+          return new NPromiseSW(function (ok, no) { no(ex); });
+        };
       });
     }
     // a worker's error names the page's own address and line (audit, H-B)
@@ -3608,11 +4118,12 @@
     check(null, true);
   }
 
-  // Strict and Maximum (1.1.25): no service worker (shields.py refuses their
-  // scripts, whatever frame or worker asks). One registered before, at a lower
-  // level, would still start with the engine's own values: it is unregistered
-  // (the page keeps its controller until it is left, as with unregister()).
-  if (strict) {
+  // Where the site's own workers stay out (CFG.wkout, 1.1.32; Maximum and
+  // Kontrol everywhere until 1.1.31): no service worker (shields.py refuses
+  // their scripts, whatever frame or worker asks). One registered before
+  // would still start with the engine's own values: it is unregistered (the
+  // page keeps its controller until it is left, as with unregister()).
+  if (keepWorkersOut) {
     try {
       var SWC = window.ServiceWorkerContainer && ServiceWorkerContainer.prototype;
       var SWR = window.ServiceWorkerRegistration && ServiceWorkerRegistration.prototype;

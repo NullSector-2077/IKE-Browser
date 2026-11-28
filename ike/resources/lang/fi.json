@@ -1609,6 +1609,25 @@
 "This session, by kind": "Tämä istunto, lajeittain",
 "This session, the sites that tried most": "Tämä istunto, eniten yrittäneet sivustot",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Mikään tästä ei lähde tietokoneeltasi. Tämän istunnon luvut alkavat alusta, kun I.K.E. käynnistyy.",
-"Nothing blocked yet in this session.": "Tässä istunnossa ei ole vielä estetty mitään."
+"Nothing blocked yet in this session.": "Tässä istunnossa ei ole vielä estetty mitään.",
+"Blocking of the site's own background workers": "Sivuston omien taustaprosessien esto",
+"Background workers blocked": "Estetyt taustaprosessit",
+"Site's own workers allowed": "Sivuston omat prosessit sallittu",
+"Probable cause: a protection blocked something the page needs.": "Todennäköinen syy: suojaus esti jotain, mitä sivu tarvitsee.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Korjaus: todennäköinen syy on hetken pois päältä tällä sivustolla, kaikki muut suojaukset pysyvät päällä. Toimiiko sivu nyt?",
+"This site works fine": "Tämä sivusto toimii hyvin",
+"The octagon goes back to normal for this site in this tab": "Kahdeksankulmio palaa normaaliksi tälle sivustolle tässä välilehdessä",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Korjaa tämä sivusto” poistaa käytöstä vain sen suojauksen, vain tällä sivustolla; kaikki muut suojaukset pysyvät päällä.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. voi auttaa sinua korjaamaan sen niin, että kaikki muut suojaukset pysyvät päällä.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Vaara: tämän sivuston varmenne ei ole kelvollinen, joten yhteys ei ehkä ole yksityinen.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Vaara: I.K.E. löysi tältä sivustolta todellisen riskin turvallisuudellesi. Lue varoitus sivun yläpuolelta.",
+"A protection may interfere with some features of this site.": "Suojaus saattaa häiritä joitakin tämän sivuston toimintoja.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Suojaus saattaa estää tätä sivustoa toimimasta kunnolla. Käytä toimintoa “Korjaa tämä sivusto”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. ei havainnut mitään poikkeavaa tämän sivun latautuessa. Tämä ei todista, että sivusto on turvallinen.",
+"This site uses background programs: it works better, but protects you a little less.": "Tämä sivusto käyttää taustaohjelmia: se toimii paremmin, mutta suojaa sinua hieman vähemmän.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Tämän sivuston taustaohjelmat on estetty: enemmän suojaa, mutta sivusto ei ehkä toimi.",
+"Block them on this site": "Estä ne tällä sivustolla",
+"Allow them again": "Salli ne uudelleen",
+"Probable cause: this site's background programs are blocked.": "Todennäköinen syy: tämän sivuston taustaohjelmat on estetty."
 }
 }

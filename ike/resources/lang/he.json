@@ -1609,6 +1609,25 @@
 "This session, by kind": "הפעלה זו, לפי סוג",
 "This session, the sites that tried most": "הפעלה זו, האתרים שניסו הכי הרבה",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "שום דבר מזה לא יוצא מהמחשב שלך. המספרים של הפעלה זו מתחילים מחדש כש-I.K.E. מופעל.",
-"Nothing blocked yet in this session.": "עדיין לא נחסם דבר בהפעלה זו."
+"Nothing blocked yet in this session.": "עדיין לא נחסם דבר בהפעלה זו.",
+"Blocking of the site's own background workers": "חסימת תהליכי הרקע של האתר עצמו",
+"Background workers blocked": "תהליכי רקע חסומים",
+"Site's own workers allowed": "תהליכי האתר עצמו מותרים",
+"Probable cause: a protection blocked something the page needs.": "סיבה אפשרית: הגנה חסמה משהו שהדף צריך.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "תיקון: הסיבה האפשרית כבויה באתר הזה לרגע, כל שאר ההגנות נשארות פעילות. האם הדף עובד עכשיו?",
+"This site works fine": "האתר הזה עובד כראוי",
+"The octagon goes back to normal for this site in this tab": "המתומן חוזר למצב רגיל עבור האתר הזה בלשונית הזו",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“תיקון האתר הזה” מכבה רק את ההגנה הזו, לאתר הזה בלבד; כל שאר ההגנות נשארות פעילות.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. יכול לעזור לך לתקן את זה ולהשאיר את כל שאר ההגנות פעילות.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "סכנה: תעודת האבטחה של האתר הזה אינה תקפה, ולכן ייתכן שהחיבור אינו פרטי.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "סכנה: I.K.E. מצא סיכון ממשי לבטיחותך באתר הזה. יש לקרוא את האזהרה שמעל הדף.",
+"A protection may interfere with some features of this site.": "הגנה עלולה להפריע לחלק מהתכונות של האתר הזה.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "הגנה עלולה למנוע מהאתר הזה לעבוד כראוי. יש להשתמש באפשרות “תיקון האתר הזה”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. לא מצא שום דבר חשוד בזמן טעינת הדף הזה. אין בכך הוכחה שהאתר בטוח.",
+"This site uses background programs: it works better, but protects you a little less.": "האתר הזה משתמש בתוכניות רקע: הוא עובד טוב יותר, אבל ההגנה עליך מעט פחותה.",
+"This site's background programs are blocked: more protection, but the site may not work.": "תוכניות הרקע של האתר הזה חסומות: יותר הגנה, אבל ייתכן שהאתר לא יעבוד.",
+"Block them on this site": "לחסום אותן באתר זה",
+"Allow them again": "לאפשר אותן שוב",
+"Probable cause: this site's background programs are blocked.": "סיבה אפשרית: תוכניות הרקע של האתר הזה חסומות."
 }
 }

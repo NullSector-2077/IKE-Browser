@@ -51,6 +51,12 @@ class LookalikeBar(QWidget):
         self.hide()
 
     def show_for(self, view):
+        self._show_for(view)
+        sync = getattr(self.win, "sync_interference", None)
+        if sync is not None:
+            sync()                     # the shield's red follows the warning (1.1.32)
+
+    def _show_for(self, view):
         """Show or hide the warning for the page now in front."""
         self.view = view
         brand = getattr(view, "lookalike", None) if view is not None else None
@@ -79,6 +85,9 @@ class LookalikeBar(QWidget):
             cfg.save()
         v.lookalike = None
         self.hide()
+        # the site's own workers are no longer kept out there (1.1.32, the review)
+        self.win.app.shields.apply_settings()
+        self.win.sync_interference()
 
     def _close(self):
         if self.view is not None:

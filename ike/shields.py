@@ -346,8 +346,8 @@ _FULL_VERSION = (b"sec-ch-ua-full-version", b"sec-ch-ua-full-version-list")
 # a downlink of about 9.5 while the headers said 100 and about 1.7.
 _NETWORK_HINTS = {b"rtt": b"50", b"downlink": b"10", b"ect": b"4g"}
 
-# Strict and Maximum (1.1.25, owner's decision of 2026-11-24): no service
-# worker and no shared worker from a site's own file. The engine gives them
+# Maximum (1.1.25, owner's decision of 2026-11-24; Kontrol too until 1.1.31):
+# no service worker and no shared worker from a site's own file. The engine gives them
 # its own values, never the profile's (the real kernel, the engine's full
 # version, other languages, the real graphics card), and no script of
 # I.K.E.'s can run in them. Their script is refused here, in the engine,
@@ -360,6 +360,19 @@ _NETWORK_HINTS = {b"rtt": b"50", b"downlink": b"10", b"ect": b"4g"}
 # way (a policy that refuses blob workers, a script that could not be read)
 # is refused here, as when its script cannot be fetched: it never runs
 # without the protection.
+# Kontrol (1.1.32, the owner's decision after the web compatibility campaign
+# of 2026-11-28): WhatsApp and Telegram need their workers, so they run. Only
+# the site's own files can be in them; workers made from a page's own text
+# (blob:, data:), which any script of the page can make, keep the protection.
+# They are counted ("workers_open"), and the shield says so. At Maximum the
+# user can allow them for one site (site_opts "workers": False, the shield
+# and "Repair this site"); the ones refused are counted ("workers").
+_WORKER_KIND = {t: k for t, k in ((getattr(_RT, n, None), k) for n, k in (
+    ("ResourceTypeServiceWorker", "service"), ("ResourceTypeSharedWorker", "shared"),
+    ("ResourceTypeWorker", "dedicated"))) if t is not None}
+# the site's own requests whose block by the lists may break a page (incompat.py)
+_OWN_KINDS = {t: k for t, k in ((getattr(_RT, n, None), k) for n, k in (
+    ("ResourceTypeScript", "script"), ("ResourceTypeMedia", "media"), ("ResourceTypeXhr", "xhr"))) if t is not None}
 _WORKER_SCRIPTS = frozenset(t for t in (getattr(_RT, n, None) for n in (
     "ResourceTypeServiceWorker", "ResourceTypeSharedWorker", "ResourceTypeWorker")) if t is not None)
 
@@ -502,6 +515,13 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         # (pages loaded by I.K.E. itself, such as the page watcher)
         self.quiet = quiet
         self.private = private          # a private window's: its sites are never listed (ike:kontrol)
+
+    def _note(self, host, kind):
+        """A protection acted on the site's own request: evidence for the
+        diagnosis of incompatibilities (incompat.py), per profile scope."""
+        d = getattr(self.s, "diagnosis", None)
+        if d is not None and not self.quiet:
+            d.note(id(self), host, kind)
 
     def _count(self, host, kind):
         if not self.quiet:
@@ -734,9 +754,27 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             # PayPal's and Stripe's own parts of a shop (payment buttons and
             # fields, anti-fraud checks): never blocked or changed (1.1.14)
             return
-        if lv >= 3 and rtype in _WORKER_SCRIPTS and cfg.site_opt(first_host, "fp") is not False:
-            info.block(True)           # no worker from a file without the protection (1.1.25)
-            return
+        if lv >= 3 and rtype in _WORKER_SCRIPTS:
+            # only the visited site's own file (1.1.32, the independent review:
+            # a frame of another site, an embedded widget, an ad, stays out at
+            # Kontrol too, and is never counted for the site nor offered to it).
+            # 1.1.32, the owner's decision (Maximum too: "i siti devono
+            # funzionare, almeno quelli fidati"): the site's own run at Kontrol
+            # and Maximum, except where the user blocked them on the site (the
+            # shield) or on a page I.K.E.'s safety warnings call dangerous;
+            # there whatever the repairs left (the fingerprinting protection
+            # off too: the review)
+            own = host_site == first_site
+            fp_on = cfg.site_opt(first_host, "fp") is not False
+            if self.s.worker_danger(first_host) or (
+                    fp_on and (not own or cfg.site_opt(first_host, "workers") is True)):
+                info.block(True)       # no worker from a file without the protection (1.1.25)
+                if own:
+                    self._count(first_host, "workers")
+                    self._note(first_host, "worker:" + _WORKER_KIND.get(rtype, "dedicated"))
+                return
+            if fp_on:                  # (the protection off on the site: as Balanced, not counted)
+                self._count(first_host, "workers_open")     # the site's own, with the engine's values (1.1.32)
         if cfg["login_compat"]:
             try:
                 init_host = info.initiator().host().lower()
@@ -760,6 +798,9 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
                 s.redirected.discard(key)
             elif not self.quiet:
                 s.reset_count(host)
+                d = getattr(s, "diagnosis", None)
+                if d is not None:
+                    d.page_started(id(self), host)          # a new page: its own evidence (incompat.py)
         if main and get:
             if lv >= 2 and cfg["strip_tracking_params"] and self._skip_tracker(info, url, host):
                 return
@@ -809,6 +850,10 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
                 return
             if action == "block":
                 info.block(True)
+                if host_site == first_site and rtype in _OWN_KINDS:
+                    # the site's own request blocked by the lists (Kontrol and
+                    # Maximum): evidence for the diagnosis (incompat.py)
+                    self._note(first_host, "own:" + _OWN_KINDS[rtype])
                 if main and not self.quiet:
                     if len(s.blocked_pages) > 100:
                         s.blocked_pages.clear()
@@ -979,6 +1024,9 @@ class Shields(QObject):
         # One fingerprint-noise key per WebEngine profile. Private and
         # container profiles must not share the same per-site noise stream.
         self.profile_keys = {}
+        # the key of fingerprint.js's reports to the diagnosis (incompat.py,
+        # 1.1.32): in its closure, never readable by a page
+        self.report_key = "ike-rk-" + secrets.token_hex(16)
         # the media-command events' own secret (mediahook.js), never derived
         # from the fingerprinting key (1.1.18, security audit: it was the
         # key's first 96 bits, readable on media sites)
@@ -995,6 +1043,7 @@ class Shields(QObject):
         self.blocked_pages = set()      # whole pages the lists stopped, until their error is shown
         self.lan_blocked = {}           # local address a public page tried to open -> that site
         self.lan_allowed = set()        # public sites the user let open local addresses (session)
+        self._lookalikes = {}           # host -> imitates a famous site? (worker_danger, 1.1.32)
         self.profiles = []
         self.user_scripts = None         # set by the application
         self.interceptor = Interceptor(self)
@@ -1011,15 +1060,17 @@ class Shields(QObject):
         blocker.rebuilt.connect(self._rules_changed)
 
     # --- stats -------------------------------------------------------
-    KINDS = ("ads", "scripts", "cookies", "https", "params")
+    KINDS = ("ads", "scripts", "cookies", "https", "params", "workers", "workers_open")
 
     def count(self, host, kind):
         st = self.stats.get(host)
         if st is None:
             st = self.stats[host] = dict.fromkeys(self.KINDS, 0)
         st[kind] += 1
-        if kind in ("ads", "scripts"):
-            newtab.count_blocked(self.config)       # the total and the month's own count
+        if kind in ("ads", "scripts", "workers"):
+            if kind != "workers":
+                newtab.count_blocked(self.config)   # the total and the month's own count
+            # (1.1.32: a worker refused at Maximum, too, so the window can say so: workersbar.py)
             # A page full of ads blocks hundreds of things while it loads: the
             # windows hear of it once per site every few milliseconds, after
             # the counts are in (1.1.18: once per request, a third of the
@@ -1523,6 +1574,62 @@ class Shields(QObject):
             if s.fontFamily(kind) != family:
                 s.setFontFamily(kind, family)
 
+    # --- the sites' own workers and I.K.E.'s safety warnings (1.1.32) --------
+    def worker_danger(self, host):
+        """Is `host` a page of one of I.K.E.'s safety warnings? Its own
+        workers stay out there at every level (the owner's decision: they run
+        on the sites "fidati", the ones the safety lists do not call
+        dangerous). The facts the warnings act on, not their bars: a page on
+        the malware and phishing lists opened anyway, a site opened without
+        its secure connection, a public site allowed into the home network, a
+        lookalike of a famous site (Sosia). No list of sites of its own."""
+        host = (host or "").lower()
+        if not host:
+            return False
+        if host in self.pages_allowed or host in self.http_allowed or site_of(host) in self.lan_allowed:
+            return True
+        return self.lookalike_of(host)
+
+    def lookalike_of(self, host):
+        """Sosia's answer for `host` (lookalike.py), kept for the session."""
+        cfg = self.config
+        if not cfg["lookalike_warn"]:
+            return False
+        ok = cfg["lookalike_ok"] or []
+        key = (host, len(ok))
+        hit = self._lookalikes.get(key)
+        if hit is None:
+            try:
+                from . import lookalike
+                hit = bool(lookalike.check(host, allowed=set(ok)))
+            except Exception:
+                hit = False
+            if len(self._lookalikes) > 2000:
+                self._lookalikes.clear()
+            self._lookalikes[key] = hit
+        return hit
+
+    def workers_out(self):
+        """Where the site's own workers stay out, for fingerprint.js (its
+        keepWorkersOut), with the request check's own rules (the review: the
+        same answer on both sides): "map" the user's choices on the sites
+        (the nearest of a host and its parents decides, as site_opt), "exact"
+        the hosts of a warning (pages of the lists opened anyway, sites opened
+        without their secure connection, Sosia's lookalikes), "sites" the
+        public sites allowed into the home network (their whole site)."""
+        cfg = self.config
+        wmap = {h: bool(o["workers"]) for h, o in cfg["site_opts"].items() if isinstance(o.get("workers"), bool)}
+        n_ok = len(cfg["lookalike_ok"] or [])
+        exact = set(self.pages_allowed) | set(self.http_allowed)
+        if cfg["lookalike_warn"]:
+            exact |= {k[0] for k, v in self._lookalikes.items() if v and k[1] == n_ok}
+        return {"map": wmap, "exact": sorted(exact), "sites": sorted(self.lan_allowed)}
+
+    def workers_out_hosts(self):
+        """Every host named above (the window asks whether one is known yet)."""
+        w = self.workers_out()
+        return sorted(set(w["exact"]) | set(w["sites"]) | {h for h, v in w["map"].items() if v})
+
     def apply_settings(self, profile=None):
         """(Re)apply everything that depends on the configuration."""
         cfg = self.config
@@ -1594,6 +1701,10 @@ class Shields(QObject):
                       "key": self.profile_keys[id(p)],
                       "gpc": bool(cfg["send_gpc"]),
                       "nofp": [h for h, o in cfg["site_opts"].items() if o.get("fp") is False],
+                      "rk": self.report_key,
+                      # where the site's own workers stay out (1.1.32): blocked by
+                      # the user on the site, or a page of a safety warning
+                      "wkout": self.workers_out(),
                       "payframes": list(PAYMENT_SITES),
                       "ffua": FIREFOX_UA if cfg["login_compat"] else "",
                       "ffsignin": list(GOOGLE_SIGNIN_HOSTS), "ffsites": list(GOOGLE_SITES),

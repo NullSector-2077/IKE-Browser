@@ -8,8 +8,10 @@ worker, in a frame of another site, gets the same protection as the page:
 it is started from a blob address holding the protection and then runs the
 site's script, with its real address (location, relative addresses, errors).
 Where that cannot be done (a content security policy that refuses blob
-workers) the worker is refused, as when its script cannot be fetched: it
-never runs without the protection. Balanced is unchanged.
+workers) the worker is refused at Maximum, as when its script cannot be
+fetched: it never runs without the protection; at Kontrol (1.1.32) the
+site's own file runs instead (tests/test_site_workers.py). Balanced is
+unchanged.
 
 Also checked here: no change of a plain colour in WebGL reads, putImageData
 read back exactly, text widths that do not depend on a missing font's name.
@@ -150,9 +152,11 @@ def test_workers_from_files_are_protected(run_ike, site, level):
     bad = {k: (v if not isinstance(v, dict) else differ(v, page)) for k, v in places.items()}
     bad = {k: v for k, v in bad.items() if v}
     assert not bad, (level, json.dumps(bad)[:3000])
-    # a shared worker from a file and a service worker: still not started
-    assert r["workers"]["sharedFile"] == "ERR error event", r["workers"]["sharedFile"]
-    assert r["sw"]["reg"].startswith("ERR TypeError"), r["sw"]
+    # Kontrol (1.1.32) and Maximum (the owner's decision of 2026-11-28): the
+    # site's own shared and service workers run, with the engine's values
+    # (docs/SECURITY.md); every other worker above keeps the page's
+    assert isinstance(r["workers"]["sharedFile"], dict), r["workers"]["sharedFile"]
+    assert not str(r["sw"]["reg"]).startswith("ERR"), r["sw"]
 
 
 def test_balanced_workers_from_files_are_unchanged(run_ike, site):
@@ -180,16 +184,12 @@ def test_file_workers_keep_their_own_address(run_ike, site):
     assert got["missing"] == off["missing"] == ["Event", "error"], (got, off)
 
 
-@pytest.mark.parametrize("level", ["strict", "balanced"])
+@pytest.mark.parametrize("level", ["maximum", "strict", "balanced"])
 def test_a_policy_against_blob_workers(run_ike, site, level):
-    """worker-src 'self' refuses the blob address: at Strict the worker is
-    refused (never started from the file without the protection); Balanced
-    starts it as before."""
+    """worker-src 'self' refuses the blob address: Kontrol and Maximum (1.1.32)
+    start the site's own file in its place, Balanced as before."""
     got = run(run_ike, site, [("c", "http://localhost:%d/csp.html")], level, gl=False)["c"]
-    if level == "strict":
-        assert got["got"] == "Event", got
-    else:
-        assert got["got"] == "data", got
+    assert got["got"] == "data", got
 
 
 def test_known_answers(run_ike, site):
@@ -255,8 +255,9 @@ def test_file_workers_start_like_the_engine(run_ike, site):
     stack frame; a script that throws, a missing one, a classic worker given
     a module, a URL object, an error raised later: the same events as the
     engine's, with the site's address, never the protection's blob address.
-    A policy against blob workers: the worker is refused with no report
-    naming the protection. A text file is refused (the engine runs it)."""
+    A policy against blob workers: the site's own file runs (1.1.32; it was
+    refused), with no report naming the protection. A text file is refused
+    (the engine runs it)."""
     pages = [("p4", "http://localhost:%d/p4.html"), ("p5", "http://localhost:%d/p5.html")]
     off = run(run_ike, site, pages, "off")
     got = run(run_ike, site, pages, "strict")
@@ -278,7 +279,9 @@ def test_file_workers_start_like_the_engine(run_ike, site):
     x, y = a["module"]["data"], b["module"]["data"]
     for f in ("tag", "meta", "href", "stack", "name", "got"):
         assert x[f] == y[f], (f, x[f], y[f])
-    assert a["csp"]["violations"] == [] and a["csp"]["worker"].startswith("ERROR"), a["csp"]
+    # a policy against blob workers: at Kontrol (1.1.32) the site's own file, as with
+    # the shield off, and no report naming the protection
+    assert a["csp"]["violations"] == [] and a["csp"]["worker"]["href"].endswith("/rel-worker.js"), a["csp"]
     assert b["csp"]["worker"]["href"].endswith("/rel-worker.js"), b["csp"]
     assert b["plainMime"]["data"] == "RAN from text/plain", b["plainMime"]
     assert "data" not in a["plainMime"] and a["plainMime"]["error"] == [None] * 4, a["plainMime"]

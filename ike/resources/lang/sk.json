@@ -1609,6 +1609,25 @@
 "This session, by kind": "Táto relácia, podľa druhu",
 "This session, the sites that tried most": "Táto relácia, stránky, ktoré sa najviac snažili",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nič z toho neopúšťa váš počítač. Čísla tejto relácie začínajú odznova pri spustení I.K.E.",
-"Nothing blocked yet in this session.": "V tejto relácii zatiaľ nebolo nič zablokované."
+"Nothing blocked yet in this session.": "V tejto relácii zatiaľ nebolo nič zablokované.",
+"Blocking of the site's own background workers": "Blokovanie vlastných procesov webu na pozadí",
+"Background workers blocked": "Zablokované procesy na pozadí",
+"Site's own workers allowed": "Povolené vlastné procesy webu",
+"Probable cause: a protection blocked something the page needs.": "Pravdepodobná príčina: ochrana zablokovala niečo, čo stránka potrebuje.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Oprava: pravdepodobná príčina je na tomto webe na chvíľu vypnutá, všetky ostatné ochrany zostávajú zapnuté. Funguje teraz stránka?",
+"This site works fine": "Tento web funguje správne",
+"The octagon goes back to normal for this site in this tab": "Osemuholník sa pre tento web v tejto karte vráti do normálu",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "„Opraviť tento web“ vypne iba túto ochranu, iba pre tento web; všetky ostatné ochrany zostanú zapnuté.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. vám môže pomôcť to opraviť a ponechať pritom všetky ostatné ochrany zapnuté.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Nebezpečenstvo: certifikát tohto webu nie je platný, takže pripojenie nemusí byť súkromné.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Nebezpečenstvo: I.K.E. na tomto webe zistil skutočné riziko pre vašu bezpečnosť. Prečítajte si varovanie nad stránkou.",
+"A protection may interfere with some features of this site.": "Ochrana môže narúšať niektoré funkcie tohto webu.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Ochrana môže brániť správnemu fungovaniu tohto webu. Použite „Opraviť tento web“.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. pri načítaní tejto stránky nezistil nič podozrivé. To neznamená, že je web bezpečný.",
+"This site uses background programs: it works better, but protects you a little less.": "Tento web používa programy na pozadí: funguje lepšie, ale chráni vás o niečo menej.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Programy tohto webu na pozadí sú zablokované: viac ochrany, ale web nemusí fungovať.",
+"Block them on this site": "Zablokovať ich na tomto webe",
+"Allow them again": "Znova ich povoliť",
+"Probable cause: this site's background programs are blocked.": "Pravdepodobná príčina: programy tohto webu na pozadí sú zablokované."
 }
 }

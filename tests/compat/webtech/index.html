@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>I.K.E. web technologies</title>
+<style>
+  body { font: 14px/1.4 sans-serif; margin: 16px; }
+  td { padding: 2px 8px; border-bottom: 1px solid #ccc; vertical-align: top; }
+  .ok { color: #070; } .fail { color: #b00; } .na { color: #777; }
+  video { width: 160px; height: 90px; background: #000; }
+</style>
+<script src="values.js"></script>
+</head>
+<body>
+<h1>Web technologies</h1>
+<table id="t"></table>
+<div id="media"></div>
+<input type="file" id="file">
+<pre id="out" data-done="0"></pre>
+<script>
+var R = {};
+function put(name, status, detail) {
+  R[name] = { s: status, d: detail };
+  var tr = document.createElement('tr');
+  tr.innerHTML = '<td>' + name + '</td><td class="' + status + '">' + status + '</td><td></td>';
+  tr.lastChild.textContent = typeof detail === 'string' ? detail : JSON.stringify(detail);
+  document.getElementById('t').appendChild(tr);
+}
+function timeout(p, ms, what) {
+  return Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej(new Error('timeout ' + (what || ''))); }, ms); })]);
+}
+async function T(name, fn, ms) {
+  try { var r = await timeout(Promise.resolve().then(fn), ms || 8000, name); put(name, r && r.status ? r.status : 'ok', r && r.detail !== undefined ? r.detail : r); }
+  catch (e) { put(name, 'fail', String(e && e.message || e).slice(0, 300)); }
+}
+function msgOnce(target, send) {
+  return new Promise(function (res, rej) {
+    target.onmessage = function (e) { res(e.data); };
+    target.onerror = function (e) { rej(new Error('error event ' + (e.message || ''))); };
+    send();
+  });
+}
+
+(async function () {
+  R.page = await realmValues();
+  await T('websocket', function () {
+    return new Promise(function (res, rej) {
+      var w = new WebSocket('wss://echo.websocket.org');
+      w.onopen = function () { w.send('ike'); };
+      w.onmessage = function (e) { if (e.data === 'ike') { w.close(); res('echo ok'); } };
+      w.onerror = function () { rej(new Error('ws error')); };
+    });
+  }, 12000);
+  await T('worker_file', async function () {
+    var w = new Worker('w.js');
+    var d = await msgOnce(w, function () { w.postMessage('hi'); });
+    w.terminate(); R.worker = d.v; return { status: 'ok', detail: d.href };
+  });
+  await T('worker_module', async function () {
+    var w = new Worker('mw.js', { type: 'module' });
+    var d = await msgOnce(w, function () { w.postMessage('hi'); });
+    w.terminate(); return d.href;
+  });
+  await T('worker_blob', async function () {
+    var u = URL.createObjectURL(new Blob(['onmessage=function(e){postMessage(navigator.hardwareConcurrency)}'], { type: 'text/javascript' }));
+    var w = new Worker(u);
+    var d = await msgOnce(w, function () { w.postMessage('hi'); });
+    w.terminate(); return 'cores ' + d;
+  });
+  await T('shared_worker', async function () {
+    if (!window.SharedWorker) return { status: 'na', detail: 'no SharedWorker' };
+    var s = new SharedWorker('shw.js');
+    var d = await new Promise(function (res, rej) {
+      s.onerror = function () { rej(new Error('SharedWorker error event')); };
+      s.port.onmessage = function (e) { res(e.data); };
+      s.port.start(); s.port.postMessage('hi');
+    });
+    R.shared = d.v; return d.href;
+  });
+  await T('service_worker', async function () {
+    if (!navigator.serviceWorker) return { status: 'na', detail: 'no serviceWorker (insecure context?)' };
+    var reg = await navigator.serviceWorker.register('sw.js');
+    await navigator.serviceWorker.ready;
+    var sw = reg.active || reg.waiting || reg.installing;
+    var d = await new Promise(function (res) {
+      navigator.serviceWorker.onmessage = function (e) { res(e.data); };
+      sw.postMessage('hi');
+    });
+    R.sw = d.v;
+    var ping = navigator.serviceWorker.controller ? await (await fetch('sw-ping')).text() : '(no controller yet)';
+    return 'registered, message ok, fetch: ' + ping;
+  }, 10000);
+  await T('wasm', async function () {
+    var r = await WebAssembly.instantiateStreaming(fetch('add.wasm'));
+    return 'add(2,3)=' + r.instance.exports.add(2, 3);
+  });
+  await T('wasm_simd_threads', function () {
+    return { status: 'ok', detail: { sab: typeof SharedArrayBuffer, coi: self.crossOriginIsolated } };
+  });
+  await T('webgl', function () {
+    var c = document.createElement('canvas'), g = c.getContext('webgl');
+    if (!g) return { status: 'fail', detail: 'no webgl context' };
+    var d = g.getExtension('WEBGL_debug_renderer_info');
+    g.clearColor(0, 0.5, 0, 1); g.clear(g.COLOR_BUFFER_BIT);
+    var px = new Uint8Array(4); g.readPixels(0, 0, 1, 1, g.RGBA, g.UNSIGNED_BYTE, px);
+    return { r: d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL) : g.getParameter(g.RENDERER), px: Array.from(px).join(',') };
+  });
+  await T('webgl2', function () {
+    var g = document.createElement('canvas').getContext('webgl2');
+    return g ? { status: 'ok', detail: g.getParameter(g.VERSION) } : { status: 'fail', detail: 'no webgl2' };
+  });
+  await T('webgpu', async function () {
+    if (!navigator.gpu) return { status: 'na', detail: 'navigator.gpu missing' };
+    var a = await navigator.gpu.requestAdapter();
+    if (!a) return { status: 'fail', detail: 'no adapter' };
+    var info = a.info || {};
+    var dev = await a.requestDevice();
+    return { vendor: info.vendor, arch: info.architecture, device: !!dev };
+  });
+  await T('canvas2d', function () {
+    var c = document.createElement('canvas'); c.width = 100; c.height = 30;
+    var x = c.getContext('2d'); x.fillStyle = '#123456'; x.fillRect(0, 0, 100, 30); x.fillStyle = '#fff'; x.fillText('IKE', 5, 15);
+    var a = c.toDataURL(), b = c.toDataURL();
+    var flat = document.createElement('canvas'); flat.width = 10; flat.height = 10;
+    var fx = flat.getContext('2d'); fx.fillStyle = '#ff0000'; fx.fillRect(0, 0, 10, 10);
+    var p = fx.getImageData(5, 5, 1, 1).data;
+    return { stable: a === b, len: a.length, flatPixel: Array.from(p).join(',') };
+  });
+  await T('indexeddb', function () {
+    return new Promise(function (res, rej) {
+      var o = indexedDB.open('ike-test', 1);
+      o.onupgradeneeded = function () { o.result.createObjectStore('s'); };
+      o.onerror = function () { rej(o.error); };
+      o.onsuccess = function () {
+        var db = o.result, tx = db.transaction('s', 'readwrite');
+        tx.objectStore('s').put({ a: 1, blob: new Blob(['x']) }, 'k');
+        tx.oncomplete = function () {
+          var g = db.transaction('s').objectStore('s').get('k');
+          g.onsuccess = function () { res('put/get ok ' + JSON.stringify({ a: g.result.a })); };
+        };
+        tx.onerror = function () { rej(tx.error); };
+      };
+    });
+  });
+  await T('localstorage', function () { localStorage.setItem('ike', '1'); sessionStorage.setItem('ike', '2'); return localStorage.getItem('ike') + sessionStorage.getItem('ike'); });
+  await T('cache_api', async function () { var c = await caches.open('ike'); await c.put('/x', new Response('y')); return await (await c.match('/x')).text(); });
+  await T('storage_estimate', async function () { var e = await navigator.storage.estimate(); var p = await navigator.storage.persisted(); return { quotaMB: Math.round(e.quota / 1048576), persisted: p }; });
+  await T('broadcastchannel', function () {
+    return new Promise(function (res) { var a = new BroadcastChannel('ike'), b = new BroadcastChannel('ike'); b.onmessage = function (e) { res(e.data); a.close(); b.close(); }; a.postMessage('bc ok'); });
+  });
+  await T('web_locks', async function () { return await navigator.locks.request('ike', async function () { return 'lock ok'; }); });
+  await T('compression_streams', async function () {
+    var s = new Blob(['hello hello hello']).stream().pipeThrough(new CompressionStream('gzip'));
+    return 'gzip bytes ' + (await new Response(s).arrayBuffer()).byteLength;
+  });
+  var codecs = {
+    h264: 'video/mp4; codecs="avc1.42E01E"', h264_high: 'video/mp4; codecs="avc1.640028"', aac: 'audio/mp4; codecs="mp4a.40.2"',
+    av1: 'video/mp4; codecs="av01.0.05M.08"', av1_webm: 'video/webm; codecs="av01.0.05M.08"', vp9: 'video/webm; codecs="vp09.00.10.08"',
+    vp8: 'video/webm; codecs="vp8"', opus: 'audio/webm; codecs="opus"', opus_mp4: 'audio/mp4; codecs="opus"', hevc: 'video/mp4; codecs="hvc1.1.6.L93.B0"',
+    mp3: 'audio/mpeg', flac: 'audio/flac'
+  };
+  await T('codecs', async function () {
+    var v = document.createElement('video'), out = {};
+    for (var k in codecs) {
+      var mc = null;
+      try {
+        var isV = codecs[k].indexOf('video') === 0;
+        var q = isV ? { type: 'media-source', video: { contentType: codecs[k], width: 1920, height: 1080, bitrate: 4000000, framerate: 30 } }
+                    : { type: 'media-source', audio: { contentType: codecs[k], channels: '2', bitrate: 128000, samplerate: 48000 } };
+        var i = await navigator.mediaCapabilities.decodingInfo(q); mc = (i.supported ? 'S' : '-') + (i.smooth ? 'm' : '-') + (i.powerEfficient ? 'P' : '-');
+      } catch (e) { mc = 'err'; }
+      out[k] = [v.canPlayType(codecs[k]) || 'no', window.MediaSource && MediaSource.isTypeSupported(codecs[k]) ? 'MSE' : 'noMSE', mc];
+    }
+    return out;
+  });
+  await T('webcodecs', async function () {
+    if (!window.VideoDecoder) return { status: 'na', detail: 'no WebCodecs' };
+    var out = {};
+    for (var c of ['avc1.42E01E', 'vp09.00.10.08', 'av01.0.05M.08']) {
+      try { out[c] = (await VideoDecoder.isConfigSupported({ codec: c, codedWidth: 640, codedHeight: 360 })).supported; } catch (e) { out[c] = 'err'; }
+    }
+    return out;
+  });
+  // real playback of local files (made with ffmpeg)
+  var files = { 'h264_aac.mp4': 'mp4 H.264+AAC', 'vp9_opus.webm': 'webm VP9+Opus', 'av1_opus.webm': 'webm AV1+Opus', 'av1.mp4': 'mp4 AV1', 'opus.ogg': 'ogg Opus' };
+  for (var f in files) {
+    await T('play_' + f, function () {
+      return new Promise(function (res, rej) {
+        var v = document.createElement(f.indexOf('.ogg') > 0 ? 'audio' : 'video'); v.muted = true; v.src = 'media/' + f; v.playsInline = true;
+        document.getElementById('media').appendChild(v);
+        v.onerror = function () { rej(new Error('media error ' + (v.error && v.error.code) + ' ' + (v.error && v.error.message))); };
+        v.play().catch(function (e) { rej(e); });
+        setTimeout(function () { v.currentTime > 0.5 ? res('played to ' + v.currentTime.toFixed(1) + 's') : rej(new Error('stuck at ' + v.currentTime + ' rs ' + v.readyState)); }, 2500);
+      });
+    }, 6000);
+  }
+  await T('eme_clearkey', async function () {
+    var a = await navigator.requestMediaKeySystemAccess('org.w3.clearkey', [{ initDataTypes: ['cenc'], videoCapabilities: [{ contentType: 'video/mp4; codecs="avc1.42E01E"' }] }]);
+    var k = await a.createMediaKeys(); return 'clearkey ok ' + !!k;
+  });
+  await T('eme_widevine', async function () {
+    try {
+      var a = await navigator.requestMediaKeySystemAccess('com.widevine.alpha', [{ initDataTypes: ['cenc'], videoCapabilities: [{ contentType: 'video/mp4; codecs="avc1.42E01E"', robustness: 'SW_SECURE_CRYPTO' }] }]);
+      return 'widevine ok ' + a.keySystem;
+    } catch (e) { return { status: 'fail', detail: 'widevine: ' + e.name + ' ' + e.message }; }
+  });
+  await T('webrtc_loopback', async function () {
+    var a = new RTCPeerConnection(), b = new RTCPeerConnection(), types = [];
+    a.onicecandidate = function (e) { if (e.candidate) { types.push(e.candidate.type + '/' + (e.candidate.address || '').replace(/[0-9a-f]{4,}/g, 'x')); b.addIceCandidate(e.candidate); } };
+    b.onicecandidate = function (e) { if (e.candidate) a.addIceCandidate(e.candidate); };
+    var ch = a.createDataChannel('ike');
+    var got = new Promise(function (res) { b.ondatachannel = function (e) { e.channel.onmessage = function (m) { res(m.data); }; }; });
+    ch.onopen = function () { ch.send('dc ok'); };
+    var o = await a.createOffer(); await a.setLocalDescription(o); await b.setRemoteDescription(o);
+    var an = await b.createAnswer(); await b.setLocalDescription(an); await a.setRemoteDescription(an);
+    var m = await timeout(got, 6000, 'datachannel');
+    a.close(); b.close(); return { msg: m, candidates: types };
+  }, 9000);
+  await T('webrtc_stun', async function () {
+    var pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }), types = [];
+    pc.createDataChannel('x');
+    var done = new Promise(function (res) { pc.onicecandidate = function (e) { if (e.candidate) types.push(e.candidate.type); else res(); }; });
+    await pc.setLocalDescription(await pc.createOffer());
+    await timeout(done, 7000, 'gathering');
+    pc.close(); return { candidates: types.join(',') || 'none' };
+  }, 9000);
+  await T('media_devices', async function () {
+    var d = await navigator.mediaDevices.enumerateDevices();
+    return d.map(function (x) { return x.kind + (x.label ? ':' + x.label : ''); }).join(',') || 'none';
+  });
+  await T('getusermedia', async function () {
+    try { var s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); var t = s.getTracks().map(function (x) { return x.kind + ':' + x.label; }); s.getTracks().forEach(function (x) { x.stop(); }); return t.join(','); }
+    catch (e) { return { status: 'fail', detail: e.name + ': ' + e.message }; }
+  }, 8000);
+  await T('notifications', async function () {
+    var before = Notification.permission, p = 'n/a';
+    try { p = await timeout(Notification.requestPermission(), 3000, 'requestPermission'); } catch (e) { p = String(e.message); }
+    var q = await navigator.permissions.query({ name: 'notifications' });
+    return { before: before, asked: p, query: q.state };
+  }, 6000);
+  await T('upload_formdata', async function () {
+    var dt = new DataTransfer(); dt.items.add(new File(['ike upload test'], 'ike.txt', { type: 'text/plain' }));
+    var inp = document.getElementById('file'); inp.files = dt.files;
+    var fd = new FormData(); fd.append('f', inp.files[0]);
+    var r = await fetch('upload', { method: 'POST', body: fd }); return (await r.text()).slice(0, 80);
+  });
+  await T('download_blob', function () {
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['ike download'], { type: 'text/plain' })); a.download = 'ike-blob.txt';
+    document.body.appendChild(a); a.click(); return 'clicked (see browser download list)';
+  });
+  await T('features', function () {
+    var f = {};
+    ['WebTransport', 'PaymentRequest', 'PublicKeyCredential', 'IdleDetector', 'EyeDropper', 'BarcodeDetector', 'Sanitizer', 'Scheduler'].forEach(function (n) { f[n] = typeof window[n] !== 'undefined'; });
+    f.share = !!navigator.share; f.clipboard = !!navigator.clipboard; f.wakeLock = !!navigator.wakeLock; f.geolocation = !!navigator.geolocation;
+    f.usb = !!navigator.usb; f.hid = !!navigator.hid; f.serial = !!navigator.serial; f.bluetooth = !!navigator.bluetooth; f.midi = !!navigator.requestMIDIAccess;
+    f.fsAccess = typeof window.showOpenFilePicker; f.fullscreen = document.fullscreenEnabled; f.pip = document.pictureInPictureEnabled;
+    f.speech = typeof speechSynthesis !== 'undefined' ? speechSynthesis.getVoices().length : 'none'; f.gamepad = !!navigator.getGamepads;
+    return f;
+  });
+  var out = document.getElementById('out');
+  out.textContent = JSON.stringify(R);
+  out.setAttribute('data-done', '1');
+})();
+</script>
+</body>
+</html>

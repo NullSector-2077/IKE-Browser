@@ -1609,6 +1609,25 @@
 "This session, by kind": "Ta seja, po vrsti",
 "This session, the sites that tried most": "Ta seja, strani, ki so najbolj poskušale",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nič od tega ne zapusti vašega računalnika. Številke te seje se začnejo znova, ko se I.K.E. zažene.",
-"Nothing blocked yet in this session.": "V tej seji še ni nič blokirano."
+"Nothing blocked yet in this session.": "V tej seji še ni nič blokirano.",
+"Blocking of the site's own background workers": "Blokiranje lastnih procesov spletnega mesta v ozadju",
+"Background workers blocked": "Blokirani procesi v ozadju",
+"Site's own workers allowed": "Dovoljeni lastni procesi spletnega mesta",
+"Probable cause: a protection blocked something the page needs.": "Verjeten vzrok: zaščita je blokirala nekaj, kar stran potrebuje.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Popravilo: verjeten vzrok je na tem spletnem mestu za trenutek izklopljen, vse druge zaščite ostanejo vklopljene. Ali stran zdaj deluje?",
+"This site works fine": "To spletno mesto deluje dobro",
+"The octagon goes back to normal for this site in this tab": "Osmerokotnik se za to spletno mesto v tem zavihku vrne v običajno stanje",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "»Popravi to spletno mesto« izklopi samo to zaščito, samo za to spletno mesto; vse druge zaščite ostanejo vklopljene.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. vam lahko pomaga to popraviti, vse druge zaščite pa ostanejo vklopljene.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Nevarnost: potrdilo tega spletnega mesta ni veljavno, zato povezava morda ni zasebna.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Nevarnost: I.K.E. je na tem spletnem mestu našel resnično tveganje za vašo varnost. Preberite opozorilo nad stranjo.",
+"A protection may interfere with some features of this site.": "Zaščita lahko moti nekatere funkcije tega spletnega mesta.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Zaščita lahko prepreči pravilno delovanje tega spletnega mesta. Uporabite »Popravi to spletno mesto«.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. med nalaganjem te strani ni zaznal ničesar sumljivega. To ne dokazuje, da je spletno mesto varno.",
+"This site uses background programs: it works better, but protects you a little less.": "To spletno mesto uporablja programe v ozadju: deluje bolje, vendar vas ščiti nekoliko manj.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Programi tega spletnega mesta v ozadju so blokirani: več zaščite, vendar spletno mesto morda ne bo delovalo.",
+"Block them on this site": "Blokiraj jih na tem spletnem mestu",
+"Allow them again": "Znova jih dovoli",
+"Probable cause: this site's background programs are blocked.": "Verjeten vzrok: programi tega spletnega mesta v ozadju so blokirani."
 }
 }

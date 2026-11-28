@@ -1609,6 +1609,25 @@
 "This session, by kind": "本次会话，按类型",
 "This session, the sites that tried most": "本次会话，尝试最多的网站",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "这些内容都不会离开你的计算机。本次会话的数字会在 I.K.E. 启动时重新开始。",
-"Nothing blocked yet in this session.": "本次会话中尚未拦截任何内容。"
+"Nothing blocked yet in this session.": "本次会话中尚未拦截任何内容。",
+"Blocking of the site's own background workers": "阻止网站自己的后台工作线程",
+"Background workers blocked": "已阻止的后台工作线程",
+"Site's own workers allowed": "已允许网站自己的工作线程",
+"Probable cause: a protection blocked something the page needs.": "可能的原因：某项保护阻止了页面需要的内容。",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "修复：已在此网站上暂时关闭可能的原因，其他所有保护仍保持开启。页面现在正常吗？",
+"This site works fine": "此网站运行正常",
+"The octagon goes back to normal for this site in this tab": "八边形在此标签页中对此网站恢复正常",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“修复此网站”只关闭那一项保护，且仅对此网站有效；其他所有保护仍保持开启。",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. 可以帮你修复问题，同时保持其他所有保护开启。",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "危险：此网站的证书无效，因此连接可能不是私密的。",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "危险：I.K.E. 在此网站上发现了对你安全的真实风险。请阅读页面上方的警告。",
+"A protection may interfere with some features of this site.": "某项保护可能会干扰此网站的部分功能。",
+"A protection may stop this site from working properly. Use “Repair this site”.": "某项保护可能会导致此网站无法正常工作。请使用“修复此网站”。",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. 在加载此页面时未发现异常。这并不能证明该网站是安全的。",
+"This site uses background programs: it works better, but protects you a little less.": "此网站使用后台程序：运行效果更好，但对你的保护会少一些。",
+"This site's background programs are blocked: more protection, but the site may not work.": "此网站的后台程序已被阻止：保护更强，但网站可能无法正常工作。",
+"Block them on this site": "在此网站上阻止",
+"Allow them again": "重新允许",
+"Probable cause: this site's background programs are blocked.": "可能的原因：此网站的后台程序已被阻止。"
 }
 }

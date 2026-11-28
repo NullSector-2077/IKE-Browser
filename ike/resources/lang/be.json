@@ -1609,6 +1609,25 @@
 "This session, by kind": "Гэты сеанс, па відах",
 "This session, the sites that tried most": "Гэты сеанс, сайты, якія спрабавалі найбольш",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Нічога з гэтага не пакідае ваш камп'ютар. Лічбы гэтага сеанса пачынаюцца нанова пры запуску I.K.E.",
-"Nothing blocked yet in this session.": "У гэтым сеансе яшчэ нічога не заблакавана."
+"Nothing blocked yet in this session.": "У гэтым сеансе яшчэ нічога не заблакавана.",
+"Blocking of the site's own background workers": "Блакаванне ўласных фонавых працэсаў сайта",
+"Background workers blocked": "Заблакаваныя фонавыя працэсы",
+"Site's own workers allowed": "Уласныя працэсы сайта дазволены",
+"Probable cause: a protection blocked something the page needs.": "Верагодная прычына: абарона заблакавала нешта, што патрэбна старонцы.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Выпраўленне: верагодная прычына на гэтым сайце ненадоўга выключана, усе іншыя абароны застаюцца ўключанымі. Старонка цяпер працуе?",
+"This site works fine": "Гэты сайт працуе нармальна",
+"The octagon goes back to normal for this site in this tab": "Васьмівугольнік вяртаецца да звычайнага выгляду для гэтага сайта ў гэтай укладцы",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "«Выправіць гэты сайт» выключае толькі гэту абарону і толькі для гэтага сайта; усе іншыя абароны застаюцца ўключанымі.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. можа дапамагчы гэта выправіць, пакінуўшы ўключанымі ўсе іншыя абароны.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Небяспека: сертыфікат гэтага сайта несапраўдны, таму злучэнне можа быць не прыватным.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Небяспека: I.K.E. выявіў рэальную рызыку для вашай бяспекі на гэтым сайце. Прачытайце папярэджанне над старонкай.",
+"A protection may interfere with some features of this site.": "Абарона можа перашкаджаць некаторым функцыям гэтага сайта.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Абарона можа перашкаджаць нармальнай працы гэтага сайта. Скарыстайцеся функцыяй «Выправіць гэты сайт».",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. не выявіў нічога падазронага падчас загрузкі гэтай старонкі. Гэта не даказвае, што сайт бяспечны.",
+"This site uses background programs: it works better, but protects you a little less.": "Гэты сайт выкарыстоўвае фонавыя праграмы: ён працуе лепш, але абараняе вас крыху менш.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Фонавыя праграмы гэтага сайта заблакаваныя: больш абароны, але сайт можа не працаваць.",
+"Block them on this site": "Заблакаваць іх на гэтым сайце",
+"Allow them again": "Дазволіць іх зноў",
+"Probable cause: this site's background programs are blocked.": "Верагодная прычына: фонавыя праграмы гэтага сайта заблакаваныя."
 }
 }

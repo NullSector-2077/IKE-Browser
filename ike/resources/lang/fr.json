@@ -1609,6 +1609,25 @@
 "This session, by kind": "Cette session, par type",
 "This session, the sites that tried most": "Cette session, les sites qui ont le plus essayé",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Rien de tout cela ne quitte votre ordinateur. Les chiffres de cette session repartent de zéro au démarrage d'I.K.E.",
-"Nothing blocked yet in this session.": "Rien n'a encore été bloqué dans cette session."
+"Nothing blocked yet in this session.": "Rien n'a encore été bloqué dans cette session.",
+"Blocking of the site's own background workers": "Blocage des processus d'arrière-plan du site",
+"Background workers blocked": "Processus d'arrière-plan bloqués",
+"Site's own workers allowed": "Processus du site autorisés",
+"Probable cause: a protection blocked something the page needs.": "Cause probable : une protection a bloqué quelque chose dont la page a besoin.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Réparation : la cause probable est désactivée un instant sur ce site, toutes les autres protections restent actives. La page fonctionne-t-elle maintenant ?",
+"This site works fine": "Ce site fonctionne bien",
+"The octagon goes back to normal for this site in this tab": "L'octogone redevient normal pour ce site dans cet onglet",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "« Réparer ce site » désactive seulement cette protection, pour ce site uniquement ; toutes les autres protections restent actives.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. peut vous aider à résoudre le problème tout en gardant toutes les autres protections actives.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Danger : le certificat de ce site n'est pas valide, la connexion n'est donc peut-être pas privée.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Danger : I.K.E. a trouvé un risque réel pour votre sécurité sur ce site. Lisez l'avertissement au-dessus de la page.",
+"A protection may interfere with some features of this site.": "Une protection peut gêner certaines fonctionnalités de ce site.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Une protection peut empêcher ce site de fonctionner correctement. Utilisez « Réparer ce site ».",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. n'a rien détecté d'anormal pendant le chargement de cette page. Cela ne prouve pas que le site soit sûr.",
+"This site uses background programs: it works better, but protects you a little less.": "Ce site utilise des programmes en arrière-plan : il fonctionne mieux, mais vous protège un peu moins.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Les programmes en arrière-plan de ce site sont bloqués : plus de protection, mais le site risque de ne pas fonctionner.",
+"Block them on this site": "Les bloquer sur ce site",
+"Allow them again": "Les autoriser à nouveau",
+"Probable cause: this site's background programs are blocked.": "Cause probable : les programmes en arrière-plan de ce site sont bloqués."
 }
 }

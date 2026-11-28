@@ -1609,6 +1609,25 @@
 "This session, by kind": "Այս աշխատաշրջանը, ըստ տեսակի",
 "This session, the sites that tried most": "Այս աշխատաշրջանը, ամենաշատը փորձած կայքերը",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Սրանից ոչինչ դուրս չի գալիս ձեր համակարգչից։ Այս աշխատաշրջանի թվերը նորից են սկսվում, երբ I.K.E.-ն մեկնարկում է։",
-"Nothing blocked yet in this session.": "Այս աշխատաշրջանում դեռ ոչինչ արգելափակված չէ։"
+"Nothing blocked yet in this session.": "Այս աշխատաշրջանում դեռ ոչինչ արգելափակված չէ։",
+"Blocking of the site's own background workers": "Կայքի սեփական ֆոնային գործընթացների արգելափակում",
+"Background workers blocked": "Արգելափակված ֆոնային գործընթացներ",
+"Site's own workers allowed": "Կայքի սեփական գործընթացները թույլատրված են",
+"Probable cause: a protection blocked something the page needs.": "Հավանական պատճառ՝ պաշտպանություններից մեկը արգելափակել է մի բան, որն անհրաժեշտ է էջին։",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Վերանորոգում՝ հավանական պատճառը այս կայքում մի պահ անջատված է, մյուս բոլոր պաշտպանությունները մնում են միացված։ Էջն այժմ աշխատո՞ւմ է։",
+"This site works fine": "Այս կայքը լավ է աշխատում",
+"The octagon goes back to normal for this site in this tab": "Ութանկյունը վերադառնում է սովորական վիճակին այս կայքի համար այս ներդիրում",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "«Վերանորոգել այս կայքը» գործառույթը անջատում է միայն այդ պաշտպանությունը, միայն այս կայքի համար. մյուս բոլոր պաշտպանությունները մնում են միացված։",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E.-ն կարող է օգնել ձեզ շտկել դա՝ պահելով մյուս բոլոր պաշտպանությունները միացված։",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Վտանգ՝ այս կայքի վկայականը վավեր չէ, ուստի կապը կարող է գաղտնի չլինել։",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Վտանգ՝ I.K.E.-ն այս կայքում իրական ռիսկ է հայտնաբերել ձեր անվտանգության համար։ Կարդացեք էջի վերևում գտնվող զգուշացումը։",
+"A protection may interfere with some features of this site.": "Պաշտպանությունը կարող է խանգարել այս կայքի որոշ գործառույթների։",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Պաշտպանությունը կարող է խանգարել այս կայքի ճիշտ աշխատանքին։ Օգտագործեք «Վերանորոգել այս կայքը» գործառույթը։",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E.-ն այս էջի բեռնման ընթացքում խնդիր չի հայտնաբերել։ Դա չի ապացուցում, որ կայքն անվտանգ է։",
+"This site uses background programs: it works better, but protects you a little less.": "Այս կայքն օգտագործում է ֆոնային ծրագրեր. այն ավելի լավ է աշխատում, բայց ձեզ մի փոքր ավելի քիչ է պաշտպանում։",
+"This site's background programs are blocked: more protection, but the site may not work.": "Այս կայքի ֆոնային ծրագրերն արգելափակված են. ավելի շատ պաշտպանություն, բայց կայքը կարող է չաշխատել։",
+"Block them on this site": "Արգելափակել դրանք այս կայքում",
+"Allow them again": "Կրկին թույլատրել դրանք",
+"Probable cause: this site's background programs are blocked.": "Հավանական պատճառ՝ այս կայքի ֆոնային ծրագրերն արգելափակված են։"
 }
 }

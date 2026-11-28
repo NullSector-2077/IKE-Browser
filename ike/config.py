@@ -721,6 +721,19 @@ class Config:
             host = host.split(".", 1)[1]
         return None
 
+    def site_opt_holder(self, host, key):
+        """The host (`host` or a parent) whose entry decides site_opt(host, key), or None."""
+        opts = self.data["site_opts"]
+        host = (host or "").lower()
+        while host and opts:
+            o = opts.get(host)
+            if o is not None and key in o:
+                return host
+            if "." not in host:
+                break
+            host = host.split(".", 1)[1]
+        return None
+
     def set_site_opt(self, host, key, value):
         host = (host or "").lower()
         if not host:

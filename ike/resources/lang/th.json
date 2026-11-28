@@ -1609,6 +1609,25 @@
 "This session, by kind": "เซสชันนี้ ตามประเภท",
 "This session, the sites that tried most": "เซสชันนี้ เว็บไซต์ที่พยายามมากที่สุด",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "ไม่มีสิ่งใดในนี้ออกจากคอมพิวเตอร์ของคุณ ตัวเลขของเซสชันนี้จะเริ่มใหม่เมื่อ I.K.E. เริ่มทำงาน",
-"Nothing blocked yet in this session.": "ยังไม่มีสิ่งใดถูกบล็อกในเซสชันนี้"
+"Nothing blocked yet in this session.": "ยังไม่มีสิ่งใดถูกบล็อกในเซสชันนี้",
+"Blocking of the site's own background workers": "การบล็อกเวิร์กเกอร์เบื้องหลังของเว็บไซต์เอง",
+"Background workers blocked": "เวิร์กเกอร์เบื้องหลังที่ถูกบล็อก",
+"Site's own workers allowed": "อนุญาตเวิร์กเกอร์ของเว็บไซต์เอง",
+"Probable cause: a protection blocked something the page needs.": "สาเหตุที่เป็นไปได้: การป้องกันบล็อกบางอย่างที่หน้านี้ต้องใช้",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "ซ่อมแซม: ปิดสาเหตุที่เป็นไปได้บนไซต์นี้ชั่วคราว การป้องกันอื่นทั้งหมดยังเปิดอยู่ ตอนนี้หน้านี้ใช้งานได้หรือไม่",
+"This site works fine": "ไซต์นี้ใช้งานได้ปกติ",
+"The octagon goes back to normal for this site in this tab": "รูปแปดเหลี่ยมกลับเป็นปกติสำหรับไซต์นี้ในแท็บนี้",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“ซ่อมไซต์นี้” ปิดเฉพาะการป้องกันนั้น เฉพาะไซต์นี้เท่านั้น การป้องกันอื่นทั้งหมดยังเปิดอยู่",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. ช่วยคุณแก้ไขได้โดยยังเปิดการป้องกันอื่นทั้งหมดไว้",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "อันตราย: ใบรับรองของไซต์นี้ไม่ถูกต้อง การเชื่อมต่อจึงอาจไม่เป็นส่วนตัว",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "อันตราย: I.K.E. พบความเสี่ยงจริงต่อความปลอดภัยของคุณบนไซต์นี้ โปรดอ่านคำเตือนด้านบนของหน้า",
+"A protection may interfere with some features of this site.": "การป้องกันอาจรบกวนฟีเจอร์บางอย่างของไซต์นี้",
+"A protection may stop this site from working properly. Use “Repair this site”.": "การป้องกันอาจทำให้ไซต์นี้ทำงานไม่ถูกต้อง ใช้ “ซ่อมไซต์นี้”",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. ไม่พบสิ่งผิดปกติขณะโหลดหน้านี้ แต่ไม่ได้หมายความว่าไซต์นี้ปลอดภัย",
+"This site uses background programs: it works better, but protects you a little less.": "ไซต์นี้ใช้โปรแกรมเบื้องหลัง: ทำงานได้ดีขึ้น แต่ปกป้องคุณน้อยลงเล็กน้อย",
+"This site's background programs are blocked: more protection, but the site may not work.": "โปรแกรมเบื้องหลังของไซต์นี้ถูกบล็อก: ป้องกันได้มากขึ้น แต่ไซต์อาจไม่ทำงาน",
+"Block them on this site": "บล็อกบนไซต์นี้",
+"Allow them again": "อนุญาตอีกครั้ง",
+"Probable cause: this site's background programs are blocked.": "สาเหตุที่เป็นไปได้: โปรแกรมเบื้องหลังของไซต์นี้ถูกบล็อก"
 }
 }

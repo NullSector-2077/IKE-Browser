@@ -1609,6 +1609,25 @@
 "This session, by kind": "Hierdie sessie, volgens soort",
 "This session, the sites that tried most": "Hierdie sessie, die werwe wat die meeste probeer het",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Niks hiervan verlaat jou rekenaar nie. Die syfers van hierdie sessie begin weer wanneer I.K.E. begin.",
-"Nothing blocked yet in this session.": "Nog niks in hierdie sessie geblokkeer nie."
+"Nothing blocked yet in this session.": "Nog niks in hierdie sessie geblokkeer nie.",
+"Blocking of the site's own background workers": "Blokkering van die webwerf se eie agtergrondprosesse",
+"Background workers blocked": "Agtergrondprosesse geblokkeer",
+"Site's own workers allowed": "Die webwerf se eie prosesse toegelaat",
+"Probable cause: a protection blocked something the page needs.": "Waarskynlike oorsaak: 'n beskerming het iets geblokkeer wat die bladsy nodig het.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Herstel: die waarskynlike oorsaak is vir 'n oomblik af op hierdie werf, elke ander beskerming bly aan. Werk die bladsy nou?",
+"This site works fine": "Hierdie werf werk goed",
+"The octagon goes back to normal for this site in this tab": "Die agthoek word weer normaal vir hierdie werf in hierdie oortjie",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Herstel hierdie werf” skakel net daardie beskerming af, slegs vir hierdie werf; elke ander beskerming bly aan.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. kan jou help om dit reg te maak terwyl elke ander beskerming aan bly.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Gevaar: die sertifikaat van hierdie werf is nie geldig nie, so die verbinding is dalk nie privaat nie.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Gevaar: I.K.E. het 'n werklike risiko vir jou veiligheid op hierdie werf gevind. Lees die waarskuwing bo die bladsy.",
+"A protection may interfere with some features of this site.": "'n Beskerming kan sommige funksies van hierdie werf belemmer.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "'n Beskerming kan verhoed dat hierdie werf behoorlik werk. Gebruik “Herstel hierdie werf”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. het niks verkeerd gevind terwyl hierdie bladsy gelaai het nie. Dit bewys nie dat die werf veilig is nie.",
+"This site uses background programs: it works better, but protects you a little less.": "Hierdie werf gebruik agtergrondprogramme: dit werk beter, maar beskerm jou 'n bietjie minder.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Hierdie werf se agtergrondprogramme is geblokkeer: meer beskerming, maar die werf werk dalk nie.",
+"Block them on this site": "Blokkeer hulle op hierdie werf",
+"Allow them again": "Laat hulle weer toe",
+"Probable cause: this site's background programs are blocked.": "Waarskynlike oorsaak: hierdie werf se agtergrondprogramme is geblokkeer."
 }
 }

@@ -1609,6 +1609,25 @@
 "This session, by kind": "Saio hau, motaren arabera",
 "This session, the sites that tried most": "Saio hau, gehien saiatu diren guneak",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Honetatik ezer ez da zure ordenagailutik ateratzen. Saio honetako zenbakiak berriro hasten dira I.K.E. abiaraztean.",
-"Nothing blocked yet in this session.": "Oraindik ez da ezer blokeatu saio honetan."
+"Nothing blocked yet in this session.": "Oraindik ez da ezer blokeatu saio honetan.",
+"Blocking of the site's own background workers": "Gunearen atzeko planoko prozesuen blokeoa",
+"Background workers blocked": "Atzeko planoko prozesuak blokeatuta",
+"Site's own workers allowed": "Gunearen prozesuak baimenduta",
+"Probable cause: a protection blocked something the page needs.": "Kausa probablea: babes batek orriak behar duen zerbait blokeatu du.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Konponketa: kausa probablea desaktibatuta dago webgune honetan une batez, gainerako babes guztiak aktibo jarraitzen dute. Orriak funtzionatzen du orain?",
+"This site works fine": "Webgune honek ondo funtzionatzen du",
+"The octagon goes back to normal for this site in this tab": "Oktogonoa normaltasunera itzultzen da webgune honetarako fitxa honetan",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Konpondu webgune hau” aukerak babes hori bakarrik desaktibatzen du, webgune honetan bakarrik; gainerako babes guztiak aktibo jarraitzen dute.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E.k konpontzen lagun zaitzake gainerako babes guztiak aktibo mantenduz.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Arriskua: webgune honen ziurtagiria ez da baliozkoa, beraz baliteke konexioa pribatua ez izatea.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Arriskua: I.K.E.k benetako arrisku bat aurkitu du zure segurtasunerako webgune honetan. Irakurri orriaren gaineko abisua.",
+"A protection may interfere with some features of this site.": "Babes batek webgune honen eginbide batzuk oztopa ditzake.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Babes batek webgune hau behar bezala ez funtzionatzea eragin dezake. Erabili “Konpondu webgune hau”.",
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E.k ez du ezer arraroa aurkitu orri hau kargatzean. Horrek ez du frogatzen webgunea segurua denik.",
+"This site uses background programs: it works better, but protects you a little less.": "Webgune honek atzeko planoko programak erabiltzen ditu: hobeto funtzionatzen du, baina pixka bat gutxiago babesten zaitu.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Webgune honen atzeko planoko programak blokeatuta daude: babes handiagoa, baina baliteke webguneak ez funtzionatzea.",
+"Block them on this site": "Blokeatu gune honetan",
+"Allow them again": "Baimendu berriro",
+"Probable cause: this site's background programs are blocked.": "Kausa probablea: webgune honen atzeko planoko programak blokeatuta daude."
 }
 }

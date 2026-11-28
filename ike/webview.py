@@ -158,6 +158,10 @@ class WebPage(QWebEnginePage):
                              "qrc", "filesystem", "ws", "wss", ""))
 
     def acceptNavigationRequest(self, url, nav_type, is_main_frame):
+        if is_main_frame:
+            view = self.window_ref.view_of(self)
+            if view is not None and getattr(view, "cert_refused", None):
+                view.cert_refused = None        # a new page: its own certificate decides
         if url.scheme().lower() not in self.OWN_SCHEMES:
             # A link that starts another program. The engine would hand it over
             # after any click on the page, without a word; other browsers ask
@@ -195,6 +199,11 @@ class WebPage(QWebEnginePage):
             sh = self.app.shields
             st = self.settings()
             st.setAttribute(_A.JavascriptEnabled, sh.scripts_allowed(host))
+            # local addresses kept out of WebRTC as the profile says, unless
+            # "Repair this site" turned that off for this site (1.1.32)
+            cfg = self.app.config
+            st.setAttribute(_A.WebRTCPublicInterfacesOnly,
+                            bool(cfg["webrtc_hide_ip"]) and cfg.site_opt(host, "webrtc") is not False)
             # video and audio that start by themselves: as the user chose, for all sites or this one
             st.setAttribute(_A.PlaybackRequiresUserGesture, sh.autoplay_blocked(host))
             self._reset_scripts()
@@ -484,6 +493,13 @@ class WebPage(QWebEnginePage):
         if test_switch("IKE_TEST_INSECURE") == "1":
             error.acceptCertificate()
             return True
+        # refused, as always (the engine shows its own error page). 1.1.32: the
+        # shield turns red for it (securebar.danger_of); nothing else changes
+        if error.isMainFrame():
+            view = self.window_ref.view_of(self)
+            if view is not None:
+                view.cert_refused = error.url().host().lower()
+                QTimer.singleShot(0, lambda v=view: self.window_ref.danger_changed(v))
         return False
 
     def _lan_engine_block(self):
@@ -510,8 +526,21 @@ class WebPage(QWebEnginePage):
         if view is self.window_ref.current_view():
             self.window_ref.secure_bar.show_for(view)
 
+    # what fingerprint.js may report to the diagnosis (incompat.py): weak evidence only
+    REPORTS = frozenset({"protected_worker_refused"})
+
     def javaScriptConsoleMessage(self, level, message, line, source):
         from .userscripts import PREFIX
+        key = getattr(self.app.shields, "report_key", None)
+        if key and message.startswith(key):
+            kind = message[len(key):].strip()
+            view = self.parent()                    # the WebView this page was made for
+            if kind in self.REPORTS and hasattr(view, "_ike_diag"):
+                d = self.app.diagnosis
+                url = self.url()
+                if url.scheme() in ("http", "https"):
+                    d.weak(d.scope_of(view), url.host().lower(), kind)
+            return                                  # never shown, never logged (the key)
         if "address space" in message and ("more-private" in message or "Permission was denied" in message):
             self._lan_engine_block()
         if message.startswith(READER_PREFIX):
@@ -542,7 +571,21 @@ class WebPage(QWebEnginePage):
             import json
             self.runJavaScript(_COSMETIC_JS % ("a", json.dumps(css)), 1)
 
+    def _sync_webrtc(self, *_):
+        """The page's WebRTC setting for the page it shows now (1.1.32, the
+        review): a navigation to a site with that repair which never shows
+        (a download, an empty answer) must not leave its exception to the
+        page of another site still on screen."""
+        from PyQt6.QtWebEngineCore import QWebEngineSettings
+        url = self.url()
+        if url.scheme() not in ("http", "https"):
+            return
+        cfg = self.app.config
+        self.settings().setAttribute(QWebEngineSettings.WebAttribute.WebRTCPublicInterfacesOnly,
+                                     bool(cfg["webrtc_hide_ip"]) and cfg.site_opt(url.host().lower(), "webrtc") is not False)
+
     def _load_finished(self, ok):
+        self._sync_webrtc()
         url = self.url()
         sh = self.app.shields
         self._loaded_url = url.toString() if ok else None
@@ -811,6 +854,9 @@ class WebView(QWebEngineView):
             pagefade.attach(self, app.config)
         self.muted_by_user = False
         self._watched = None
+        diagnosis = getattr(app, "diagnosis", None)
+        if diagnosis is not None:
+            diagnosis.attach(self)          # incompatibilities of this tab (incompat.py, 1.1.32)
         self.loadFinished.connect(lambda _ok: self._watch_keys())
         for wa in (QWebEnginePage.WebAction.Copy, QWebEnginePage.WebAction.Cut):
             self.page().action(wa).triggered.connect(self._ensure_copied)

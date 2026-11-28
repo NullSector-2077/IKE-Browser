@@ -1,0 +1,101 @@
+{
+ "order": true,
+ "event": [
+  true,
+  "",
+  true,
+  0,
+  true,
+  "",
+  true,
+  false,
+  false
+ ],
+ "buffer": {
+  "kind": "buf",
+  "len": 16
+ },
+ "buffer_detached": 0,
+ "buffer_opts": {
+  "kind": "buf",
+  "len": 8
+ },
+ "buffer_opts_detached": 0,
+ "port": "via port 1",
+ "canvas": {
+  "kind": "canvas",
+  "w": 7
+ },
+ "cloned_at_post": {
+  "a": 1
+ },
+ "clone_error": [
+  "DataCloneError",
+  "Failed to execute 'postMessage' on 'Worker': function () {} could not be cloned.",
+  true,
+  false
+ ],
+ "transfer_error": [
+  "DataCloneError",
+  "Failed to execute 'postMessage' on 'Worker': Value at index 0 does not have a transferable type.",
+  true,
+  false
+ ],
+ "transfer_twice": [
+  "DataCloneError",
+  "Failed to execute 'postMessage' on 'Worker': ArrayBuffer at index 1 is a duplicate of an earlier ArrayBuffer.",
+  true,
+  false
+ ],
+ "overload_number": [
+  "TypeError",
+  "Failed to execute 'postMessage' on 'Worker': Overload resolution failed.",
+  false,
+  true
+ ],
+ "overload_string": [
+  "TypeError",
+  "Failed to execute 'postMessage' on 'Worker': Overload resolution failed.",
+  false,
+  true
+ ],
+ "after_errors": "still fine",
+ "buffer_set": {
+  "kind": "buf",
+  "len": 8
+ },
+ "buffer_set_detached": 0,
+ "dead_clone_error": [
+  "DataCloneError",
+  "Failed to execute 'postMessage' on 'Worker': function () {} could not be cloned.",
+  true,
+  false
+ ],
+ "terminate_at_once": 0,
+ "late_listener": 0,
+ "both_listeners": 2,
+ "error": [
+  "ErrorEvent",
+  "Uncaught Error: boom",
+  true,
+  "cw.js",
+  true,
+  true
+ ],
+ "nested": {
+  "kind": "nested",
+  "got": "inner"
+ },
+ "module": "module m",
+ "concurrent": [
+  "w0",
+  "w1",
+  "w2",
+  "w3",
+  "w4"
+ ],
+ "missing": [
+  "Event",
+  true
+ ]
+}

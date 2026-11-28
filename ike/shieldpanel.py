@@ -52,12 +52,16 @@ TOOLBAR_SHIELD_GROW = 1.08
 TOOLBAR_LETTER = 0.92
 
 
-def paint_shield(p, rect, level, grow=1.0, letter=1.0):
-    """Draw the Breeze octagon and the glyph of the applied protection level
-    (its letter in the level's colour; a white X when off)."""
+def _t(text):
+    """Marks a text for the language packs (tools/check-lang.py); T() translates it when shown."""
+    return text
+
+
+
+def octagon(rect, grow=1.0):
+    """The octagon's polygon in rect, its side and its stroke's width (the
+    shield's own geometry, shared with the interference animation)."""
     side = min(rect.width(), rect.height()) * 0.84 * grow
-    if side <= 0:
-        return
     centre = rect.center()
     # The SVG references use a 21-unit polygon and a 1.7-unit round stroke.
     stroke = side * (1.7 / 22.7)
@@ -66,6 +70,16 @@ def paint_shield(p, rect, level, grow=1.0, letter=1.0):
     polygon = QPolygonF([centre + QPointF(x, y) for x, y in
                          ((-cut, -edge), (cut, -edge), (edge, -cut), (edge, cut),
                           (cut, edge), (-cut, edge), (-edge, cut), (-edge, -cut))])
+    return polygon, side, stroke
+
+
+def paint_shield(p, rect, level, grow=1.0, letter=1.0):
+    """Draw the Breeze octagon and the glyph of the applied protection level
+    (its letter in the level's colour; a white X when off)."""
+    polygon, side, stroke = octagon(rect, grow)
+    if side <= 0:
+        return
+    centre = rect.center()
 
     off = level == "off"
     p.save()
@@ -244,6 +258,13 @@ class ShieldButton(QToolButton):
         pal = field.palette()
         return cyberfont.k_colour(pal.color(QPalette.ColorRole.Base), pal.color(QPalette.ColorRole.Text))
 
+    def _count_area(self, x, side, rtl):
+        """Where the count is drawn: beside the octagon, the whole height."""
+        from PyQt6.QtCore import QRect
+        gap = self.GAP
+        return (QRect(0, 0, max(0, int(x - gap)), self.height()) if rtl
+                else QRect(int(x + side + gap), 0, self.width(), self.height()))
+
     def sizeHint(self):
         side = self.iconSize().height()
         text = self.text()
@@ -262,7 +283,14 @@ class ShieldButton(QToolButton):
         x = self.width() - side if rtl else 0
         pm = self.icon().pixmap(QSize(side, side), self.devicePixelRatioF())
         p.drawPixmap(QPointF(x, (self.height() - pm.deviceIndependentSize().height()) / 2), pm)
+        anim = getattr(self, "interference", None)
+        if anim is not None and anim.style is not None:
+            # I.K.E. Interference (1.1.32): over the octagon's own rim, never over its letter
+            polygon, _side, stroke = octagon(self.icon_rect(), TOOLBAR_SHIELD_GROW)
+            anim.paint(p, polygon, stroke)
         text = self.text()
+        if text and not event.rect().intersects(self._count_area(x, side, rtl)):
+            text = ""                  # only the octagon is painted again (its animation)
         from . import cyberfont
         if text and cyberfont.usable(text, self.count_pixels()):
             w = self.count_width(text)
@@ -359,6 +387,23 @@ class ShieldPanel(QWidget):
         self.repair_btn.setToolTip(T("Find the protection that breaks this page and turn off "
                                      "only that one, for this site only"))
         self.repair_btn.clicked.connect(self._repair)
+        # 1.1.32, the diagnosis (incompat.py) and the safety warnings: what the
+        # octagon's colour means, in words (never by colour alone), the
+        # probable cause and what the repair changes; "Repair this site" is
+        # put forward only for an incompatibility, never for a danger
+        self.diag_note = QLabel(self)
+        self.diag_note.setWordWrap(True)
+        self.diag_note.setTextFormat(Qt.TextFormat.PlainText)
+        # 1.1.32, the owner's decision: the site's own background workers run at
+        # Kontrol and Maximum; one quiet line for whoever opens the shield (the
+        # octagon does not light up for it) and a per-site choice, remembered
+        self.workers_line = QLabel(self)
+        self.workers_line.setWordWrap(True)
+        self.workers_btn = QPushButton(self)
+        self.workers_btn.clicked.connect(self._toggle_workers)
+        self.diag_ok = QPushButton(T("This site works fine"), self)
+        self.diag_ok.setToolTip(T("The octagon goes back to normal for this site in this tab"))
+        self.diag_ok.clicked.connect(self._site_works)
         self.repaired = QLabel(self)
         self.repaired.setWordWrap(True)
         self.repaired_undo = QPushButton(T("Undo the repair"), self)
@@ -396,7 +441,11 @@ class ShieldPanel(QWidget):
         lay.addWidget(QLabel(T("Protection on this site"), self))
         lay.addWidget(self.site_level)
         lay.addWidget(self.hint)
+        lay.addWidget(self.diag_note)
         lay.addWidget(self.repair_btn)
+        lay.addWidget(self.diag_ok)
+        lay.addWidget(self.workers_line)
+        lay.addWidget(self.workers_btn)
         lay.addWidget(self.repaired)
         lay.addWidget(self.repaired_undo)
         lay.addWidget(self.adv_btn)
@@ -478,6 +527,12 @@ class ShieldPanel(QWidget):
                 (T("Cross-site cookies refused"), st["cookies"]),
                 (T("Upgrades to HTTPS"), st["https"]),
                 (T("Tracking parameters removed"), st["params"]))
+        # the site's own workers (1.1.32): refused (Maximum), or let run with
+        # the computer's own values (Kontrol); shown only where there are any
+        if st.get("workers"):
+            rows += ((T("Background workers blocked"), st["workers"]),)
+        if st.get("workers_open"):
+            rows += ((T("Site's own workers allowed"), st["workers_open"]),)
         self.kinds.show_stats(rows if web else [])
         self.detail.setText("<table>%s</table>" % "".join(
             "<tr><td>%s&nbsp;&nbsp;&nbsp;</td><td align='right'><b>%d</b></td></tr>" % r
@@ -491,6 +546,8 @@ class ShieldPanel(QWidget):
             w.setEnabled(web and on)
         from . import repair
         self.repair_btn.setVisible(web and on and bool(cfg["repair_button"]))
+        self.show_diagnosis()
+        self._show_workers(host if web else "", level, st)
         fixed = repair.repaired(cfg, host) if web else []
         self.repaired.setText(T("Repaired: turned off here: %s.") % ", ".join(
             T(repair.NAMES[k]) for k in fixed) if fixed else "")
@@ -506,6 +563,100 @@ class ShieldPanel(QWidget):
     def _repair(self):
         self.win.shield_menu.hide()
         self.win.repair_site()
+
+    # the consequence of the narrow repair, said before the user chooses it
+    REPAIR_CHANGES = _t("“Repair this site” turns off only that protection, for this site only; "
+                        "every other protection stays on.")
+    HELP = _t("I.K.E. can help you fix it while keeping every other protection on.")
+
+    def show_diagnosis(self):
+        """The octagon's state in words, the probable cause and the repair put
+        forward (1.1.32). Opening or closing the panel changes nothing."""
+        state, text = self.win.interference_state()
+        lines = []
+        if state == "danger":
+            lines.append("⛔ " + T(text))
+        elif state is not None:
+            f = self.win.app.diagnosis.finding(self.win.current_view())
+            lines.append("⚠ " + T(text))
+            if f is not None:
+                lines.append(T(f.cause))
+                lines.append(T(self.REPAIR_CHANGES) if f.keys else T(self.HELP))
+        v = self.win.current_view()
+        if state is None and v is not None and getattr(v, "_ike_confirmed", None) is not None \
+                and v._ike_confirmed == getattr(v, "_ike_loads", None):
+            # the green's words stay here until the next page (the review)
+            lines.append("✓ " + T(self.win.CONFIRM_TEXT))
+        self.diag_note.setText("\n".join(lines))
+        self.diag_note.setVisible(bool(lines))
+        incompat = state in ("attention", "serious")
+        self.diag_ok.setVisible(incompat)
+        # the repair put forward: the panel's default button, in bold
+        font = self.repair_btn.font()
+        if font.bold() != incompat:
+            font.setBold(incompat)
+            self.repair_btn.setFont(font)
+        self.repair_btn.setDefault(incompat)
+        host = self.win.current_host()
+        cfg = self.win.app.config
+        if incompat:
+            # put forward even where the user hid the button from the panel:
+            # it is the one way to the narrow repair the text speaks of
+            self.repair_btn.setVisible(bool(host))
+        elif state == "danger":
+            # a safety warning is not an incompatibility: no repair offered
+            self.repair_btn.setVisible(False)
+        else:
+            self.repair_btn.setVisible(bool(host) and cfg.level_for(host) != "off" and bool(cfg["repair_button"]))
+
+    WORKERS_RUN = _t("This site uses background programs: it works better, but protects you a little less.")
+    WORKERS_BLOCKED = _t("This site's background programs are blocked: more protection, but the site may not work.")
+
+    def _show_workers(self, host, level, st):
+        """The quiet line about the site's own workers (1.1.32): shown only
+        where they ran, or where the user blocked them; never on a page of a
+        safety warning (they stay out there, whatever is chosen here)."""
+        cfg = self.win.app.config
+        sh = self.win.app.shields
+        blocked = bool(host) and cfg.site_opt(host, "workers") is True
+        ran = bool(host) and bool(st.get("workers_open"))
+        show = (bool(host) and rank(level) >= 3 and cfg.site_opt(host, "fp") is not False
+                and (ran or blocked) and not sh.worker_danger(host))
+        self.workers_line.setVisible(show)
+        self.workers_btn.setVisible(show)
+        if show:
+            self.workers_line.setText(T(self.WORKERS_BLOCKED if blocked else self.WORKERS_RUN))
+            self.workers_btn.setText(T("Allow them again") if blocked else T("Block them on this site"))
+
+    def _toggle_workers(self):
+        """Block the site's own workers on this site, or allow them again:
+        remembered for the site, the page loaded again (1.1.32)."""
+        host = self.win.current_host()
+        if not host:
+            return
+        cfg = self.win.app.config
+        if cfg.site_opt(host, "workers") is True:
+            # the block may be a parent's (the review): this site only, so an
+            # allowance of its own here, the parent's block left as it is
+            holder = cfg.site_opt_holder(host, "workers")
+            cfg.set_site_opt(host, "workers", None if holder == host else False)
+            if cfg.site_opt(host, "workers") is True:
+                cfg.set_site_opt(host, "workers", False)
+        else:
+            cfg.set_site_opt(host, "workers", True)
+            o = cfg["site_opts"].get(host) or {}
+            if "workers" in (o.get("repaired") or []):
+                o["repaired"] = [k for k in o["repaired"] if k != "workers"]
+        self._apply()
+
+    def _site_works(self):
+        """The user says the site works: the finding of this tab ends (the
+        protections stay exactly as they are)."""
+        v = self.win.current_view()
+        if v is not None:
+            self.win.app.diagnosis.resolved(v)
+        self.show_diagnosis()
+        QTimer.singleShot(0, self._resize_popup)
 
     def _undo_repair(self):
         from . import repair
