@@ -29,7 +29,9 @@ const path = require('path');
       const cdp = await ctx.newCDPSession(page);
       const { frameTree } = await cdp.send('Page.getFrameTree');
       const { executionContextId } = await cdp.send('Page.createIsolatedWorld', { frameId: frameTree.frame.id, worldName: 'bl' });
-      await cdp.send('Runtime.evaluate', { expression: js, contextId: executionContextId, awaitPromise: true });
+      // a check that never ends (a video that never starts) must not stop the run
+      await Promise.race([cdp.send('Runtime.evaluate', { expression: js, contextId: executionContextId, awaitPromise: true }),
+        new Promise((r) => setTimeout(r, 25000))]);
       const r = await cdp.send('Runtime.evaluate', { expression: 'window.__ikeProbe_p1 || null', contextId: executionContextId, returnByValue: true });
       rec.probe = JSON.parse(r.result.value || 'null');
     } catch (e) { rec.probeErr = String(e).slice(0, 200); }

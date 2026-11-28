@@ -5,7 +5,8 @@
 
 Each site's own check (sites.json) gives a verdict: ok, part (the page works,
 its main function was not reached), FAIL, env (a captcha, a geographic block
-or a sign-in wall that the baseline browsers get too), "-" (not run).
+or a sign-in wall that the baseline browsers get too), "-" (not run), "n/t"
+(the run stopped on this page).
 """
 import json
 import sys
@@ -71,6 +72,8 @@ RULES = {
 
 def verdict(rec):
     p = rec.get("probe") or {}
+    if not p and rec.get("probeErr"):
+        return "n/t"                     # the baseline run was stopped on this page
     c = p.get("check")
     if not isinstance(c, dict):
         if isinstance(c, str) and c.startswith("EXC"):
