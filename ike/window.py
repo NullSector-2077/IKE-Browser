@@ -41,6 +41,12 @@ from .uistyle import Switch
 from .urlbar import _URLISH, UrlBar, is_not_secure
 from .webview import WebView
 
+
+def _t(text):
+    """Marks a text for the language packs (tools/check-lang.py); T() translates it when shown."""
+    return text
+
+
 # Qt emits ThemeChange (210) even in PyQt builds that omit its enum name.
 THEME_CHANGE = QEvent.Type(210)
 NEWTAB = "ike:newtab"
@@ -2677,12 +2683,12 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     # the diagnosis of the site in view (incompat.py: orange or yellow). The
     # page cannot set either: the warnings and the request check are I.K.E.'s.
     DANGER_TEXT = {
-        "cert": "Danger: the certificate of this site is not valid, so the connection may not be private.",
+        "cert": _t("Danger: the certificate of this site is not valid, so the connection may not be private."),
     }
-    DANGER_ANY = "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page."
+    DANGER_ANY = _t("Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.")
     FINDING_TEXT = {
-        "attention": "A protection may interfere with some features of this site.",
-        "serious": "A protection may stop this site from working properly. Use “Repair this site”.",
+        "attention": _t("A protection may interfere with some features of this site."),
+        "serious": _t("A protection may stop this site from working properly. Use “Repair this site”."),
     }
 
     def interference_state(self, view=None):

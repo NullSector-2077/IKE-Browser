@@ -63,6 +63,11 @@ ATTENTION = "attention"
 SERIOUS = "serious"
 RANK = {ATTENTION: 1, SERIOUS: 2}
 
+def _t(text):
+    """Marks a text for the language packs (tools/check-lang.py); T() translates it when shown."""
+    return text
+
+
 
 class Evidence:
     """What the protections did on one site since its last page started."""
@@ -164,7 +169,7 @@ class SiteWorkers(Detector):
     (WhatsApp, Telegram; Kontrol lets them run since 1.1.32)."""
 
     id = "workers"
-    CAUSE = "Probable cause: this level blocks the site's own background workers."
+    CAUSE = _t("Probable cause: this level blocks the site's own background workers.")
 
     def relevant(self, ev, ctx):
         return "workers" in ctx.active and ev.n("worker:") > 0
@@ -190,7 +195,7 @@ class EmptyPage(Detector):
     scripts (Kontrol and Maximum check them against the lists)."""
 
     id = "empty"
-    CAUSE = "Probable cause: a protection blocked something the page needs."
+    CAUSE = _t("Probable cause: a protection blocked something the page needs.")
 
     def relevant(self, ev, ctx):
         return not ctx.video_site and ev.n("own:script") > 0
@@ -207,7 +212,7 @@ class BrokenPlayer(Detector):
     itself and are blocked on purpose."""
 
     id = "player"
-    CAUSE = "Probable cause: a protection blocked something the page needs."
+    CAUSE = _t("Probable cause: a protection blocked something the page needs.")
 
     def relevant(self, ev, ctx):
         return not ctx.video_site and (ev.n("own:media") > 0 or ev.n("own:xhr") > 0)

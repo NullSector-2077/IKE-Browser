@@ -13,9 +13,12 @@ so the fallback never ran.
   inside the same object, the messages posted before the switch delivered,
   no error and no report of the refused copy for the page); a worker made
   from the page's own text keeps the protection; they are counted.
-- Maximum: refused as before, counted; the bar above the page says so and
-  "Allow them on this site" lets that site's own workers run, the other
-  sites' stay refused; "Undo the repair" takes it back.
+- Maximum: refused as before, counted; the shield's octagon turns orange
+  (the diagnosis, incompat.py: the app waits on refused workers and stays
+  empty), "Repair this site" turns off the probable cause first (the
+  workers, for that site only: the other sites' stay refused), the octagon
+  goes back to normal once the user says the page works, and "Undo the
+  repair" takes it back.
 - "Repair this site" finds the workers, not the whole fingerprinting
   protection, when only the workers break the page.
 
@@ -206,15 +209,24 @@ def load(view, url, key, out, tries=300):
         yield 100
 '''
 
-STEPS = LOAD + r'''
+# the diagnosis looks at the page a few seconds after its load (incompat.py)
+SETTLE = r'''
+def settle(win, out, key, wait=7000):
+    for _ in range(wait // 100):
+        if win.interference_state()[0]:
+            break
+        yield 100
+    out[key + "_state"] = win.interference_state()[0]
+'''
+
+STEPS = LOAD + SETTLE + r'''
 def steps(ike, qapp, out):
     win = ike.windows[0]
     view = win.current_view()
     for i, host in enumerate(%s):
         yield from load(view, "http://%%s:%d/page%%d" %% (host, i), host, out)
-        yield 300
+        yield from settle(win, out, host)
         out[host + "_stats"] = ike.shields.site_stats(host)
-        out[host + "_bar"] = win.workers_bar.isVisible()
 '''
 
 
@@ -239,7 +251,7 @@ def test_kontrol_runs_the_sites_own_workers(run_ike, site):
     assert r["blob"] in ("error", "timeout"), r
     stats = out["127.0.0.1_stats"]
     assert stats["workers"] == 0 and stats["workers_open"] >= 3, stats      # counted, not refused
-    assert out["127.0.0.1_bar"] is False
+    assert out["127.0.0.1_state"] is None                 # nothing broken: the octagon as it is
 
 
 def test_maximum_refuses_them_and_says_so(run_ike, site):
@@ -250,7 +262,7 @@ def test_maximum_refuses_them_and_says_so(run_ike, site):
     assert r["sw"].startswith("refused"), r
     stats = out["127.0.0.1_stats"]
     assert stats["workers"] >= 2, stats          # the shared and the service worker (the dedicated ones: the policy)
-    assert out["127.0.0.1_bar"] is True                  # the bar above the page says why
+    assert out["127.0.0.1_state"] == "serious"           # the octagon says so, in orange
 
 
 def test_maximum_allows_them_for_one_site_only(run_ike, site):
@@ -260,24 +272,33 @@ def test_maximum_allows_them_for_one_site_only(run_ike, site):
     assert allowed["first"] == ["echo one", "echo two"] and allowed["shared"] == "shared hi", allowed
     assert allowed["sw"] == "sw hi", allowed
     assert other["first"] == "error" and other["sw"].startswith("refused"), other
-    assert out["127.0.0.1_bar"] is False and out["localhost_bar"] is True
+    assert out["127.0.0.1_state"] is None and out["localhost_state"] == "serious", out
 
 
-ALLOW = LOAD + r'''
+ALLOW = LOAD + SETTLE + r'''
 def steps(ike, qapp, out):
     from ike import repair
     win = ike.windows[0]
     view = win.current_view()
     yield from load(view, "http://127.0.0.1:%d/page", "before", out)
+    yield from settle(win, out, "before")
+    f = ike.diagnosis.finding(view)
+    out["keys"] = list(f.keys) if f else None
+    win.shield_menu.aboutToShow.emit()                     # the panel, as it opens
+    p = win.shield_panel
+    out["panel"] = {"note": p.diag_note.text(), "ok": p.diag_ok.isVisibleTo(p),
+                    "repair_default": p.repair_btn.isDefault()}
+    out["anim"] = win.shield_btn.interference.state
+    win.repair_site()                                      # "Repair this site": the probable cause first
+    rep = win.repair_bar.repair
+    out["phase"] = rep.phase
+    out["during"] = win.interference_state()[0]            # stays on while the repair asks
+    out["kept_during"] = repair.repaired(ike.config, "127.0.0.1")   # a trial, not kept yet
+    yield 1500
+    win.repair_bar.yes.click()                             # the page works
     yield 300
-    out["bar"] = win.workers_bar.isVisible()
-    win.workers_bar.hide()
-    win.workers_bar.show_for(view)                        # as if it had just appeared
-    win.workers_bar.ok.click()                            # at once: inert (a click meant for the page)
-    out["early"] = dict(ike.config["site_opts"].get("127.0.0.1") or {})
-    yield 700
-    win.workers_bar.ok.click()                            # "Allow them on this site"
-    yield 300
+    out["after_state"] = win.interference_state()[0]
+    out["ended"] = ike.diagnosis.ended(view)
     out["opts"] = dict(ike.config["site_opts"].get("127.0.0.1") or {})     # a copy: undone below
     out["repaired"] = repair.repaired(ike.config, "127.0.0.1")
     yield from load(view, "http://127.0.0.1:%d/again", "after", out)
@@ -286,10 +307,15 @@ def steps(ike, qapp, out):
 '''
 
 
-def test_allow_button_and_undo(run_ike, site):
+def test_repair_puts_the_cause_first_and_undo(run_ike, site):
     out = run_ike(ALLOW % (site, site), settings={"shield_level": "maximum", "https_only": False}, timeout=150)
-    assert out["bar"] is True
-    assert "workers" not in out["early"], out          # the first half second: nothing allowed
+    assert out["before_state"] == "serious" and out["keys"] == ["workers"], out
+    assert out["anim"] == "serious", out
+    assert "background workers" in out["panel"]["note"], out                # the probable cause, in words
+    assert out["panel"]["ok"] is True and out["panel"]["repair_default"] is True, out
+    assert out["phase"] == "suggested" and out["during"] == "serious", out
+    assert out["kept_during"] == [], out                   # nothing kept before the user's answer
+    assert out["after_state"] is None and out["ended"] == "resolved", out
     assert out["opts"].get("workers") is False and out["repaired"] == ["workers"], out
     assert out["after"]["first"] == ["echo one", "echo two"], out["after"]
     assert out["undone"] is None, out

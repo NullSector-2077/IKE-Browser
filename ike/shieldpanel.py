@@ -52,6 +52,12 @@ TOOLBAR_SHIELD_GROW = 1.08
 TOOLBAR_LETTER = 0.92
 
 
+def _t(text):
+    """Marks a text for the language packs (tools/check-lang.py); T() translates it when shown."""
+    return text
+
+
+
 def octagon(rect, grow=1.0):
     """The octagon's polygon in rect, its side and its stroke's width (the
     shield's own geometry, shared with the interference animation)."""
@@ -540,8 +546,9 @@ class ShieldPanel(QWidget):
         self.win.repair_site()
 
     # the consequence of the narrow repair, said before the user chooses it
-    REPAIR_CHANGES = "“Repair this site” turns off only that protection, for this site only; every other protection stays on."
-    HELP = "I.K.E. can help you fix it while keeping every other protection on."
+    REPAIR_CHANGES = _t("“Repair this site” turns off only that protection, for this site only; "
+                        "every other protection stays on.")
+    HELP = _t("I.K.E. can help you fix it while keeping every other protection on.")
 
     def show_diagnosis(self):
         """The octagon's state in words, the probable cause and the repair put
