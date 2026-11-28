@@ -11,8 +11,10 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is made for KDE Plasma on
 Arch Linux and CachyOS and works on the other Arch-based desktops.
 
-**Version 1.1.30** - see [CHANGELOG.md](CHANGELOG.md). What is marked *(next
-version)* below is already in this repository and comes with the next release.
+**Version 1.1.30** - see [CHANGELOG.md](CHANGELOG.md).
+
+What is marked *(next version)* below is already in this repository and comes
+with the next release.
 
 ## Install (Arch Linux, CachyOS)
 
