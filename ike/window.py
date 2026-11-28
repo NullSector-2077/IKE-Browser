@@ -338,7 +338,8 @@ class BookmarksBar(QToolBar):
         win = self.parentWidget()
         nav = win.nav
         forward = win.act_fwd.icon()
-        double = icon(("arrow-right-double",))
+        # (GNOME's Adwaita and the like have no double arrow of that name: their seek-forward one)
+        double = icon(("arrow-right-double", "media-seek-forward-symbolic"))
         ratio = self.devicePixelRatioF()
         key = (forward.cacheKey(), double.cacheKey(), nav.iconSize(), ratio, self.palette().cacheKey())
         if key == getattr(self, "_arrows_key", None):

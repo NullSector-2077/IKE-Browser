@@ -663,7 +663,7 @@ class SettingsDialog(QDialog):
             "privacy": (self._privacy, ("preferences-web-browser-cookies", "view-private", "preferences-system-privacy"),
                         T("Encrypted DNS, containers and the data kept on this computer.")),
             "permissions": (self._permissions, ("preferences-desktop-user-password", "object-locked",
-                                                "preferences-security"),
+                                                "preferences-security", "changes-prevent-symbolic"),
                             T("What sites may use: camera, microphone, location, notifications and more.")),
             "extensions": (self._extensions, ("preferences-plugin", "application-x-addon"),
                            T("Features that come with I.K.E. Switch on only the ones you want.")),

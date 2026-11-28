@@ -246,7 +246,7 @@ reproduced from its result files.
    Access over h3; Alt-Svc in `Network Persistent State` becomes cross-site
    state (connections are not partitioned by default in 140).
 9. I.K.E.'s own: autoplay allowed without a gesture at off and Balanced;
-   Strict fetches worker scripts with `Sec-Fetch-Dest: script`; no ICE
+   Strict fetches worker scripts with `Sec-Fetch-Dest: script`; no WebRTC
    candidates (by design).
 
 ## 8. Conclusions after the review
