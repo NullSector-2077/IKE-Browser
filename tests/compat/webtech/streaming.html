@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>I.K.E. streaming</title>
+<script src="https://cdn.jsdelivr.net/npm/shaka-player@4.12.6/dist/shaka-player.compiled.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js"></script>
+</head>
+<body>
+<video id="dash" muted playsinline width="320"></video>
+<video id="drm" muted playsinline width="320"></video>
+<video id="hls" muted playsinline width="320"></video>
+<pre id="out" data-done="0"></pre>
+<script>
+// public test streams: Google's Shaka demo assets (its Widevine licence proxy
+// for test content) and Mux's HLS test stream
+var R = {};
+function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+async function play(id, setup) {
+  var v = document.getElementById(id);
+  try {
+    await setup(v);
+    try { await v.play(); } catch (e) { R[id + '_playErr'] = String(e).slice(0, 120); }
+    var t0 = v.currentTime;
+    await wait(7000);
+    R[id] = { ok: v.currentTime > t0 + 2, t: Math.round(v.currentTime * 10) / 10, w: v.videoWidth, h: v.videoHeight, err: v.error && v.error.code };
+  } catch (e) { R[id] = { ok: false, err: String(e && (e.code || e.message) || e).slice(0, 200) }; }
+}
+(async function () {
+  shaka.polyfill.installAll();
+  await play('dash', async function (v) {
+    var p = new shaka.Player(); await p.attach(v);
+    await p.load('https://storage.googleapis.com/shaka-demo-assets/angel-one/dash.mpd');
+  });
+  await play('drm', async function (v) {
+    var p = new shaka.Player(); await p.attach(v);
+    p.configure({ drm: { servers: { 'com.widevine.alpha': 'https://cwip-shaka-proxy.appspot.com/no_auth' } } });
+    await p.load('https://storage.googleapis.com/shaka-demo-assets/angel-one-widevine/dash.mpd');
+    R.drm_keysystem = p.keySystem();
+  });
+  await play('hls', async function (v) {
+    if (!Hls.isSupported()) throw new Error('hls.js not supported (no MSE)');
+    var h = new Hls(); h.loadSource('https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8'); h.attachMedia(v);
+    await new Promise(function (res, rej) { h.on(Hls.Events.MANIFEST_PARSED, res); h.on(Hls.Events.ERROR, function (e, d) { if (d.fatal) rej(new Error(d.details)); }); });
+  });
+  var o = document.getElementById('out'); o.textContent = JSON.stringify(R); o.setAttribute('data-done', '1');
+})();
+</script>
+</body>
+</html>
