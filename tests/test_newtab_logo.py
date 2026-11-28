@@ -1,6 +1,6 @@
-"""1.1.31 (the owner): the logo's circuit lights up while the new tab page is shown, every 4 seconds,
-light on the computer: one short pulse moved on by the page 30 times a second, nothing at all between
-two pulses, none in a tab that is not shown, none without the interface's effects."""
+"""1.1.31 (the owner): the logo's circuit lights up while the new tab page is shown: a light of about
+3 s, then 2 s of rest, light on the computer: one pulse moved on by the page 24 times a second, nothing
+at all between two pulses, none in a tab that is not shown, none without the interface's effects."""
 
 from test_security import JS
 
@@ -46,7 +46,7 @@ def test_the_logo_lights_up_only_while_shown(run_ike):
     out = run_ike(STEPS, settings={"ui_effects": True, "welcome_done": True},
                   env={"IKE_REDUCED_MOTION": "0", "IKE_TEST_WEATHER": "http://127.0.0.1:9"}, timeout=120)
     assert out["start"]["shown"] == "block", out["start"]
-    assert out["shown"]["on"] >= 2, out["shown"]                    # a pulse every 4 seconds
+    assert out["shown"]["on"] >= 2, out["shown"]                    # a pulse, 2 s of rest, a pulse
     assert all(r[1] == 0 for r in out["idle"]), out["idle"]          # never left running by itself
     assert any(not r[0] for r in out["idle"]), out["idle"]           # and a rest between the pulses
     b, a, hidden = out["hidden"]
