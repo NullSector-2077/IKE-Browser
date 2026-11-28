@@ -10,10 +10,17 @@
   Chromium 140 answers on Linux (measured with Chrome for Testing
   140.0.7339.207): no passkey built into the computer, the browser's list of
   passkeys available, and the same capabilities in the same order; on
-  Google's sites, where I.K.E. is a Firefox, the first two as Firefox answers
-  them, and its list of capabilities is not made up. Security keys work as
-  before (I.K.E.'s own windows). Off still changes nothing in a page
-  (`ike/resources/fingerprint.js`, tests/test_passkeys.py).
+  Google's sites, where I.K.E. is a Firefox, as Firefox 161 answers on Linux
+  (measured). The answers come a moment later, as the engine's would; at
+  Compatibility the three functions are the engine's own behind a proxy and
+  nothing else of the page changes (an independent review: a replaced
+  `toString` would have shown on the sign-in pages kept at Compatibility). A
+  site's silent passkey request waits without a word, as in Chromium with no
+  passkey saved, and a security key still reaches I.K.E.'s own window. Off,
+  and PayPal's and Stripe's pages and frames, which I.K.E. leaves as they are,
+  still meet the engine as it is (`ike/resources/fingerprint.js`,
+  tests/test_passkeys.py).
+
 - **WhatsApp and Telegram work at Kontrol** (the owner: they worked only at
   Compatibility and Balanced; WhatsApp turned into a white page after a
   change of level). The web compatibility campaign of 2026-11-28

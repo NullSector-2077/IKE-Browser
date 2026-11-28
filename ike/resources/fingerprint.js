@@ -226,6 +226,14 @@
     ['hybridTransport', false], ['passkeyPlatformAuthenticator', false], ['relatedOrigins', true],
     ['signalAllAcceptedCredentials', true], ['signalCurrentUserDetails', true], ['signalUnknownCredential', true],
     ['userVerifyingPlatformAuthenticator', false]];
+  // Firefox 161's on Linux (measured), where I.K.E. is a Firefox (Google's sites)
+  var PASSKEY_CAPS_FF = [['conditionalCreate', false], ['conditionalGet', true], ['extension:appid', true],
+    ['extension:credProps', true], ['extension:credentialProtectionPolicy', true],
+    ['extension:enforceCredentialProtectionPolicy', true], ['extension:hmacCreateSecret', true],
+    ['extension:largeBlob', false], ['extension:minPinLength', true], ['extension:prf', true],
+    ['hybridTransport', false], ['passkeyPlatformAuthenticator', false], ['relatedOrigins', true],
+    ['signalAllAcceptedCredentials', false], ['signalCurrentUserDetails', false], ['signalUnknownCredential', false],
+    ['userVerifyingPlatformAuthenticator', false]];
   var RANK = { off: 0, compatibility: 1, balanced: 2, strict: 3, maximum: 4 };
   var lv = RANK[levelFor(host)];
   if (lv === undefined) lv = 2;
@@ -253,20 +261,18 @@
     // protection, but Google's sites still see Firefox, as in the headers,
     // and the passkey questions are answered (1.1.31: a sign-in page waited
     // for ever at every level)
-    try {
-      wrap(Function.prototype, 'toString', function (orig) {
-        return function () {
-          var s = natives.get(this);
-          return s !== undefined ? s : RAPPLY(orig, this, []);
-        };
-      });
-      passkeys(window);
-    } catch (e) {}
     if (FIREFOX) {
       try {
+        wrap(Function.prototype, 'toString', function (orig) {
+          return function () {
+            var s = natives.get(this);
+            return s !== undefined ? s : RAPPLY(orig, this, []);
+          };
+        });
+        passkeys(window, false);
         firefoxIdentity(window);
       } catch (e) {}
-    }
+    } else passkeys(window, true);
     return;
   }
   var strict = lv >= 3;
@@ -1482,29 +1488,46 @@
   // authenticator, conditional mediation available (a conditional request
   // then waits, as in Chromium with no passkey saved: Qt shows no list), and
   // the same capabilities, in the same order. Security keys are unchanged
-  // (passwords.handle_webauthn). Where I.K.E. is a Firefox (Google's
-  // sites) the first two answers are Firefox's on Linux as well; Firefox's
-  // own list of capabilities is not Chromium's, and none is made up there.
-  function passkeys(w) {
+  // (passwords.handle_webauthn). Where I.K.E. is a Firefox (Google's sites)
+  // the answers are Firefox 161's on Linux (measured). An answer comes in a
+  // task of its own, as the engine's do (after a round trip to the browser),
+  // not in the same task. At Compatibility, where nothing else of the page is
+  // changed and Function.prototype.toString stays the engine's, the three
+  // are proxies of the engine's own functions (the review: a replaced
+  // toString was a tell on every page, the sign-in pages kept at
+  // Compatibility included).
+  function passkeys(w, asProxy) {
     try {
-      var PKC = w.PublicKeyCredential, PR = w.Promise, RESOLVE = PR && PR.resolve, WO = w.Object;
-      if (typeof PKC !== 'function' || !RESOLVE) return;
-      var answer = function (v) { return RAPPLY(RESOLVE, PR, [v]); };
-      wrap(PKC, 'isUserVerifyingPlatformAuthenticatorAvailable', function () {
-        return function () { return answer(false); };
-      });
-      wrap(PKC, 'isConditionalMediationAvailable', function () {
-        return function () { return answer(true); };
-      });
-      if (!FIREFOX) wrap(PKC, 'getClientCapabilities', function () {
-        return function () {
+      var PKC = w.PublicKeyCredential, PR = w.Promise, WO = w.Object, LATER = w.setTimeout;
+      if (typeof PKC !== 'function' || typeof PR !== 'function' || typeof LATER !== 'function') return;
+      var answer = function (v) {
+        return new PR(function (ok) { RAPPLY(LATER, w, [function () { ok(v); }, 0]); });
+      };
+      var caps = FIREFOX ? PASSKEY_CAPS_FF : PASSKEY_CAPS;
+      var made = {
+        isUserVerifyingPlatformAuthenticatorAvailable: function () { return answer(false); },
+        isConditionalMediationAvailable: function () { return answer(true); },
+        getClientCapabilities: function () {
           var o = new WO();
-          for (var i = 0; i < PASSKEY_CAPS.length; i++) {
-            DEFPROP(o, PASSKEY_CAPS[i][0], { value: PASSKEY_CAPS[i][1], writable: true, enumerable: true, configurable: true });
+          for (var i = 0; i < caps.length; i++) {
+            DEFPROP(o, caps[i][0], { value: caps[i][1], writable: true, enumerable: true, configurable: true });
           }
           return answer(o);
-        };
-      });
+        }
+      };
+      // a loop of the protection's own (a page's forEach may have been
+      // replaced when an empty frame of it is protected)
+      var names = ['isUserVerifyingPlatformAuthenticatorAvailable', 'isConditionalMediationAvailable',
+        'getClientCapabilities'];
+      for (var k = 0; k < names.length; k++) {
+        (function (name, impl) {
+          if (!asProxy) { wrap(PKC, name, function () { return impl; }); return; }
+          var d = GOPD(PKC, name);
+          if (!d || typeof d.value !== 'function') return;
+          d.value = new w.Proxy(d.value, { apply: function () { return impl(); } });
+          DEFPROP(PKC, name, d);
+        })(names[k], made[names[k]]);
+      }
     } catch (e) {}
   }
   // A current Firefox on Linux, in one realm (1.1.27): its navigator's texts,
@@ -2469,7 +2492,7 @@
       if (strict) maskFonts(w);
       return;
     }
-    passkeys(w);
+    passkeys(w, false);
     if (FIREFOX) firefoxIdentity(w);
     else {
       chromeObject(w);
