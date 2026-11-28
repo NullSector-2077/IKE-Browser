@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "साइटका आफ्नै पृष्ठभूमि वर्कर रोक्ने",
 "Background workers blocked": "रोकिएका पृष्ठभूमि वर्कर",
 "Site's own workers allowed": "साइटका आफ्नै वर्करलाई अनुमति",
-"This level blocks the site's own background workers: the site may not work.": "यो तहले साइटका आफ्नै पृष्ठभूमि वर्कर रोक्छ: साइटले काम नगर्न सक्छ।",
-"Allow them on this site": "यो साइटमा तिनलाई अनुमति दिनुहोस्"
+"Probable cause: this level blocks the site's own background workers.": "सम्भावित कारण: यो तहले साइटका आफ्नै पृष्ठभूमि वर्कर रोक्छ।",
+"Probable cause: a protection blocked something the page needs.": "सम्भावित कारण: कुनै सुरक्षाले पृष्ठलाई चाहिने केही कुरा रोक्यो।",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "मर्मत: केही क्षणका लागि यो साइटमा सम्भावित कारण बन्द छ, अरू हरेक सुरक्षा चालु रहन्छ। अब पृष्ठले काम गर्छ?",
+"This site works fine": "यो साइटले राम्रोसँग काम गर्छ",
+"The octagon goes back to normal for this site in this tab": "यो ट्याबमा यो साइटका लागि अष्टकोण फेरि सामान्य हुन्छ",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“यो साइट मर्मत गर्नुहोस्” ले त्यो सुरक्षा मात्र, यो साइटका लागि मात्र बन्द गर्छ; अरू हरेक सुरक्षा चालु रहन्छ।",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. ले अरू हरेक सुरक्षा चालु राखेर यसलाई ठीक गर्न तपाईंलाई मद्दत गर्न सक्छ।",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "खतरा: यो साइटको प्रमाणपत्र मान्य छैन, त्यसैले जडान निजी नहुन सक्छ।",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "खतरा: I.K.E. ले यो साइटमा तपाईंको सुरक्षाका लागि वास्तविक जोखिम फेला पार्‍यो। पृष्ठमाथिको चेतावनी पढ्नुहोस्।",
+"A protection may interfere with some features of this site.": "कुनै सुरक्षाले यो साइटका केही सुविधामा बाधा पुर्‍याउन सक्छ।",
+"A protection may stop this site from working properly. Use “Repair this site”.": "कुनै सुरक्षाले यो साइटलाई राम्रोसँग काम गर्नबाट रोक्न सक्छ। “यो साइट मर्मत गर्नुहोस्” प्रयोग गर्नुहोस्।"
 }
 }

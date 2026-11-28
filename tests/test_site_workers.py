@@ -411,3 +411,45 @@ def test_a_frame_of_another_site_gets_no_free_worker(run_ike, site, level):
     assert out["top"]["frame"] in ("error", "timeout"), out["top"]
     st = out["top_stats"]
     assert st["workers_open"] == 0 and st["workers"] == 0, st
+
+
+TRANSITION = LOAD + r'''
+def steps(ike, qapp, out):
+    from PyQt6.QtCore import QUrl
+    win = ike.windows[0]
+    a = win.current_view()
+    yield from load(a, "http://127.0.0.1:%d/page", "kontrol", out)     # its shared worker keeps running
+    # the site goes to Maximum (the panel's own way), the first tab stays open
+    ike.config["site_levels"]["127.0.0.1"] = "maximum"
+    ike.shields.apply_settings()
+    b = win.add_tab(QUrl("about:blank"))
+    yield 500
+    yield from load(b, "http://127.0.0.1:%d/page", "maximum", out)
+    out["stats"] = ike.shields.site_stats("127.0.0.1")
+    # register() answers in the engine's own words (as when the file is refused)
+    res = {}
+    b.page().runJavaScript(
+        "navigator.serviceWorker.register('/sw.js', {scope: '/x/'}).then(function () { window.r2 = 'ok'; },"
+        " function (e) { window.r2 = JSON.stringify([e.name, e.message, e instanceof TypeError]); });", 0)
+    for _ in range(50):
+        b.page().runJavaScript("window.r2 || ''", 0, lambda r, res=res: res.__setitem__("r", r))
+        yield 100
+        if res.get("r"):
+            break
+    out["message"] = json.loads(res["r"]) if res.get("r", "").startswith("[") else res.get("r")
+'''
+
+
+def test_a_level_raised_meanwhile_gives_no_running_worker(run_ike, site):
+    """3.2 of the owner's brief: a shared worker started at Kontrol keeps
+    running while a tab of its site is open; a page of that site at Maximum
+    must not join it (the engine would connect without asking for its file,
+    so the request check would never see it)."""
+    out = run_ike(TRANSITION % (site, site), settings={"shield_level": "strict", "https_only": False}, timeout=150)
+    assert out["kontrol"]["shared"] == "shared hi", out["kontrol"]
+    assert out["maximum"]["shared"] == "error", out["maximum"]
+    assert out["maximum"]["first"] == "error" and out["maximum"]["sw"].startswith("refused"), out["maximum"]
+    origin = "http://127.0.0.1:%d" % site
+    assert out["message"] == ["TypeError", "Failed to register a ServiceWorker for scope ('%s/x/') with script "
+                              "('%s/sw.js'): An unknown error occurred when fetching the script." % (origin, origin),
+                              True], out["message"]

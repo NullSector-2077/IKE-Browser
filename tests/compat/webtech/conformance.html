@@ -1,0 +1,99 @@
+<!doctype html><meta charset="utf-8"><title>Worker conformance</title>
+<body><p>Worker conformance (I.K.E. 1.1.32): the queue of a protected worker against the engine's own behaviour.</p>
+<script>
+// Every check gives a plain value; the same page in Chrome 140 is the reference
+// (tests/compat/README.md). Run with ?csp=noblob behind serve.py for a site policy
+// without blob: workers (the fallback path at Kontrol).
+function wait(ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); }
+function within(ms, p) { return Promise.race([p, wait(ms).then(function () { return 'timeout'; })]); }
+function one(w, post) {
+  return within(6000, new Promise(function (ok) {
+    w.onmessage = function (e) { ok(e.data); };
+    w.onerror = function (e) { ok('error ' + e.message); };
+    post(w);
+  }));
+}
+var R = {};
+(async function () {
+  var w;
+  R.order = await within(8000, new Promise(function (ok) {
+    var x = new Worker('cw.js'), got = [];
+    x.onmessage = function (e) { got.push(e.data); if (got.length === 100) { ok(got.every(function (v, i) { return v === i; })); x.terminate(); } };
+    for (var i = 0; i < 100; i++) x.postMessage(i);
+  }));
+  w = new Worker('cw.js');
+  R.event = await within(6000, new Promise(function (ok) {
+    w.onmessage = function (e) {
+      ok([e.isTrusted, e.origin, e.source === null, e.ports.length, e instanceof MessageEvent, e.lastEventId,
+          e.target === w, e.bubbles, e.cancelable]);
+    };
+    w.postMessage('x');
+  }));
+  var b = new ArrayBuffer(16), after;
+  R.buffer = await one(w, function (x) { x.postMessage({ kind: 'buf', buf: b }, [b]); after = b.byteLength; });
+  R.buffer_detached = after;
+  var b2 = new ArrayBuffer(8), after2;
+  R.buffer_opts = await one(w, function (x) { x.postMessage({ kind: 'buf', buf: b2 }, { transfer: [b2] }); after2 = b2.byteLength; });
+  R.buffer_opts_detached = after2;
+  R.port = await within(6000, new Promise(function (ok) {
+    var ch = new MessageChannel();
+    ch.port1.onmessage = function (e) { ok(e.data); };
+    w.postMessage({ kind: 'port', port: ch.port2 }, [ch.port2]);
+  }));
+  try {
+    var oc = document.createElement('canvas'); oc.width = 7;
+    var off = oc.transferControlToOffscreen();
+    R.canvas = await one(w, function (x) { x.postMessage({ kind: 'canvas', canvas: off }, [off]); });
+  } catch (e) { R.canvas = 'throw ' + e.name; }
+  var o = { a: 1 };
+  R.cloned_at_post = await one(w, function (x) { x.postMessage({ kind: 'echo', v: o }); o.a = 2; });
+  function err(f) { try { f(); return 'no throw'; } catch (e) { return [e.name, e.message, e instanceof DOMException, e instanceof TypeError]; } }
+  var fresh = new Worker('cw.js');
+  R.clone_error = err(function () { fresh.postMessage(function () {}); });
+  R.transfer_error = err(function () { fresh.postMessage(1, [{}]); });
+  R.transfer_twice = err(function () { var z = new ArrayBuffer(1); fresh.postMessage(z, [z, z]); });
+  R.after_errors = await one(fresh, function (x) { x.postMessage('still fine'); });
+  fresh.terminate();
+  R.terminate_at_once = await new Promise(function (ok) {
+    var x = new Worker('cw.js'), got = 0;
+    x.onmessage = function () { got++; };
+    x.postMessage('a'); x.terminate(); x.postMessage('b');
+    setTimeout(function () { ok(got); }, 1500);
+  });
+  R.late_listener = await new Promise(function (ok) {
+    var x = new Worker('cw.js'), got = 0;
+    x.postMessage('early');
+    setTimeout(function () { x.onmessage = function () { got++; }; }, 800);
+    setTimeout(function () { ok(got); x.terminate(); }, 1800);
+  });
+  R.both_listeners = await within(6000, new Promise(function (ok) {
+    var x = new Worker('cw.js'), n = 0;
+    x.addEventListener('message', function () { n++; });
+    x.onmessage = function () { n++; setTimeout(function () { ok(n); x.terminate(); }, 50); };
+    x.postMessage('z');
+  }));
+  R.error = await within(6000, new Promise(function (ok) {
+    var x = new Worker('cw.js');
+    x.onerror = function (e) {
+      ok([e.constructor.name, e.message, e.lineno > 0, `${e.filename}`.slice(-5), e.isTrusted, e.error === null]);
+      e.preventDefault(); x.terminate();
+    };
+    x.postMessage({ kind: 'boom' });
+  }));
+  R.nested = await one(new Worker('cw.js'), function (x) { x.postMessage({ kind: 'nested' }); });
+  try { R.module = await one(new Worker('cwm.js', { type: 'module' }), function (x) { x.postMessage('m'); }); }
+  catch (e) { R.module = 'throw ' + e.name; }
+  R.concurrent = await within(8000, Promise.all([0, 1, 2, 3, 4].map(function (i) {
+    return one(new Worker('cw.js'), function (x) { x.postMessage({ kind: 'echo', v: 'w' + i }); });
+  })));
+  R.missing = await within(6000, new Promise(function (ok) {
+    var x;
+    try { x = new Worker('missing.js'); } catch (e) { ok('throw ' + e.name); return; }
+    x.onerror = function (e) { ok([e.constructor.name, e.isTrusted]); };
+    x.onmessage = function () { ok('message'); };
+    x.postMessage('?');
+  }));
+  window.result = JSON.stringify(R);
+  document.title = 'done';
+})();
+</script></body>

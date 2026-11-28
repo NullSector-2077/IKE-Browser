@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Lokun á eigin bakgrunnsferlum vefsvæðisins",
 "Background workers blocked": "Bakgrunnsferli lokuð",
 "Site's own workers allowed": "Eigin ferli vefsvæðisins leyfð",
-"This level blocks the site's own background workers: the site may not work.": "Þetta stig lokar á eigin bakgrunnsferli vefsvæðisins: vefsvæðið virkar hugsanlega ekki.",
-"Allow them on this site": "Leyfa þau á þessu vefsvæði"
+"Probable cause: this level blocks the site's own background workers.": "Líkleg orsök: þetta stig lokar á eigin bakgrunnsferli vefsvæðisins.",
+"Probable cause: a protection blocked something the page needs.": "Líkleg orsök: vörn lokaði á eitthvað sem síðan þarf.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Viðgerð: slökkt er á líklegu orsökinni á þessu vefsvæði í smá stund, allar aðrar varnir eru áfram virkar. Virkar síðan núna?",
+"This site works fine": "Þetta vefsvæði virkar vel",
+"The octagon goes back to normal for this site in this tab": "Átthyrningurinn verður aftur eðlilegur fyrir þetta vefsvæði í þessum flipa",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "„Laga þetta vefsvæði“ slekkur aðeins á þeirri vörn, aðeins fyrir þetta vefsvæði; allar aðrar varnir eru áfram virkar.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. getur hjálpað þér að laga þetta á meðan allar aðrar varnir eru áfram virkar.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Hætta: skilríki þessa vefsvæðis eru ekki gild, svo aðrir gætu hugsanlega séð tenginguna.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Hætta: I.K.E. fann raunverulega hættu fyrir öryggi þitt á þessu vefsvæði. Lestu viðvörunina fyrir ofan síðuna.",
+"A protection may interfere with some features of this site.": "Vörn gæti truflað suma eiginleika þessa vefsvæðis.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Vörn gæti komið í veg fyrir að þetta vefsvæði virki rétt. Notaðu „Laga þetta vefsvæði“."
 }
 }

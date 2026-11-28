@@ -46,6 +46,16 @@
       add: function (o) { RAPPLY(WS_ADD, s, [o]); return this; }
     });
   }
+  // the service worker scopes unregistered at Maximum (1.1.32, see register()):
+  // strings, so a plain object of its own, without a prototype the page could touch
+  var swDropped = (function () {
+    var o = Object.create(null);
+    return FREEZE({
+      has: function (k) { return typeof k === 'string' && o[k] === true; },
+      add: function (k) { if (typeof k === 'string') o[k] = true; return this; }
+    });
+  })();
+
   function hardMap() {
     var m = new WM_();
     return FREEZE({
@@ -3530,6 +3540,27 @@
             var isBlob = sslice(url, 0, 5) === 'blob:' || sslice(url, 0, 11) === 'filesystem:';
             var isData = sslice(url, 0, 5) === 'data:';
             var inline = isBlob || isData;
+            if (keepWorkersOut && name === 'SharedWorker' && !inline) {
+              // Maximum, or a frame of another site (1.1.32, the owner's
+              // brief 3.2): a shared worker of this file started at a lower
+              // level, in a tab still open, would be joined without its file
+              // being asked for, so the request check would never see it and
+              // the page would get a worker with the engine's own values. A
+              // name of its own makes the engine ask for the file, which the
+              // request check refuses, as for any shared worker here.
+              try {
+                var ov = opt.value, own = {};
+                if (opt.given && ov !== null && typeof ov === 'object') {
+                  for (var oi = 0; oi < OPT_KEYS.length; oi++) {
+                    var ok = OPT_KEYS[oi];
+                    if (ov[ok] !== undefined) DEFPROP(own, ok, { value: ov[ok], writable: true, enumerable: true, configurable: true });
+                  }
+                }
+                var nm = opt.given && (ov === null || typeof ov !== 'object') ? `${ov}` : (own.name !== undefined ? own.name : '');
+                DEFPROP(own, 'name', { value: nm + '\u2063' + newHello(), writable: true, enumerable: true, configurable: true });
+                call = [tt !== null ? first : url, own];
+              } catch (e) {}
+            }
             try {
               if (asAsked()) {
                 // nothing to add: the worker the page asked for (a file of the
@@ -3628,6 +3659,72 @@
             { value: P, writable: true, configurable: true });
           Object.defineProperty(w, name, { value: P, writable: true, configurable: true });
         } catch (e) {}
+      });
+    }
+    // Maximum, or a frame of another site (1.1.32, the owner's brief 3.2): a
+    // service worker registered at a lower level is unregistered (below, at
+    // the end, and here), but while a tab still uses it the engine keeps it,
+    // and a register() of its scope takes it back without asking for the
+    // file: the request check would never see it, and the page would get a
+    // worker with the engine's own values. For such a scope register()
+    // answers as the engine does when the file is refused, without asking it
+    // to; any other register() goes to the engine as it is (the request
+    // check refuses the file, and sees it).
+    var SWCP = w.ServiceWorkerContainer && w.ServiceWorkerContainer.prototype;
+    var SWRP = w.ServiceWorkerRegistration && w.ServiceWorkerRegistration.prototype;
+    if (keepWorkersOut && SWCP && SWRP && typeof SWCP.register === 'function' && typeof SWCP.getRegistrations === 'function') {
+      var NPromiseSW = w.Promise, NTypeErrorSW = w.TypeError, swRegs = SWCP.getRegistrations;
+      var swUnreg = SWRP.unregister, swScope = getterOf(SWRP, 'scope');
+      wrap(SWCP, 'register', function (orig) {
+        return function (scriptURL) {
+          var ex = null, scHref = null;
+          try {
+            if (arguments.length && ownOrigin) {
+              var tts = trustedText(scriptURL), base = RAPPLY(baseOf, w.document, []);
+              var su = nConstruct(U, [tts !== null ? tts : `${scriptURL}`, base]);
+              var sp = RAPPLY(uProto, su, []);
+              if ((sp === 'http:' || sp === 'https:') && RAPPLY(uOrigin, su, []) === ownOrigin) {
+                var opts = arguments.length > 1 ? arguments[1] : undefined, given = opts !== undefined && opts !== null ? opts.scope : undefined;
+                var sc = given !== undefined ? nConstruct(U, [`${given}`, base]) : nConstruct(U, ['./', RAPPLY(uHref, su, [])]);
+                scHref = RAPPLY(uHref, sc, []);
+                var scProto = RAPPLY(uProto, sc, []), scLow = lower(scHref);   // never the page's RegExp methods
+                if ((scProto === 'http:' || scProto === 'https:') && RAPPLY(uOrigin, sc, []) === ownOrigin &&
+                    sindex(scLow, '%2f') < 0 && sindex(scLow, '%5c') < 0) {
+                  ex = new NTypeErrorSW("Failed to register a ServiceWorker for scope ('" + scHref + "') with script ('" +
+                    RAPPLY(uHref, su, []) + "'): An unknown error occurred when fetching the script.");
+                  clean(ex);
+                }
+              }
+            }
+          } catch (e) { ex = null; }
+          if (ex === null) return RAPPLY(orig, this, arguments);
+          var self = this, args = arguments;
+          return new NPromiseSW(function (ok, no) {
+            var go = function (list) {
+              var hit = swDropped.has(scHref);
+              try {
+                for (var i = 0; list && i < list.length; i++) {
+                  var r = list[i];
+                  if (RAPPLY(swScope, r, []) !== scHref) continue;
+                  hit = true;
+                  swDropped.add(scHref);
+                  try { RAPPLY(swUnreg, r, []); } catch (e) {}
+                }
+              } catch (e) {}
+              if (hit) no(ex);
+              else { try { ok(RAPPLY(orig, self, args)); } catch (e) { no(e); } }
+            };
+            try {
+              var p = RAPPLY(swRegs, self, []);
+              try {
+                var spc = {};
+                DEFPROP(spc, SPECIES, { value: NPromiseSW });
+                DEFPROP(p, 'constructor', { value: spc, configurable: true });
+              } catch (e) {}
+              RAPPLY(THEN, p, [go, function () { go(null); }]);
+            } catch (e) { go(null); }
+          });
+        };
       });
     }
     // a worker's error names the page's own address and line (audit, H-B)
@@ -3999,6 +4096,7 @@
   // service worker.
   if (keepWorkersOut) {
     try {
+      var swScopeOf = getterOf(window.ServiceWorkerRegistration && ServiceWorkerRegistration.prototype, 'scope');
       var SWC = window.ServiceWorkerContainer && ServiceWorkerContainer.prototype;
       var SWR = window.ServiceWorkerRegistration && ServiceWorkerRegistration.prototype;
       var regsOf = SWC && SWC.getRegistrations, unreg = SWR && SWR.unregister;
@@ -4018,6 +4116,8 @@
       if (swc && regsOf && unreg) {
         both(RAPPLY(regsOf, swc, []), function (list) {
           for (var i = 0; i < list.length; i++) {
+            // its scope is remembered: register() must not take it back (above)
+            try { swDropped.add(RAPPLY(swScopeOf, list[i], [])); } catch (e) {}
             try { both(RAPPLY(unreg, list[i], []), quiet); } catch (e) {}
           }
         });

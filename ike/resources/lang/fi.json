@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Sivuston omien taustaprosessien esto",
 "Background workers blocked": "Estetyt taustaprosessit",
 "Site's own workers allowed": "Sivuston omat prosessit sallittu",
-"This level blocks the site's own background workers: the site may not work.": "Tämä taso estää sivuston omat taustaprosessit: sivusto ei ehkä toimi.",
-"Allow them on this site": "Salli ne tällä sivustolla"
+"Probable cause: this level blocks the site's own background workers.": "Todennäköinen syy: tämä taso estää sivuston omat taustaprosessit.",
+"Probable cause: a protection blocked something the page needs.": "Todennäköinen syy: suojaus esti jotain, mitä sivu tarvitsee.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Korjaus: todennäköinen syy on hetken pois päältä tällä sivustolla, kaikki muut suojaukset pysyvät päällä. Toimiiko sivu nyt?",
+"This site works fine": "Tämä sivusto toimii hyvin",
+"The octagon goes back to normal for this site in this tab": "Kahdeksankulmio palaa normaaliksi tälle sivustolle tässä välilehdessä",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Korjaa tämä sivusto” poistaa käytöstä vain sen suojauksen, vain tällä sivustolla; kaikki muut suojaukset pysyvät päällä.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. voi auttaa sinua korjaamaan sen niin, että kaikki muut suojaukset pysyvät päällä.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Vaara: tämän sivuston varmenne ei ole kelvollinen, joten yhteys ei ehkä ole yksityinen.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Vaara: I.K.E. löysi tältä sivustolta todellisen riskin turvallisuudellesi. Lue varoitus sivun yläpuolelta.",
+"A protection may interfere with some features of this site.": "Suojaus saattaa häiritä joitakin tämän sivuston toimintoja.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Suojaus saattaa estää tätä sivustoa toimimasta kunnolla. Käytä toimintoa “Korjaa tämä sivusto”."
 }
 }

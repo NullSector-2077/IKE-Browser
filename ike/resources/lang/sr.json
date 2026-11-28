@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Блокирање сопствених позадинских процеса сајта",
 "Background workers blocked": "Блокирани позадински процеси",
 "Site's own workers allowed": "Дозвољени сопствени процеси сајта",
-"This level blocks the site's own background workers: the site may not work.": "Овај ниво блокира сопствене позадинске процесе сајта: сајт можда неће радити.",
-"Allow them on this site": "Дозволи их на овом сајту"
+"Probable cause: this level blocks the site's own background workers.": "Вероватан узрок: овај ниво блокира сопствене позадинске процесе сајта.",
+"Probable cause: a protection blocked something the page needs.": "Вероватан узрок: заштита је блокирала нешто што је страници потребно.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Поправка: вероватан узрок је на тренутак искључен на овом сајту, све остале заштите остају укључене. Да ли страница сада ради?",
+"This site works fine": "Овај сајт ради добро",
+"The octagon goes back to normal for this site in this tab": "Осмоугао се враћа у нормално стање за овај сајт у овој картици",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "„Поправи овај сајт“ искључује само ту заштиту, само за овај сајт; све остале заштите остају укључене.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. вам може помоћи да то поправите, а да све остале заштите остану укључене.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Опасност: сертификат овог сајта није важећи, па веза можда није приватна.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Опасност: I.K.E. је пронашао стваран ризик за вашу безбедност на овом сајту. Прочитајте упозорење изнад странице.",
+"A protection may interfere with some features of this site.": "Заштита може да омета неке функције овог сајта.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Заштита може да спречи правилан рад овог сајта. Користите „Поправи овај сајт“."
 }
 }

@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "사이트 자체 백그라운드 워커 차단",
 "Background workers blocked": "차단된 백그라운드 워커",
 "Site's own workers allowed": "허용된 사이트 자체 워커",
-"This level blocks the site's own background workers: the site may not work.": "이 단계는 사이트 자체의 백그라운드 워커를 차단합니다: 사이트가 작동하지 않을 수 있습니다.",
-"Allow them on this site": "이 사이트에서 허용"
+"Probable cause: this level blocks the site's own background workers.": "가능한 원인: 이 단계는 사이트 자체의 백그라운드 워커를 차단합니다.",
+"Probable cause: a protection blocked something the page needs.": "가능한 원인: 보호 기능이 페이지에 필요한 무언가를 차단했습니다.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "복구: 이 사이트에서 가능한 원인을 잠시 껐고, 다른 모든 보호 기능은 켜진 상태로 유지됩니다. 이제 페이지가 작동합니까?",
+"This site works fine": "이 사이트는 잘 작동합니다",
+"The octagon goes back to normal for this site in this tab": "이 탭에서 이 사이트의 팔각형이 원래대로 돌아갑니다",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“이 사이트 복구”는 이 사이트에서만 해당 보호 기능만 끕니다. 다른 모든 보호 기능은 켜진 상태로 유지됩니다.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E.가 다른 모든 보호 기능을 켜 둔 채로 문제 해결을 도와드릴 수 있습니다.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "위험: 이 사이트의 인증서가 유효하지 않으므로 연결이 비공개가 아닐 수 있습니다.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "위험: I.K.E.가 이 사이트에서 사용자의 안전에 대한 실제 위험을 발견했습니다. 페이지 위의 경고를 읽어 보세요.",
+"A protection may interfere with some features of this site.": "보호 기능이 이 사이트의 일부 기능을 방해할 수 있습니다.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "보호 기능 때문에 이 사이트가 제대로 작동하지 않을 수 있습니다. “이 사이트 복구”를 사용하세요."
 }
 }

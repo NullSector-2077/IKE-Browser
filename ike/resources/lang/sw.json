@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Kuzuia michakato ya nyuma ya tovuti yenyewe",
 "Background workers blocked": "Michakato ya nyuma iliyozuiwa",
 "Site's own workers allowed": "Michakato ya tovuti yenyewe imeruhusiwa",
-"This level blocks the site's own background workers: the site may not work.": "Kiwango hiki kinazuia michakato ya nyuma ya tovuti yenyewe: huenda tovuti isifanye kazi.",
-"Allow them on this site": "Iruhusu kwenye tovuti hii"
+"Probable cause: this level blocks the site's own background workers.": "Sababu inayowezekana: kiwango hiki kinazuia michakato ya nyuma ya tovuti yenyewe.",
+"Probable cause: a protection blocked something the page needs.": "Sababu inayowezekana: ulinzi fulani umezuia kitu ambacho ukurasa unahitaji.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Urekebishaji: sababu inayowezekana imezimwa kwa muda kwenye tovuti hii, kila ulinzi mwingine unabaki umewashwa. Je, ukurasa unafanya kazi sasa?",
+"This site works fine": "Tovuti hii inafanya kazi vizuri",
+"The octagon goes back to normal for this site in this tab": "Pembenane inarudi kawaida kwa tovuti hii kwenye kichupo hiki",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Tengeneza tovuti hii” huzima ulinzi huo pekee, kwa tovuti hii tu; kila ulinzi mwingine unabaki umewashwa.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. kinaweza kukusaidia kurekebisha hili huku kila ulinzi mwingine ukibaki umewashwa.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Hatari: cheti cha tovuti hii si halali, kwa hivyo muunganisho huenda usiwe wa faragha.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Hatari: I.K.E. kimegundua hatari halisi kwa usalama wako kwenye tovuti hii. Soma onyo lililo juu ya ukurasa.",
+"A protection may interfere with some features of this site.": "Ulinzi fulani unaweza kutatiza baadhi ya vipengele vya tovuti hii.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Ulinzi fulani unaweza kuzuia tovuti hii isifanye kazi ipasavyo. Tumia “Tengeneza tovuti hii”."
 }
 }

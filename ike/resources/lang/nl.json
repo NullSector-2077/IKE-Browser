@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Blokkeren van de eigen achtergrondprocessen van de site",
 "Background workers blocked": "Achtergrondprocessen geblokkeerd",
 "Site's own workers allowed": "Eigen processen van de site toegestaan",
-"This level blocks the site's own background workers: the site may not work.": "Dit niveau blokkeert de eigen achtergrondprocessen van de site: de site werkt misschien niet.",
-"Allow them on this site": "Op deze site toestaan"
+"Probable cause: this level blocks the site's own background workers.": "Waarschijnlijke oorzaak: dit niveau blokkeert de eigen achtergrondprocessen van de site.",
+"Probable cause: a protection blocked something the page needs.": "Waarschijnlijke oorzaak: een bescherming heeft iets geblokkeerd dat de pagina nodig heeft.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Reparatie: de waarschijnlijke oorzaak is heel even uitgeschakeld op deze site, alle andere beschermingen blijven aan. Werkt de pagina nu?",
+"This site works fine": "Deze site werkt goed",
+"The octagon goes back to normal for this site in this tab": "De achthoek wordt weer normaal voor deze site in dit tabblad",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Deze site repareren” schakelt alleen die bescherming uit, alleen voor deze site; alle andere beschermingen blijven aan.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. kan je helpen dit op te lossen terwijl alle andere beschermingen aan blijven.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Gevaar: het certificaat van deze site is niet geldig, dus de verbinding is misschien niet privé.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Gevaar: I.K.E. heeft op deze site een echt risico voor je veiligheid gevonden. Lees de waarschuwing boven de pagina.",
+"A protection may interfere with some features of this site.": "Een bescherming kan sommige functies van deze site hinderen.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Een bescherming kan verhinderen dat deze site goed werkt. Gebruik “Deze site repareren”."
 }
 }

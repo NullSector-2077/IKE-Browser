@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Blocarea proceselor de fundal ale site-ului",
 "Background workers blocked": "Procese de fundal blocate",
 "Site's own workers allowed": "Procesele proprii ale site-ului permise",
-"This level blocks the site's own background workers: the site may not work.": "Acest nivel blochează procesele de fundal ale site-ului: site-ul poate să nu funcționeze.",
-"Allow them on this site": "Permite-le pe acest site"
+"Probable cause: this level blocks the site's own background workers.": "Cauză probabilă: acest nivel blochează procesele de fundal ale site-ului.",
+"Probable cause: a protection blocked something the page needs.": "Cauză probabilă: o protecție a blocat ceva de care pagina are nevoie.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Reparare: cauza probabilă este dezactivată pe acest site pentru un moment, toate celelalte protecții rămân active. Funcționează pagina acum?",
+"This site works fine": "Acest site funcționează bine",
+"The octagon goes back to normal for this site in this tab": "Octogonul revine la normal pentru acest site în această filă",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "„Repară acest site” dezactivează doar acea protecție, doar pentru acest site; toate celelalte protecții rămân active.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. te poate ajuta să rezolvi problema, păstrând active toate celelalte protecții.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Pericol: certificatul acestui site nu este valid, deci conexiunea poate să nu fie privată.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Pericol: I.K.E. a găsit un risc real pentru siguranța ta pe acest site. Citește avertismentul de deasupra paginii.",
+"A protection may interfere with some features of this site.": "O protecție poate interfera cu unele funcții ale acestui site.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "O protecție poate împiedica acest site să funcționeze corect. Folosește „Repară acest site”."
 }
 }

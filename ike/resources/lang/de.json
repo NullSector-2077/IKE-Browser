@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Blockieren der eigenen Hintergrundprozesse der Website",
 "Background workers blocked": "Hintergrundprozesse blockiert",
 "Site's own workers allowed": "Eigene Prozesse der Website erlaubt",
-"This level blocks the site's own background workers: the site may not work.": "Diese Stufe blockiert die eigenen Hintergrundprozesse der Website: Die Website funktioniert vielleicht nicht.",
-"Allow them on this site": "Auf dieser Website erlauben"
+"Probable cause: this level blocks the site's own background workers.": "Wahrscheinliche Ursache: Diese Stufe blockiert die eigenen Hintergrundprozesse der Website.",
+"Probable cause: a protection blocked something the page needs.": "Wahrscheinliche Ursache: Eine Schutzfunktion hat etwas blockiert, das die Seite braucht.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Reparatur: Die wahrscheinliche Ursache ist auf dieser Website kurz aus, alle anderen Schutzfunktionen bleiben an. Funktioniert die Seite jetzt?",
+"This site works fine": "Diese Website funktioniert",
+"The octagon goes back to normal for this site in this tab": "Das Achteck wird für diese Website in diesem Tab wieder normal",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "„Diese Website reparieren“ schaltet nur diese Schutzfunktion aus, nur für diese Website; alle anderen Schutzfunktionen bleiben an.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. kann Ihnen helfen, das zu beheben, und lässt dabei alle anderen Schutzfunktionen an.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Gefahr: Das Zertifikat dieser Website ist nicht gültig, die Verbindung ist daher möglicherweise nicht privat.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Gefahr: I.K.E. hat auf dieser Website ein echtes Risiko für Ihre Sicherheit gefunden. Lesen Sie die Warnung über der Seite.",
+"A protection may interfere with some features of this site.": "Eine Schutzfunktion könnte einige Funktionen dieser Website beeinträchtigen.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Eine Schutzfunktion könnte verhindern, dass diese Website richtig funktioniert. Verwenden Sie „Diese Website reparieren“."
 }
 }

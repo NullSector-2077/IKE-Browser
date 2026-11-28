@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "A webhely saját háttérfolyamatainak tiltása",
 "Background workers blocked": "Letiltott háttérfolyamatok",
 "Site's own workers allowed": "A webhely saját folyamatai engedélyezve",
-"This level blocks the site's own background workers: the site may not work.": "Ez a szint letiltja a webhely saját háttérfolyamatait: a webhely lehet, hogy nem működik.",
-"Allow them on this site": "Engedélyezés ezen a webhelyen"
+"Probable cause: this level blocks the site's own background workers.": "Valószínű ok: ez a szint letiltja a webhely saját háttérfolyamatait.",
+"Probable cause: a protection blocked something the page needs.": "Valószínű ok: egy védelem letiltott valamit, amire az oldalnak szüksége van.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Javítás: a valószínű ok pillanatnyilag ki van kapcsolva ezen a webhelyen, minden más védelem bekapcsolva marad. Működik most az oldal?",
+"This site works fine": "Ez a webhely jól működik",
+"The octagon goes back to normal for this site in this tab": "A nyolcszög visszaáll a normál állapotba ennél a webhelynél ezen a lapon",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "A „Webhely javítása” csak azt a védelmet kapcsolja ki, csak ennél a webhelynél; minden más védelem bekapcsolva marad.",
+"I.K.E. can help you fix it while keeping every other protection on.": "Az I.K.E. segíthet ennek megoldásában úgy, hogy minden más védelem bekapcsolva marad.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Veszély: ennek a webhelynek a tanúsítványa nem érvényes, ezért előfordulhat, hogy a kapcsolat nem privát.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Veszély: az I.K.E. valódi kockázatot talált az ön biztonságára ezen a webhelyen. Olvassa el az oldal fölötti figyelmeztetést.",
+"A protection may interfere with some features of this site.": "Egy védelem zavarhatja a webhely néhány funkcióját.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Egy védelem megakadályozhatja, hogy a webhely megfelelően működjön. Használja a „Webhely javítása” funkciót."
 }
 }

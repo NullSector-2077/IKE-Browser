@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Bllokimi i proceseve të sfondit të vetë sajtit",
 "Background workers blocked": "Procese sfondi të bllokuara",
 "Site's own workers allowed": "Proceset e vetë sajtit të lejuara",
-"This level blocks the site's own background workers: the site may not work.": "Ky nivel bllokon proceset e sfondit të vetë sajtit: sajti mund të mos funksionojë.",
-"Allow them on this site": "Lejoji në këtë sajt"
+"Probable cause: this level blocks the site's own background workers.": "Shkaku i mundshëm: ky nivel bllokon proceset e sfondit të vetë sajtit.",
+"Probable cause: a protection blocked something the page needs.": "Shkaku i mundshëm: një mbrojtje bllokoi diçka që i nevojitet faqes.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Ndreqje: shkaku i mundshëm është çaktivizuar për një çast në këtë sajt, të gjitha mbrojtjet e tjera mbeten aktive. A funksionon faqja tani?",
+"This site works fine": "Ky sajt funksionon mirë",
+"The octagon goes back to normal for this site in this tab": "Tetëkëndëshi kthehet në gjendje normale për këtë sajt në këtë skedë",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Riparoje këtë sajt” çaktivizon vetëm atë mbrojtje, vetëm për këtë sajt; të gjitha mbrojtjet e tjera mbeten aktive.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. mund t'ju ndihmojë ta ndreqni duke i mbajtur aktive të gjitha mbrojtjet e tjera.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Rrezik: certifikata e këtij sajti nuk është e vlefshme, prandaj lidhja mund të mos jetë private.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Rrezik: I.K.E. gjeti një rrezik real për sigurinë tuaj në këtë sajt. Lexoni paralajmërimin mbi faqe.",
+"A protection may interfere with some features of this site.": "Një mbrojtje mund të pengojë disa veçori të këtij sajti.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Një mbrojtje mund ta pengojë këtë sajt të funksionojë si duhet. Përdorni “Riparoje këtë sajt”."
 }
 }

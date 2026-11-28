@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "سائٹ کے اپنے پس منظر ورکر روکنا",
 "Background workers blocked": "روکے گئے پس منظر ورکر",
 "Site's own workers allowed": "سائٹ کے اپنے ورکر کی اجازت",
-"This level blocks the site's own background workers: the site may not work.": "یہ سطح سائٹ کے اپنے پس منظر ورکر روکتی ہے: ہو سکتا ہے سائٹ کام نہ کرے۔",
-"Allow them on this site": "اس سائٹ پر انہیں اجازت دیں"
+"Probable cause: this level blocks the site's own background workers.": "ممکنہ وجہ: یہ سطح سائٹ کے اپنے پس منظر ورکر روکتی ہے۔",
+"Probable cause: a protection blocked something the page needs.": "ممکنہ وجہ: کسی تحفظ نے کوئی ایسی چیز روک دی جس کی صفحے کو ضرورت ہے۔",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "مرمت: اس سائٹ پر ممکنہ وجہ ایک لمحے کے لیے بند ہے، باقی ہر تحفظ آن رہتا ہے۔ کیا صفحہ اب کام کرتا ہے؟",
+"This site works fine": "یہ سائٹ ٹھیک کام کرتی ہے",
+"The octagon goes back to normal for this site in this tab": "اس ٹیب میں اس سائٹ کے لیے ہشت پہلو پھر سے معمول پر آ جاتا ہے",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“اس سائٹ کی مرمت کریں” صرف وہی تحفظ، صرف اس سائٹ کے لیے بند کرتا ہے؛ باقی ہر تحفظ آن رہتا ہے۔",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. باقی ہر تحفظ آن رکھتے ہوئے اسے ٹھیک کرنے میں آپ کی مدد کر سکتا ہے۔",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "خطرہ: اس سائٹ کا سرٹیفکیٹ درست نہیں ہے، اس لیے ہو سکتا ہے کنکشن نجی نہ ہو۔",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "خطرہ: I.K.E. کو اس سائٹ پر آپ کی حفاظت کے لیے ایک حقیقی خطرہ ملا ہے۔ صفحے کے اوپر دی گئی تنبیہ پڑھیں۔",
+"A protection may interfere with some features of this site.": "کوئی تحفظ اس سائٹ کی کچھ خصوصیات میں رکاوٹ ڈال سکتا ہے۔",
+"A protection may stop this site from working properly. Use “Repair this site”.": "کوئی تحفظ اس سائٹ کو ٹھیک سے کام کرنے سے روک سکتا ہے۔ “اس سائٹ کی مرمت کریں” استعمال کریں۔"
 }
 }

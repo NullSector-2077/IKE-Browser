@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Blokovanie vlastných procesov webu na pozadí",
 "Background workers blocked": "Zablokované procesy na pozadí",
 "Site's own workers allowed": "Povolené vlastné procesy webu",
-"This level blocks the site's own background workers: the site may not work.": "Táto úroveň blokuje vlastné procesy webu na pozadí: web nemusí fungovať.",
-"Allow them on this site": "Povoliť ich na tomto webe"
+"Probable cause: this level blocks the site's own background workers.": "Pravdepodobná príčina: táto úroveň blokuje vlastné procesy webu na pozadí.",
+"Probable cause: a protection blocked something the page needs.": "Pravdepodobná príčina: ochrana zablokovala niečo, čo stránka potrebuje.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Oprava: pravdepodobná príčina je na tomto webe na chvíľu vypnutá, všetky ostatné ochrany zostávajú zapnuté. Funguje teraz stránka?",
+"This site works fine": "Tento web funguje správne",
+"The octagon goes back to normal for this site in this tab": "Osemuholník sa pre tento web v tejto karte vráti do normálu",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "„Opraviť tento web“ vypne iba túto ochranu, iba pre tento web; všetky ostatné ochrany zostanú zapnuté.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. vám môže pomôcť to opraviť a ponechať pritom všetky ostatné ochrany zapnuté.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Nebezpečenstvo: certifikát tohto webu nie je platný, takže pripojenie nemusí byť súkromné.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Nebezpečenstvo: I.K.E. na tomto webe zistil skutočné riziko pre vašu bezpečnosť. Prečítajte si varovanie nad stránkou.",
+"A protection may interfere with some features of this site.": "Ochrana môže narúšať niektoré funkcie tohto webu.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Ochrana môže brániť správnemu fungovaniu tohto webu. Použite „Opraviť tento web“."
 }
 }

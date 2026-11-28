@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Blokiranje lastnih procesov spletnega mesta v ozadju",
 "Background workers blocked": "Blokirani procesi v ozadju",
 "Site's own workers allowed": "Dovoljeni lastni procesi spletnega mesta",
-"This level blocks the site's own background workers: the site may not work.": "Ta raven blokira lastne procese spletnega mesta v ozadju: spletno mesto morda ne bo delovalo.",
-"Allow them on this site": "Dovoli jih na tem spletnem mestu"
+"Probable cause: this level blocks the site's own background workers.": "Verjeten vzrok: ta raven blokira lastne procese spletnega mesta v ozadju.",
+"Probable cause: a protection blocked something the page needs.": "Verjeten vzrok: zaščita je blokirala nekaj, kar stran potrebuje.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Popravilo: verjeten vzrok je na tem spletnem mestu za trenutek izklopljen, vse druge zaščite ostanejo vklopljene. Ali stran zdaj deluje?",
+"This site works fine": "To spletno mesto deluje dobro",
+"The octagon goes back to normal for this site in this tab": "Osmerokotnik se za to spletno mesto v tem zavihku vrne v običajno stanje",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "»Popravi to spletno mesto« izklopi samo to zaščito, samo za to spletno mesto; vse druge zaščite ostanejo vklopljene.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. vam lahko pomaga to popraviti, vse druge zaščite pa ostanejo vklopljene.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Nevarnost: potrdilo tega spletnega mesta ni veljavno, zato povezava morda ni zasebna.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Nevarnost: I.K.E. je na tem spletnem mestu našel resnično tveganje za vašo varnost. Preberite opozorilo nad stranjo.",
+"A protection may interfere with some features of this site.": "Zaščita lahko moti nekatere funkcije tega spletnega mesta.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Zaščita lahko prepreči pravilno delovanje tega spletnega mesta. Uporabite »Popravi to spletno mesto«."
 }
 }

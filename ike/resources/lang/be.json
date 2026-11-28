@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Блакаванне ўласных фонавых працэсаў сайта",
 "Background workers blocked": "Заблакаваныя фонавыя працэсы",
 "Site's own workers allowed": "Уласныя працэсы сайта дазволены",
-"This level blocks the site's own background workers: the site may not work.": "Гэты ўзровень блакуе ўласныя фонавыя працэсы сайта: сайт можа не працаваць.",
-"Allow them on this site": "Дазволіць іх на гэтым сайце"
+"Probable cause: this level blocks the site's own background workers.": "Верагодная прычына: гэты ўзровень блакуе ўласныя фонавыя працэсы сайта.",
+"Probable cause: a protection blocked something the page needs.": "Верагодная прычына: абарона заблакавала нешта, што патрэбна старонцы.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Выпраўленне: верагодная прычына на гэтым сайце ненадоўга выключана, усе іншыя абароны застаюцца ўключанымі. Старонка цяпер працуе?",
+"This site works fine": "Гэты сайт працуе нармальна",
+"The octagon goes back to normal for this site in this tab": "Васьмівугольнік вяртаецца да звычайнага выгляду для гэтага сайта ў гэтай укладцы",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "«Выправіць гэты сайт» выключае толькі гэту абарону і толькі для гэтага сайта; усе іншыя абароны застаюцца ўключанымі.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. можа дапамагчы гэта выправіць, пакінуўшы ўключанымі ўсе іншыя абароны.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Небяспека: сертыфікат гэтага сайта несапраўдны, таму злучэнне можа быць не прыватным.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Небяспека: I.K.E. выявіў рэальную рызыку для вашай бяспекі на гэтым сайце. Прачытайце папярэджанне над старонкай.",
+"A protection may interfere with some features of this site.": "Абарона можа перашкаджаць некаторым функцыям гэтага сайта.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Абарона можа перашкаджаць нармальнай працы гэтага сайта. Скарыстайцеся функцыяй «Выправіць гэты сайт»."
 }
 }

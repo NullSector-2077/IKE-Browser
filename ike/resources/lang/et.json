@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Saidi enda taustaprotsesside blokeerimine",
 "Background workers blocked": "Taustaprotsessid blokeeritud",
 "Site's own workers allowed": "Saidi enda protsessid lubatud",
-"This level blocks the site's own background workers: the site may not work.": "See tase blokeerib saidi enda taustaprotsessid: sait ei pruugi töötada.",
-"Allow them on this site": "Luba need sellel saidil"
+"Probable cause: this level blocks the site's own background workers.": "Tõenäoline põhjus: see tase blokeerib saidi enda taustaprotsessid.",
+"Probable cause: a protection blocked something the page needs.": "Tõenäoline põhjus: kaitse blokeeris midagi, mida leht vajab.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Parandus: tõenäoline põhjus on sellel saidil hetkeks välja lülitatud, kõik teised kaitsed jäävad sisse. Kas leht töötab nüüd?",
+"This site works fine": "See sait töötab hästi",
+"The octagon goes back to normal for this site in this tab": "Kaheksanurk muutub selle saidi jaoks selles kaardis taas tavaliseks",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "„Paranda see sait“ lülitab välja ainult selle kaitse, ainult selle saidi jaoks; kõik teised kaitsed jäävad sisse.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. saab aidata sul seda parandada, hoides kõik teised kaitsed sees.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Oht: selle saidi sertifikaat ei kehti, seega ei pruugi ühendus olla privaatne.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Oht: I.K.E. leidis sellel saidil tõelise ohu sinu turvalisusele. Loe hoiatust lehe kohal.",
+"A protection may interfere with some features of this site.": "Kaitse võib segada selle saidi mõningaid funktsioone.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Kaitse võib takistada selle saidi korralikku toimimist. Kasuta valikut „Paranda see sait“."
 }
 }

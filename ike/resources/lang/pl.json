@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Blokowanie własnych procesów w tle witryny",
 "Background workers blocked": "Zablokowane procesy w tle",
 "Site's own workers allowed": "Dozwolone własne procesy witryny",
-"This level blocks the site's own background workers: the site may not work.": "Ten poziom blokuje własne procesy w tle witryny: witryna może nie działać.",
-"Allow them on this site": "Zezwól na nie w tej witrynie"
+"Probable cause: this level blocks the site's own background workers.": "Prawdopodobna przyczyna: ten poziom blokuje własne procesy w tle witryny.",
+"Probable cause: a protection blocked something the page needs.": "Prawdopodobna przyczyna: zabezpieczenie zablokowało coś, czego potrzebuje strona.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Naprawa: prawdopodobna przyczyna jest na chwilę wyłączona na tej witrynie, wszystkie inne zabezpieczenia pozostają włączone. Czy strona teraz działa?",
+"This site works fine": "Ta witryna działa dobrze",
+"The octagon goes back to normal for this site in this tab": "Ośmiokąt wraca do normy dla tej witryny w tej karcie",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "„Napraw tę witrynę” wyłącza tylko to zabezpieczenie, tylko dla tej witryny; wszystkie inne zabezpieczenia pozostają włączone.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. może pomóc Ci to naprawić, zachowując włączone wszystkie inne zabezpieczenia.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Niebezpieczeństwo: certyfikat tej witryny jest nieprawidłowy, więc połączenie może nie być prywatne.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Niebezpieczeństwo: I.K.E. wykrył na tej witrynie realne zagrożenie dla Twojego bezpieczeństwa. Przeczytaj ostrzeżenie nad stroną.",
+"A protection may interfere with some features of this site.": "Zabezpieczenie może zakłócać niektóre funkcje tej witryny.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Zabezpieczenie może uniemożliwiać prawidłowe działanie tej witryny. Użyj opcji „Napraw tę witrynę”."
 }
 }

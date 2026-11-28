@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "साइट के अपने बैकग्राउंड वर्कर रोकना",
 "Background workers blocked": "बैकग्राउंड वर्कर रोके गए",
 "Site's own workers allowed": "साइट के अपने वर्कर की अनुमति",
-"This level blocks the site's own background workers: the site may not work.": "यह स्तर साइट के अपने बैकग्राउंड वर्कर रोकता है: साइट शायद काम न करे।",
-"Allow them on this site": "इस साइट पर इन्हें अनुमति दें"
+"Probable cause: this level blocks the site's own background workers.": "संभावित कारण: यह स्तर साइट के अपने बैकग्राउंड वर्कर रोकता है।",
+"Probable cause: a protection blocked something the page needs.": "संभावित कारण: किसी सुरक्षा ने कुछ ऐसा रोक दिया जिसकी पेज को ज़रूरत है।",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "मरम्मत: कुछ क्षण के लिए इस साइट पर संभावित कारण बंद है, बाकी हर सुरक्षा चालू रहती है। क्या पेज अब काम करता है?",
+"This site works fine": "यह साइट ठीक काम करती है",
+"The octagon goes back to normal for this site in this tab": "इस टैब में इस साइट के लिए अष्टभुज फिर से सामान्य हो जाता है",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“इस साइट की मरम्मत करें” केवल उसी सुरक्षा को बंद करता है, केवल इस साइट के लिए; बाकी हर सुरक्षा चालू रहती है।",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. बाकी हर सुरक्षा चालू रखते हुए इसे ठीक करने में आपकी मदद कर सकता है।",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "खतरा: इस साइट का प्रमाणपत्र मान्य नहीं है, इसलिए कनेक्शन शायद निजी न हो।",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "खतरा: I.K.E. को इस साइट पर आपकी सुरक्षा के लिए एक वास्तविक जोखिम मिला है। पेज के ऊपर दी गई चेतावनी पढ़ें।",
+"A protection may interfere with some features of this site.": "कोई सुरक्षा इस साइट की कुछ सुविधाओं में बाधा डाल सकती है।",
+"A protection may stop this site from working properly. Use “Repair this site”.": "कोई सुरक्षा इस साइट को ठीक से काम करने से रोक सकती है। “इस साइट की मरम्मत करें” का उपयोग करें।"
 }
 }

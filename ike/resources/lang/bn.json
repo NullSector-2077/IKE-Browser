@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "সাইটের নিজস্ব ব্যাকগ্রাউন্ড ওয়ার্কার অবরোধ",
 "Background workers blocked": "ব্যাকগ্রাউন্ড ওয়ার্কার অবরুদ্ধ",
 "Site's own workers allowed": "সাইটের নিজস্ব ওয়ার্কার অনুমোদিত",
-"This level blocks the site's own background workers: the site may not work.": "এই স্তর সাইটের নিজস্ব ব্যাকগ্রাউন্ড ওয়ার্কার অবরুদ্ধ করে: সাইটটি কাজ নাও করতে পারে।",
-"Allow them on this site": "এই সাইটে এগুলো অনুমতি দিন"
+"Probable cause: this level blocks the site's own background workers.": "সম্ভাব্য কারণ: এই স্তর সাইটের নিজস্ব ব্যাকগ্রাউন্ড ওয়ার্কার অবরুদ্ধ করে।",
+"Probable cause: a protection blocked something the page needs.": "সম্ভাব্য কারণ: একটি সুরক্ষা পেজের প্রয়োজনীয় কিছু অবরুদ্ধ করেছে।",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "মেরামত: কিছুক্ষণের জন্য এই সাইটে সম্ভাব্য কারণটি বন্ধ, বাকি সব সুরক্ষা চালু থাকে। পেজটি কি এখন কাজ করছে?",
+"This site works fine": "এই সাইট ঠিকঠাক কাজ করছে",
+"The octagon goes back to normal for this site in this tab": "এই ট্যাবে এই সাইটের জন্য অষ্টভুজটি আবার স্বাভাবিক হয়ে যায়",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“এই সাইট মেরামত করুন” শুধু সেই সুরক্ষাটি বন্ধ করে, শুধু এই সাইটের জন্য; বাকি সব সুরক্ষা চালু থাকে।",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. বাকি সব সুরক্ষা চালু রেখে এটি ঠিক করতে আপনাকে সাহায্য করতে পারে।",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "বিপদ: এই সাইটের সার্টিফিকেট বৈধ নয়, তাই সংযোগটি ব্যক্তিগত নাও হতে পারে।",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "বিপদ: I.K.E. এই সাইটে আপনার নিরাপত্তার জন্য একটি সত্যিকারের ঝুঁকি পেয়েছে। পেজের উপরের সতর্কবার্তাটি পড়ুন।",
+"A protection may interfere with some features of this site.": "একটি সুরক্ষা এই সাইটের কিছু বৈশিষ্ট্যে বাধা দিতে পারে।",
+"A protection may stop this site from working properly. Use “Repair this site”.": "একটি সুরক্ষা এই সাইটকে ঠিকমতো কাজ করতে বাধা দিতে পারে। “এই সাইট মেরামত করুন” ব্যবহার করুন।"
 }
 }

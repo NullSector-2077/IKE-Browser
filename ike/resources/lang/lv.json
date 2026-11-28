@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Vietnes pašas fona procesu bloķēšana",
 "Background workers blocked": "Bloķētie fona procesi",
 "Site's own workers allowed": "Vietnes pašas procesi atļauti",
-"This level blocks the site's own background workers: the site may not work.": "Šis līmenis bloķē vietnes pašas fona procesus: vietne var nedarboties.",
-"Allow them on this site": "Atļaut tos šajā vietnē"
+"Probable cause: this level blocks the site's own background workers.": "Iespējamais cēlonis: šis līmenis bloķē vietnes pašas fona procesus.",
+"Probable cause: a protection blocked something the page needs.": "Iespējamais cēlonis: aizsardzība bloķēja kaut ko, kas lapai ir nepieciešams.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Labošana: iespējamais cēlonis šajā vietnē uz brīdi ir izslēgts, visas pārējās aizsardzības paliek ieslēgtas. Vai lapa tagad darbojas?",
+"This site works fine": "Šī vietne darbojas labi",
+"The octagon goes back to normal for this site in this tab": "Astoņstūris šai vietnei šajā cilnē atgriežas parastajā stāvoklī",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "„Salabot šo vietni“ izslēdz tikai šo aizsardzību, tikai šai vietnei; visas pārējās aizsardzības paliek ieslēgtas.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. var palīdzēt to novērst, atstājot ieslēgtas visas pārējās aizsardzības.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Briesmas: šīs vietnes sertifikāts nav derīgs, tāpēc savienojums var nebūt privāts.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Briesmas: I.K.E. šajā vietnē atrada reālu risku jūsu drošībai. Izlasiet brīdinājumu virs lapas.",
+"A protection may interfere with some features of this site.": "Aizsardzība var traucēt dažas šīs vietnes funkcijas.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Aizsardzība var traucēt šīs vietnes pareizu darbību. Izmantojiet „Salabot šo vietni“."
 }
 }

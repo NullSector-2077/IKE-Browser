@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "حظر العمليات الخلفية الخاصة بالموقع",
 "Background workers blocked": "عمليات خلفية محظورة",
 "Site's own workers allowed": "عمليات الموقع الخاصة مسموح بها",
-"This level blocks the site's own background workers: the site may not work.": "هذا المستوى يحظر العمليات الخلفية الخاصة بالموقع: قد لا يعمل الموقع.",
-"Allow them on this site": "السماح بها على هذا الموقع"
+"Probable cause: this level blocks the site's own background workers.": "السبب المحتمل: هذا المستوى يحظر العمليات الخلفية الخاصة بالموقع.",
+"Probable cause: a protection blocked something the page needs.": "السبب المحتمل: حظرت إحدى الحمايات شيئًا تحتاجه الصفحة.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "الإصلاح: السبب المحتمل متوقف مؤقتًا في هذا الموقع، وتبقى جميع الحمايات الأخرى مفعّلة. هل تعمل الصفحة الآن؟",
+"This site works fine": "هذا الموقع يعمل جيدًا",
+"The octagon goes back to normal for this site in this tab": "يعود المثمّن إلى وضعه الطبيعي لهذا الموقع في هذه العلامة",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“إصلاح هذا الموقع” يوقف تلك الحماية فقط، لهذا الموقع فقط؛ وتبقى جميع الحمايات الأخرى مفعّلة.",
+"I.K.E. can help you fix it while keeping every other protection on.": "يمكن لـ I.K.E. مساعدتك في إصلاح ذلك مع إبقاء جميع الحمايات الأخرى مفعّلة.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "خطر: شهادة هذا الموقع غير صالحة، لذا قد لا يكون الاتصال خاصًا.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "خطر: وجد I.K.E. خطرًا حقيقيًا على سلامتك في هذا الموقع. اقرأ التحذير أعلى الصفحة.",
+"A protection may interfere with some features of this site.": "قد تتعارض إحدى الحمايات مع بعض ميزات هذا الموقع.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "قد تمنع إحدى الحمايات هذا الموقع من العمل بشكل صحيح. استخدم “إصلاح هذا الموقع”."
 }
 }

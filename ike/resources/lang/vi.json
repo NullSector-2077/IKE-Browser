@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Chặn tiến trình nền của chính trang",
 "Background workers blocked": "Tiến trình nền bị chặn",
 "Site's own workers allowed": "Đã cho phép tiến trình của chính trang",
-"This level blocks the site's own background workers: the site may not work.": "Mức này chặn các tiến trình nền của chính trang: trang có thể không hoạt động.",
-"Allow them on this site": "Cho phép trên trang này"
+"Probable cause: this level blocks the site's own background workers.": "Nguyên nhân có thể: mức này chặn các tiến trình nền của chính trang.",
+"Probable cause: a protection blocked something the page needs.": "Nguyên nhân có thể: một biện pháp bảo vệ đã chặn thứ mà trang cần.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Sửa lỗi: nguyên nhân có thể đã tạm thời bị tắt trên trang này, mọi biện pháp bảo vệ khác vẫn bật. Bây giờ trang có hoạt động không?",
+"This site works fine": "Trang này hoạt động tốt",
+"The octagon goes back to normal for this site in this tab": "Hình bát giác trở lại bình thường cho trang này trong thẻ này",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Sửa trang này” chỉ tắt biện pháp bảo vệ đó, chỉ cho trang này; mọi biện pháp bảo vệ khác vẫn bật.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. có thể giúp bạn khắc phục mà vẫn giữ mọi biện pháp bảo vệ khác được bật.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Nguy hiểm: chứng chỉ của trang này không hợp lệ, vì vậy kết nối có thể không riêng tư.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Nguy hiểm: I.K.E. đã phát hiện một rủi ro thực sự cho sự an toàn của bạn trên trang này. Hãy đọc cảnh báo phía trên trang.",
+"A protection may interfere with some features of this site.": "Một biện pháp bảo vệ có thể cản trở một số tính năng của trang này.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Một biện pháp bảo vệ có thể khiến trang này không hoạt động đúng cách. Hãy dùng “Sửa trang này”."
 }
 }

@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Блокиране на собствените фонови процеси на сайта",
 "Background workers blocked": "Блокирани фонови процеси",
 "Site's own workers allowed": "Разрешени собствени процеси на сайта",
-"This level blocks the site's own background workers: the site may not work.": "Това ниво блокира собствените фонови процеси на сайта: сайтът може да не работи.",
-"Allow them on this site": "Разреши ги на този сайт"
+"Probable cause: this level blocks the site's own background workers.": "Вероятна причина: това ниво блокира собствените фонови процеси на сайта.",
+"Probable cause: a protection blocked something the page needs.": "Вероятна причина: защита е блокирала нещо, от което страницата се нуждае.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Поправяне: вероятната причина е изключена на този сайт за момент, всички други защити остават включени. Страницата работи ли сега?",
+"This site works fine": "Този сайт работи добре",
+"The octagon goes back to normal for this site in this tab": "Осмоъгълникът се връща към нормалното за този сайт в този раздел",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "„Поправи този сайт“ изключва само тази защита, само за този сайт; всички други защити остават включени.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. може да ви помогне да го поправите, като запази всички други защити включени.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Опасност: сертификатът на този сайт не е валиден, така че връзката може да не е поверителна.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Опасност: I.K.E. откри реален риск за вашата сигурност на този сайт. Прочетете предупреждението над страницата.",
+"A protection may interfere with some features of this site.": "Защита може да пречи на някои функции на този сайт.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Защита може да попречи на правилната работа на този сайт. Използвайте „Поправи този сайт“."
 }
 }

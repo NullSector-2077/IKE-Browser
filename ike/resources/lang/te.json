@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "సైట్ స్వంత బ్యాక్‌గ్రౌండ్ వర్కర్ల నిరోధం",
 "Background workers blocked": "నిరోధించిన బ్యాక్‌గ్రౌండ్ వర్కర్లు",
 "Site's own workers allowed": "అనుమతించిన సైట్ స్వంత వర్కర్లు",
-"This level blocks the site's own background workers: the site may not work.": "ఈ స్థాయి సైట్ స్వంత బ్యాక్‌గ్రౌండ్ వర్కర్లను నిరోధిస్తుంది: సైట్ పని చేయకపోవచ్చు.",
-"Allow them on this site": "ఈ సైట్‌లో వాటిని అనుమతించు"
+"Probable cause: this level blocks the site's own background workers.": "సంభావ్య కారణం: ఈ స్థాయి సైట్ స్వంత బ్యాక్‌గ్రౌండ్ వర్కర్లను నిరోధిస్తుంది.",
+"Probable cause: a protection blocked something the page needs.": "సంభావ్య కారణం: పేజీకి అవసరమైన దేనినో ఒక రక్షణ నిరోధించింది.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "బాగుచేత: ఈ సైట్‌లో సంభావ్య కారణం కొంతసేపు ఆఫ్ చేయబడింది, మిగతా ప్రతి రక్షణ ఆన్‌లోనే ఉంటుంది. ఇప్పుడు పేజీ పనిచేస్తోందా?",
+"This site works fine": "ఈ సైట్ బాగా పనిచేస్తోంది",
+"The octagon goes back to normal for this site in this tab": "ఈ ట్యాబ్‌లో ఈ సైట్‌కు అష్టభుజి మళ్లీ సాధారణ స్థితికి వస్తుంది",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“ఈ సైట్‌ను మరమ్మతు చేయి” ఆ రక్షణను మాత్రమే, ఈ సైట్‌కు మాత్రమే ఆఫ్ చేస్తుంది; మిగతా ప్రతి రక్షణ ఆన్‌లోనే ఉంటుంది.",
+"I.K.E. can help you fix it while keeping every other protection on.": "మిగతా ప్రతి రక్షణను ఆన్‌లో ఉంచుతూనే దీన్ని సరిచేయడంలో I.K.E. మీకు సహాయం చేయగలదు.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "ప్రమాదం: ఈ సైట్ సర్టిఫికెట్ చెల్లుబాటు కాదు, కాబట్టి కనెక్షన్ ప్రైవేట్‌గా ఉండకపోవచ్చు.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "ప్రమాదం: ఈ సైట్‌లో మీ భద్రతకు నిజమైన ముప్పును I.K.E. కనుగొంది. పేజీ పైన ఉన్న హెచ్చరికను చదవండి.",
+"A protection may interfere with some features of this site.": "ఒక రక్షణ ఈ సైట్‌లోని కొన్ని ఫీచర్లకు ఆటంకం కలిగించవచ్చు.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "ఒక రక్షణ ఈ సైట్ సరిగ్గా పనిచేయకుండా ఆపవచ్చు. “ఈ సైట్‌ను మరమ్మతు చేయి”ని ఉపయోగించండి."
 }
 }

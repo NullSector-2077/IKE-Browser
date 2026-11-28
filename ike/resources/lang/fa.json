@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "مسدودسازی فرایندهای پس‌زمینهٔ خود سایت",
 "Background workers blocked": "فرایندهای پس‌زمینهٔ مسدودشده",
 "Site's own workers allowed": "فرایندهای خود سایت مجاز شد",
-"This level blocks the site's own background workers: the site may not work.": "این سطح فرایندهای پس‌زمینهٔ خود سایت را مسدود می‌کند: ممکن است سایت کار نکند.",
-"Allow them on this site": "در این سایت مجاز شوند"
+"Probable cause: this level blocks the site's own background workers.": "علت احتمالی: این سطح فرایندهای پس‌زمینهٔ خود سایت را مسدود می‌کند.",
+"Probable cause: a protection blocked something the page needs.": "علت احتمالی: یک محافظت چیزی را که صفحه به آن نیاز دارد مسدود کرد.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "تعمیر: علت احتمالی برای لحظه‌ای در این سایت خاموش است، همهٔ محافظت‌های دیگر روشن می‌مانند. آیا صفحه اکنون کار می‌کند؟",
+"This site works fine": "این سایت درست کار می‌کند",
+"The octagon goes back to normal for this site in this tab": "هشت‌ضلعی برای این سایت در این زبانه به حالت عادی برمی‌گردد",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "«تعمیر این سایت» فقط همان محافظت را، فقط برای این سایت، خاموش می‌کند؛ همهٔ محافظت‌های دیگر روشن می‌مانند.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. می‌تواند به شما کمک کند آن را درست کنید و همهٔ محافظت‌های دیگر روشن بمانند.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "خطر: گواهی این سایت معتبر نیست، پس ممکن است اتصال خصوصی نباشد.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "خطر: I.K.E. در این سایت خطری واقعی برای امنیت شما پیدا کرد. هشدار بالای صفحه را بخوانید.",
+"A protection may interfere with some features of this site.": "ممکن است یک محافظت با برخی از قابلیت‌های این سایت تداخل داشته باشد.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "ممکن است یک محافظت مانع کار درست این سایت شود. از «تعمیر این سایت» استفاده کنید."
 }
 }

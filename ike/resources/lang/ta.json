@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "தளத்தின் சொந்த பின்னணி வொர்க்கர்களைத் தடுத்தல்",
 "Background workers blocked": "தடுக்கப்பட்ட பின்னணி வொர்க்கர்கள்",
 "Site's own workers allowed": "தளத்தின் சொந்த வொர்க்கர்கள் அனுமதிக்கப்பட்டன",
-"This level blocks the site's own background workers: the site may not work.": "இந்த நிலை தளத்தின் சொந்த பின்னணி வொர்க்கர்களைத் தடுக்கிறது: தளம் வேலை செய்யாமல் போகலாம்.",
-"Allow them on this site": "இந்தத் தளத்தில் அனுமதி"
+"Probable cause: this level blocks the site's own background workers.": "சாத்தியமான காரணம்: இந்த நிலை தளத்தின் சொந்த பின்னணி வொர்க்கர்களைத் தடுக்கிறது.",
+"Probable cause: a protection blocked something the page needs.": "சாத்தியமான காரணம்: பக்கத்துக்குத் தேவையான ஒன்றை ஒரு பாதுகாப்பு தடுத்தது.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "சரிசெய்தல்: சிறிது நேரத்திற்கு இந்தத் தளத்தில் சாத்தியமான காரணம் அணைந்துள்ளது, மற்ற எல்லாப் பாதுகாப்புகளும் இயக்கத்திலேயே இருக்கும். இப்போது பக்கம் வேலை செய்கிறதா?",
+"This site works fine": "இந்தத் தளம் சரியாக வேலை செய்கிறது",
+"The octagon goes back to normal for this site in this tab": "இந்தத் தாவலில் இந்தத் தளத்துக்கு எண்கோணம் மீண்டும் இயல்பு நிலைக்குத் திரும்பும்",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“இந்தத் தளத்தைச் சரிசெய்” அந்தப் பாதுகாப்பை மட்டும், இந்தத் தளத்திற்கு மட்டும் அணைக்கும்; மற்ற எல்லாப் பாதுகாப்புகளும் இயக்கத்திலேயே இருக்கும்.",
+"I.K.E. can help you fix it while keeping every other protection on.": "மற்ற எல்லாப் பாதுகாப்புகளையும் இயக்கத்தில் வைத்தபடியே இதைச் சரிசெய்ய I.K.E. உங்களுக்கு உதவும்.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "ஆபத்து: இந்தத் தளத்தின் சான்றிதழ் செல்லுபடியாகவில்லை, எனவே இணைப்பு தனிப்பட்டதாக இல்லாமல் இருக்கலாம்.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "ஆபத்து: இந்தத் தளத்தில் உங்கள் பாதுகாப்புக்கு உண்மையான அபாயத்தை I.K.E. கண்டறிந்தது. பக்கத்தின் மேலே உள்ள எச்சரிக்கையைப் படியுங்கள்.",
+"A protection may interfere with some features of this site.": "ஒரு பாதுகாப்பு இந்தத் தளத்தின் சில அம்சங்களில் குறுக்கிடக்கூடும்.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "ஒரு பாதுகாப்பு இந்தத் தளம் சரியாக வேலை செய்வதைத் தடுக்கக்கூடும். “இந்தத் தளத்தைச் சரிசெய்” என்பதைப் பயன்படுத்துங்கள்."
 }
 }

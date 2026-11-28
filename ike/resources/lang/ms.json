@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Penyekatan proses latar milik laman",
 "Background workers blocked": "Proses latar disekat",
 "Site's own workers allowed": "Proses milik laman dibenarkan",
-"This level blocks the site's own background workers: the site may not work.": "Tahap ini menyekat proses latar milik laman: laman mungkin tidak berfungsi.",
-"Allow them on this site": "Benarkan di laman ini"
+"Probable cause: this level blocks the site's own background workers.": "Punca berkemungkinan: tahap ini menyekat proses latar milik laman.",
+"Probable cause: a protection blocked something the page needs.": "Punca berkemungkinan: satu perlindungan menyekat sesuatu yang diperlukan oleh halaman.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Pembaikan: punca berkemungkinan dimatikan seketika pada laman ini, semua perlindungan lain kekal hidup. Adakah halaman berfungsi sekarang?",
+"This site works fine": "Laman ini berfungsi dengan baik",
+"The octagon goes back to normal for this site in this tab": "Oktagon kembali normal untuk laman ini dalam tab ini",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Baiki laman ini” hanya mematikan perlindungan itu, untuk laman ini sahaja; semua perlindungan lain kekal hidup.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. boleh membantu anda membaikinya sambil mengekalkan semua perlindungan lain hidup.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Bahaya: sijil laman ini tidak sah, jadi sambungan mungkin tidak peribadi.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Bahaya: I.K.E. menemui risiko sebenar terhadap keselamatan anda pada laman ini. Baca amaran di atas halaman.",
+"A protection may interfere with some features of this site.": "Satu perlindungan mungkin mengganggu sesetengah ciri laman ini.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Satu perlindungan mungkin menghalang laman ini daripada berfungsi dengan betul. Gunakan “Baiki laman ini”."
 }
 }

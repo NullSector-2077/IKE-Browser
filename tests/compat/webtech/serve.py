@@ -34,6 +34,12 @@ class H(http.server.SimpleHTTPRequestHandler):
             return
         return super().do_GET()
 
+    def end_headers(self):
+        # conformance.html?csp=noblob: a site policy without blob: workers (1.1.32)
+        if "csp=noblob" in self.path:
+            self.send_header("Content-Security-Policy", "worker-src 'self'; script-src 'self' 'unsafe-inline'")
+        super().end_headers()
+
     def log_message(self, *a):
         pass
 

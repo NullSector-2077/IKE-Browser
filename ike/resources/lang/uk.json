@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Блокування власних фонових процесів сайту",
 "Background workers blocked": "Заблоковані фонові процеси",
 "Site's own workers allowed": "Власні процеси сайту дозволено",
-"This level blocks the site's own background workers: the site may not work.": "Цей рівень блокує власні фонові процеси сайту: сайт може не працювати.",
-"Allow them on this site": "Дозволити їх на цьому сайті"
+"Probable cause: this level blocks the site's own background workers.": "Ймовірна причина: цей рівень блокує власні фонові процеси сайту.",
+"Probable cause: a protection blocked something the page needs.": "Ймовірна причина: захист заблокував щось, що потрібно сторінці.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Лагодження: ймовірну причину на цьому сайті ненадовго вимкнено, усі інші захисти залишаються ввімкненими. Сторінка тепер працює?",
+"This site works fine": "Цей сайт працює нормально",
+"The octagon goes back to normal for this site in this tab": "Восьмикутник повертається до звичайного вигляду для цього сайту в цій вкладці",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "«Виправити цей сайт» вимикає лише цей захист і лише для цього сайту; усі інші захисти залишаються ввімкненими.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. може допомогти це виправити, залишивши ввімкненими всі інші захисти.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Небезпека: сертифікат цього сайту недійсний, тому з'єднання може бути не конфіденційним.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Небезпека: I.K.E. виявив на цьому сайті реальний ризик для вашої безпеки. Прочитайте попередження над сторінкою.",
+"A protection may interfere with some features of this site.": "Захист може заважати деяким функціям цього сайту.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Захист може заважати нормальній роботі цього сайту. Скористайтеся функцією «Виправити цей сайт»."
 }
 }

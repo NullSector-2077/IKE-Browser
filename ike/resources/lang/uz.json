@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Saytning oʻz fon jarayonlarini bloklash",
 "Background workers blocked": "Bloklangan fon jarayonlari",
 "Site's own workers allowed": "Saytning oʻz jarayonlariga ruxsat berildi",
-"This level blocks the site's own background workers: the site may not work.": "Bu daraja saytning oʻz fon jarayonlarini bloklaydi: sayt ishlamasligi mumkin.",
-"Allow them on this site": "Bu saytda ularga ruxsat berish"
+"Probable cause: this level blocks the site's own background workers.": "Ehtimoliy sabab: bu daraja saytning oʻz fon jarayonlarini bloklaydi.",
+"Probable cause: a protection blocked something the page needs.": "Ehtimoliy sabab: himoya sahifaga kerak boʻlgan narsani blokladi.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Taʼmirlash: ehtimoliy sabab shu saytda bir zumga oʻchirilgan, boshqa barcha himoyalar yoniq qoladi. Sahifa endi ishlayaptimi?",
+"This site works fine": "Bu sayt yaxshi ishlayapti",
+"The octagon goes back to normal for this site in this tab": "Shu varaqda shu sayt uchun sakkizburchak odatiy holatiga qaytadi",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Bu saytni tuzatish” faqat oʻsha himoyani, faqat shu sayt uchun oʻchiradi; boshqa barcha himoyalar yoniq qoladi.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. boshqa barcha himoyalarni yoniq qoldirgan holda buni tuzatishga yordam bera oladi.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Xavf: bu saytning sertifikati yaroqsiz, shuning uchun ulanish shaxsiy boʻlmasligi mumkin.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Xavf: I.K.E. bu saytda xavfsizligingiz uchun haqiqiy xavf topdi. Sahifa ustidagi ogohlantirishni oʻqing.",
+"A protection may interfere with some features of this site.": "Himoya bu saytning baʼzi funksiyalariga xalaqit berishi mumkin.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Himoya bu saytning toʻgʻri ishlashiga xalaqit berishi mumkin. “Bu saytni tuzatish” buyrugʻidan foydalaning."
 }
 }

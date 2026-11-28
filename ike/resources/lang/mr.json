@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "साइटचे स्वतःचे पार्श्वभूमी वर्कर अडवणे",
 "Background workers blocked": "पार्श्वभूमी वर्कर अडवले",
 "Site's own workers allowed": "साइटच्या स्वतःच्या वर्करना परवानगी",
-"This level blocks the site's own background workers: the site may not work.": "हा स्तर साइटचे स्वतःचे पार्श्वभूमी वर्कर अडवतो: साइट कदाचित काम करणार नाही.",
-"Allow them on this site": "या साइटवर त्यांना परवानगी द्या"
+"Probable cause: this level blocks the site's own background workers.": "संभाव्य कारण: हा स्तर साइटचे स्वतःचे पार्श्वभूमी वर्कर अडवतो.",
+"Probable cause: a protection blocked something the page needs.": "संभाव्य कारण: एका संरक्षणाने पेजला आवश्यक असलेले काहीतरी अडवले.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "दुरुस्ती: क्षणभर या साइटवर संभाव्य कारण बंद आहे, इतर प्रत्येक संरक्षण चालूच राहते. आता पेज चालते का?",
+"This site works fine": "ही साइट नीट चालते",
+"The octagon goes back to normal for this site in this tab": "या टॅबमध्ये या साइटसाठी अष्टकोन पुन्हा सामान्य होतो",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“ही साइट दुरुस्त करा” फक्त ते संरक्षण, फक्त या साइटसाठी बंद करते; इतर प्रत्येक संरक्षण चालूच राहते.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. इतर प्रत्येक संरक्षण चालू ठेवून हे दुरुस्त करण्यात तुमची मदत करू शकते.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "धोका: या साइटचे प्रमाणपत्र वैध नाही, त्यामुळे कनेक्शन कदाचित खाजगी नसेल.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "धोका: I.K.E. ला या साइटवर तुमच्या सुरक्षिततेसाठी खरा धोका आढळला. पेजच्या वरची चेतावणी वाचा.",
+"A protection may interfere with some features of this site.": "एखादे संरक्षण या साइटच्या काही वैशिष्ट्यांमध्ये अडथळा आणू शकते.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "एखादे संरक्षण या साइटला नीट चालण्यापासून रोखू शकते. “ही साइट दुरुस्त करा” वापरा."
 }
 }

@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "חסימת תהליכי הרקע של האתר עצמו",
 "Background workers blocked": "תהליכי רקע חסומים",
 "Site's own workers allowed": "תהליכי האתר עצמו מותרים",
-"This level blocks the site's own background workers: the site may not work.": "רמה זו חוסמת את תהליכי הרקע של האתר עצמו: ייתכן שהאתר לא יעבוד.",
-"Allow them on this site": "לאפשר אותם באתר זה"
+"Probable cause: this level blocks the site's own background workers.": "סיבה אפשרית: רמה זו חוסמת את תהליכי הרקע של האתר עצמו.",
+"Probable cause: a protection blocked something the page needs.": "סיבה אפשרית: הגנה חסמה משהו שהדף צריך.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "תיקון: הסיבה האפשרית כבויה באתר הזה לרגע, כל שאר ההגנות נשארות פעילות. האם הדף עובד עכשיו?",
+"This site works fine": "האתר הזה עובד כראוי",
+"The octagon goes back to normal for this site in this tab": "המתומן חוזר למצב רגיל עבור האתר הזה בלשונית הזו",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“תיקון האתר הזה” מכבה רק את ההגנה הזו, לאתר הזה בלבד; כל שאר ההגנות נשארות פעילות.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. יכול לעזור לך לתקן את זה ולהשאיר את כל שאר ההגנות פעילות.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "סכנה: תעודת האבטחה של האתר הזה אינה תקפה, ולכן ייתכן שהחיבור אינו פרטי.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "סכנה: I.K.E. מצא סיכון ממשי לבטיחותך באתר הזה. יש לקרוא את האזהרה שמעל הדף.",
+"A protection may interfere with some features of this site.": "הגנה עלולה להפריע לחלק מהתכונות של האתר הזה.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "הגנה עלולה למנוע מהאתר הזה לעבוד כראוי. יש להשתמש באפשרות “תיקון האתר הזה”."
 }
 }

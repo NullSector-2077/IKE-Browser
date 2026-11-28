@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Pagharang sa sariling mga background worker ng site",
 "Background workers blocked": "Naharang na mga background worker",
 "Site's own workers allowed": "Pinayagan ang sariling worker ng site",
-"This level blocks the site's own background workers: the site may not work.": "Hinaharang ng antas na ito ang sariling mga background worker ng site: maaaring hindi gumana ang site.",
-"Allow them on this site": "Payagan sila sa site na ito"
+"Probable cause: this level blocks the site's own background workers.": "Malamang na sanhi: hinaharang ng antas na ito ang sariling mga background worker ng site.",
+"Probable cause: a protection blocked something the page needs.": "Malamang na sanhi: may proteksyong humarang sa isang bagay na kailangan ng page.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Pag-aayos: naka-off sandali sa site na ito ang malamang na sanhi, nananatiling naka-on ang lahat ng iba pang proteksyon. Gumagana na ba ang page?",
+"This site works fine": "Maayos na gumagana ang site na ito",
+"The octagon goes back to normal for this site in this tab": "Babalik sa normal ang oktagon para sa site na ito sa tab na ito",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "Ang “Ayusin ang site na ito” ay nag-o-off lang ng proteksyong iyon, para sa site na ito lang; nananatiling naka-on ang lahat ng iba pang proteksyon.",
+"I.K.E. can help you fix it while keeping every other protection on.": "Matutulungan ka ng I.K.E. na ayusin ito habang naka-on pa rin ang lahat ng iba pang proteksyon.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Panganib: hindi valid ang certificate ng site na ito, kaya maaaring hindi pribado ang koneksyon.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Panganib: nakakita ang I.K.E. ng tunay na panganib sa iyong kaligtasan sa site na ito. Basahin ang babala sa itaas ng page.",
+"A protection may interfere with some features of this site.": "Maaaring makasagabal ang isang proteksyon sa ilang feature ng site na ito.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Maaaring pigilan ng isang proteksyon ang site na ito na gumana nang maayos. Gamitin ang “Ayusin ang site na ito”."
 }
 }

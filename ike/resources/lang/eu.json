@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Gunearen atzeko planoko prozesuen blokeoa",
 "Background workers blocked": "Atzeko planoko prozesuak blokeatuta",
 "Site's own workers allowed": "Gunearen prozesuak baimenduta",
-"This level blocks the site's own background workers: the site may not work.": "Maila honek gunearen atzeko planoko prozesuak blokeatzen ditu: baliteke guneak ez funtzionatzea.",
-"Allow them on this site": "Baimendu gune honetan"
+"Probable cause: this level blocks the site's own background workers.": "Kausa probablea: maila honek gunearen atzeko planoko prozesuak blokeatzen ditu.",
+"Probable cause: a protection blocked something the page needs.": "Kausa probablea: babes batek orriak behar duen zerbait blokeatu du.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Konponketa: kausa probablea desaktibatuta dago webgune honetan une batez, gainerako babes guztiak aktibo jarraitzen dute. Orriak funtzionatzen du orain?",
+"This site works fine": "Webgune honek ondo funtzionatzen du",
+"The octagon goes back to normal for this site in this tab": "Oktogonoa normaltasunera itzultzen da webgune honetarako fitxa honetan",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Konpondu webgune hau” aukerak babes hori bakarrik desaktibatzen du, webgune honetan bakarrik; gainerako babes guztiak aktibo jarraitzen dute.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E.k konpontzen lagun zaitzake gainerako babes guztiak aktibo mantenduz.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Arriskua: webgune honen ziurtagiria ez da baliozkoa, beraz baliteke konexioa pribatua ez izatea.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Arriskua: I.K.E.k benetako arrisku bat aurkitu du zure segurtasunerako webgune honetan. Irakurri orriaren gaineko abisua.",
+"A protection may interfere with some features of this site.": "Babes batek webgune honen eginbide batzuk oztopa ditzake.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Babes batek webgune hau behar bezala ez funtzionatzea eragin dezake. Erabili “Konpondu webgune hau”."
 }
 }

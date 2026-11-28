@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "การบล็อกเวิร์กเกอร์เบื้องหลังของเว็บไซต์เอง",
 "Background workers blocked": "เวิร์กเกอร์เบื้องหลังที่ถูกบล็อก",
 "Site's own workers allowed": "อนุญาตเวิร์กเกอร์ของเว็บไซต์เอง",
-"This level blocks the site's own background workers: the site may not work.": "ระดับนี้บล็อกเวิร์กเกอร์เบื้องหลังของเว็บไซต์เอง: เว็บไซต์อาจไม่ทำงาน",
-"Allow them on this site": "อนุญาตบนเว็บไซต์นี้"
+"Probable cause: this level blocks the site's own background workers.": "สาเหตุที่เป็นไปได้: ระดับนี้บล็อกเวิร์กเกอร์เบื้องหลังของเว็บไซต์เอง",
+"Probable cause: a protection blocked something the page needs.": "สาเหตุที่เป็นไปได้: การป้องกันบล็อกบางอย่างที่หน้านี้ต้องใช้",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "ซ่อมแซม: ปิดสาเหตุที่เป็นไปได้บนไซต์นี้ชั่วคราว การป้องกันอื่นทั้งหมดยังเปิดอยู่ ตอนนี้หน้านี้ใช้งานได้หรือไม่",
+"This site works fine": "ไซต์นี้ใช้งานได้ปกติ",
+"The octagon goes back to normal for this site in this tab": "รูปแปดเหลี่ยมกลับเป็นปกติสำหรับไซต์นี้ในแท็บนี้",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“ซ่อมไซต์นี้” ปิดเฉพาะการป้องกันนั้น เฉพาะไซต์นี้เท่านั้น การป้องกันอื่นทั้งหมดยังเปิดอยู่",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. ช่วยคุณแก้ไขได้โดยยังเปิดการป้องกันอื่นทั้งหมดไว้",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "อันตราย: ใบรับรองของไซต์นี้ไม่ถูกต้อง การเชื่อมต่อจึงอาจไม่เป็นส่วนตัว",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "อันตราย: I.K.E. พบความเสี่ยงจริงต่อความปลอดภัยของคุณบนไซต์นี้ โปรดอ่านคำเตือนด้านบนของหน้า",
+"A protection may interfere with some features of this site.": "การป้องกันอาจรบกวนฟีเจอร์บางอย่างของไซต์นี้",
+"A protection may stop this site from working properly. Use “Repair this site”.": "การป้องกันอาจทำให้ไซต์นี้ทำงานไม่ถูกต้อง ใช้ “ซ่อมไซต์นี้”"
 }
 }

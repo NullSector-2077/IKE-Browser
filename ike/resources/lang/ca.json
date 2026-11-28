@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Bloqueig dels processos en segon pla del lloc",
 "Background workers blocked": "Processos en segon pla blocats",
 "Site's own workers allowed": "Processos propis del lloc permesos",
-"This level blocks the site's own background workers: the site may not work.": "Aquest nivell bloca els processos en segon pla del lloc: pot ser que el lloc no funcioni.",
-"Allow them on this site": "Permet-los en aquest lloc"
+"Probable cause: this level blocks the site's own background workers.": "Causa probable: aquest nivell bloca els processos en segon pla del lloc.",
+"Probable cause: a protection blocked something the page needs.": "Causa probable: una protecció ha blocat una cosa que la pàgina necessita.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Reparació: la causa probable està desactivada en aquest lloc web per un moment, totes les altres proteccions continuen actives. La pàgina funciona ara?",
+"This site works fine": "Aquest lloc web funciona bé",
+"The octagon goes back to normal for this site in this tab": "L'octàgon torna a la normalitat per a aquest lloc web en aquesta pestanya",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "«Repara aquest lloc web» desactiva només aquesta protecció, només per a aquest lloc web; totes les altres proteccions continuen actives.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. et pot ajudar a solucionar-ho mantenint actives totes les altres proteccions.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Perill: el certificat d'aquest lloc web no és vàlid, així que la connexió pot no ser privada.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Perill: I.K.E. ha trobat un risc real per a la teva seguretat en aquest lloc web. Llegeix l'avís que hi ha a sobre de la pàgina.",
+"A protection may interfere with some features of this site.": "Una protecció pot interferir amb algunes funcions d'aquest lloc web.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Una protecció pot impedir que aquest lloc web funcioni correctament. Fes servir «Repara aquest lloc web»."
 }
 }

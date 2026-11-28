@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Blocco dei worker in background del sito",
 "Background workers blocked": "Worker in background bloccati",
 "Site's own workers allowed": "Worker del sito consentiti",
-"This level blocks the site's own background workers: the site may not work.": "Questo livello blocca i worker in background del sito: il sito potrebbe non funzionare.",
-"Allow them on this site": "Consentili su questo sito"
+"Probable cause: this level blocks the site's own background workers.": "Probabile causa: questo livello blocca i worker in background del sito.",
+"Probable cause: a protection blocked something the page needs.": "Probabile causa: una protezione ha bloccato qualcosa che serve alla pagina.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Riparazione: la causa probabile è disattivata su questo sito per un momento, tutte le altre protezioni restano attive. Ora la pagina funziona?",
+"This site works fine": "Questo sito funziona",
+"The octagon goes back to normal for this site in this tab": "L'ottagono torna normale per questo sito in questa scheda",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "«Ripara questo sito» disattiva solo quella protezione, solo per questo sito; tutte le altre protezioni restano attive.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. può aiutarti a risolvere il problema mantenendo attive tutte le altre protezioni.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Pericolo: il certificato di questo sito non è valido, quindi la connessione potrebbe non essere privata.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Pericolo: I.K.E. ha trovato un rischio reale per la tua sicurezza su questo sito. Leggi l'avviso sopra la pagina.",
+"A protection may interfere with some features of this site.": "Una protezione potrebbe interferire con alcune funzionalità del sito.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Una protezione potrebbe impedire il corretto funzionamento del sito. Usa «Ripara questo sito»."
 }
 }

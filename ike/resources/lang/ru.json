@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Блокировка собственных фоновых процессов сайта",
 "Background workers blocked": "Заблокированные фоновые процессы",
 "Site's own workers allowed": "Собственные процессы сайта разрешены",
-"This level blocks the site's own background workers: the site may not work.": "Этот уровень блокирует собственные фоновые процессы сайта: сайт может не работать.",
-"Allow them on this site": "Разрешить их на этом сайте"
+"Probable cause: this level blocks the site's own background workers.": "Вероятная причина: этот уровень блокирует собственные фоновые процессы сайта.",
+"Probable cause: a protection blocked something the page needs.": "Вероятная причина: защита заблокировала что-то, что нужно странице.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Починка: вероятная причина на этом сайте ненадолго отключена, все остальные защиты остаются включёнными. Страница теперь работает?",
+"This site works fine": "Этот сайт работает нормально",
+"The octagon goes back to normal for this site in this tab": "Восьмиугольник возвращается в обычный вид для этого сайта в этой вкладке",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "«Исправить этот сайт» отключает только эту защиту и только для этого сайта; все остальные защиты остаются включёнными.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. может помочь это исправить, оставив все остальные защиты включёнными.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Опасность: сертификат этого сайта недействителен, поэтому соединение может быть не конфиденциальным.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Опасность: I.K.E. обнаружил на этом сайте реальный риск для вашей безопасности. Прочитайте предупреждение над страницей.",
+"A protection may interfere with some features of this site.": "Защита может мешать некоторым функциям этого сайта.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Защита может мешать нормальной работе этого сайта. Воспользуйтесь функцией «Исправить этот сайт»."
 }
 }

@@ -1613,7 +1613,16 @@
 "Blocking of the site's own background workers": "Сайттың өз фондық процестерін бұғаттау",
 "Background workers blocked": "Бұғатталған фондық процестер",
 "Site's own workers allowed": "Сайттың өз процестеріне рұқсат берілді",
-"This level blocks the site's own background workers: the site may not work.": "Бұл деңгей сайттың өз фондық процестерін бұғаттайды: сайт жұмыс істемеуі мүмкін.",
-"Allow them on this site": "Бұл сайтта оларға рұқсат беру"
+"Probable cause: this level blocks the site's own background workers.": "Ықтимал себеп: бұл деңгей сайттың өз фондық процестерін бұғаттайды.",
+"Probable cause: a protection blocked something the page needs.": "Ықтимал себеп: бір қорғау бетке қажет нәрсені бұғаттады.",
+"Repair: the probable cause is off on this site for a moment, every other protection stays on. Does the page work now?": "Жөндеу: ықтимал себеп осы сайтта біраз уақытқа өшірілді, қалған барлық қорғаулар қосулы қалады. Бет қазір жұмыс істей ме?",
+"This site works fine": "Бұл сайт дұрыс жұмыс істейді",
+"The octagon goes back to normal for this site in this tab": "Осы қойындыда осы сайт үшін сегізбұрыш қалыпты күйіне оралады",
+"“Repair this site” turns off only that protection, for this site only; every other protection stays on.": "“Осы сайтты жөндеу” тек сол қорғауды, тек осы сайт үшін өшіреді; қалған барлық қорғаулар қосулы қалады.",
+"I.K.E. can help you fix it while keeping every other protection on.": "I.K.E. қалған барлық қорғауларды қосулы қалдырып, мұны түзетуге көмектесе алады.",
+"Danger: the certificate of this site is not valid, so the connection may not be private.": "Қауіп: бұл сайттың сертификаты жарамсыз, сондықтан байланыс жеке болмауы мүмкін.",
+"Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Қауіп: I.K.E. бұл сайтта қауіпсіздігіңізге нақты қатер тапты. Беттің үстіндегі ескертуді оқыңыз.",
+"A protection may interfere with some features of this site.": "Қорғау бұл сайттың кейбір мүмкіндіктеріне кедергі келтіруі мүмкін.",
+"A protection may stop this site from working properly. Use “Repair this site”.": "Қорғау бұл сайттың дұрыс жұмыс істеуіне кедергі келтіруі мүмкін. “Осы сайтты жөндеу” пәрменін пайдаланыңыз."
 }
 }
