@@ -37,9 +37,9 @@
   large for a second row of sites): the clock 32 px (42), the weather's
   symbol about 1.15 cm (2 cm); in a narrow window its details now fit too.
 - **The logo lights up on the new tab page** (the owner's choice): every four
-  seconds a short light runs along the circuit of the logo, as wide as its
-  white traces (it colours them light blue as it passes), and the pads light
-  up in their own octagons. Only with the interface's effects on (so not with reduced motion
+  seconds a short light runs along the circuit of the logo, a little wider
+  than its white traces, full colour over them and fading outwards, and at
+  the pads a small discreet glow opens and fades. Only with the interface's effects on (so not with reduced motion
   asked, nor with the battery saver at work), nothing moves between two
   pulses and a tab that is not shown runs none; one pulse costs about 2 % of
   one processor core while it lasts on a computer drawing without a graphics
