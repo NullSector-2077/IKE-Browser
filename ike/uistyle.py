@@ -329,6 +329,14 @@ def _menu_has_switches(menu):
     return any(_toggle(a) and a.isVisible() for a in menu.actions())
 
 
+def _menu_has_shortcuts(menu):
+    """Has an entry of menu a shortcut (its own, or after a tab in its text)?"""
+    if not isinstance(menu, QMenu):
+        return False
+    return any(a.isVisible() and not a.isSeparator() and ("\t" in a.text() or not a.shortcut().isEmpty())
+               for a in menu.actions())
+
+
 # ----------------------------------------------------------------------
 # menus drawn by I.K.E. (1.1.25, the owner's choice): where the widget
 # style is not Breeze, Oxygen or Kvantum (polish.native_popups), every menu
@@ -551,8 +559,12 @@ class IkeStyle(QProxyStyle):
             return QSize(10, 9)
         fm = QFontMetrics(opt.font)
         width = menu_text_offset(opt, menu) + size.width()
-        # QMenu adds the column of the shortcuts itself (its widest): here the room before it
-        if "\t" in opt.text or opt.reservedShortcutWidth > 0:
+        # QMenu adds the column of the shortcuts itself (its widest): here the room before it.
+        # Asked of the menu, not of opt.reservedShortcutWidth: QMenu fills that in while it
+        # measures its entries one by one (0 for those before the first shortcut, and what
+        # its last measure left otherwise), so a menu measured twice came out wider or
+        # narrower than its entries and they stuck out of it (1.1.30's test round)
+        if "\t" in opt.text or _menu_has_shortcuts(menu):
             width += MENU_SHORT_GAP
         return QSize(width + MENU_SHORT_END, menu_row_height(fm))
 
