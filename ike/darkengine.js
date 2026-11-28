@@ -817,27 +817,32 @@
   var haloDone = new WeakSet(), haloTimer = 0;
   function halosLater() {
     if (haloTimer || off) return;
-    haloTimer = setTimeout(function () { haloTimer = 0; quiet(halos); }, 250);
+    haloTimer = setTimeout(function () { haloTimer = 0; if (ready.done) quiet(halos); }, 300);
   }
+  // only the pictures near the window (the rest when the page is scrolled to
+  // them), everything read first and the marks written once at the end, so
+  // that the page is laid out once
   function halos() {
     if (off || !ready.done) return;
-    var imgs = dqa('img'), far = innerHeight * 3, n = 0;
-    for (var i = 0; i < imgs.length && n < 300; i++) {
+    var imgs = dqa('img'), far = innerHeight, marks = [];
+    for (var i = 0; i < imgs.length; i++) {
       var img = imgs[i];
-      if (haloDone.has(img) || !img.complete || !img.naturalWidth) continue;
-      n++;
+      if (haloDone.has(img) || !img.complete || !img.naturalWidth || img.naturalWidth < 100) continue;
       var r = img.getBoundingClientRect();
-      if (r.width < 120 || r.height < 80 || r.bottom < -far || r.top > far) continue;
+      if (r.bottom < -far || r.top > innerHeight + far) continue;
       haloDone.add(img);
+      if (r.width < 120 || r.height < 80) continue;
       var box = img.parentElement;
       for (var up = 0; box && up < 4; up++, box = box.parentElement) {
         var br = box.getBoundingClientRect();
         if (br.width * br.height > r.width * r.height * 2.5) break;
-        textsOver(box, img, r);
+        textsOver(box, img, r, marks);
       }
     }
+    for (var m = 0; m < marks.length; m++) marks[m].classList.add('ike-de-halo');
   }
-  function textsOver(box, img, r) {
+  addEventListener('scroll', halosLater, { passive: true, capture: true });
+  function textsOver(box, img, r, marks) {
     var els = box.querySelectorAll('*'), k = 0;
     for (var j = 0; j < els.length && k < 60; j++) {
       var e = els[j];
@@ -850,7 +855,7 @@
       var ox = Math.min(tr.right, r.right) - Math.max(tr.left, r.left), oy = Math.min(tr.bottom, r.bottom) - Math.max(tr.top, r.top);
       if (!tr.width || ox <= 0 || oy <= 0 || ox * oy < 0.5 * tr.width * tr.height) continue;
       var tc = parse(getComputedStyle(e).color);
-      if (tc && lum(tc) >= 0.3) e.classList.add('ike-de-halo');
+      if (tc && lum(tc) >= 0.3 && marks.indexOf(e) < 0) marks.push(e);
     }
   }
   function makeStyle() {
