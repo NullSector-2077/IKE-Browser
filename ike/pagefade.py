@@ -28,7 +28,7 @@ FADE_MS = 190                 # another page
 DARK_FADE_MS = 280            # the same page again (dark mode on or off)
 ASK_MS = 16                   # how often the page is asked whether it has drawn (only while it changes)
 HOLD_MS = 900                 # the longest the old picture stays after the new page took its place
-GIVE_UP_MS = 8000             # a page that does not come at all: the picture is never shown
+GIVE_UP_MS = 2500             # a page that takes longer to come: no picture, and nothing asked any more
 ASK = "[performance.timeOrigin, performance.getEntriesByName('first-contentful-paint').length > 0]"
 WORLD = QWebEngineScript.ScriptWorldId.ApplicationWorld
 
@@ -96,6 +96,9 @@ class PageFade(QObject):
             self.timer.stop()
             return
         now = time.monotonic()
+        if not self.view.isVisible():
+            self._drop()                             # a tab out of sight is not asked (nor woken)
+            return
         if not self.committed and now - self.started > GIVE_UP_MS / 1000:
             self._drop()
             return
