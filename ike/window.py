@@ -3598,7 +3598,9 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         """Start "Repair this site" on the current tab (see repair.py)."""
         view, host = self.current_view(), self.current_host()
         if view is not None and host:
-            self.repair_bar.start(view, host)
+            # the probable cause, when the diagnosis found one (incompat.py, 1.1.32)
+            f = self.app.diagnosis.finding(view)
+            self.repair_bar.start(view, host, f.keys if f is not None and f.host == host else ())
 
     def closeEvent(self, event):
         self.repair_bar.cancel()           # nothing half-done is saved

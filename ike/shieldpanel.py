@@ -52,12 +52,10 @@ TOOLBAR_SHIELD_GROW = 1.08
 TOOLBAR_LETTER = 0.92
 
 
-def paint_shield(p, rect, level, grow=1.0, letter=1.0):
-    """Draw the Breeze octagon and the glyph of the applied protection level
-    (its letter in the level's colour; a white X when off)."""
+def octagon(rect, grow=1.0):
+    """The octagon's polygon in rect, its side and its stroke's width (the
+    shield's own geometry, shared with the interference animation)."""
     side = min(rect.width(), rect.height()) * 0.84 * grow
-    if side <= 0:
-        return
     centre = rect.center()
     # The SVG references use a 21-unit polygon and a 1.7-unit round stroke.
     stroke = side * (1.7 / 22.7)
@@ -66,6 +64,16 @@ def paint_shield(p, rect, level, grow=1.0, letter=1.0):
     polygon = QPolygonF([centre + QPointF(x, y) for x, y in
                          ((-cut, -edge), (cut, -edge), (edge, -cut), (edge, cut),
                           (cut, edge), (-cut, edge), (-edge, cut), (-edge, -cut))])
+    return polygon, side, stroke
+
+
+def paint_shield(p, rect, level, grow=1.0, letter=1.0):
+    """Draw the Breeze octagon and the glyph of the applied protection level
+    (its letter in the level's colour; a white X when off)."""
+    polygon, side, stroke = octagon(rect, grow)
+    if side <= 0:
+        return
+    centre = rect.center()
 
     off = level == "off"
     p.save()

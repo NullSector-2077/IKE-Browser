@@ -31,6 +31,9 @@ PROTECTIONS = (
     # always tries "fp" first (alone or in an earlier group) and finds the
     # workers, never "fp", guilty
     ("workers", "Blocking of the site's own background workers"),
+    # 1.1.32: two more a page can depend on, tried by the search like the others
+    ("dark", "Dark mode on this site"),
+    ("webrtc", "Hide local IP addresses from WebRTC"),
     ("https", "HTTPS upgrade"),
     ("consent", "Cookie banner refusal"),
     ("params", "Tracking parameter and referrer cleaning"),
@@ -55,6 +58,10 @@ def active(cfg, host):
         out.append("fp")
     if lv >= 4 and opt(host, "fp") is not False and opt(host, "workers") is not False:
         out.append("workers")           # refused at Maximum only (1.1.32)
+    if _dark_on(cfg, host):
+        out.append("dark")
+    if cfg["webrtc_hide_ip"] and opt(host, "webrtc") is not False:
+        out.append("webrtc")
     if cfg["https_only"] and opt(host, "https") is not False:
         out.append("https")
     if cfg["comp_consent"] and opt(host, "consent") is not False:
@@ -67,8 +74,35 @@ def active(cfg, host):
     return out
 
 
+def _dark_on(cfg, host):
+    """Does the page dark mode act on this site (shields.dark_for, read from the settings)?"""
+    if not cfg.get("comp_dark", True):
+        return False
+    on = cfg["dark_mode"] == "on"
+    listed = cfg["dark_exclude"] if on else cfg["dark_sites"]
+    h = (host or "").lower().strip(".")
+    while h:
+        if h in listed:
+            return not on
+        if "." not in h:
+            break
+        h = h.split(".", 1)[1]
+    return on
+
+
 def set_off(cfg, host, key, off):
     """Turn one protection off (or back to its normal state) for this site."""
+    if key == "dark":
+        # dark mode on everywhere: the site on its list of exceptions; dark
+        # mode off: the site taken off its list of dark sites
+        on = cfg["dark_mode"] == "on"
+        lst = cfg["dark_exclude"] if on else cfg["dark_sites"]
+        want_listed = off if on else not off
+        if want_listed and host not in lst:
+            lst.append(host)
+        elif not want_listed and host in lst:
+            lst.remove(host)
+        return
     if key == "scripts":
         lst = cfg["site_noscript"]
         if off and host in lst:
@@ -110,7 +144,7 @@ class Repair(QObject):
 
     changed = pyqtSignal()
 
-    def __init__(self, app, view, host):
+    def __init__(self, app, view, host, suggested=()):
         super().__init__(app)
         self.app = app
         self.view = view
@@ -118,13 +152,17 @@ class Repair(QObject):
         cfg = app.config
         self._saved = (copy.deepcopy(cfg["site_opts"].get(self.host)),
                        self.host in cfg["site_noscript"],
-                       cfg["site_levels"].get(self.host))
+                       cfg["site_levels"].get(self.host),
+                       (self.host in cfg["dark_exclude"], self.host in cfg["dark_sites"]))
         self.candidates = active(cfg, self.host)
         self.innocent = []          # turned back on: the page still worked
         self.culprits = []
         self.queue = []             # groups still to try
         self.testing = None         # the group turned back on in the current reload
-        self.phase = "all"          # all -> groups -> level
+        # 1.1.32: the probable cause the diagnosis found (incompat.py): tried
+        # alone first; if the page still does not work, the full search
+        self.suggested = [k for k in suggested if k in self.candidates]
+        self.phase = "suggested" if self.suggested else "all"   # suggested -> all -> groups -> level
         self.state = "ask"
         self.step = 0
 
@@ -147,7 +185,13 @@ class Repair(QObject):
 
     def _restore(self):
         cfg = self.app.config
-        opts, noscript, level = self._saved
+        opts, noscript, level, dark = self._saved
+        for listed, name in zip(dark, ("dark_exclude", "dark_sites")):
+            lst = cfg[name]
+            if listed and self.host not in lst:
+                lst.append(self.host)
+            elif not listed and self.host in lst:
+                lst.remove(self.host)
         if opts is None:
             cfg["site_opts"].pop(self.host, None)
         else:
@@ -168,13 +212,20 @@ class Repair(QObject):
             self.state = "none"
             self.changed.emit()
             return
-        self._apply(self.candidates)
+        self._apply(self.suggested or self.candidates)
 
     def answer(self, works):
         if self.state == "level":
             self._finish_level(works)
             return
         if self.state != "ask":
+            return
+        if self.phase == "suggested":
+            if works:
+                self._keep(self.suggested)      # only the probable cause stays off
+            else:
+                self.phase = "all"              # not that one alone: the full search
+                self._apply(self.candidates)
             return
         if self.phase == "all":
             if not works:
@@ -284,9 +335,9 @@ class RepairBar(QWidget):
         self.setAutoFillBackground(True)
         self.hide()
 
-    def start(self, view, host):
+    def start(self, view, host, suggested=()):
         self.cancel()
-        self.repair = Repair(self.win.app, view, host)
+        self.repair = Repair(self.win.app, view, host, suggested)
         self.repair.changed.connect(self._show)
         view.destroyed.connect(self._view_gone)
         if not self.isVisible():
@@ -332,7 +383,10 @@ class RepairBar(QWidget):
         self.yes.setVisible(asking)
         self.no.setVisible(asking)
         self.undo_btn.setVisible(r.state in ("found", "level-kept"))
-        if r.state == "ask" and r.phase == "all":
+        if r.state == "ask" and r.phase == "suggested":
+            msg = T("Repair: the probable cause is off on this site for a moment, every other "
+                    "protection stays on. Does the page work now?")
+        elif r.state == "ask" and r.phase == "all":
             msg = T("Repair: every protection is off on this site for a moment. Does the page work now?")
         elif r.state == "ask":
             msg = T("Repair, step %d: some protections are back on. Does the page still work?") % r.step
@@ -349,6 +403,11 @@ class RepairBar(QWidget):
         else:
             self.hide()
             return
+        if r.state in ("found", "level-kept") and r.view is not None:
+            # the user said the page works: the interference ends (incompat.py)
+            diagnosis = getattr(self.win.app, "diagnosis", None)
+            if diagnosis is not None:
+                diagnosis.resolved(r.view)
         self.text.setText(msg)
         self.show()
         self.win.update_shield()

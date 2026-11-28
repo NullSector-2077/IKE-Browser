@@ -284,6 +284,19 @@
   // user allowed (the shield, "Repair this site": CFG.nowk). Only the site's
   // own files can be in them; every worker a page's script can make from its
   // own text (blob:, data:) keeps the protection at every level.
+  // Reports to I.K.E.'s diagnosis of incompatibilities (1.1.32, incompat.py):
+  // a console message beginning with the session's report key, which only
+  // this closure holds (a page cannot read it, so it cannot report in I.K.E.'s
+  // name, nor see the reports: console functions taken before its scripts).
+  // Weak evidence: it only adds to what the request check saw. Once per kind
+  // and document.
+  var REPORT_KEY = typeof CFG.rk === 'string' ? CFG.rk : '', REPORT_LOG = console.debug, REPORT_CON = console;
+  var reported = Object.create(null);
+  function report(kind) {
+    if (!REPORT_KEY || reported[kind] === 1) return;
+    reported[kind] = 1;
+    try { RAPPLY(REPORT_LOG, REPORT_CON, [REPORT_KEY + ' ' + kind]); } catch (e) {}
+  }
   var keepWorkersOut = maximum && !(function () {
     var h = host, list = CFG.nowk || [];
     while (h) {
@@ -3457,7 +3470,11 @@
             // policy of workers (not a report-only one, not another
             // directive: the independent review)
             if (strict && RAPPLY(vBlocked, e, []) === 'blob' && vDisposition &&
-                RAPPLY(vDisposition, e, []) === 'enforce' && WORKER_DIRECTIVES[d] === 1) blobRefused = true;
+                RAPPLY(vDisposition, e, []) === 'enforce' && WORKER_DIRECTIVES[d] === 1) {
+              blobRefused = true;
+              // Maximum: that worker cannot start at all (the diagnosis)
+              if (keepWorkersOut) report('protected_worker_refused');
+            }
             if ((strict && RAPPLY(vBlocked, e, []) === 'blob') ||
                 (d === 'trusted-types' && ttName && vSample && RAPPLY(vSample, e, []) === ttName) ||
                 (d === 'require-trusted-types-for' && ttRefused)) RAPPLY(eStop, e, []);

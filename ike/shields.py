@@ -367,6 +367,12 @@ _NETWORK_HINTS = {b"rtt": b"50", b"downlink": b"10", b"ect": b"4g"}
 # They are counted ("workers_open"), and the shield says so. At Maximum the
 # user can allow them for one site (site_opts "workers": False, the shield
 # and "Repair this site"); the ones refused are counted ("workers").
+_WORKER_KIND = {t: k for t, k in ((getattr(_RT, n, None), k) for n, k in (
+    ("ResourceTypeServiceWorker", "service"), ("ResourceTypeSharedWorker", "shared"),
+    ("ResourceTypeWorker", "dedicated"))) if t is not None}
+# the site's own requests whose block by the lists may break a page (incompat.py)
+_OWN_KINDS = {t: k for t, k in ((getattr(_RT, n, None), k) for n, k in (
+    ("ResourceTypeScript", "script"), ("ResourceTypeMedia", "media"), ("ResourceTypeXhr", "xhr"))) if t is not None}
 _WORKER_SCRIPTS = frozenset(t for t in (getattr(_RT, n, None) for n in (
     "ResourceTypeServiceWorker", "ResourceTypeSharedWorker", "ResourceTypeWorker")) if t is not None)
 
@@ -509,6 +515,13 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         # (pages loaded by I.K.E. itself, such as the page watcher)
         self.quiet = quiet
         self.private = private          # a private window's: its sites are never listed (ike:kontrol)
+
+    def _note(self, host, kind):
+        """A protection acted on the site's own request: evidence for the
+        diagnosis of incompatibilities (incompat.py), per profile scope."""
+        d = getattr(self.s, "diagnosis", None)
+        if d is not None and not self.quiet:
+            d.note(id(self), host, kind)
 
     def _count(self, host, kind):
         if not self.quiet:
@@ -750,6 +763,7 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
                 info.block(True)       # no worker from a file without the protection (1.1.25)
                 if own:
                     self._count(first_host, "workers")
+                    self._note(first_host, "worker:" + _WORKER_KIND.get(rtype, "dedicated"))
                 return
             self._count(first_host, "workers_open")     # the site's own, with the engine's values (1.1.32)
         if cfg["login_compat"]:
@@ -775,6 +789,9 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
                 s.redirected.discard(key)
             elif not self.quiet:
                 s.reset_count(host)
+                d = getattr(s, "diagnosis", None)
+                if d is not None:
+                    d.page_started(id(self), host)          # a new page: its own evidence (incompat.py)
         if main and get:
             if lv >= 2 and cfg["strip_tracking_params"] and self._skip_tracker(info, url, host):
                 return
@@ -824,6 +841,10 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
                 return
             if action == "block":
                 info.block(True)
+                if host_site == first_site and rtype in _OWN_KINDS:
+                    # the site's own request blocked by the lists (Kontrol and
+                    # Maximum): evidence for the diagnosis (incompat.py)
+                    self._note(first_host, "own:" + _OWN_KINDS[rtype])
                 if main and not self.quiet:
                     if len(s.blocked_pages) > 100:
                         s.blocked_pages.clear()
@@ -994,6 +1015,9 @@ class Shields(QObject):
         # One fingerprint-noise key per WebEngine profile. Private and
         # container profiles must not share the same per-site noise stream.
         self.profile_keys = {}
+        # the key of fingerprint.js's reports to the diagnosis (incompat.py,
+        # 1.1.32): in its closure, never readable by a page
+        self.report_key = "ike-rk-" + secrets.token_hex(16)
         # the media-command events' own secret (mediahook.js), never derived
         # from the fingerprinting key (1.1.18, security audit: it was the
         # key's first 96 bits, readable on media sites)
@@ -1611,6 +1635,7 @@ class Shields(QObject):
                       "key": self.profile_keys[id(p)],
                       "gpc": bool(cfg["send_gpc"]),
                       "nofp": [h for h, o in cfg["site_opts"].items() if o.get("fp") is False],
+                      "rk": self.report_key,
                       # the sites whose own workers the user allowed at Maximum (1.1.32)
                       "nowk": [h for h, o in cfg["site_opts"].items() if o.get("workers") is False],
                       "payframes": list(PAYMENT_SITES),
