@@ -53,6 +53,16 @@ EVIDENCE_DELAY_MS = 1500       # after new evidence: the page reacts to it first
 MAX_PROBES = 4                 # per page load
 LEDGER_SITES = 300             # sites kept per profile scope (the oldest go first)
 
+# How serious a finding is (the owner's colours, 1.1.32): ATTENTION, yellow,
+# when a protection most likely stops a feature but the site stays usable;
+# SERIOUS, orange, when it most likely stops something essential (an empty
+# page, a player that cannot play, an app waiting on a refused worker). The
+# red of a real danger is not a finding: it comes only from I.K.E.'s safety
+# warnings (window.danger_of), never from this module.
+ATTENTION = "attention"
+SERIOUS = "serious"
+RANK = {ATTENTION: 1, SERIOUS: 2}
+
 
 class Evidence:
     """What the protections did on one site since its last page started."""
@@ -111,16 +121,17 @@ class Ledger:
 class Finding:
     """A probable incompatibility of one site in one tab."""
 
-    __slots__ = ("detector", "host", "keys", "cause")
+    __slots__ = ("detector", "host", "keys", "cause", "severity")
 
-    def __init__(self, detector, host, keys, cause):
+    def __init__(self, detector, host, keys, cause, severity=SERIOUS):
         self.detector = detector      # the detector's id
         self.host = host
         self.keys = tuple(keys)       # repair keys to turn off ("workers"...); () = a full diagnosis
         self.cause = cause            # the probable cause, a source text for T()
+        self.severity = severity      # ATTENTION or SERIOUS (the octagon's yellow or orange)
 
     def __repr__(self):
-        return "Finding(%s, %s, %s)" % (self.detector, self.host, self.keys)
+        return "Finding(%s, %s, %s, %s)" % (self.detector, self.host, self.keys, self.severity)
 
 
 class Context:
@@ -164,8 +175,13 @@ class SiteWorkers(Detector):
         # its protected copy was refused by the site's own policy (weak), with
         # a refused service worker of the same site (trusted): WhatsApp
         copy_refused = ev.w("protected_worker_refused") > 0 and ev.n("worker:service") > 0
-        if page_worker or copy_refused or (probe and probe.get("blank")):
-            return Finding(self.id, ctx.host, ("workers",), self.CAUSE)
+        empty = bool(probe and (probe.get("blank") or probe.get("sparse")))
+        if empty and (page_worker or copy_refused or probe.get("blank")):
+            # the app does not start: something essential is missing
+            return Finding(self.id, ctx.host, ("workers",), self.CAUSE, SERIOUS)
+        if page_worker or copy_refused:
+            # the page shows its content: some features may be missing
+            return Finding(self.id, ctx.host, ("workers",), self.CAUSE, ATTENTION)
         return None                    # a service worker alone, the page fine: nothing to say
 
 
@@ -181,7 +197,7 @@ class EmptyPage(Detector):
 
     def judge(self, ev, probe, ctx):
         if probe and probe.get("blank"):
-            return Finding(self.id, ctx.host, (), self.CAUSE)
+            return Finding(self.id, ctx.host, (), self.CAUSE, SERIOUS)
         return None
 
 
@@ -198,7 +214,7 @@ class BrokenPlayer(Detector):
 
     def judge(self, ev, probe, ctx):
         if probe and probe.get("mediaError"):
-            return Finding(self.id, ctx.host, (), self.CAUSE)
+            return Finding(self.id, ctx.host, (), self.CAUSE, SERIOUS)
         return None
 
 
@@ -209,7 +225,7 @@ DETECTORS = [SiteWorkers(), EmptyPage(), BrokenPlayer()]
 # the page empty, is a player in error? One pass, a few hundred elements at
 # most; nothing stays behind.
 PROBE_JS = r"""(function () {
-  var b = document.body, out = {blank: false, mediaError: false, text: 0, big: 0};
+  var b = document.body, out = {blank: false, sparse: false, mediaError: false, text: 0, big: 0};
   if (!b) { out.blank = true; return JSON.stringify(out); }
   out.text = (b.innerText || '').replace(/\s+/g, '').length;
   var area = Math.max(1, innerWidth * innerHeight), els = b.querySelectorAll('img,video,canvas,svg,iframe,embed,object');
@@ -223,6 +239,7 @@ PROBE_JS = r"""(function () {
     if (m.error || (m.networkState === 3 && m.currentSrc)) out.mediaError = true;
   }
   out.blank = out.text < 30 && out.big === 0;
+  out.sparse = out.text < 300 && out.big === 0;
   return JSON.stringify(out);
 })()"""
 
@@ -255,7 +272,8 @@ class Diagnosis(QObject):
 
     # --- the views -----------------------------------------------------------
     def attach(self, view):
-        st = view._ike_diag = {"host": "", "finding": None, "probes": 0, "timer": None, "pending": False}
+        st = view._ike_diag = {"host": "", "finding": None, "probes": 0, "timer": None, "pending": False,
+                                "ended": None, "quiet": set()}
         self._views.append(view)
         view.destroyed.connect(lambda *_a, v=view: self._gone(v))
         view.loadStarted.connect(lambda v=view: self._load_started(v))
@@ -295,15 +313,19 @@ class Diagnosis(QObject):
         if host != st["host"]:
             st["host"] = host
             st["probes"] = 0
+            st["quiet"] = set()
             if st["finding"] is not None:
                 st["finding"] = None            # another site: its own story
+                st["ended"] = "left"
                 self.changed.emit(view)
 
     def _load_started(self, view):
         view._ike_diag["probes"] = 0
 
     def _load_finished(self, view, ok):
-        if ok:
+        # nothing to look at where no protection acted and nothing is shown
+        if ok and (view._ike_diag["finding"] is not None
+                   or self.ledger.get(self.scope_of(view), self.host_of(view)) is not None):
             self._schedule(view, PROBE_DELAY_MS)
 
     def _soon(self, scope, host):
@@ -334,24 +356,26 @@ class Diagnosis(QObject):
         if not host or scope is None:
             return
         ev = self.ledger.get(scope, host)
-        if ev is None:
-            return
         ctx = Context(self.app, host)
-        dets = [d for d in DETECTORS if d.relevant(ev, ctx)]
-        if not dets:
+        f = st["finding"]
+        # a repair of the finding's own cause was kept for this site: look
+        # whether the page works now (verified by the probe, not by the page)
+        verify = f is not None and f.keys and not any(k in ctx.active for k in f.keys)
+        dets = [d for d in DETECTORS if d.relevant(ev, ctx)] if ev is not None else []
+        if not dets and not verify:
             return
         if any(d.needs_probe for d in dets) and st["probes"] < MAX_PROBES:
             st["probes"] += 1
             from PyQt6.QtWebEngineCore import QWebEngineScript
             try:
                 view.page().runJavaScript(PROBE_JS, QWebEngineScript.ScriptWorldId.ApplicationWorld,
-                                          lambda r, v=view, h=host, d=dets: self._judged(v, h, d, r))
+                                          lambda r, v=view, h=host, d=dets, c=verify: self._judged(v, h, d, r, c))
             except RuntimeError:
                 pass
             return
-        self._judged(view, host, dets, None)
+        self._judged(view, host, dets, None, verify)
 
-    def _judged(self, view, host, dets, raw):
+    def _judged(self, view, host, dets, raw, verify=False):
         st = getattr(view, "_ike_diag", None)
         if st is None or self.host_of(view) != host:
             return
@@ -362,23 +386,32 @@ class Diagnosis(QObject):
             except ValueError:
                 probe = None
         ev = self.ledger.get(self.scope_of(view), host)
-        if ev is None:
-            return
         ctx = Context(self.app, host)
-        for d in dets:
-            f = d.judge(ev, probe, ctx)
-            if f is not None:
-                self._set(view, f)
-                return
+        if ev is not None:
+            for d in dets:
+                f = d.judge(ev, probe, ctx)
+                if f is not None:
+                    self._set(view, f)
+                    return
+        if verify and probe is not None and not probe.get("sparse") and not probe.get("mediaError"):
+            # the repair is kept, the page has its content, nothing found again
+            self.resolved(view)
 
     def _set(self, view, finding):
         st = view._ike_diag
         old = st["finding"]
-        # a finding stays until the user confirms the site works, or leaves
-        # the site; one with a known cause is not replaced by a vaguer one
-        if old is not None and (old.keys or not finding.keys):
-            return
+        if (finding.host, finding.detector) in st["quiet"]:
+            return                      # settled in this tab for this site (resolved below)
+        # a finding stays until the site works again (a repair verified, or
+        # the user's word), or the user leaves the site; one with a known
+        # cause is not replaced by a vaguer one, and it only grows more serious
+        if old is not None:
+            if old.keys and not finding.keys:
+                return
+            if bool(old.keys) == bool(finding.keys) and RANK[finding.severity] <= RANK[old.severity]:
+                return
         st["finding"] = finding
+        st["ended"] = None
         self.changed.emit(view)
 
     # --- the user's answers ----------------------------------------------------------
@@ -386,5 +419,13 @@ class Diagnosis(QObject):
         """The user confirmed the site works (after a repair, or as it is)."""
         st = getattr(view, "_ike_diag", None)
         if st is not None and st["finding"] is not None:
+            f = st["finding"]
+            st["quiet"].add((f.host, f.detector))   # not raised again here for this site
             st["finding"] = None
+            st["ended"] = "resolved"            # the octagon fades back to itself
             self.changed.emit(view)
+
+    def ended(self, view):
+        """Why the last finding ended: "resolved", "left" (another site) or None."""
+        st = getattr(view, "_ike_diag", None)
+        return st["ended"] if st else None

@@ -1,24 +1,36 @@
-"""I.K.E. Interference: the shield's octagon says that a protection may stop
-the site in view from working (1.1.32, the owner's design).
+"""I.K.E. Interference: the shield's octagon says that something is wrong with
+the site in view (1.1.32, the owner's design and colours).
 
-Two red neon pulses run along the octagon's rim in opposite directions, each
-with a bright head, a soft glow and a trail that fades behind it; where they
-meet (at the top, then at the bottom, every 1.4 s of a 2.8 s cycle) the rim
-brightens for a moment, a thin wave of energy runs along the contour and the
-inside of the rim pulses faintly. Then they go on, without a seam. It reads
-as a circuit reporting interference, not as a danger: no flashing, no
-strobe, a modest glow, nothing over the level's letter; the octagon keeps
-its shape, size, place, colours, letter and behaviour.
+One painter, three styles (STYLES), never three animations:
 
-Cost: nothing while there is no finding (no timer). With one, 24 pictures a
-second of the button alone (about two dozen short antialiased strokes), and
-only while the button is shown: a hidden or minimised window, another tab
-without a finding, stop it; the phase is kept. With the interface's effects
-off (or reduced motion asked by the desktop), a still red rim instead. When
-the user confirms the site works, the red fades out in 0.4 s.
+- "attention", golden yellow (#FACC15): a protection most likely stops some
+  feature of the site, which stays usable. Two slow pulses (a 5 s cycle),
+  soft trails, a contained glow, a very light inner pulse.
+- "serious", neon orange (#FF9100): a protection most likely stops something
+  essential (an empty page, a player that cannot play, an app waiting on a
+  refused worker). Two pulses with a nearly golden core (a 2.8 s cycle),
+  fading trails, a clearer glow, a short wave of energy along the contour
+  and an inner pulse where they meet.
+- "danger", crimson (#FF254F): a real security risk that I.K.E.'s own safety
+  warnings found (a lookalike site, a page on the malware and phishing
+  lists, a missing secure connection, an attack on the home network, a
+  certificate the engine refused). Brighter pulses with well marked trails
+  (a 2 s cycle). It follows the warning's own life and never suggests
+  "Repair this site": a safety warning is not an incompatibility.
 
-Painted by ShieldButton (shieldpanel.py) over its own octagon, with the
-octagon's own geometry (shieldpanel.octagon).
+The two pulses run along the octagon's rim in opposite directions and meet
+at the top and at the bottom, twice a cycle; then they go on without a seam.
+No flashing, no strobe: every change of light is a smooth curve. The octagon
+keeps its shape, size, place, level colour, letter and behaviour; the effect
+is drawn over its rim with its own geometry (shieldpanel.octagon) and never
+over the letter. A change of style (yellow to orange, orange to red) blends
+the two in 0.6 s; the end, when the site works again, fades out in 0.4 s.
+
+Cost: nothing while nothing is shown (no timer). With a style, about 24
+pictures a second of the button alone, and only while the button is shown
+(another tab without a finding, a hidden or minimised window: no timer; the
+phase is kept). With the interface's effects off, or reduced motion asked by
+the desktop, a still rim in the style's colour, drawn once.
 """
 
 import math
@@ -27,23 +39,63 @@ import time
 from PyQt6.QtCore import QEvent, QObject, QPointF, QRectF, Qt, QTimer, QVariantAnimation
 from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen, QRadialGradient
 
-RED = QColor("#FF2A52")          # the owner's #FF254F / #FF153E, a touch lighter for dark themes too
-HOT = QColor("#FFD3DC")          # the white-hot head
-CYCLE_S = 2.8                    # the two pulses meet every half cycle (1.4 s)
-FRAME_MS = 42                    # 24 pictures a second
-TRAIL = 0.30                     # of the rim behind each head
+FRAME_MS = 42                    # about 24 pictures a second
 SEGMENTS = 12                    # pieces of each trail
-MEET_WIDTH = 0.07                # of a cycle, around each meeting: the flash
-FADE_MS = 400
+MEET_WIDTH = 0.07                # of a cycle, around each meeting
+BLEND_MS = 600                   # from one style to another
+FADE_MS = 400                    # the end
+
+ATTENTION, SERIOUS, DANGER = "attention", "serious", "danger"
+
+
+class Style:
+    """The numbers of one style; blend() mixes two of them."""
+
+    FIELDS = ("cycle", "glow", "glow_alpha", "trail", "trail_alpha", "rim", "meet", "inner", "wave", "head")
+
+    def __init__(self, colour, core, **kw):
+        self.colour = QColor(colour)
+        self.core = QColor(core)
+        for f in self.FIELDS:
+            setattr(self, f, float(kw[f]))
+
+    def blend(self, other, t):
+        if t <= 0:
+            return self
+        if t >= 1:
+            return other
+        out = Style.__new__(Style)
+
+        def mix(a, b):
+            return QColor.fromRgbF(a.redF() + (b.redF() - a.redF()) * t,
+                                   a.greenF() + (b.greenF() - a.greenF()) * t,
+                                   a.blueF() + (b.blueF() - a.blueF()) * t)
+        out.colour = mix(self.colour, other.colour)
+        out.core = mix(self.core, other.core)
+        for f in self.FIELDS:
+            a, b = getattr(self, f), getattr(other, f)
+            setattr(out, f, a + (b - a) * t)
+        return out
+
+
+#                cycle s, glow radius / alpha (of the rim's width), trail length / alpha,
+#                faint rim, its brightening at a meeting, inner pulse, energy wave, head size
+STYLES = {
+    ATTENTION: Style("#FACC15", "#FFF3B0", cycle=5.0, glow=1.6, glow_alpha=0.35, trail=0.24,
+                     trail_alpha=0.55, rim=0.0, meet=0.22, inner=0.08, wave=0.0, head=0.48),
+    SERIOUS: Style("#FF9100", "#FFD56A", cycle=2.8, glow=2.1, glow_alpha=0.55, trail=0.30,
+                   trail_alpha=0.80, rim=0.0, meet=0.45, inner=0.20, wave=0.50, head=0.55),
+    DANGER: Style("#FF254F", "#FFD3DC", cycle=2.0, glow=2.2, glow_alpha=0.65, trail=0.34,
+                  trail_alpha=0.95, rim=0.08, meet=0.35, inner=0.10, wave=0.0, head=0.60),
+}
 
 
 def _bump(t):
-    """1 at a meeting (t = 0 or 0.5), 0 away from it, smooth."""
+    """1 at a meeting (t = 0 or 0.5), 0 away from it, smooth (no edge, no flash)."""
     d = min(t % 0.5, 0.5 - (t % 0.5))
     if d >= MEET_WIDTH:
         return 0.0
-    x = d / MEET_WIDTH
-    return 0.5 * (1 + math.cos(math.pi * x))
+    return 0.5 * (1 + math.cos(math.pi * d / MEET_WIDTH))
 
 
 class Interference(QObject):
@@ -53,49 +105,85 @@ class Interference(QObject):
         super().__init__(button)
         self.button = button
         self.config = config
-        self.active = False
-        self.strength = 0.0          # 1 while active, falls to 0 when the finding is resolved
+        self.state = None            # ATTENTION, SERIOUS, DANGER or None
+        self.style = None            # the Style drawn now (blended while changing)
+        self._from = None
+        self._blend = 1.0
+        self.strength = 0.0          # 1 while shown, falls to 0 at the end
         self.phase = 0.0             # 0..1 of a cycle, kept while suspended
         self._last = None
         self._timer = QTimer(self)
         self._timer.setInterval(FRAME_MS)
         self._timer.timeout.connect(self._tick)
-        self._fade = None
+        self._anim = None            # the blend or the fade
         self._path_key = None
         self._path = None
         self.frames = 0              # pictures drawn (the tests measure the cost)
         button.installEventFilter(self)
-        win = button.window()
-        if win is not None and win is not button:
+        self._watched = None
+        self._watch_window()
+
+    def _watch_window(self):
+        win = self.button.window()
+        if win is not None and win is not self.button and win is not self._watched:
+            if self._watched is not None:
+                self._watched.removeEventFilter(self)
             win.installEventFilter(self)
+            self._watched = win
 
     # --- state ------------------------------------------------------------
     def moving(self):
         from . import polish
         return polish.moving(self.config, "shield_interference")
 
-    def set_active(self, on, fade=False):
-        """on: a finding for the site in view. fade: the user resolved it here."""
-        if on:
-            if self._fade is not None:
-                self._fade.stop()
-                self._fade = None
-            self.active = True
+    def set_state(self, state, fade=False):
+        """state: ATTENTION, SERIOUS, DANGER or None. fade: the end is the site
+        working again here (not another tab or another site)."""
+        if state == self.state:
+            return
+        old, self.state = self.state, state
+        self._stop_anim()
+        if state is not None:
+            target = STYLES[state]
+            if old is not None and self.style is not None and self.moving() and self._shown():
+                self._from = self.style            # blend from what is drawn now
+                self._blend = 0.0
+                self._animate(0.0, 1.0, BLEND_MS, self._blended, None)
+            else:
+                self._from, self._blend = None, 1.0
+            self.style = target if self._from is None else self._from
             self.strength = 1.0
             self._run()
-        elif self.active:
-            self.active = False
-            if fade and self.moving() and self.button.isVisible():
-                a = self._fade = QVariantAnimation(self)
-                a.setDuration(FADE_MS)
-                a.setStartValue(1.0)
-                a.setEndValue(0.0)
-                a.valueChanged.connect(self._faded)
-                a.finished.connect(self._fade_done)
-                a.start()
-            else:
-                self.strength = 0.0
-                self._stop()
+        elif fade and self.style is not None and self.moving() and self._shown():
+            self._animate(1.0, 0.0, FADE_MS, self._faded, self._fade_done)
+        else:
+            self._fade_done()
+        self.button.update()
+
+    def _animate(self, a, b, ms, step, done):
+        anim = self._anim = QVariantAnimation(self)
+        anim.setDuration(ms)
+        anim.setStartValue(a)
+        anim.setEndValue(b)
+        anim.valueChanged.connect(step)
+        if done is not None:
+            anim.finished.connect(done)
+        anim.start()
+        self._run()
+
+    def _stop_anim(self):
+        if self._anim is not None:
+            self._anim.stop()
+            self._anim.deleteLater()
+            self._anim = None
+
+    def _blended(self, v):
+        self._blend = float(v)
+        target = STYLES.get(self.state)
+        if target is not None and self._from is not None:
+            self.style = self._from.blend(target, self._blend)
+            if self._blend >= 1:
+                self._from = None
         self.button.update()
 
     def _faded(self, v):
@@ -103,13 +191,18 @@ class Interference(QObject):
         self.button.update()
 
     def _fade_done(self):
-        self._fade = None
+        self._stop_anim()
         self.strength = 0.0
+        self.style = None
+        self._from = None
         self._stop()
         self.button.update()
 
+    def _running(self):
+        return self.state is not None or self._anim is not None
+
     def _run(self):
-        if not (self.active or self._fade is not None):
+        if not self._running():
             return
         if not self.moving() or not self._shown():
             self._stop()
@@ -129,8 +222,10 @@ class Interference(QObject):
 
     def eventFilter(self, obj, event):
         t = event.type()
-        if t in (QEvent.Type.Show, QEvent.Type.Hide, QEvent.Type.WindowStateChange):
-            QTimer.singleShot(0, self._run if self.active else self._stop)
+        if t in (QEvent.Type.Show, QEvent.Type.Hide, QEvent.Type.WindowStateChange, QEvent.Type.ParentChange):
+            if t == QEvent.Type.ParentChange:
+                self._watch_window()
+            QTimer.singleShot(0, self._run if self._running() else self._stop)
         return False
 
     def _tick(self):
@@ -138,8 +233,8 @@ class Interference(QObject):
             self._stop()              # suspended: the phase stays where it was
             return
         now = time.monotonic()
-        if self._last is not None:
-            self.phase = (self.phase + (now - self._last) / CYCLE_S) % 1.0
+        if self._last is not None and self.style is not None:
+            self.phase = (self.phase + (now - self._last) / max(0.5, self.style.cycle)) % 1.0
         self._last = now
         self.button.update()
 
@@ -149,28 +244,31 @@ class Interference(QObject):
         if key != self._path_key:
             path = QPainterPath()
             # from the middle of the top edge, round the octagon, back to it
-            top = (polygon[0] + polygon[1]) / 2
-            path.moveTo(top)
+            path.moveTo((polygon[0] + polygon[1]) / 2)
             for i in list(range(1, len(polygon))) + [0]:
                 path.lineTo(polygon[i])
-            path.lineTo(top)
+            path.closeSubpath()
             self._path_key, self._path = key, path
         return self._path
 
+    @staticmethod
+    def _alpha(colour, a):
+        c = QColor(colour)
+        c.setAlphaF(max(0.0, min(1.0, a)))
+        return c
+
     def paint(self, p, polygon, stroke):
         """Over the octagon (polygon, its rim's width): the pulses, or the still rim."""
-        k = self.strength
-        if k <= 0 or polygon is None or len(polygon) < 3:
+        s, k = self.style, self.strength
+        if s is None or k <= 0 or polygon is None or len(polygon) < 3:
             return
         self.frames += 1
         p.save()
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        round_pen = (Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
         if not self.moving():
-            # effects off: a still red rim over the octagon's own
-            c = QColor(RED)
-            c.setAlphaF(0.9 * k)
-            p.setPen(QPen(c, stroke * 1.05, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap,
-                          Qt.PenJoinStyle.RoundJoin))
+            # effects off: a still rim over the octagon's own
+            p.setPen(QPen(self._alpha(s.colour, 0.9 * k), stroke * 1.05, *round_pen))
             p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawPolygon(polygon)
             p.restore()
@@ -179,71 +277,58 @@ class Interference(QObject):
         t = self.phase
         bump = _bump(t)
         centre = polygon.boundingRect().center()
-        # a faint rim all the time, brighter at a meeting
-        rim = QColor(RED)
-        rim.setAlphaF(k * (0.28 + 0.45 * bump))
-        p.setPen(QPen(rim, stroke * 0.95, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
-        p.setBrush(Qt.BrushStyle.NoBrush)
-        p.drawPolygon(polygon)
-        if bump > 0:
-            # the inside of the rim pulses (the letter in the middle untouched)
-            r = polygon.boundingRect().width() / 2
-            g = QRadialGradient(centre, r)
-            inner = QColor(RED)
-            inner.setAlphaF(0)
-            g.setColorAt(0.0, inner)
-            g.setColorAt(0.62, inner)
-            edge = QColor(RED)
-            edge.setAlphaF(k * 0.22 * bump)
-            g.setColorAt(1.0, edge)
+        # the rim keeps the level's own colour; it lights up only where the
+        # pulses meet (the red keeps a very faint tint all the time)
+        a = k * (s.rim + s.meet * bump)
+        if a > 0.01:
+            p.setPen(QPen(self._alpha(s.colour, a), stroke * 0.95, *round_pen))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawPolygon(polygon)
+        if bump > 0 and s.inner > 0:
+            # the inside of the rim pulses; the middle, with the letter, untouched
+            g = QRadialGradient(centre, polygon.boundingRect().width() / 2)
+            g.setColorAt(0.0, self._alpha(s.colour, 0))
+            g.setColorAt(0.62, self._alpha(s.colour, 0))
+            g.setColorAt(1.0, self._alpha(s.colour, k * s.inner * bump))
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(g)
             p.drawPolygon(polygon)
-            # the wave of energy: the contour, a little larger, fading as it opens
+        if bump > 0 and s.wave > 0:
+            # the wave of energy: the contour opening a little, fading as it goes
             grow = 1.0 + 0.16 * (1 - bump)
-            wave = QColor(RED)
-            wave.setAlphaF(k * 0.55 * bump)
             p.setBrush(Qt.BrushStyle.NoBrush)
-            p.setPen(QPen(wave, max(0.8, stroke * 0.45)))
+            p.setPen(QPen(self._alpha(s.colour, k * s.wave * bump), max(0.8, stroke * 0.45)))
             p.save()
             p.translate(centre)
             p.scale(grow, grow)
             p.translate(-centre)
             p.drawPolygon(polygon)
             p.restore()
-        # the two pulses: one clockwise, one the other way, from the top
+        # the two pulses, from the top: one clockwise, one the other way
         for direction in (1, -1):
-            head = (t * direction) % 1.0
-            self._pulse(p, path, head, direction, stroke, k, bump)
+            self._pulse(p, path, (t * direction) % 1.0, direction, stroke, k, bump, s)
         p.restore()
 
-    def _pulse(self, p, path, head, direction, stroke, k, bump):
+    def _pulse(self, p, path, head, direction, stroke, k, bump, s):
         # the trail: short pieces behind the head, fainter and thinner
         prev = path.pointAtPercent(head)
-        for i in range(1, SEGMENTS + 1):
-            at = (head - direction * TRAIL * i / SEGMENTS) % 1.0
-            pt = path.pointAtPercent(at)
-            fade = 1.0 - i / (SEGMENTS + 1)
-            c = QColor(RED)
-            c.setAlphaF(k * 0.85 * fade * fade)
-            p.setPen(QPen(c, stroke * (0.55 + 0.75 * fade), Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        n = SEGMENTS if stroke < 3 else SEGMENTS * 2       # a smooth trail on a big octagon too
+        for i in range(1, n + 1):
+            pt = path.pointAtPercent((head - direction * s.trail * i / n) % 1.0)
+            fade = 1.0 - i / (n + 1)
+            p.setPen(QPen(self._alpha(s.colour, k * s.trail_alpha * fade * fade), stroke * (0.55 + 0.75 * fade),
+                          Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
             p.drawLine(prev, pt)
             prev = pt
         pos = path.pointAtPercent(head)
-        # the glow, then the bright head
-        glow_r = stroke * (2.1 + 0.8 * bump)
-        g = QRadialGradient(pos, glow_r)
-        c0 = QColor(RED)
-        c0.setAlphaF(k * (0.55 + 0.25 * bump))
-        c1 = QColor(RED)
-        c1.setAlphaF(0)
-        g.setColorAt(0.0, c0)
-        g.setColorAt(1.0, c1)
+        # the glow, then the bright core
+        r = stroke * (s.glow + 0.6 * bump)
+        g = QRadialGradient(pos, r)
+        g.setColorAt(0.0, self._alpha(s.colour, k * (s.glow_alpha + 0.2 * bump)))
+        g.setColorAt(1.0, self._alpha(s.colour, 0))
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(g)
-        p.drawEllipse(QRectF(pos.x() - glow_r, pos.y() - glow_r, 2 * glow_r, 2 * glow_r))
-        hot = QColor(HOT)
-        hot.setAlphaF(k * 0.95)
-        p.setBrush(hot)
-        r = stroke * 0.55
-        p.drawEllipse(QPointF(pos), r, r)
+        p.drawEllipse(QRectF(pos.x() - r, pos.y() - r, 2 * r, 2 * r))
+        p.setBrush(self._alpha(s.core, k * 0.95))
+        h = stroke * s.head
+        p.drawEllipse(QPointF(pos), h, h)

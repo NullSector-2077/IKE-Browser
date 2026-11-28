@@ -575,8 +575,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.lookalike_bar = LookalikeBar(self)
         from .securebar import SecureBar
         self.secure_bar = SecureBar(self)
-        from .workersbar import WorkersBar
-        self.workers_bar = WorkersBar(self)
         right = QWidget(self)
         rl = QVBoxLayout(right)
         rl.setContentsMargins(0, 0, 0, 0)
@@ -585,7 +583,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         rl.addWidget(self.repair_bar)
         rl.addWidget(self.lookalike_bar)
         rl.addWidget(self.secure_bar)
-        rl.addWidget(self.workers_bar)
         self.content = QSplitter(Qt.Orientation.Horizontal, self)
         self.content.addWidget(self.stack)
         self.content.addWidget(self._build_split_holder())
@@ -737,6 +734,12 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.urlbar.set_end_widget(self.shield_btn)
         # a ring opens once around the shield when it blocks something (polish.py)
         self.shield_pulse = polish.ShieldPulse(self.shield_btn, self.app.config)
+        # I.K.E. Interference (1.1.32, interference.py): the octagon says that a
+        # protection may break the site in view (yellow, orange) or that a
+        # safety warning is in effect (red); one painter, drawn by the button
+        from .interference import Interference
+        self.shield_btn.interference = Interference(self.shield_btn, self.app.config)
+        self.app.diagnosis.changed.connect(self._diagnosis_changed)
         # "+N" when it grows; on the window, as it rises right of the field's end
         self.shield_count = polish.ShieldCount(self.shield_btn, self.app.config, self)
 
@@ -2207,7 +2210,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self._update_bookbar()
         self.lookalike_bar.show_for(v)
         self.secure_bar.show_for(v)
-        self.workers_bar.show_for(v)
+        self.sync_interference()
         self.site_tint.update(v)
         if self.findbar.isVisible():
             self.findbar.close_bar()
@@ -2287,7 +2290,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 self.site_tint.page_loaded(v)
         self.lookalike_bar.show_for(v)
         self.secure_bar.show_for(v)
-        self.workers_bar.show_for(v)
+        self.sync_interference()
         self.site_tint.update(v)
 
     def _url_changed(self, view):
@@ -2302,7 +2305,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if view is self.current_view():
             self.lookalike_bar.show_for(view)
             self.secure_bar.show_for(view)
-            self.workers_bar.show_for(view)
+            self.sync_interference()
             self.site_tint.update(view)
             self._update_bookbar()
             self.urlbar.setModified(False)
@@ -2635,7 +2638,6 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     def _shield_now(self):
         self._shield_due = False
         self.update_shield()
-        self.workers_bar.show_for(self.current_view())        # workers refused at Maximum (1.1.32)
 
     def update_shield(self):
         host = self.current_host()
@@ -2667,6 +2669,70 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.shield_count.count(n if level != "off" else 0, (id(self.current_view()), host))
         if self.shield_menu.isVisible():
             self.shield_panel.count.setText(str(n))
+        self.sync_interference()
+
+    # --- I.K.E. Interference (1.1.32) ------------------------------------------
+    # The sources, by precedence: a safety warning in effect (red, securebar.
+    # danger_of: it only reads the warnings, never shows or hides one), then
+    # the diagnosis of the site in view (incompat.py: orange or yellow). The
+    # page cannot set either: the warnings and the request check are I.K.E.'s.
+    DANGER_TEXT = {
+        "cert": "Danger: the certificate of this site is not valid, so the connection may not be private.",
+    }
+    DANGER_ANY = "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page."
+    FINDING_TEXT = {
+        "attention": "A protection may interfere with some features of this site.",
+        "serious": "A protection may stop this site from working properly. Use “Repair this site”.",
+    }
+
+    def interference_state(self, view=None):
+        """(state, text) of the octagon for `view` (default: the tab in front):
+        state "danger", "serious", "attention" or None, text a source text."""
+        from .securebar import danger_of
+        v = self.current_view() if view is None else view
+        if v is None:
+            return None, ""
+        kind = danger_of(v)
+        if kind is not None:
+            return "danger", self.DANGER_TEXT.get(kind, self.DANGER_ANY)
+        f = self.app.diagnosis.finding(v)
+        host = self.current_host() if view is None else v.url().host().lower()
+        if f is not None and f.host == host and self.app.config.level_for(host) != "off":
+            return f.severity, self.FINDING_TEXT[f.severity]
+        return None, ""
+
+    def sync_interference(self):
+        anim = getattr(getattr(self, "shield_btn", None), "interference", None)
+        if anim is None:
+            return
+        v = self.current_view()
+        state, text = self.interference_state()
+        # the end fades out only when this very site works again (not another
+        # tab, not another site): the diagnosis says why its finding ended
+        fade = (state is None and anim.state in ("attention", "serious") and v is not None
+                and getattr(self, "_interference_view", None) is v
+                and self.app.diagnosis.ended(v) == "resolved")
+        self._interference_view = v
+        anim.set_state(state, fade=fade)
+        level = self._shield_shown or self.app.config["shield_level"]
+        tip = "%s — %s" % (T("I.K.E. Shield: choose the protection level"), T(LEVEL_NAMES[level]))
+        if text:
+            tip = T(text) + "\n" + tip
+        if self.shield_btn.toolTip() != tip:
+            self.shield_btn.setToolTip(tip)
+            # not by colour alone: the same words for screen readers
+            self.shield_btn.setAccessibleDescription(T(text) if text else "")
+        if self.shield_menu.isVisible():
+            self.shield_panel.show_diagnosis()
+
+    def _diagnosis_changed(self, view):
+        if view is self.current_view():
+            self.sync_interference()
+
+    def danger_changed(self, view):
+        """A safety warning of `view` began or ended (a certificate refused...)."""
+        if view is self.current_view():
+            self.sync_interference()
 
     # ------------------------------------------------------------------
     # bookmarks / history menus

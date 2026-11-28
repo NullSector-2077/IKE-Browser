@@ -69,6 +69,12 @@ class SecureBar(QWidget):
         self.hide()
 
     def show_for(self, view):
+        self._show_for(view)
+        sync = getattr(self.win, "sync_interference", None)
+        if sync is not None:
+            sync()                     # the shield's red follows the warning (1.1.32)
+
+    def _show_for(self, view):
         self.view = view
         n = notice_of(view)
         if n is None:
@@ -117,6 +123,7 @@ class SecureBar(QWidget):
             sh.pages_allowed.add(host)
         v.secure_notice = None
         self.hide()
+        self.win.sync_interference()
         v.load(url)
 
     def _back(self):
@@ -125,9 +132,38 @@ class SecureBar(QWidget):
             v.secure_notice = None
             v.back()
         self.hide()
+        self.win.sync_interference()
 
     def _close(self):
         n = getattr(self.view, "secure_notice", None)
         if n:
             n["closed"] = True
         self.hide()
+
+
+def danger_of(view):
+    """The real risk I.K.E.'s own safety warnings found for the page in `view`
+    (1.1.32, the shield's red): "cert" (a certificate the engine refused),
+    "lookalike", "blocked", "nohttps", "lan", or None. It only reads what the
+    warnings already decided: it never decides, shows or hides one itself. A
+    warning whose bar the user only hid is still in effect (the risk did not
+    change); one the user went through ("Continue", "This site is fine",
+    "Go back") or another site ends it."""
+    if view is None:
+        return None
+    try:
+        url = view.url()
+    except RuntimeError:
+        return None
+    host = url.host().lower()
+    if not host:
+        return None
+    cert = getattr(view, "cert_refused", None)
+    if cert and cert == host:
+        return "cert"
+    n = getattr(view, "secure_notice", None)
+    if n and (url.toString() == n["url"] or host == QUrl(n["url"]).host().lower()):
+        return n["kind"]
+    if getattr(view, "lookalike", None) and getattr(view, "lookalike_host", None) == host:
+        return "lookalike"
+    return None

@@ -158,6 +158,10 @@ class WebPage(QWebEnginePage):
                              "qrc", "filesystem", "ws", "wss", ""))
 
     def acceptNavigationRequest(self, url, nav_type, is_main_frame):
+        if is_main_frame:
+            view = self.window_ref.view_of(self)
+            if view is not None and getattr(view, "cert_refused", None):
+                view.cert_refused = None        # a new page: its own certificate decides
         if url.scheme().lower() not in self.OWN_SCHEMES:
             # A link that starts another program. The engine would hand it over
             # after any click on the page, without a word; other browsers ask
@@ -489,6 +493,13 @@ class WebPage(QWebEnginePage):
         if test_switch("IKE_TEST_INSECURE") == "1":
             error.acceptCertificate()
             return True
+        # refused, as always (the engine shows its own error page). 1.1.32: the
+        # shield turns red for it (securebar.danger_of); nothing else changes
+        if error.isMainFrame():
+            view = self.window_ref.view_of(self)
+            if view is not None:
+                view.cert_refused = error.url().host().lower()
+                QTimer.singleShot(0, lambda v=view: self.window_ref.danger_changed(v))
         return False
 
     def _lan_engine_block(self):

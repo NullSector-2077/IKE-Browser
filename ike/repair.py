@@ -403,8 +403,9 @@ class RepairBar(QWidget):
         else:
             self.hide()
             return
-        if r.state in ("found", "level-kept") and r.view is not None:
-            # the user said the page works: the interference ends (incompat.py)
+        if r.state in ("found", "level-kept", "none") and r.view is not None:
+            # the user said the page works, or that it does not work even with
+            # every protection off (not I.K.E.'s doing): the interference ends
             diagnosis = getattr(self.win.app, "diagnosis", None)
             if diagnosis is not None:
                 diagnosis.resolved(r.view)

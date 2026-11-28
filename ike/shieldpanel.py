@@ -270,6 +270,11 @@ class ShieldButton(QToolButton):
         x = self.width() - side if rtl else 0
         pm = self.icon().pixmap(QSize(side, side), self.devicePixelRatioF())
         p.drawPixmap(QPointF(x, (self.height() - pm.deviceIndependentSize().height()) / 2), pm)
+        anim = getattr(self, "interference", None)
+        if anim is not None and anim.style is not None:
+            # I.K.E. Interference (1.1.32): over the octagon's own rim, never over its letter
+            polygon, _side, stroke = octagon(self.icon_rect(), TOOLBAR_SHIELD_GROW)
+            anim.paint(p, polygon, stroke)
         text = self.text()
         from . import cyberfont
         if text and cyberfont.usable(text, self.count_pixels()):
@@ -367,13 +372,16 @@ class ShieldPanel(QWidget):
         self.repair_btn.setToolTip(T("Find the protection that breaks this page and turn off "
                                      "only that one, for this site only"))
         self.repair_btn.clicked.connect(self._repair)
-        # 1.1.32: the site's own workers refused at this level (Maximum): the
-        # user sees it and can allow them for this site alone
-        self.workers_note = QLabel(T("This level blocks the site's own background workers: "
-                                     "the site may not work."), self)
-        self.workers_note.setWordWrap(True)
-        self.workers_allow = QPushButton(T("Allow them on this site"), self)
-        self.workers_allow.clicked.connect(self._allow_workers)
+        # 1.1.32, the diagnosis (incompat.py) and the safety warnings: what the
+        # octagon's colour means, in words (never by colour alone), the
+        # probable cause and what the repair changes; "Repair this site" is
+        # put forward only for an incompatibility, never for a danger
+        self.diag_note = QLabel(self)
+        self.diag_note.setWordWrap(True)
+        self.diag_note.setTextFormat(Qt.TextFormat.PlainText)
+        self.diag_ok = QPushButton(T("This site works fine"), self)
+        self.diag_ok.setToolTip(T("The octagon goes back to normal for this site in this tab"))
+        self.diag_ok.clicked.connect(self._site_works)
         self.repaired = QLabel(self)
         self.repaired.setWordWrap(True)
         self.repaired_undo = QPushButton(T("Undo the repair"), self)
@@ -411,9 +419,9 @@ class ShieldPanel(QWidget):
         lay.addWidget(QLabel(T("Protection on this site"), self))
         lay.addWidget(self.site_level)
         lay.addWidget(self.hint)
-        lay.addWidget(self.workers_note)
-        lay.addWidget(self.workers_allow)
+        lay.addWidget(self.diag_note)
         lay.addWidget(self.repair_btn)
+        lay.addWidget(self.diag_ok)
         lay.addWidget(self.repaired)
         lay.addWidget(self.repaired_undo)
         lay.addWidget(self.adv_btn)
@@ -513,10 +521,8 @@ class ShieldPanel(QWidget):
         for w in (self.ads, self.cookies):
             w.setEnabled(web and on)
         from . import repair
-        blocked = web and on and bool(st.get("workers")) and "workers" in repair.active(cfg, host)
-        self.workers_note.setVisible(blocked)
-        self.workers_allow.setVisible(blocked)
         self.repair_btn.setVisible(web and on and bool(cfg["repair_button"]))
+        self.show_diagnosis()
         fixed = repair.repaired(cfg, host) if web else []
         self.repaired.setText(T("Repaired: turned off here: %s.") % ", ".join(
             T(repair.NAMES[k]) for k in fixed) if fixed else "")
@@ -533,16 +539,46 @@ class ShieldPanel(QWidget):
         self.win.shield_menu.hide()
         self.win.repair_site()
 
-    def _allow_workers(self):
-        """The site's own workers, refused at this level, run on this site
-        (1.1.32); kept with the repairs, so "Undo the repair" takes it back."""
-        host = self.win.current_host()
-        if not host:
-            return
-        from .workersbar import allow
-        allow(self.win.app, host)
-        self.win.workers_bar.hide()
-        self._apply()
+    # the consequence of the narrow repair, said before the user chooses it
+    REPAIR_CHANGES = "“Repair this site” turns off only that protection, for this site only; every other protection stays on."
+    HELP = "I.K.E. can help you fix it while keeping every other protection on."
+
+    def show_diagnosis(self):
+        """The octagon's state in words, the probable cause and the repair put
+        forward (1.1.32). Opening or closing the panel changes nothing."""
+        state, text = self.win.interference_state()
+        lines = []
+        if state == "danger":
+            lines.append("⛔ " + T(text))
+        elif state is not None:
+            f = self.win.app.diagnosis.finding(self.win.current_view())
+            lines.append("⚠ " + T(text))
+            if f is not None:
+                lines.append(T(f.cause))
+                lines.append(T(self.REPAIR_CHANGES) if f.keys else T(self.HELP))
+        self.diag_note.setText("\n".join(lines))
+        self.diag_note.setVisible(bool(lines))
+        incompat = state in ("attention", "serious")
+        self.diag_ok.setVisible(incompat)
+        # the repair put forward: the panel's default button, in bold
+        font = self.repair_btn.font()
+        if font.bold() != incompat:
+            font.setBold(incompat)
+            self.repair_btn.setFont(font)
+        self.repair_btn.setDefault(incompat)
+        if incompat:
+            # put forward even where the user hid the button from the panel:
+            # it is the one way to the narrow repair the text speaks of
+            self.repair_btn.setVisible(bool(self.win.current_host()))
+
+    def _site_works(self):
+        """The user says the site works: the finding of this tab ends (the
+        protections stay exactly as they are)."""
+        v = self.win.current_view()
+        if v is not None:
+            self.win.app.diagnosis.resolved(v)
+        self.show_diagnosis()
+        QTimer.singleShot(0, self._resize_popup)
 
     def _undo_repair(self):
         from . import repair

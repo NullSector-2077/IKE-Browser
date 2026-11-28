@@ -50,6 +50,7 @@ PARTS = {
     "download_pop": True,    # a finished download shows a tick with a small pop
     # 1.1.5
     "shield_pulse": True,    # a ring opens once around the shield when it blocks something
+    "shield_interference": True,  # 1.1.32: two pulses run round the shield while a protection may break the site (interference.py)
     "shield_bars": True,     # the shield panel: what was blocked on the site, as bars by kind
     "download_rows": True,   # the downloads window: file icons and a progress bar in each row
     "engine_icon": True,     # suggestions: the search engine's own icon on the search rows
