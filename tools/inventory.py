@@ -165,7 +165,7 @@ def _manifest_tool():
 # scripts, pages, the look-alike table, its pictures). Everything else there must be declared: an
 # entry of components.json, or one of the kinds below.
 OWN_RESOURCES = (
-    "ike/resources/consent.js", "ike/resources/darkmode.js", "ike/resources/fingerprint.js",
+    "ike/resources/consent.js", "ike/resources/fingerprint.js",
     "ike/resources/mediahook.js", "ike/resources/passwords.js", "ike/resources/reader.js",
     "ike/resources/userscript.js", "ike/resources/videoads.js", "ike/resources/videorelay.js",
     "ike/resources/newtab.html", "ike/resources/lookalike.json", "ike/resources/ike.svg",
