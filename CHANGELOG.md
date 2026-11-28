@@ -64,6 +64,10 @@
   var(--picture)`) was left as written, so a panel of a site stayed white
   under text made light; its gradients are now mapped, the variable left to
   its own definition (tests/test_dark_engine_hard.py).
+- **Text over a photo stays readable**: photos are kept as they are while the
+  page's text is made light, so a caption drawn dark over a light photo (a
+  shop's banner or card) became light on light; text laid over a large picture
+  now gets a dark halo (tests/test_dark_engine_hard.py).
 - The owner's check also runs inside the owner's own I.K.E., on the page as
   it is seen (`tests/dark_engine/live-diag.py`, signed in and scrolled), and
   lists light text on a light layer or picture with the site's own rules.

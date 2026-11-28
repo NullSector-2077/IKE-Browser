@@ -74,6 +74,11 @@ PAGES = {
       .p1{background-image:linear-gradient(0deg,#fff,#fff),var(--panel-picture,none);height:60px}
       .p2{background-image:linear-gradient(0deg,var(--u-panel,#fff),var(--u-panel,#fff)),var(--other-picture,none);height:60px}
       </style><div id="p1" class="p1">Panel one</div><div id="p2" class="p2">Panel two</div>""",
+    "halo": """<!doctype html><style>body{background:#fff;color:#111;margin:0}
+      .card{position:relative;width:400px;height:300px}.card img{position:absolute;inset:0;width:400px;height:300px}
+      .card h2{position:absolute;top:20px;left:20px;margin:0;color:#333}</style>
+      <div class="card"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect width='400' height='300' fill='%23eeeeee'/%3E%3C/svg%3E">
+      <h2 id="over">Ecco la nuova gamma</h2></div><p id="below">A caption under the picture</p>""",
     "late": """<!doctype html><style>body{background:#fff;color:#111;margin:0}</style><style id="js"></style>
       <div id="a" class="a" style="height:40px">a</div><div id="b" class="b" style="height:40px">b</div>
       <div id="c" class="c" style="height:40px">c</div>
@@ -146,6 +151,8 @@ READS = {
                 "return {band:s('band'),band2:s('band2'),tile:s('tile')}",
     "gradvar": "function s(i){return getComputedStyle(document.getElementById(i)).backgroundImage;}"
                "return {p1:s('p1'),p2:s('p2')}",
+    "halo": "function s(i){return getComputedStyle(document.getElementById(i)).textShadow;}"
+            "return {over:s('over'),below:s('below')}",
     "late": "function s(i){return getComputedStyle(document.getElementById(i)).backgroundColor;}"
             "return {a:s('a'),b:s('b'),c:s('c')}",
     "frame": "var p=document.getElementById('fr').contentDocument.getElementById('x');"
@@ -216,6 +223,8 @@ def test_hard_cases(run_ike, site):
     for k in ("p1", "p2"):
         first = re.search(r"rgba?\([^)]*\)", p[k]).group(0)
         assert light(first) < 0.3, p
+    p = out["halo"]                                           # light text over a photo: a dark halo
+    assert "rgba(0, 0, 0" in p["over"] and p["below"] == "none", p
     p = out["late"]                                    # insertRule with no node changed, a style's text changed
     assert light(p["a"]) < 0.3 and light(p["b"]) < 0.3 and light(p["c"]) < 0.3, p
     p = out["frame"]
