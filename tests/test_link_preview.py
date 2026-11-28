@@ -1,4 +1,4 @@
-"""1.1.29 (the owner): the address of the link under the mouse is shown again,
+"""1.1.30 (the owner): the address of the link under the mouse is shown again,
 as other browsers show it, without moving the page (1.0 put it in the status
 bar, which took room from the page: the page shook). It lies over the page in
 a corner, the other corner when the mouse is there, and goes when the mouse

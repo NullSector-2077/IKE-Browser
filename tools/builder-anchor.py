@@ -13,7 +13,7 @@ tools/check-autofix-patch.py (--builder ID) and again by tools/automerge.py:
   (a file under the checkout, ending in .js, no ".."); every other line
   identical. Upstream code is never changed: it is only read.
 
-Dark Reader was the second one until 1.1.29 (its engine with I.K.E.'s speed
+Dark Reader was the second one until 1.1.30 (its engine with I.K.E.'s speed
 patches); its engine left I.K.E., and its lists (tools/build-darkreader-lists.py)
 have no patches to re-anchor: a lists build that refuses waits for a person.
 

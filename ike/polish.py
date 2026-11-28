@@ -88,7 +88,7 @@ PARTS = {
     "gestures": True,        # touchpad: swipe for back and forward, pinch to zoom
     "key_hints": True,       # Ctrl or Alt held for a second: the toolbar buttons show their keys
     "group_fold": True,      # a tab group folds and unfolds smoothly
-    # 1.1.29 (the owner)
+    # 1.1.30 (the owner)
     "download_fly": True,    # a file that starts downloading flies to the Downloads button
     "swipe_arrow": True,     # touchpad: an arrow at the edge shows the swipe back or forward coming
 }
@@ -347,7 +347,7 @@ SLIDE_IN_MS = 160
 class FlyingIcon(QWidget):
     """A file's icon flying in an arc from start to end (points of parent),
     smaller and fading as it lands: a download that starts goes to the
-    Downloads button (1.1.29, the owner). Under half a second, then gone."""
+    Downloads button (1.1.30, the owner). Under half a second, then gone."""
 
     MS = 450
     SIZE = 32
@@ -393,7 +393,7 @@ class FlyingIcon(QWidget):
 
 class SwipeArrow(QWidget):
     """A round arrow that comes in from the edge of the page while the fingers
-    swipe on the touchpad (1.1.29, the owner): back at the left, forward at the
+    swipe on the touchpad (1.1.30, the owner): back at the left, forward at the
     right; it fills with the theme's colour when the swipe is far enough to
     act. Drawn only while the fingers move, gone when they lift."""
 
@@ -1299,14 +1299,14 @@ class Toast(QWidget):
     """A short message in a box at the bottom of the page area, which fades in
     and out (in place of the status bar line).
 
-    1.1.29 (the owner: "KDE and I.K.E. style, coherent with Plasma, only the
+    1.1.30 (the owner: "KDE and I.K.E. style, coherent with Plasma, only the
     corners slightly rounded"): drawn as Plasma draws its own small windows,
     the window's colour with a thin line around it and a soft shadow under it,
     its corners slightly rounded; it rises a few pixels as it comes in, as
     Plasma's notifications do. (It was a flat grey box.)"""
 
     MARGIN = 26
-    SHADOW = 8               # px around the box for its shadow (1.1.29)
+    SHADOW = 8               # px around the box for its shadow (1.1.30)
     RISE = 6                 # px it rises while it fades in
 
     def __init__(self, anchor, config):
@@ -1428,10 +1428,10 @@ class Toast(QWidget):
         p.end()
 
 
-# --- where a link goes (1.1.29, the owner) ----------------------------------------
+# --- where a link goes (1.1.30, the owner) ----------------------------------------
 class LinkPreview(QWidget):
     """The address of the link under the mouse, in a small box at the bottom
-    corner of the page, as other browsers show it (the owner, 1.1.29).
+    corner of the page, as other browsers show it (the owner, 1.1.30).
 
     1.0 showed it in the window's status bar, which took room from the page
     when it appeared: the whole page moved up and down ("it shook"). This box
@@ -1796,8 +1796,8 @@ def ghost_out(view, rect, config, ms=170, name="vtab_close"):
 
 
 HOVER_RADIUS = RADIUS    # 1.1.16: flat on top and bottom, soft corners (1.1.23: Breeze's radius, was 6)
-TOAST_RADIUS = 4.0       # 1.1.23: was 8; 1.1.29: slightly rounded, as the owner asked
-LINK_RADIUS = 3.0        # 1.1.29: the link's address, slightly rounded as Breeze's tooltips
+TOAST_RADIUS = 4.0       # 1.1.23: was 8; 1.1.30: slightly rounded, as the owner asked
+LINK_RADIUS = 3.0        # 1.1.30: the link's address, slightly rounded as Breeze's tooltips
 
 
 def separator(palette):
@@ -2181,7 +2181,7 @@ class RoundHoverStyle(QProxyStyle):
 
 
 class SlimBarStyle(QProxyStyle):
-    """The navigation and bookmarks bars a little lower (1.1.29, the owner:
+    """The navigation and bookmarks bars a little lower (1.1.30, the owner:
     "slightly, not too much"): one pixel less of the bar's own margin and
     frame above and below; the buttons, the icons and the address field keep
     their size. Set on the bar itself, never on its buttons."""

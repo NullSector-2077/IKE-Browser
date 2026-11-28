@@ -4,7 +4,7 @@ every kind (from an address, srcdoc, empty frames used at once, nested), and
 workers of every kind (blob of any type and size, data, module, from an
 address, shared, started by a worker, from a blob address made in a worker). At
 Balanced every place names the same common model for the site; at Strict and
-Maximum too, one of the cards most common in Steam's survey (1.1.29, the
+Maximum too, one of the cards most common in Steam's survey (1.1.30, the
 owner's choice; until 1.1.28 no place named a model). Software WebGL (SwiftShader) stands in for a graphics
 card in the tests; its name must never reach a page.
 

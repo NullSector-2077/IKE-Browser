@@ -157,7 +157,7 @@ def test_toolbar_shield_is_larger_in_the_same_button(run_ike):
                 assert [btn.width(), btn.height()] == before, (level, btn.width(), btn.height(), before)
             out["button"] = before
     """)
-    # 1.1.29: a little smaller than 1.1.27's 1.15-1.20 (the owner)
+    # 1.1.30: a little smaller than 1.1.27's 1.15-1.20 (the owner)
     assert 1.05 <= out["grow"] <= 1.10
     for key, m in out["scales"].items():
         w, h, want = m["size"]

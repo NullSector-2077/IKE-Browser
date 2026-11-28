@@ -185,7 +185,7 @@ def main():
                 {"url": u, "entry": "index", "site": urllib.parse.urlsplit(u).hostname,
                  "expected_content": EXPECTED_CONTENT.get(n)}))
         env = dict(os.environ, QT_QPA_PLATFORM=os.environ.get("QT_QPA_PLATFORM", "offscreen"), DE_DIAG="1", DE_CLICK=a.click, DE_SCROLL="1")
-        # Dark Reader left I.K.E. in 1.1.29: it is compared only when a checkout of 1.1.28
+        # Dark Reader left I.K.E. in 1.1.30: it is compared only when a checkout of 1.1.28
         # is given (DE_DR_ROOT, tests/dark_engine/drcompare.py)
         global MODES
         if not ((HERE.parents[1] / "ike" / "darkpages.py").is_file() or os.environ.get("DE_DR_ROOT")):

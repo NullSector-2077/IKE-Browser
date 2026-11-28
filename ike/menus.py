@@ -1,4 +1,4 @@
-"""The menu bar and the ☰ menu, described in one place (1.1.29, the owner's
+"""The menu bar and the ☰ menu, described in one place (1.1.30, the owner's
 reorganisation).
 
 Both are made of the window's own QActions and QMenus (window._build_menus

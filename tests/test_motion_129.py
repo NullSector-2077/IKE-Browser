@@ -1,4 +1,4 @@
-"""1.1.29 (the owner): three moving touches.
+"""1.1.30 (the owner): three moving touches.
 
 - A file that starts downloading flies, as its type's icon, to the
   Downloads button (polish.FlyingIcon, "download_fly").

@@ -277,7 +277,7 @@ class _Gap(QWidget):
 
 
 class _ArrowsButton(QToolButton):
-    """The bookmarks bar's "more" button (1.1.29, the owner): its two arrows
+    """The bookmarks bar's "more" button (1.1.30, the owner): its two arrows
     drawn at exactly the size of the navigation bar's Forward arrow, never
     scaled down to the bar's small icon size, in the middle of the button."""
 
@@ -331,7 +331,7 @@ class BookmarksBar(QToolBar):
 
     def refresh_arrows(self):
         """The desktop's own double arrow (arrow-right-double, as Falkon shows
-        it: 1.1.29, the owner), drawn exactly as tall and with strokes as thick
+        it: 1.1.30, the owner), drawn exactly as tall and with strokes as thick
         as the navigation bar's Forward arrow: both at the navigation's icon
         size, the double one scaled to the Forward glyph's height when its
         theme draws it otherwise."""
@@ -633,7 +633,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         tb.setObjectName("nav")
         tb.setMovable(False)
         tb.setIconSize(QSize(24, 24))         # a little larger than Qt's usual 22: easier to see (1.1.6)
-        polish.slim_bar(tb)                    # a little lower (1.1.29)
+        polish.slim_bar(tb)                    # a little lower (1.1.30)
         tb.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         tb.customContextMenuRequested.connect(self._toolbar_menu)
         self.addToolBar(tb)
@@ -850,7 +850,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.bookbar.setObjectName("bookmarks")
         self.bookbar.setMovable(False)
         self.bookbar.setIconSize(QSize(16, 16))
-        polish.slim_bar(self.bookbar)          # a little lower (1.1.29)
+        polish.slim_bar(self.bookbar)          # a little lower (1.1.30)
         self.bookbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBarBreak()
         self.addToolBar(self.bookbar)
@@ -959,7 +959,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_zoom_reset = A(T("Actual size"), lambda: self.zoom(0), "Ctrl+0", "zoom-original",
                                 T("Reset the zoom level"))
 
-        # --- the actions that had no name of their own before 1.1.29 (ike/menus.py
+        # --- the actions that had no name of their own before 1.1.30 (ike/menus.py
         # places every entry by its name)
         self.act_open_file = A(T("Open file…"), self.open_file, "Ctrl+O", "document-open",
                                T("Open a file from this computer"))
@@ -1089,7 +1089,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.act_about_qt = QAction(icon(("help-about", "dialog-information")), T("About Qt"), self)
         self.act_about_qt.triggered.connect(lambda: QMessageBox.aboutQt(self))
 
-        # --- the menu bar and the ☰ menu (1.1.29, the owner's reorganisation:
+        # --- the menu bar and the ☰ menu (1.1.30, the owner's reorganisation:
         # ike/menus.py says where each entry goes; no "More" any longer)
         from . import menus
         self.menu_skip = {"m_containers"} if self.private else set()     # a private window has no containers
@@ -1285,7 +1285,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     # tabs
     # ------------------------------------------------------------------
     def _link_hovered(self, view, url):
-        """The address of the link under the mouse, over the page (1.1.29)."""
+        """The address of the link under the mouse, over the page (1.1.30)."""
         self.link_preview.show_url(url if view is self.current_view() else "")
 
     def current_view(self):
@@ -1633,7 +1633,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self._apply_groups()
 
     def _autoclean_on_close(self, view):
-        """The broom's "clean when I close its last tab" (1.1.29, cleanpanel.py)."""
+        """The broom's "clean when I close its last tab" (1.1.30, cleanpanel.py)."""
         cfg = self.app.config
         if self.private or not cfg["autoclean_sites"]:
             return
@@ -2540,7 +2540,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         return (popup[0], popup[1]) if popup is not None else (None, None)
 
     # the dark mode panel: the I.K.E. Dark Engine's (darkenginepanel.py, 1.1.28;
-    # since 1.1.29 the only one: with Chromium's own dark mode its look is greyed)
+    # since 1.1.30 the only one: with Chromium's own dark mode its look is greyed)
     @staticmethod
     def _dark_factory(win):
         from .darkenginepanel import EnginePanel
@@ -2737,7 +2737,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         for url, title, _folder in self.app.storage.bookmarks()[:40]:
             self._open_action(m, url, title)
 
-    # ☰ → Bookmarks and history (1.1.29): as many pages and closed tabs as the
+    # ☰ → Bookmarks and history (1.1.30): as many pages and closed tabs as the
     # menu bar's History (the ☰ menu's History of before), and the first bookmarks
     # (all of them: the menu bar's Bookmarks, the bookmarks bar, Manage bookmarks)
     LIBRARY_PAGES = HISTORY_SHOWN
@@ -2745,7 +2745,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     LIBRARY_CLOSED = CLOSED_SHOWN
 
     def _fill_library(self, m):
-        """☰ → Bookmarks and history (1.1.29, the owner's categories): what
+        """☰ → Bookmarks and history (1.1.30, the owner's categories): what
         History and Bookmarks of the menu bar hold, in one menu with no menu
         inside it: the commands, then the pages visited last, the tabs
         closed last and the first bookmarks, each under its name."""
@@ -3232,7 +3232,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
     def clear_site_data(self):
         """Delete cookies and stored data of the site in the current tab (Site
-        information's button; the toolbar's broom opens its panel, 1.1.29)."""
+        information's button; the toolbar's broom opens its panel, 1.1.30)."""
         v = self.current_view()
         host = self.current_host()
         if not v or not host or v.url().scheme() not in ("http", "https"):
@@ -3259,7 +3259,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     def tracker_sites(self, site):
         """Other sites the pages of `site` loaded, that the user never opened
         himself (not in the history, not bookmarked): the page's trackers and
-        services, whose cookies the broom may delete (1.1.29). A site the user
+        services, whose cookies the broom may delete (1.1.30). A site the user
         uses (Google's sign-in, a video site) is never among them."""
         out = []
         for other in sorted(self.app.shields.page_sites.get(site, ())):
@@ -3270,7 +3270,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         return out
 
     def site_contents(self, view, site, done):
-        """What the site keeps (the broom's panel, 1.1.29): done({"cookies",
+        """What the site keeps (the broom's panel, 1.1.30): done({"cookies",
         "trackers", "tracker_cookies", "storage", "cache", "permissions"}), the
         stored data counted in I.K.E.'s own script world (the page sees nothing)."""
         profile = view.page().profile()
@@ -3377,7 +3377,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 QTimer.singleShot(300, v.reload)
         QTimer.singleShot(300, poll)         # the store has reported the deleted cookies by then
 
-    # the broom's panel (cleanpanel.py, 1.1.29)
+    # the broom's panel (cleanpanel.py, 1.1.30)
     @staticmethod
     def _clean_factory(win):
         from .cleanpanel import CleanPanel
@@ -3385,7 +3385,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
     def show_clean_panel(self, *_):
         """The broom's panel under its button: what the site keeps, what to
-        delete, and its automatic cleaning (1.1.29)."""
+        delete, and its automatic cleaning (1.1.30)."""
         return self._show_panel("clean", self._clean_factory)
 
     def site_cleaned(self, site, cookies, storage, cache, kept):
@@ -3429,7 +3429,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
 
     def download_fly(self, name):
         """A file that starts downloading flies, as its type's icon, from the
-        pointer (or the page's middle) to the Downloads button (1.1.29)."""
+        pointer (or the page's middle) to the Downloads button (1.1.30)."""
         if not polish.moving(self.app.config, "download_fly") or not self.isVisible():
             return
         btn = self.nav.widgetForAction(self.act_downloads)

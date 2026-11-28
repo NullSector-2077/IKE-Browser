@@ -202,7 +202,7 @@ def steps(ike, qapp, out):
     QFileDialog.getSaveFileName = staticmethod(fake_save)
     # the menus: "Screenshot…" with its three choices, the same in the ☰ menu, File and a page's menu
     out["submenu"] = [a.text() for a in win.act_shot.menu().actions()]
-    # (1.1.29: ☰ → File and downloads, its three choices under "Screenshot")
+    # (1.1.30: ☰ → File and downloads, its three choices under "Screenshot")
     cat = win.burger_menus["file"]
     cat.aboutToShow.emit()
     out["in_burger"] = all(a in cat.actions() for a in win.m_shot.actions())
@@ -580,7 +580,7 @@ def steps(ike, qapp, out):
     out["reopened"] = win.current_view().pending_url or win.current_view().url().toString()
     out["left"] = len(win.closed_tabs)
     out["keys"] = win.act_reopen.shortcut().toString()
-    # the same tabs in the ☰ menu's Bookmarks and history (1.1.29: under their name, the last five)
+    # the same tabs in the ☰ menu's Bookmarks and history (1.1.30: under their name, the last five)
     lib = win.burger_menus["library"]
     lib.aboutToShow.emit()
     texts = [a.text() for a in lib.actions()]

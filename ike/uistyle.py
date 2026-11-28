@@ -119,7 +119,7 @@ def paint_switch(p, rect, on, palette, enabled=True, focus=False, rtl=False, sel
         line = palette.color(R.HighlightedText)
     else:
         track = palette.color(R.Highlight) if on else palette.color(R.Mid)
-        # 1.1.29 (the owner): the knob keeps its colour, on and off; only the
+        # 1.1.30 (the owner): the knob keeps its colour, on and off; only the
         # track turns to the theme's blue (it turned white when on)
         knob = palette.color(R.Base)
         line = palette.color(R.Mid)

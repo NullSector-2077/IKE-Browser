@@ -42,10 +42,10 @@ LEVEL_LETTER = {"compatibility": "C", "balanced": "B", "strict": "K", "maximum":
 # or more with its dark centre, tests/test_launcher_icons.py). Off: a white X.
 LEVEL_COLOUR = {"compatibility": "#FFD54F",     # yellow: the lightest protection
                 "balanced": "#69F0AE",          # green: the everyday level
-                "strict": "#65C2EF",            # Kontrol: the light blue of the logo's K (1.1.29)
+                "strict": "#65C2EF",            # Kontrol: the light blue of the logo's K (1.1.30)
                 "maximum": "#FF9EE8"}           # pink: the strongest
 CENTRE_COLOUR = "#061E37"
-# the octagon in the address bar (1.1.29, the owner: a little smaller, so its
+# the octagon in the address bar (1.1.30, the owner: a little smaller, so its
 # rim no longer nearly touches the bar's border, and its letter a little
 # smaller inside it; it was 1.15 and the letter half the octagon)
 TOOLBAR_SHIELD_GROW = 1.08
@@ -94,7 +94,7 @@ def paint_shield(p, rect, level, grow=1.0, letter=1.0):
 CYBER = {
     "C": [[(4, 0), (1, 0), (0, 1), (0, 6), (1, 7), (4, 7)]],
     "B": [[(0, 3.5), (3, 3.5), (4, 2.5), (4, 1), (3, 0), (0, 0), (0, 7), (3, 7), (4, 6), (4, 4.5), (3, 3.5)]],
-    # 1.1.29: Kontrol (the owner's name for Strict): the K of the logo, a stem and two arms
+    # 1.1.30: Kontrol (the owner's name for Strict): the K of the logo, a stem and two arms
     # at 45 degrees that meet on it
     "K": [[(0, 0), (0, 7)], [(4, 0), (0.5, 3.5), (4, 7)], [(0, 3.5), (0.5, 3.5)]],
     "M": [[(0, 7), (0, 0), (2, 2.8), (4, 0), (4, 7)]],
@@ -341,7 +341,7 @@ class ShieldPanel(QWidget):
         self.repaired_undo = QPushButton(T("Undo the repair"), self)
         self.repaired_undo.clicked.connect(self._undo_repair)
         # the protected time zone (1.1.24, timezone.py): for every site, after a restart
-        # 1.1.29: each explanation in the ⓘ after its switch, as in Settings (two
+        # 1.1.30: each explanation in the ⓘ after its switch, as in Settings (two
         # lines of text under them made the closed panel taller than the room
         # below the shield on a small screen, tests/test_engines_110.py)
         from .dialogs import InfoButton
@@ -349,7 +349,7 @@ class ShieldPanel(QWidget):
         self.zone_hint = InfoButton(T("Sites see the time zone UTC, not yours. Some sites will show "
                                       "wrong times. After a restart."), self)
         self.zone.clicked.connect(self._zone_changed)
-        # common English (1.1.29): sites are told en-US at every level
+        # common English (1.1.30): sites are told en-US at every level
         self.english = Switch(T("Common English language"), self)
         self.english_hint = InfoButton(T("Sites see American English, the most common language, not "
                                          "yours. I.K.E. keeps your language. Fully after a restart."), self)

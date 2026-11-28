@@ -133,7 +133,7 @@ def vkey(version):
 
 
 def commit(version):
-    """A commit hash (a component followed on a branch, 1.1.29): its digits say nothing about
+    """A commit hash (a component followed on a branch, 1.1.30): its digits say nothing about
     which is newer."""
     return re.fullmatch(r"[0-9a-f]{40}", str(version or "")) is not None
 

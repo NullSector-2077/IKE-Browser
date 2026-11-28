@@ -939,7 +939,7 @@ def discover(root, arch_tested=None):
     res = root / "ike" / "resources"
     try:
         dr = json.loads((res / "darkreader-data.json").read_text("utf-8"))
-        # 1.1.29: Dark Reader's engine left I.K.E.; its lists stay (data, no code: no advisory database)
+        # 1.1.30: Dark Reader's engine left I.K.E.; its lists stay (data, no code: no advisory database)
         add(record("Dark Reader", "integrated", "runtime", "ike/resources/darkreader-data.json",
                    "git (https://github.com/darkreader/darkreader, default branch: its lists), rebuilt by "
                    "tools/build-darkreader-lists.py", "%s, lists %s (%s)" % (dr.get("version", "?"),
@@ -1083,7 +1083,7 @@ def vkey(version):
 
 
 def _commit(version):
-    """A commit hash (a component followed on a branch, 1.1.29): its digits say nothing about
+    """A commit hash (a component followed on a branch, 1.1.30): its digits say nothing about
     which is newer, so any other commit than the one in use is an update."""
     return re.fullmatch(r"[0-9a-f]{40}", str(version or "")) is not None
 

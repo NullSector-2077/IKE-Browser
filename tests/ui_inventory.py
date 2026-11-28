@@ -1,4 +1,4 @@
-"""Everything the interface offers, as data (1.1.29's reorganisation of the
+"""Everything the interface offers, as data (1.1.30's reorganisation of the
 menus and of Settings): every entry of the menu bar and of the ☰ menu with
 its shortcut and the action behind it, every toolbar button, every page of
 Settings with its groups and options, every keyboard shortcut of the window.

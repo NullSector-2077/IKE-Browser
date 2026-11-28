@@ -11,7 +11,7 @@ this release.
   "strict"). The shield shows a K drawn like the logo's, in the light blue of
   the logo's K (#65C2EF, 8.4:1 on the shield's centre), instead of the S;
   every language calls the level Kontrol. The menus' inventory recorded for
-  1.1.29 reads the old name as the new one (tests/test_menus_reorg.py).
+  1.1.30 reads the old name as the new one (tests/test_menus_reorg.py).
 
 - **Dark Reader leaves I.K.E.** (the owner's decision, after trying the I.K.E.
   Dark Engine in 1.1.28): the I.K.E. Dark Engine is the dark mode for pages,
@@ -85,7 +85,7 @@ this release.
   picture).
 - **Menus and Settings reorganised** (the owner's request; no function added
   or removed, every shortcut unchanged: tests/test_menus_reorg.py compares
-  everything reachable with 1.1.29's inventory).
+  everything reachable with 1.1.30's inventory).
   - The menu bar: File (open, save, print, downloads, backups, quit), Edit,
     **Tabs** (new tabs and windows, containers, profiles, workspaces, close),
     **Page** (zoom, reader, dark mode, translation, sound, source and

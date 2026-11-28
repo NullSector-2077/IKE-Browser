@@ -1,4 +1,4 @@
-"""1.1.29 (the owner): the broom's panel (cleanpanel.py).
+"""1.1.30 (the owner): the broom's panel (cleanpanel.py).
 
 It shows what the site keeps before anything goes, deletes what the user
 leaves on (the cookies of the page's trackers too, never those of a site the

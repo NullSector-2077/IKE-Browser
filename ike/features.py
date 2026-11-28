@@ -1179,7 +1179,7 @@ class WindowFeatures:
         m.clear()
         for cont in self.app.config["containers"]:
             # its colour as a dot in the middle of the icon's square, as in the
-            # tab menus (1.1.29, the owner: it sat at the top, above the text's middle)
+            # tab menus (1.1.30, the owner: it sat at the top, above the text's middle)
             m.addAction(colour_dot(cont["color"]), cont["name"],
                         lambda n=cont["name"]: self.add_tab(container=n))
         m.addSeparator()

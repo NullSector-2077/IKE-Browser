@@ -740,7 +740,7 @@
   // Strict and Maximum (1.1.25): one WebGL identity for every user (GLX above):
   // the extensions offered are those of the fixed list the real context has,
   // the others are never enabled; the card's name is the site's common card
-  // (x.gpu, 1.1.29; until 1.1.28 the extension was not offered); the limits
+  // (x.gpu, 1.1.30; until 1.1.28 the extension was not offered); the limits
   // are the fixed floor (never above the real ones). The enum is read once,
   // as the engine reads it.
   // Self-contained: it also runs inside workers (passed by its source).
@@ -889,7 +889,7 @@
   // Linux their name always carries the LLVM and DRM versions, which made
   // each such name very rare (seen in Cover Your Tracks). A fixed value of
   // our own would mark I.K.E.'s users; the real one marks the computer.
-  // Strict and Maximum (1.1.29, the owner's choice): one of the cards most
+  // Strict and Maximum (1.1.30, the owner's choice): one of the cards most
   // common in Steam's hardware survey (STEAM_GPUS), the same in every frame
   // and worker of a site, another on another site and in another session.
   // Until 1.1.28 no name at all: Cover Your Tracks counted that "None" as
@@ -956,7 +956,7 @@
   // instead of a random part of the extensions hidden with the real limits (a
   // combination of its own, and "suspicious" to the fingerprinting scripts
   // that compare them):
-  // - a common card's name (1.1.29, the owner's choice; 1.1.25 to 1.1.28 gave
+  // - a common card's name (1.1.30, the owner's choice; 1.1.25 to 1.1.28 gave
   //   none, as a common name over limits that are not that card's own is a
   //   contradiction a script can prove; "None" proved rarer in Cover Your
   //   Tracks): one of STEAM_GPUS, through WEBGL_debug_renderer_info;
@@ -1301,7 +1301,7 @@
     d.set = s;
     try { Object.defineProperty(obj, name, d); } catch (e) {}
   }
-  // window.chrome as Chromium has it (1.1.29, Engine Privacy Layer study):
+  // window.chrome as Chromium has it (1.1.30, Engine Privacy Layer study):
   // Qt WebEngine leaves it an empty object, and "chrome.loadTimes missing"
   // is a classic test for "not a real Chrome". Shape measured on Chromium
   // 140 (tools/engine-probe/chrome-shape.html): loadTimes and csi, anonymous
@@ -1397,7 +1397,7 @@
     } catch (e) {}
   }
   // The answers of navigator.permissions.query as Chromium gives them
-  // (1.1.29, Engine Privacy Layer study): Qt WebEngine says "denied" for
+  // (1.1.30, Engine Privacy Layer study): Qt WebEngine says "denied" for
   // every permission it has no prompt for, Chromium 140 "prompt" or
   // "granted". Only the state read is changed, and only from "denied" (or
   // "prompt" where Chromium answers "granted");
@@ -2685,7 +2685,7 @@
     getter(NP, 'hardwareConcurrency', function () { return cores; });
     if (strict) getter(NP, 'deviceMemory', function () { return 8; });
     if (w.NetworkInformation) {
-      // Balanced and above since 1.1.29 (Engine Privacy Layer study: Qt
+      // Balanced and above since 1.1.30 (Engine Privacy Layer study: Qt
       // says rtt 0, no Chromium does); one common network for everyone, the same as the client hints say it
       // (1.1.25, shields._NETWORK_HINTS): rtt 0 and a downlink of about 9.5
       // here, 100 and about 1.7 in the headers, before

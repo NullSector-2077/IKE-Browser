@@ -223,7 +223,7 @@ def steps(ike, qapp, out):
                                  for a in m.actions() if "\t" in a.text()]
     win.m_closed.aboutToShow.emit()
     res["closed"] = [a.text() for a in win.m_closed.actions()]
-    # ☰ → Bookmarks and history (1.1.29): the same commands, then the last pages
+    # ☰ → Bookmarks and history (1.1.30): the same commands, then the last pages
     # visited (each with its site), the tabs closed last and the bookmarks, each under its name
     lib = win.burger_menus["library"]
     lib.aboutToShow.emit()

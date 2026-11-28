@@ -329,7 +329,7 @@ ALLOWED = {"angle_instanced_arrays", "ext_blend_minmax", "ext_color_buffer_float
            "khr_parallel_shader_compile", "oes_element_index_uint", "oes_fbo_render_mipmap", "oes_standard_derivatives",
            "oes_texture_float", "oes_texture_float_linear", "oes_texture_half_float", "oes_texture_half_float_linear",
            "oes_vertex_array_object", "webgl_color_buffer_float", "webgl_compressed_texture_s3tc",
-           "webgl_debug_renderer_info",       # 1.1.29: a common card's name (the owner's choice)
+           "webgl_debug_renderer_info",       # 1.1.30: a common card's name (the owner's choice)
            "webgl_depth_texture", "webgl_draw_buffers", "webgl_lose_context", "webgl_multi_draw"}
 
 
@@ -386,7 +386,7 @@ def test_strict_webgl_is_one_identity(run_ike, gl_site):
         for name, g in places.items():
             r = reals[name]
             # before the extension is enabled: the engine's own answer (Chrome's: INVALID_ENUM
-            # and null); with it, one of the cards most common in Steam's survey (1.1.29)
+            # and null); with it, one of the cards most common in Steam's survey (1.1.30)
             assert g["before"] == r["before"] == [None, 0x0500], (name, g["before"], r["before"])
             assert g["card"] and g["card"][0] == "Google Inc. (NVIDIA Corporation)" and steam_card(g["card"][1]), \
                 (name, g["card"])

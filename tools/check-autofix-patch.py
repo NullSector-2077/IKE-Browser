@@ -58,7 +58,7 @@ whether the patch stays inside what an automatic fix may change:
   only that builder (tools/build-ubo-scriptlets.mjs) may change, and only as
   tools/builder-anchor.py allows: only the path of the library it imports
   (uBlock Origin); nothing else of the builder, no upstream code. (Dark
-  Reader's builder of its engine left with the engine in 1.1.29.)
+  Reader's builder of its engine left with the engine in 1.1.30.)
 
 - with --auto (2026-11-22, the full automation: a fix of the automation may reach main by itself):
   the static guard of tools/fix-guard.py too. Never a tier B file (the workflows, the tests, the tools,

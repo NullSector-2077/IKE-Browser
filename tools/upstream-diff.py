@@ -11,7 +11,7 @@ to a budget, and writes it into the failure description as quoted data:
   between main's ``ike-adblock/Cargo.lock`` and the candidate's, the crates the failure names first,
   then the direct ones; each crate's repository from crates.io, then GitHub's comparison of the two
   release tags (the commits' first lines and the changed lines) and the new release's notes;
-- **Dark Reader's lists** (its engine left I.K.E. in 1.1.29): the two commits of
+- **Dark Reader's lists** (its engine left I.K.E. in 1.1.30): the two commits of
   ``ike/resources/darkreader-data.json`` ("lists_commit"), compared on GitHub, the lists' own files first;
 - **uBlock Origin's scriptlets**: the two commits of ``ike/resources/ubo-scriptlets.json``, compared
   on GitHub, the scriptlets' own files first;

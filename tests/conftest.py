@@ -195,12 +195,12 @@ needs_engine = pytest.mark.skipif(not _engine_available(),
                                   reason="I.K.E. AdBlock engine not built (see docs/BUILDING.md)")
 
 
-# the cards I.K.E. names at Strict and Maximum (1.1.29; ike/resources/fingerprint.js STEAM_GPUS)
+# the cards I.K.E. names at Strict and Maximum (1.1.30; ike/resources/fingerprint.js STEAM_GPUS)
 STEAM_CARDS = {"RTX 3060", "RTX 5070", "RTX 4060 Laptop GPU", "RTX 4060", "RTX 3050"}
 
 
 def steam_card(renderer):
-    """The model of a renderer name I.K.E. gives at Strict and Maximum (1.1.29), or None."""
+    """The model of a renderer name I.K.E. gives at Strict and Maximum (1.1.30), or None."""
     pre = "ANGLE (NVIDIA Corporation, NVIDIA GeForce "
     if not renderer or not renderer.startswith(pre) or not renderer.endswith("/PCIe/SSE2, OpenGL 4.5.0)"):
         return None

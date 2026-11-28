@@ -219,7 +219,7 @@ def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
         assert "Direct3D11" not in plain["webgl"][3], plain["webgl"]
     # 1.1.18: the card named to the site is a common model, without driver
     # versions, the same in a worker; at Strict and Maximum one of the cards most
-    # common in Steam's survey (1.1.29; until 1.1.28 no name at all)
+    # common in Steam's survey (1.1.30; until 1.1.28 no name at all)
     webgl, in_worker = plain["webgl"], plain["worker"][6]
     assert webgl[2].startswith("Google Inc. (") and webgl[3].startswith("ANGLE ("), webgl
     assert not any(w in webgl[3] for w in ("LLVM", "DRM", "radeonsi", "SwiftShader")), webgl[3]

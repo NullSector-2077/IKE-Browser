@@ -1,9 +1,9 @@
-"""1.1.29 (the owner): the menus and Settings reorganised.
+"""1.1.30 (the owner): the menus and Settings reorganised.
 
 - Nothing that was reachable before is lost: every entry of the menu bar and
   of the ☰ menu, every keyboard shortcut (the same keys, on the same
   commands), every option of Settings (tests/ui_inventory.py, compared with
-  tests/data/ui-inventory-before.json recorded on 1.1.29).
+  tests/data/ui-inventory-before.json recorded on 1.1.30).
 - The ☰ menu has no "More" and goes at most two levels deep.
 - The extensions are under the owner's five headings, the same in the menus
   and in Settings.
@@ -18,14 +18,14 @@ from pathlib import Path
 from conftest import screen
 from ui_inventory import STEPS as INVENTORY
 
-# 1.1.29: the level Strict is called Kontrol (the owner's choice; the level's key stays "strict"):
+# 1.1.30: the level Strict is called Kontrol (the owner's choice; the level's key stays "strict"):
 # the inventory recorded before stays as it was, its name is read as the new one
 BEFORE = json.loads((Path(__file__).parent / "data" / "ui-inventory-before.json").read_text("utf-8")
                     .replace("Strict", "Kontrol"))
 
 # the old ☰ menu's own submenus: their entries are now in its categories
 GONE_MENUS = {"More", "File", "Edit", "View", "Tools", "History", "Bookmarks", "Protection", "Zoom"}
-# choices taken out on purpose in 1.1.29 itself (the owner: Dark Reader left
+# choices taken out on purpose in 1.1.30 itself (the owner: Dark Reader left
 # I.K.E., the I.K.E. Dark Engine is the dark mode for pages)
 GONE_CHOICES = {"Dark Reader (can be set per site, immediate)"}
 # the one-line descriptions of the pages that were split (new ones replace them)
@@ -208,7 +208,7 @@ def steps(ike, qapp, out):
     cards = [(c.property("ext"), c.mapTo(page, c.rect().topLeft()).y()) for c in page.findChildren(QFrame)
              if c.objectName() == "ike_ext_card"]
     out["ext_cards"] = [k for k, _y in sorted(cards, key=lambda c: c[1])]
-    # each card's icon and its bold name on one line (the owner, 1.1.29)
+    # each card's icon and its bold name on one line (the owner, 1.1.30)
     from PyQt6.QtWidgets import QLabel
     dlg.show_page("extensions")
     yield 300

@@ -482,7 +482,7 @@ def test_switches_are_squared_with_rounded_corners_and_a_little_smaller():
 
 
 def test_the_knob_keeps_its_colour_on_and_off():
-    """1.1.29, the owner: the knob is the same colour turned on and off (it
+    """1.1.30, the owner: the knob is the same colour turned on and off (it
     turned white when on); only the track becomes the theme's blue."""
     from PyQt6.QtCore import QRect
     from PyQt6.QtGui import QColor, QImage, QPainter, QPalette

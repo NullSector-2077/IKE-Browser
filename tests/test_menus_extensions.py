@@ -90,7 +90,7 @@ def test_menu_bar_and_burger_menu(run_ike):
             # Esc ends two modes that never meet (customising, full screen)
             out["twice"] = {k: v for k, v in keys.items() if len(v) > 1 and k != "Esc"}
     """)
-    # 1.1.29 (the owner's reorganisation, ike/menus.py)
+    # 1.1.30 (the owner's reorganisation, ike/menus.py)
     assert out["bar"] == ["&File", "&Edit", "T&abs", "&Page", "&View", "Hi&story", "&Bookmarks", "P&rivacy",
                           "E&xtensions", "&Tools", "&Help"]
     # new tabs and windows; the owner's categories; Settings and Help; About; Quit
