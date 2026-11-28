@@ -97,9 +97,10 @@ def test_the_browser_reads_the_lists_as_the_builder():
     spec = importlib.util.spec_from_file_location("bdl", ROOT / "tools" / "build-darkreader-lists.py")
     bdl = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(bdl)
-    # the builder has no reader of its own: it loads the browser's (the same file)
+    # the builder has no reader of its own: it loads the checkout's ike/darklists.py (the copy it builds for; in
+    # the installed package's shards the imported I.K.E. is the installed copy: tests/test_lessons.py, lesson 1)
     dl = bdl.darklists()
-    assert Path(dl.__file__).resolve() == Path(darklists.__file__).resolve()
+    assert Path(dl.__file__).resolve() == (ROOT / "ike" / "darklists.py").resolve()
     for name in ("parse", "parse_blocks", "parse_array", "fix_value", "hint_value", "data_problems", "check"):
         assert not hasattr(bdl, name), name
         assert getattr(dl, name).__code__.co_code == getattr(darklists, name).__code__.co_code, name
