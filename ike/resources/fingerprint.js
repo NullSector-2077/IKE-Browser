@@ -218,7 +218,11 @@
     FIREFOX = googleSite(host) || (CFG.ffsignin || []).indexOf(lower(location.hostname)) >= 0;
   }
   // Chromium 140's passkey capabilities on Linux, in its order (see passkeys)
-  var PASSKEY_CAPS = [['conditionalCreate', true], ['conditionalGet', true], ['extension:appid', true],
+  // conditionalCreate is false, not Chromium's true (1.1.32 audit): Qt
+  // WebEngine has no password manager to upgrade a sign-in silently, and
+  // starts a request for a security key (I.K.E.'s window, a key that
+  // blinks) for what a site meant as a silent upgrade
+  var PASSKEY_CAPS = [['conditionalCreate', false], ['conditionalGet', true], ['extension:appid', true],
     ['extension:appidExclude', true], ['extension:credBlob', true], ['extension:credProps', true],
     ['extension:credentialProtectionPolicy', true], ['extension:enforceCredentialProtectionPolicy', true],
     ['extension:getCredBlob', true], ['extension:hmacCreateSecret', true], ['extension:largeBlob', true],
