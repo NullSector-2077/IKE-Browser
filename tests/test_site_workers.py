@@ -271,6 +271,11 @@ def steps(ike, qapp, out):
     yield from load(view, "http://127.0.0.1:%d/page", "before", out)
     yield 300
     out["bar"] = win.workers_bar.isVisible()
+    win.workers_bar.hide()
+    win.workers_bar.show_for(view)                        # as if it had just appeared
+    win.workers_bar.ok.click()                            # at once: inert (a click meant for the page)
+    out["early"] = dict(ike.config["site_opts"].get("127.0.0.1") or {})
+    yield 700
     win.workers_bar.ok.click()                            # "Allow them on this site"
     yield 300
     out["opts"] = dict(ike.config["site_opts"].get("127.0.0.1") or {})     # a copy: undone below
@@ -284,6 +289,7 @@ def steps(ike, qapp, out):
 def test_allow_button_and_undo(run_ike, site):
     out = run_ike(ALLOW % (site, site), settings={"shield_level": "maximum", "https_only": False}, timeout=150)
     assert out["bar"] is True
+    assert "workers" not in out["early"], out          # the first half second: nothing allowed
     assert out["opts"].get("workers") is False and out["repaired"] == ["workers"], out
     assert out["after"]["first"] == ["echo one", "echo two"], out["after"]
     assert out["undone"] is None, out
