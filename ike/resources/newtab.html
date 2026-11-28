@@ -1,7 +1,8 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><title>I.K.E.</title>
 <style>
-:root{--bg:{{bg}};--fg:{{fg}};--mute:{{mute}};--card:{{card}};--line:{{line}};--acc:{{acc}}}
+:root{--bg:{{bg}};--fg:{{fg}};--mute:{{mute}};--card:{{card}};--line:{{line}};--acc:{{acc}};--k:{{k}}}
+{{cyberfont}}
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
  background:var(--bg);color:var(--fg);font-family:system-ui,"Noto Sans",sans-serif}
@@ -17,8 +18,10 @@ input{width:100%;font:inherit;font-size:17px;padding:12px 16px;border-radius:6px
 input::placeholder{color:var(--mute);opacity:1}
 input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 25%,transparent)}
 .stats{display:flex;flex-wrap:wrap;justify-content:center;gap:14px 44px;margin-top:30px;text-align:center}
-.stats b{display:block;font-size:26px;font-weight:600;color:var(--acc);font-variant-numeric:tabular-nums}
-.stats span{font-size:13px;color:var(--mute)}
+/* 1.1.30: the figures and their words in the logo's typeface (Orbitron) and the colour of its K */
+.stats{font-family:"IKE Cyber",sans-serif}
+.stats b{display:block;font-size:23px;font-weight:500;letter-spacing:.04em;color:var(--k);font-variant-numeric:tabular-nums}
+.stats span{font-size:12px;letter-spacing:.06em;color:var(--mute)}
 .tiles{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;width:min(1570px,96vw);margin-top:26px}
 .tile{position:relative;width:92px}
 .tile>a:first-child,.tile .open{display:flex;flex-direction:column;align-items:center;gap:8px;padding:6px 2px;

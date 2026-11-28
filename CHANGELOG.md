@@ -2,6 +2,16 @@
 
 ## 1.1.29
 
+- **The shield's numbers in the logo's letters** (the owner's choice): the
+  number beside the octagon in the address bar, the "+N" that rises beside
+  it, and the new tab page's figures and their words are written in Orbitron,
+  the typeface of the logo's lettering, in the colour of the logo's K (its
+  light blue on a dark background, its darker blue on a light one, always
+  readable at 3:1), a little smaller and lighter than before. The font file
+  is shipped unchanged (SIL OFL 1.1, `ike/resources/fonts/orbitron.ttf`) and
+  never installed in the system's font list, so no page can find it
+  (`ike/cyberfont.py`); languages it has no letters for keep their own font.
+
 - **Strict is now called Kontrol** (the owner's choice, the K of I.K.E.): the
   shield's fourth level keeps its protections and its place, and every
   setting already saved keeps its level (inside, the level is still

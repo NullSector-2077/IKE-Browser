@@ -1624,11 +1624,20 @@ class ShieldCount(QWidget):
         halo = QColor(self.button.palette().color(QPalette.ColorRole.Window))
         halo.setAlphaF(0.85)
         c = QColor(accent(self.button))
+        # 1.1.30: in the logo's typeface and the colour of its K, as the number it rises beside
+        from . import cyberfont
+        px = self.button.count_pixels() if hasattr(self.button, "count_pixels") else 0
+        cyber = px and cyberfont.usable(text, px)
+        if cyber:
+            c = QColor(self.button.count_colour())
         dpr = self.devicePixelRatioF()
-        key = (text, f.key(), halo.rgba(), c.rgba(), dpr)
+        key = (text, f.key(), halo.rgba(), c.rgba(), dpr, px)
         if getattr(self, "_pic_key", None) != key:
             path = QPainterPath()
-            path.addText(QPointF(0, 0), f, text)
+            if cyber:
+                path = cyberfont.outline(text, px)[0]
+            else:
+                path.addText(QPointF(0, 0), f, text)
             r = path.boundingRect().adjusted(-3, -3, 3, 3)
             ox, oy = math.floor(r.x()), math.floor(r.y())
             w, h = math.ceil(r.right()) - ox, math.ceil(r.bottom()) - oy

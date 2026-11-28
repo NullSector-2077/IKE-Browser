@@ -174,10 +174,10 @@ OWN_RESOURCES = (
     # 2026-11-23; its yearly refresh by AUTOMAT is planned with the other ageing data)
     "ike/resources/greeting.js", "ike/resources/holidays.json",
 )
-# folders of I.K.E.'s own resources: its language packs, and the icon sets (Lucide, Phosphor and the
-# Orbitron font: fixed copies with their licences in licenses/, chosen by the owner, not followed
-# upstream: docs/THIRD-PARTY.md)
-OWN_RESOURCE_DIRS = ("ike/resources/lang/", "ike/resources/icons/")
+# folders of I.K.E.'s own resources: its language packs, the icon sets (Lucide, Phosphor) and the
+# Orbitron font (ike/resources/fonts/, 1.1.30): fixed copies with their licences in licenses/, chosen
+# by the owner, not followed upstream: docs/THIRD-PARTY.md
+OWN_RESOURCE_DIRS = ("ike/resources/lang/", "ike/resources/icons/", "ike/resources/fonts/")
 # folders under those that hold a component followed upstream (1.1.24: KDE's Breeze icons, built by
 # tools/build-breeze-icons.py): every file there must be declared in components.json
 FOLLOWED_DIRS = ("ike/resources/icons/sets/breeze/",)

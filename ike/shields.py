@@ -1114,8 +1114,14 @@ class Shields(QObject):
         bg, fg = colors["{{bg}}"], colors["{{fg}}"]
         colors["{{mute}}"] = readable(colors["{{mute}}"], bg, fg)
         colors["{{acc}}"] = readable(colors["{{acc}}"], bg, fg, 3.0)
+        # 1.1.30: the figures in the colour of the logo's K, readable as the accent (3:1)
+        from . import cyberfont
+        colors["{{k}}"] = cyberfont.k_colour(bg, fg)
         for k, c in colors.items():
             html = html.replace(k, c.name())
+        face = cyberfont.data_url()
+        html = html.replace("{{cyberfont}}", '@font-face{font-family:"IKE Cyber";src:url(%s) format("truetype");'
+                            'font-weight:400 900;font-display:block}' % face if face else "")
         import html as _html
         corner = ""
         if self.config["newtab_clock"]:

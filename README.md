@@ -354,7 +354,7 @@ I.K.E. stands on the work of these projects, each under its own licence:
 | Qt, Qt WebEngine (Chromium), PyQt6 | the window and the web engine, from the system | LGPL-3.0 / BSD / GPL-3.0 |
 | Lucide, Phosphor Icons | icon sets | ISC / MIT |
 | [Breeze icons](https://invent.kde.org/frameworks/breeze-icons) by KDE | icon set (the icons I.K.E. uses) | LGPL-3.0 |
-| Orbitron | the lettering of the logo | SIL OFL 1.1 |
+| Orbitron | the lettering of the logo, the shield's numbers and the new tab page's figures | SIL OFL 1.1 |
 
 The filter lists are not shipped: the browser downloads them from their
 maintainers. The same list is in Help -> About; the complete one, with every

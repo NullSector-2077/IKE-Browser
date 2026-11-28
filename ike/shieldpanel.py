@@ -224,12 +224,30 @@ class ShieldButton(QToolButton):
         text = self.text()
         if not text:
             return r.right()
-        return r.right() + self.GAP + self.fontMetrics().horizontalAdvance(text)
+        return r.right() + self.GAP + self.count_width(text)
+
+    # 1.1.30, the owner: the number in the logo's typeface and the colour of its K, discreet
+    COUNT_SIZE = 0.6               # of the octagon's side, in pixels of the typeface
+
+    def count_pixels(self):
+        return max(9, round(self.iconSize().height() * self.COUNT_SIZE))
+
+    def count_width(self, text):
+        from . import cyberfont
+        if cyberfont.usable(text, self.count_pixels()):
+            return cyberfont.width(text, self.count_pixels())
+        return self.fontMetrics().horizontalAdvance(text)
+
+    def count_colour(self):
+        from . import cyberfont
+        field = self.parentWidget() or self
+        pal = field.palette()
+        return cyberfont.k_colour(pal.color(QPalette.ColorRole.Base), pal.color(QPalette.ColorRole.Text))
 
     def sizeHint(self):
         side = self.iconSize().height()
         text = self.text()
-        count_width = self.GAP + self.fontMetrics().horizontalAdvance(text) if text else 0
+        count_width = self.GAP + int(round(self.count_width(text) + 0.49)) if text else 0
         return QSize(side + count_width, side)
 
     def paintEvent(self, event):
@@ -245,7 +263,12 @@ class ShieldButton(QToolButton):
         pm = self.icon().pixmap(QSize(side, side), self.devicePixelRatioF())
         p.drawPixmap(QPointF(x, (self.height() - pm.deviceIndependentSize().height()) / 2), pm)
         text = self.text()
-        if text:
+        from . import cyberfont
+        if text and cyberfont.usable(text, self.count_pixels()):
+            w = self.count_width(text)
+            left = x - self.GAP - w if rtl else x + side + self.GAP
+            cyberfont.paint(p, left, self.height() / 2, text, self.count_pixels(), self.count_colour())
+        elif text:
             fm = p.fontMetrics()
             left = x - self.GAP - fm.horizontalAdvance(text) if rtl else x + side + self.GAP
             p.setPen(self.palette().color(QPalette.ColorRole.ButtonText))
