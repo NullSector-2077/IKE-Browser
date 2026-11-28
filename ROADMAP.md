@@ -242,8 +242,21 @@ are agreed with the project owner; do not reopen them without asking.
   pages that change softly, the sun and the moon, the shield's turn, the
   Dark Engine's empty layers and the backdrop between pages (#224), and the
   comparison session's package (#226: phishing list, vault lock, spelling,
-  history kept for a chosen time, print preview). It reaches `main` when its
-  single test round is green; then the owner signs.
+  history kept for a chosen time, print preview). Published on 2026-11-28
+  (#227, two test rounds: the first found `kontrol.html` missing from
+  `tools/inventory.py` and a fade test that raced on a fast runner).
+- **Next: 1.1.32**, the site-compatibility work of two other conversations.
+  Until it is published AUTOMAT merges nothing into `main` (the owner's
+  decision of 2026-11-28): "Merge green fixes" (`automerge.yml`) is disabled
+  and AUTOMAT's #229 and #230 wait; AUTOMAT re-enables it when 1.1.32 is out.
+- **Dark Engine, open points** (for the next conversation): the owner saw a
+  white flash on a fast dark site (1.1.31 gives the backdrop again at every
+  new page and fades pages: to be verified on the owner's PC) and had a
+  white box on one site (empty layers, fixed in #224: to be verified). The
+  diagnosis on the owner's own I.K.E. is `tests/dark_engine/live-diag.py`
+  (its docstring says how), the private-profile one `owner-check.sh`
+  (`docs/DARK-ENGINE.md`). The branches `feature/1.1.29-dark-engine` and
+  `experiment/ike-dark-engine` are kept by the owner: never delete them.
 - **1.1.30** (1.1.29 included, never published on its own) is published.
   Its work: the I.K.E. Dark Engine as the only page dark mode (Dark Reader's
   engine removed, its lists kept), the menus and Settings reorganised, the
