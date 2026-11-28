@@ -24,6 +24,18 @@
   tests/test_newtab_panels.py).
 - **The names of the favourite sites are readable** (they were grey): in the
   text colour, a little heavier, in the light and the dark theme.
+- **A clearer glass on the new tab page** (the owner's request): over a
+  photo, each group of text (greeting, wordmark, clock and weather, counter,
+  buttons, the sites' names) sits on a glass that shows the photo, with a
+  thin discreet edge, and the letters and the weather's symbols have a soft
+  halo in the page's colour. The glass is tinted only as much as the photo
+  under that group asks, from 8 % (18 % before): every text still reads at
+  4.5:1 on the worst part of the photo, the large figures at 3:1, and the
+  sites' small names now at 7:1 (tests/test_newtab_readability.py: white,
+  black, busy and I.K.E.'s own photo, light and dark theme).
+- **The clock and the weather are smaller** (the owner: the weather was too
+  large for a second row of sites): the clock 32 px (42), the weather's
+  symbol about 1.15 cm (2 cm); in a narrow window its details now fit too.
 - **The logo lights up on the new tab page** (the owner's choice): every four
   seconds a short light runs along the circuit of the logo and the pads
   flash. Only with the interface's effects on (so not with reduced motion
