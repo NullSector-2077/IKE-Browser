@@ -1105,6 +1105,42 @@ def test_a_conflict_beyond_changelog_and_version_goes_to_a_person(tmp_path, monk
     assert "workflow run daily-maintenance.yml --repo o/r --ref main" in flat
 
 
+def test_a_candidate_in_conflict_with_main_is_refreshed_before_any_check(monkeypatch):
+    """GitHub starts no pull_request run on a pull request in conflict with main (the drill, 2026-11-28): the
+    candidate is refreshed at once (main merged in, CHANGELOG resolved), with no check of its own yet; when the
+    refresh stops, one informational comment says why and what happens next."""
+    p = dict(pr("automation/update/ubo-scriptlets"),
+             head={"ref": "automation/update/ubo-scriptlets", "sha": "c" * 40, "repo": {"full_name": "o/r"}},
+             base={"ref": "main", "sha": "b" * 40})
+    ubo = {"sha": "3" * 40, "commit": {"message": "update: ubo-scriptlets a -> b (no AI)"},
+           "files": ["ike/resources/ubo-scriptlets.json"]}
+    calls = _main_world(monkeypatch, p, [ubo], [f("ike/resources/ubo-scriptlets.json", "@@ -1 +1 @@\n-a\n+b")], [])
+    inner = merge.api
+    states = iter([None, False])                              # GitHub computes it a little after the push
+    monkeypatch.setattr(merge, "api", lambda path: {"mergeable": next(states)} if path == "repos/o/r/pulls/7"
+                        else inner(path))
+    monkeypatch.setattr(merge.time if hasattr(merge, "time") else __import__("time"), "sleep", lambda s: None)
+    done = []
+    monkeypatch.setattr(merge, "refresh_branch", lambda repo_, ref, s, **kw: done.append((ref, s, kw)) or
+                        ("d" * 40, ""))
+    assert merge.main(["--repo", "o/r", "--sha", "c" * 40]) == 0
+    assert done == [("automation/update/ubo-scriptlets", "c" * 40, {})]
+    flat = [" ".join(map(str, c[1:])) for c in calls if c[0] == "gh"]
+    assert not any("/merge" in c for c in flat), flat
+    # mergeable: nothing refreshed, the judge goes on as before (here: no checks yet, it waits)
+    done.clear()
+    monkeypatch.setattr(merge, "api", lambda path: {"mergeable": True} if path == "repos/o/r/pulls/7"
+                        else inner(path))
+    assert merge.main(["--repo", "o/r", "--sha", "c" * 40]) == 0 and done == []
+    # the refresh stops on a real conflict of a rebuilt candidate: told once, rebuilt by the daily maintenance
+    monkeypatch.setattr(merge, "api", lambda path: {"mergeable": False} if path == "repos/o/r/pulls/7"
+                        else inner(path))
+    monkeypatch.setattr(merge, "refresh_branch", lambda repo_, ref, s, **kw: ("", "x.json: a conflict with main"))
+    assert merge.main(["--repo", "o/r", "--sha", "c" * 40]) == 0
+    flat = [" ".join(map(str, c[1:])) for c in calls if c[0] == "gh"]
+    assert any(c.startswith("pr comment 7") and "x.json: a conflict with main" in c for c in flat), flat
+
+
 def test_the_refresh_commit_is_accepted_and_a_disguised_one_refused(tmp_path):
     repo, git, sha = _world(tmp_path)
     good, why = merge.make_refresh(DARK, sha["dark"], sha["main"], cwd=repo)
