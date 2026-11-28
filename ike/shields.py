@@ -360,7 +360,7 @@ _NETWORK_HINTS = {b"rtt": b"50", b"downlink": b"10", b"ect": b"4g"}
 # way (a policy that refuses blob workers, a script that could not be read)
 # is refused here, as when its script cannot be fetched: it never runs
 # without the protection.
-# Kontrol (1.1.31, the owner's decision after the web compatibility campaign
+# Kontrol (1.1.32, the owner's decision after the web compatibility campaign
 # of 2026-11-28): WhatsApp and Telegram need their workers, so they run. Only
 # the site's own files can be in them; workers made from a page's own text
 # (blob:, data:), which any script of the page can make, keep the protection.
@@ -746,7 +746,7 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
                 info.block(True)       # no worker from a file without the protection (1.1.25)
                 self._count(first_host, "workers")
                 return
-            self._count(first_host, "workers_open")     # the site's own, with the engine's values (1.1.31)
+            self._count(first_host, "workers_open")     # the site's own, with the engine's values (1.1.32)
         if cfg["login_compat"]:
             try:
                 init_host = info.initiator().host().lower()
@@ -1031,7 +1031,7 @@ class Shields(QObject):
         if kind in ("ads", "scripts", "workers"):
             if kind != "workers":
                 newtab.count_blocked(self.config)   # the total and the month's own count
-            # (1.1.31: a worker refused at Maximum, too, so the window can say so: workersbar.py)
+            # (1.1.32: a worker refused at Maximum, too, so the window can say so: workersbar.py)
             # A page full of ads blocks hundreds of things while it loads: the
             # windows hear of it once per site every few milliseconds, after
             # the counts are in (1.1.18: once per request, a third of the
@@ -1606,7 +1606,7 @@ class Shields(QObject):
                       "key": self.profile_keys[id(p)],
                       "gpc": bool(cfg["send_gpc"]),
                       "nofp": [h for h, o in cfg["site_opts"].items() if o.get("fp") is False],
-                      # the sites whose own workers the user allowed at Maximum (1.1.31)
+                      # the sites whose own workers the user allowed at Maximum (1.1.32)
                       "nowk": [h for h, o in cfg["site_opts"].items() if o.get("workers") is False],
                       "payframes": list(PAYMENT_SITES),
                       "ffua": FIREFOX_UA if cfg["login_compat"] else "",

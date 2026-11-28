@@ -10,7 +10,7 @@ browserleaks.com and CreepJS, the owner's decisions of 2026-11-24):
 - Maximum starts no service worker and no shared worker from a site's own
   file (their script is refused in the engine), and a service worker
   registered before at a lower level is unregistered (Strict too until
-  1.1.30; since 1.1.31 Kontrol lets the site's own run: tests/test_site_workers.py);
+  1.1.30; since 1.1.32 Kontrol lets the site's own run: tests/test_site_workers.py);
 - Strict and Maximum: Chrome's own five PDF plugins (the two invented ones had
   no type: "missing mimetype"); the network in JavaScript and in the client
   hints is one common set; the languages are the first one and its base, as
@@ -184,7 +184,7 @@ def test_every_place_gives_the_same_identity(run_ike, site, level):
         assert r["file_shared"] == "error", r["file_shared"]
         assert not [p for p, h in seen if p in ("/sw.js", "/shw.js")], seen
     elif level == "strict":
-        # Kontrol (1.1.31, the owner's decision): the site's own service and shared
+        # Kontrol (1.1.32, the owner's decision): the site's own service and shared
         # workers run, with the engine's own values: its brand list in its order and
         # no kernel version, as everywhere; Chrome's full version where the page says
         # only the major one (the difference the owner accepted, see
@@ -272,7 +272,7 @@ def steps(ike, qapp, out):
 def test_maximum_unregisters_an_older_service_worker(run_ike, site):
     """A service worker registered at Balanced would still start with the
     engine's own values at Maximum: it is unregistered there. Kontrol keeps
-    it (1.1.31: WhatsApp starts from its service worker)."""
+    it (1.1.32: WhatsApp starts from its service worker)."""
     port, seen = site
     out = run_ike(STEPS % port, settings={"shield_level": "balanced"}, timeout=180)
     assert json.loads(out["r1"])["regs"] == 1

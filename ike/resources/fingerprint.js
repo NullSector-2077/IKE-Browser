@@ -279,7 +279,7 @@
   var maximum = lv >= 4;
   // Maximum keeps the sites' own workers out (1.1.25): no service worker, no
   // shared worker, no dedicated worker from a file without the protection.
-  // Kontrol lets them run (1.1.31, the web compatibility campaign: WhatsApp
+  // Kontrol lets them run (1.1.32, the web compatibility campaign: WhatsApp
   // and Telegram need them), and so does Maximum on a site whose workers the
   // user allowed (the shield, "Repair this site": CFG.nowk). Only the site's
   // own files can be in them; every worker a page's script can make from its
@@ -3169,7 +3169,7 @@
     // module (MODULE_TOP). If that cannot be done (a content security policy
     // refuses blob workers) the worker is started as the page asked: at
     // Maximum the request check refuses its script (shields._WORKER_SCRIPTS),
-    // so it never runs without the protection; at Kontrol (1.1.31) it runs
+    // so it never runs without the protection; at Kontrol (1.1.32) it runs
     // the site's own file (see adopt below): where a site refuses blob
     // workers no script of the page can make one either, so only the site's
     // own code can be in it.
@@ -3247,7 +3247,7 @@
         }]);
       } catch (e) {}
     }
-    // Kontrol (1.1.31, the web compatibility campaign): the engine refuses a
+    // Kontrol (1.1.32, the web compatibility campaign): the engine refuses a
     // blob worker the site's policy does not allow only after the Worker
     // object is made (an "error" event a moment later, never an exception),
     // so the fallback to the page's own address below never ran, and
@@ -3880,7 +3880,7 @@
   // refuses their scripts, whatever frame or worker asks). One registered
   // before, at a lower level, would still start with the engine's own values:
   // it is unregistered (the page keeps its controller until it is left, as
-  // with unregister()). Kontrol keeps them (1.1.31): WhatsApp starts from its
+  // with unregister()). Kontrol keeps them (1.1.32): WhatsApp starts from its
   // service worker.
   if (keepWorkersOut) {
     try {

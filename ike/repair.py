@@ -25,7 +25,7 @@ PROTECTIONS = (
     ("ads", "Ad and tracker blocking"),
     ("cookies", "Cross-site cookie blocking"),
     ("fp", "Fingerprinting protection"),
-    # 1.1.31: at Maximum a site that needs its own workers (WhatsApp,
+    # 1.1.32: at Maximum a site that needs its own workers (WhatsApp,
     # Telegram) loses only them, not its fingerprinting protection. Right
     # after "fp": the worker rule acts only while "fp" is on, so the search
     # always tries "fp" first (alone or in an earlier group) and finds the
@@ -54,7 +54,7 @@ def active(cfg, host):
     if lv >= 2 and opt(host, "fp") is not False:
         out.append("fp")
     if lv >= 4 and opt(host, "fp") is not False and opt(host, "workers") is not False:
-        out.append("workers")           # refused at Maximum only (1.1.31)
+        out.append("workers")           # refused at Maximum only (1.1.32)
     if cfg["https_only"] and opt(host, "https") is not False:
         out.append("https")
     if cfg["comp_consent"] and opt(host, "consent") is not False:

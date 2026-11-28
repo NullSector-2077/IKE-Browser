@@ -1,4 +1,4 @@
-"""The bar above a page whose own background workers the level refused (1.1.31).
+"""The bar above a page whose own background workers the level refused (1.1.32).
 
 At Maximum a site's own service workers, shared workers and workers from its
 files are refused (shields.py, _WORKER_SCRIPTS): messaging sites such as

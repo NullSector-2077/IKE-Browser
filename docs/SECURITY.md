@@ -134,7 +134,7 @@ routes useless; it cannot stop a script written against it:
   the page; elsewhere such a worker keeps the protection or does not start.
   A worker from a site's file at Maximum is still refused rather than run
   without the protection (at Kontrol see the next point).
-- **The site's own workers at Kontrol** (1.1.31, the owner's decision after
+- **The site's own workers at Kontrol** (1.1.32, the owner's decision after
   the web compatibility campaign, docs/review/web-compat-2026-11.md): a
   site's service workers, shared workers, and dedicated workers from its own
   files when its policy refuses the protected copy (WhatsApp, Telegram,

@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.31
+## 1.1.32
 
 - **Sign-in pages no longer wait for ever for passkeys** (the owner: "we must
   find a solution"): Arch's Qt WebEngine never answers a page that asks
@@ -54,6 +54,11 @@
   (`ike/shields.py`, `ike/resources/fingerprint.js`, `ike/workersbar.py`,
   `ike/shieldpanel.py`, `ike/repair.py`; tests/test_site_workers.py, five
   new texts in every language pack).
+- **Lower navigation and bookmarks bars** (the owner chose "A" from a
+  preview): only the empty room above and below the buttons goes (2 px left
+  instead of 5): with KDE's Breeze the address bar's row is 40 px (46) and the
+  bookmarks bar 34 px (40). Buttons, icons and the address field keep their
+  size (`ike/polish.py` `SlimBarStyle`).
 - **A reusable web compatibility suite** (tests/compat/, outside the
   automatic tests, GitHub Actions and AUTOMAT): real sites at every level
   with their own checks, a local page of web technologies (workers,
@@ -99,6 +104,8 @@
   name in the refusal (`securitypolicyviolation`'s `sample`, and the report its
   server receives); with the seed the noise can be taken off. The name is now
   random, another in every document.
+## 1.1.31
+
 - **Pages that steal passwords are stopped** (the owner's choice after the
   comparison with the best-known browsers): the Phishing URL Blocklist
   (curben's malware-filter, from OpenPhish, IPThreat and PhishTank, updated
