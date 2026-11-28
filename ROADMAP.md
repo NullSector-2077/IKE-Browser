@@ -282,10 +282,16 @@ are agreed with the project owner; do not reopen them without asking.
   history kept for a chosen time, print preview). Published on 2026-11-28
   (#227, two test rounds: the first found `kontrol.html` missing from
   `tools/inventory.py` and a fade test that raced on a fast runner).
-- **Next: 1.1.32**, the site-compatibility work of two other conversations.
-  Until it is published AUTOMAT merges nothing into `main` (the owner's
-  decision of 2026-11-28): "Merge green fixes" (`automerge.yml`) is disabled
-  and AUTOMAT re-enables it when 1.1.32 is out. AUTOMAT's own fixes (#229,
+- **1.1.32** is prepared as one release (one pull request, one test round):
+  the sites' own workers at Kontrol and Maximum (WhatsApp, Telegram) except
+  on pages of I.K.E.'s safety warnings or where the user blocks them, the
+  Cloudflare fix, passkeys answered, "Repair this site" as a diagnosis
+  centre and the shield's four colours (I.K.E. Interference), the worker
+  queue checked against Chrome 140, lower bars, the fingerprinting audit;
+  reviewed by Fable 5.2 (its findings fixed). Until it is published AUTOMAT
+  merges nothing into `main` (the owner's decision of 2026-11-28): "Merge
+  green fixes" (`automerge.yml`) is disabled and AUTOMAT re-enables it when
+  1.1.32 is out. AUTOMAT's own fixes (#229,
   #230, #231, #234) go in together as #235, at the owner's request.
 - **Dark Engine**: the white flash on a fast dark site (1.1.31 gives the
   backdrop again at every new page and fades pages) and the white box on one
