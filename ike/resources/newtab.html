@@ -20,8 +20,12 @@ input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(-
 .stats{display:flex;flex-wrap:wrap;justify-content:center;gap:14px 44px;margin-top:30px;text-align:center}
 /* 1.1.30: the figures and their words in the logo's typeface (Orbitron) and the colour of its K */
 .stats{font-family:"IKE Cyber",sans-serif}
-.stats b{display:block;font-size:23px;font-weight:500;letter-spacing:.04em;color:var(--k);font-variant-numeric:tabular-nums}
-.stats span{font-size:12px;letter-spacing:.06em;color:var(--mute)}
+/* Orbitron's own line height is taller than the system font's: kept to the old box, so the figures
+   take no more room than before (the weather's details beside them still fit) */
+.stats b{line-height:1.15}.stats span{line-height:1.35}
+.stats{column-gap:34px}  /* Orbitron is wider: the three figures keep their old overall width */
+.stats b{display:block;font-size:20px;font-weight:500;letter-spacing:0;color:var(--k);font-variant-numeric:tabular-nums}
+.stats span{font-size:11px;letter-spacing:0;color:var(--mute)}
 .tiles{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;width:min(1570px,96vw);margin-top:26px}
 .tile{position:relative;width:92px}
 .tile>a:first-child,.tile .open{display:flex;flex-direction:column;align-items:center;gap:8px;padding:6px 2px;
