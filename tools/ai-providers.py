@@ -151,7 +151,7 @@ def discovered(env=None, provider=None):
 # room of the workflow (it looks up other names, which the firewall refuses: "temporary" on 2026-11-25, a timeout
 # on 2026-11-28, about 150 refused lookups each time). The API is the one the reviewers already use.
 GEMINI_OPENAI = GEMINI_API + "/openai/chat/completions"
-GEMINI_BUDGET = 400_000         # characters of failure + code sent (its context holds a million tokens)
+GEMINI_BUDGET = 250_000         # characters of failure + code sent: ike/window.py whole, and fast enough
 GEMINI_TOKENS = 8_000
 
 

@@ -62,3 +62,36 @@ def test_gemini_gets_whole_large_files():
     msg = reserve.message_for("F" * 500, "C" * 500, {"ike/window.py": big}, reg.GEMINI_BUDGET)
     assert big in msg
     assert big not in reserve.message_for("F" * 500, "C" * 500, {"ike/window.py": big}, 14_000)
+
+
+def test_geminis_answers_are_read_as_they_come():
+    """Run 46178015817: Gemini through its API timed out at 150 s and gave "no answer" for a message with no
+    "content" (its thinking took the room): it gets 300 s, little thinking, and such an answer is a cutoff."""
+    import io
+    reserve, reg = load("autofix-reserve"), load("ai-providers")
+    seen = {}
+
+    class Answer(io.BytesIO):
+        headers = {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def opener(req, timeout=0):
+        seen["timeout"], seen["body"] = timeout, json.loads(req.data)
+        return Answer(json.dumps({"choices": [{"message": {"role": "assistant"}, "finish_reason": "length"}]}).encode())
+
+    try:
+        reserve.ask(reg.GEMINI_OPENAI, "g", "gemini-3.8-flash", [{"role": "user", "content": "x"}], opener=opener)
+    except reserve.Stop as s:
+        assert s.args[0] == "cutoff"
+    else:
+        raise AssertionError("no Stop")
+    assert seen["timeout"] >= 300 and seen["body"]["reasoning_effort"] == "low"
+    reserve.ask("https://api.z.ai/api/paas/v4/chat/completions", "z", "glm", [{"role": "user", "content": "x"}],
+                opener=lambda req, timeout=0: (seen.update(t2=timeout), Answer(json.dumps(
+                    {"choices": [{"message": {"content": "ok"}}]}).encode()))[1])
+    assert seen["t2"] == reserve.REQUEST_TIMEOUT

@@ -213,6 +213,7 @@ def _git(workdir, *args, text=True):
 MAX_FILES = 5
 TOTAL_TIMEOUT = REGISTRY.RESERVES_TIMEOUT
 REQUEST_TIMEOUT = 150
+GEMINI_TIMEOUT = 300           # seconds for one request to Gemini (whole large files)
 FILES_BUDGET = 400_000         # characters of whole files at most (each provider gets those that fit its own budget)
 MAX_TOKENS = 6000
 # fitting a request to a provider's limit of tokens per minute (fitted, 2026-11-25)
@@ -558,6 +559,10 @@ def reasoning_params(url, model, level):
         return {"reasoning": {"effort": "minimal" if level == "less" else "none", "exclude": True}}
     if "api.z.ai/" in url:
         return {"thinking": {"type": "disabled"}} if level == "off" else {}
+    if "generativelanguage.googleapis.com/" in url:
+        # Gemini's thinking models through the OpenAI-compatible endpoint (2026-11-28): little thinking, so that
+        # the answer keeps its room; "low" is accepted by every thinking model of the free tier
+        return {"reasoning_effort": "low"}
     if "api.groq.com/" in url:
         if "gpt-oss" in model:
             return {"reasoning_effort": "low"}
@@ -576,6 +581,9 @@ def ask(url, key, model, messages, timeout=REQUEST_TIMEOUT, opener=urllib.reques
     if temperature != 0.1:
         request["temperature"] = min(0.3, max(0.0, float(temperature)))      # always low: never above 0.3
     body = json.dumps(request).encode()
+    if "generativelanguage.googleapis.com/" in url:
+        # a request with whole large files takes Gemini longer than the others' 150 s (run 46178015817: TimeoutError)
+        timeout = max(timeout, GEMINI_TIMEOUT)
     req = urllib.request.Request(url, data=body, method="POST", headers={
         "Authorization": "Bearer " + key, "Content-Type": "application/json",
         "User-Agent": "IKE-autofix", "X-Title": "I.K.E. automatic fix"})
@@ -617,7 +625,9 @@ def ask(url, key, model, messages, timeout=REQUEST_TIMEOUT, opener=urllib.reques
         # WP9: the answer itself says it cost money; the provider is not free here
         raise Stop("unavailable", "the answer reports a cost")
     try:
-        content = data["choices"][0]["message"]["content"] or ""
+        # Gemini's answer cut off by its thinking has a message with no "content" at all (2026-11-28): read as
+        # empty, so that it is the cutoff it is (and asked again with less reasoning), not "no answer"
+        content = (data["choices"][0].get("message") or {}).get("content") or ""
         finish = data["choices"][0].get("finish_reason")
     except (KeyError, IndexError, TypeError, AttributeError):
         raise Stop("temporary", "no answer")
