@@ -567,7 +567,15 @@ def steps(ike, qapp, out):
             }
           }
           return [window.innerWidth, bad, n]; } catch (e) { return [window.innerWidth, ['error', String(e)], 0]; } })()""" % json.dumps(PACKS)
-        res[width] = yield from js(view, code)
+        # some 3,600 layouts: on a slow runner more than js()'s 4 s (it answered
+        # nothing), so the answer is awaited for up to a minute
+        box = {}
+        view.page().runJavaScript(code, lambda r, box=box: box.setdefault("r", r))
+        for _ in range(600):
+            if "r" in box:
+                break
+            yield 100
+        res[width] = box.get("r")
     out["fit"] = res
 '''
 

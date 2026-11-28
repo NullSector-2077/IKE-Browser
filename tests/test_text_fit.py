@@ -80,7 +80,21 @@ def steps(ike, qapp, out):
         log("menu", where)
         menu.popup(pos)
         settle()
-        problems.extend(textfit.check_menu(menu, where))
+        # measured open, at the size it opened with: on a slow runner the menu
+        # was sometimes not open yet (a menu never shown is 100 px wide, so
+        # every entry "stuck out"); it is opened again for up to 3 s
+        filled = any(a.isVisible() for a in menu.actions())     # (Qt opens no empty menu: nothing to measure)
+        deadline = time.time() + (3 if filled else 0)
+        while time.time() < deadline and not (menu.isVisible() and menu.width() >= menu.sizeHint().width()):
+            if not menu.isVisible():
+                menu.popup(pos)
+            QApplication.processEvents()
+            time.sleep(0.02)
+        if not menu.isVisible():
+            if filled:
+                problems.append((where, "QMenu", menu.title(), "the menu does not open"))
+        else:
+            problems.extend(textfit.check_menu(menu, where))
         menu.hide()
 
     def dialog(where, dlg):
