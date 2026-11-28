@@ -34,6 +34,7 @@ from PyQt6.QtWidgets import (
 from . import APP_NAME
 from .config import LEVEL_NAMES, LEVELS, rank
 from .i18n import T
+from .shields import site_of
 from .uistyle import Switch
 
 LEVEL_LETTER = {"compatibility": "C", "balanced": "B", "strict": "K", "maximum": "M"}
@@ -561,8 +562,18 @@ class ShieldPanel(QWidget):
         QTimer.singleShot(0, self._resize_popup)     # rows may have appeared or gone
 
     def _repair(self):
+        f = self.win.app.diagnosis.finding(self.win.current_view())
+        if f is not None and f.keys == ("kontrol",):
+            # Maximum refused the site's own workers (2026-11-28): no repair
+            # lets them in at Maximum; the user chooses Kontrol for the site
+            self._use_kontrol()
+            return
         self.win.shield_menu.hide()
         self.win.repair_site()
+
+    # Maximum's own finding (incompat.MaximumWorkers): what the one choice means
+    KONTROL_CHOICE = _t("“Use Kontrol on this site” lets them run on this site only, "
+                        "with your computer's real details; Maximum stays on everywhere else.")
 
     # the consequence of the narrow repair, said before the user chooses it
     REPAIR_CHANGES = _t("“Repair this site” turns off only that protection, for this site only; "
@@ -574,6 +585,7 @@ class ShieldPanel(QWidget):
         forward (1.1.32). Opening or closing the panel changes nothing."""
         state, text = self.win.interference_state()
         lines = []
+        f = None
         if state == "danger":
             lines.append("⛔ " + T(text))
         elif state is not None:
@@ -581,7 +593,10 @@ class ShieldPanel(QWidget):
             lines.append("⚠ " + T(text))
             if f is not None:
                 lines.append(T(f.cause))
-                lines.append(T(self.REPAIR_CHANGES) if f.keys else T(self.HELP))
+                if f.keys == ("kontrol",):
+                    lines.append(T(self.KONTROL_CHOICE))
+                else:
+                    lines.append(T(self.REPAIR_CHANGES) if f.keys else T(self.HELP))
         v = self.win.current_view()
         if state is None and v is not None and getattr(v, "_ike_confirmed", None) is not None \
                 and v._ike_confirmed == getattr(v, "_ike_loads", None):
@@ -597,6 +612,11 @@ class ShieldPanel(QWidget):
             font.setBold(incompat)
             self.repair_btn.setFont(font)
         self.repair_btn.setDefault(incompat)
+        # at Maximum the one choice for refused workers is Kontrol for the site
+        kontrol = f is not None and f.keys == ("kontrol",)
+        label = T(self.USE_KONTROL) if kontrol else T("Repair this site…")
+        if self.repair_btn.text() != label:
+            self.repair_btn.setText(label)
         host = self.win.current_host()
         cfg = self.win.app.config
         if incompat:
@@ -609,30 +629,66 @@ class ShieldPanel(QWidget):
         else:
             self.repair_btn.setVisible(bool(host) and cfg.level_for(host) != "off" and bool(cfg["repair_button"]))
 
-    WORKERS_RUN = _t("This site uses background programs: it works better, but protects you a little less.")
+    WORKERS_RUN = _t("This site uses background programs that cannot be protected: "
+                     "they can show your computer's real details. Block them if you prefer more protection.")
     WORKERS_BLOCKED = _t("This site's background programs are blocked: more protection, but the site may not work.")
+    WORKERS_MAX = _t("Maximum blocks this site's background programs, because they cannot be protected: "
+                     "the site may not work. Kontrol lets them run on this site.")
+    USE_KONTROL = _t("Use Kontrol on this site")
 
     def _show_workers(self, host, level, st):
-        """The quiet line about the site's own workers (1.1.32): shown only
-        where they ran, or where the user blocked them; never on a page of a
-        safety warning (they stay out there, whatever is chosen here)."""
+        """The quiet line about the site's own workers that cannot be
+        protected: at Kontrol (1.1.32) shown where they ran in this session or
+        where the user blocked them, with the block and its undo; at Maximum
+        (2026-11-28) shown where they were refused, with Kontrol for the site
+        as the user's own choice (no exception at Maximum). Never on a page
+        of a safety warning (they stay out there at every level)."""
         cfg = self.win.app.config
         sh = self.win.app.shields
-        blocked = bool(host) and cfg.site_opt(host, "workers") is True
-        ran = bool(host) and bool(st.get("workers_open"))
-        show = (bool(host) and rank(level) >= 3 and cfg.site_opt(host, "fp") is not False
-                and (ran or blocked) and not sh.worker_danger(host))
+        lv = rank(level)
+        fp_on = bool(host) and cfg.site_opt(host, "fp") is not False
+        danger = bool(host) and sh.worker_danger(host)
+        self._workers_kontrol = False
+        if lv >= 4:
+            show = bool(host) and bool(st.get("workers")) and not danger
+            if show:
+                self._workers_kontrol = True
+                self.workers_line.setText(T(self.WORKERS_MAX))
+                self.workers_btn.setText(T(self.USE_KONTROL))
+        else:
+            blocked = bool(host) and cfg.site_opt(host, "workers") is True
+            ran = bool(host) and (bool(st.get("workers_open"))
+                                  or site_of(host) in getattr(sh, "workers_open_sites", ()))
+            show = bool(host) and lv == 3 and fp_on and (ran or blocked) and not danger
+            if show:
+                self.workers_line.setText(T(self.WORKERS_BLOCKED if blocked else self.WORKERS_RUN))
+                self.workers_btn.setText(T("Allow them again") if blocked else T("Block them on this site"))
         self.workers_line.setVisible(show)
         self.workers_btn.setVisible(show)
-        if show:
-            self.workers_line.setText(T(self.WORKERS_BLOCKED if blocked else self.WORKERS_RUN))
-            self.workers_btn.setText(T("Allow them again") if blocked else T("Block them on this site"))
+
+    def _use_kontrol(self):
+        """Kontrol for this site, chosen by the user (2026-11-28): the site's
+        own workers that cannot be protected run there, with the computer's
+        own values; every other protection of Kontrol stays on. Undone from
+        the site's level in this panel."""
+        host = self.win.current_host()
+        if not host:
+            return
+        self.win.app.config.set_site_level(host, "strict")
+        v = self.win.current_view()
+        if v is not None:
+            self.win.app.diagnosis.resolved(v)
+        self._apply()
 
     def _toggle_workers(self):
         """Block the site's own workers on this site, or allow them again:
-        remembered for the site, the page loaded again (1.1.32)."""
+        remembered for the site, the page loaded again (1.1.32). At Maximum
+        the button offers Kontrol for the site instead."""
         host = self.win.current_host()
         if not host:
+            return
+        if getattr(self, "_workers_kontrol", False):
+            self._use_kontrol()
             return
         cfg = self.win.app.config
         if cfg.site_opt(host, "workers") is True:

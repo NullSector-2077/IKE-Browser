@@ -1,6 +1,7 @@
 """The sites' own workers at Kontrol and Maximum (1.1.32, the owner's decision
 after the web compatibility campaign of 2026-11-28,
-docs/review/web-compat-2026-11.md).
+docs/review/web-compat-2026-11.md; Maximum changed by the owner's decision
+of 2026-11-28 after the worker guard study, docs/review/worker-guard-study.md).
 
 WhatsApp and Telegram did not work at Kontrol and Maximum: their service
 workers, shared workers and dedicated workers from their own files were
@@ -12,16 +13,20 @@ so the fallback never ran.
   dedicated worker whose protected copy the policy refuses: the site's file
   inside the same object, the messages posted before the switch delivered,
   no error and no report of the refused copy for the page); a worker made
-  from the page's own text keeps the protection; they are counted.
-- Maximum: the same (the owner's decision of 2026-11-28: "i siti devono
-  funzionare, almeno quelli fidati"), with a quiet line in the shield and
-  "Block them on this site"; refused on a page of a safety warning (a page
-  of the lists opened anyway) and where the user blocked them: there the
-  shield's octagon turns orange when the app waits on them and stays empty,
-  "Repair this site" turns off the probable cause first (the user's block,
-  for that site only: the other sites keep theirs), the octagon goes back to
-  normal once the user says the page works, and "Undo the repair" brings the
-  block back; never on a page of a safety warning.
+  from the page's own text keeps the protection; they are counted, with a
+  quiet line in the shield and "Block them on this site"; refused on a page
+  of a safety warning (a page of the lists opened anyway) and where the user
+  blocked them: there the shield's octagon turns orange when the app waits on
+  them and stays empty, "Repair this site" turns off the probable cause first
+  (the user's block, for that site only: the other sites keep theirs), the
+  octagon goes back to normal once the user says the page works, and "Undo
+  the repair" brings the block back; never on a page of a safety warning.
+- Maximum: the site's own workers that cannot be protected are always
+  refused, as in 1.1.31: no exception lets them in (a "workers allowed"
+  choice made at Kontrol, the site's fingerprinting switch); the octagon
+  turns orange when the app waits on them, the shield explains why and
+  offers "Use Kontrol on this site", the user's own choice, after which they
+  run on that site only.
 - "Repair this site" finds the workers, not the whole fingerprinting
   protection, when only the workers break the page.
 
@@ -267,21 +272,29 @@ def test_kontrol_runs_the_sites_own_workers(run_ike, site):
     assert out["127.0.0.1_state"] is None                 # nothing broken: the octagon as it is
 
 
-def test_maximum_runs_them_too(run_ike, site):
-    out = run(run_ike, site, "maximum")
+@pytest.mark.parametrize("why", ["default", "allowed at Kontrol", "fingerprinting off"])
+def test_maximum_refuses_them_whatever_the_site_says(run_ike, site, why):
+    """Maximum (2026-11-28): no exception lets the site's own unprotectable
+    workers in, neither a "workers allowed" choice made at Kontrol nor the
+    site's fingerprinting switch; the octagon says the app waits on them."""
+    opts = {"default": None, "allowed at Kontrol": {"127.0.0.1": {"workers": False}},
+            "fingerprinting off": {"127.0.0.1": {"fp": False}}}[why]
+    out = run(run_ike, site, "maximum", opts=opts)
     r = out["127.0.0.1"]
-    assert r["first"] == ["echo one", "echo two"] and r["shared"] == "shared hi" and r["sw"] == "sw hi", r
+    assert r["first"] == "error" and r["second"] == "error", r
+    assert r["shared"] == "error", r
+    assert r["sw"].startswith("refused"), r
     stats = out["127.0.0.1_stats"]
-    assert stats["workers"] == 0 and stats["workers_open"] >= 3, stats
-    assert out["127.0.0.1_state"] is None
+    assert stats["workers"] >= 1 and stats["workers_open"] == 0, stats
+    assert out["127.0.0.1_state"] == "serious", out
 
 
 @pytest.mark.parametrize("why", ["blocked", "danger"])
-def test_maximum_refuses_them_where_blocked_or_dangerous(run_ike, site, why):
+def test_kontrol_refuses_them_where_blocked_or_dangerous(run_ike, site, why):
     if why == "blocked":
-        out = run(run_ike, site, "maximum", opts={"127.0.0.1": {"workers": True}})
+        out = run(run_ike, site, "strict", opts={"127.0.0.1": {"workers": True}})
     else:
-        out = run(run_ike, site, "maximum", before=DANGER)
+        out = run(run_ike, site, "strict", before=DANGER)
     r = out["127.0.0.1"]
     assert r["first"] == "error" and r["second"] == "error", r
     assert r["shared"] == "error", r
@@ -297,13 +310,48 @@ def test_maximum_refuses_them_where_blocked_or_dangerous(run_ike, site, why):
 
 
 def test_a_block_is_for_one_site_only(run_ike, site):
-    out = run(run_ike, site, "maximum", hosts=("127.0.0.1", "localhost"),
+    out = run(run_ike, site, "strict", hosts=("127.0.0.1", "localhost"),
               opts={"localhost": {"workers": True}})
     allowed, other = out["127.0.0.1"], out["localhost"]
     assert allowed["first"] == ["echo one", "echo two"] and allowed["shared"] == "shared hi", allowed
     assert allowed["sw"] == "sw hi", allowed
     assert other["first"] == "error" and other["sw"].startswith("refused"), other
     assert out["127.0.0.1_state"] is None and out["localhost_state"] == "serious", out
+
+
+KONTROL_CHOICE = LOAD + SETTLE + r'''
+def steps(ike, qapp, out):
+    win = ike.windows[0]
+    view = win.current_view()
+    yield from load(view, "http://127.0.0.1:%d/page", "before", out)
+    yield from settle(win, out, "before")
+    f = ike.diagnosis.finding(view)
+    out["keys"] = list(f.keys) if f else None
+    win.shield_menu.aboutToShow.emit()
+    p = win.shield_panel
+    out["panel"] = {"note": p.diag_note.text(), "button": p.repair_btn.text(),
+                    "line": [p.workers_line.isVisibleTo(p), p.workers_line.text(), p.workers_btn.text()]}
+    out["active"] = __import__("ike.repair", fromlist=["active"]).active(ike.config, "127.0.0.1")
+    p.repair_btn.click()                                   # "Use Kontrol on this site": the user's choice
+    out["site_level"] = ike.config["site_levels"].get("127.0.0.1")
+    out["global"] = ike.config["shield_level"]
+    yield from load(view, "http://127.0.0.1:%d/again", "after", out)
+    out["after_stats"] = ike.shields.site_stats("127.0.0.1")
+'''
+
+
+def test_maximum_explains_and_offers_kontrol_for_the_site(run_ike, site):
+    out = run_ike(KONTROL_CHOICE % (site, site), settings={"shield_level": "maximum", "https_only": False},
+                  timeout=150)
+    assert out["before_state"] == "serious" and out["keys"] == ["kontrol"], out
+    assert "Maximum blocks" in out["panel"]["note"] and "Kontrol" in out["panel"]["note"], out
+    assert out["panel"]["button"] == "Use Kontrol on this site", out
+    line = out["panel"]["line"]
+    assert line[0] is True and "Maximum blocks" in line[1] and line[2] == "Use Kontrol on this site", out
+    assert "workers" not in out["active"], out             # nothing a repair could turn off at Maximum
+    assert out["site_level"] == "strict" and out["global"] == "maximum", out
+    assert out["after"]["first"] == ["echo one", "echo two"] and out["after"]["shared"] == "shared hi", out
+    assert out["after"]["sw"] == "sw hi" and out["after_stats"]["workers_open"] >= 1, out
 
 
 ALLOW = LOAD + SETTLE + r'''
@@ -339,7 +387,7 @@ def steps(ike, qapp, out):
 
 
 def test_repair_puts_the_cause_first_and_undo(run_ike, site):
-    out = run_ike(ALLOW % (site, site), settings={"shield_level": "maximum", "https_only": False,
+    out = run_ike(ALLOW % (site, site), settings={"shield_level": "strict", "https_only": False,
                                                  "site_opts": {"127.0.0.1": {"workers": True}}}, timeout=150)
     assert out["before_state"] == "serious" and out["keys"] == ["workers"], out
     assert out["anim"] == "serious", out
@@ -375,7 +423,7 @@ def steps(ike, qapp, out):
 '''
 
 
-@pytest.mark.parametrize("level", ["maximum"])
+@pytest.mark.parametrize("level", ["strict"])
 def test_repair_finds_the_workers_not_the_fingerprinting(run_ike, level):
     out = run_ike(REPAIR, settings={"shield_level": level,
                                     "site_opts": {"web.example.com": {"workers": True}}}, timeout=60)
@@ -396,9 +444,10 @@ def steps(ike, qapp, out):
             out[lv + str(blocked)] = "workers" in repair.active(ike.config, "web.example.com")
     yield 10
 ''', timeout=60)
-    # only the user's own block is a protection the repair can turn off
+    # only the user's own block, at Kontrol, is a protection the repair can turn
+    # off; at Maximum they always stay out (2026-11-28)
     assert [out[k] for k in ("balancedFalse", "strictFalse", "maximumFalse")] == [False, False, False], out
-    assert [out[k] for k in ("balancedTrue", "strictTrue", "maximumTrue")] == [False, True, True], out
+    assert [out[k] for k in ("balancedTrue", "strictTrue", "maximumTrue")] == [False, True, False], out
 
 
 PAGES = LOAD + r"""
@@ -521,7 +570,7 @@ def steps(ike, qapp, out):
 
 
 def test_the_quiet_line_in_the_shield(run_ike, site):
-    out = run_ike(QUIET % ((site,) * 4), settings={"shield_level": "maximum", "https_only": False}, timeout=200)
+    out = run_ike(QUIET % ((site,) * 4), settings={"shield_level": "strict", "https_only": False}, timeout=200)
     assert out["ran"]["shared"] == "shared hi", out["ran"]
     assert out["line"][0] is True and "background programs" in out["line"][1], out
     assert out["line"][2] == "Block them on this site", out

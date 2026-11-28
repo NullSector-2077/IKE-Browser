@@ -57,8 +57,10 @@ def active(cfg, host):
         out.append("cookies")
     if lv >= 2 and opt(host, "fp") is not False:
         out.append("fp")
-    if lv >= 3 and opt(host, "fp") is not False and opt(host, "workers") is True:
-        out.append("workers")           # blocked by the user on the site (1.1.32)
+    if lv == 3 and opt(host, "fp") is not False and opt(host, "workers") is True:
+        # blocked by the user on the site (1.1.32); Kontrol only: at Maximum
+        # they always stay out and no repair lets them in (2026-11-28)
+        out.append("workers")
     if _dark_on(cfg, host):
         out.append("dark")
     if cfg["webrtc_hide_ip"] and opt(host, "webrtc") is not False:

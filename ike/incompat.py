@@ -166,9 +166,10 @@ class Detector:
 
 class SiteWorkers(Detector):
     """The user blocked the site's own workers in the shield and the page
-    waits on them (WhatsApp, Telegram). They run at Kontrol and Maximum
-    otherwise (1.1.32); on a page of a safety warning they stay out and
-    nothing is offered (they are not in repair.active there)."""
+    waits on them (WhatsApp, Telegram). They run at Kontrol otherwise
+    (1.1.32); on a page of a safety warning they stay out and nothing is
+    offered (they are not in repair.active there); at Maximum see
+    MaximumWorkers."""
 
     id = "workers"
     CAUSE = _t("Probable cause: this site's background programs are blocked.")
@@ -190,6 +191,34 @@ class SiteWorkers(Detector):
             # the page shows its content: some features may be missing
             return Finding(self.id, ctx.host, ("workers",), self.CAUSE, ATTENTION)
         return None                    # a service worker alone, the page fine: nothing to say
+
+
+class MaximumWorkers(Detector):
+    """Maximum refused the site's own workers that cannot be protected and
+    the page waits on them (the owner's decision of 2026-11-28: no exception
+    at Maximum). No protection is turned off: the finding explains the cause
+    and puts forward one choice the user makes by hand, Kontrol for this
+    site (key "kontrol", shieldpanel.py), where they run with the computer's
+    own values. Never on a page of a safety warning (they stay out there at
+    every level) nor where the user turned the shield off."""
+
+    id = "workers_max"
+    CAUSE = _t("Probable cause: Maximum blocks this site's background programs, because they cannot be protected.")
+
+    def relevant(self, ev, ctx):
+        from .config import rank
+        return (rank(ctx.cfg.level_for(ctx.host)) >= 4 and ev.n("worker:") > 0
+                and not ctx.app.shields.worker_danger(ctx.host))
+
+    def judge(self, ev, probe, ctx):
+        page_worker = ev.n("worker:shared") > 0 or ev.n("worker:dedicated") > 0
+        refused = ev.w("protected_worker_refused") > 0 and ev.n("worker:service") > 0
+        empty = bool(probe and (probe.get("blank") or probe.get("sparse")))
+        if empty and (page_worker or refused or probe.get("blank")):
+            return Finding(self.id, ctx.host, ("kontrol",), self.CAUSE, SERIOUS)
+        if page_worker or refused:
+            return Finding(self.id, ctx.host, ("kontrol",), self.CAUSE, ATTENTION)
+        return None
 
 
 class EmptyPage(Detector):
@@ -232,7 +261,7 @@ class BrokenPlayer(Detector):
         return None
 
 
-DETECTORS = [SiteWorkers(), EmptyPage(), BrokenPlayer()]
+DETECTORS = [SiteWorkers(), MaximumWorkers(), EmptyPage(), BrokenPlayer()]
 
 
 # The probe, in I.K.E.'s own world (the page cannot reach or answer it): is

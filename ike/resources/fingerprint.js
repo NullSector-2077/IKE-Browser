@@ -283,11 +283,12 @@
   var strict = lv >= 3;
   var maximum = lv >= 4;
   // The sites' own workers (service workers, shared workers, dedicated
-  // workers from the site's files) run at Kontrol and Maximum (1.1.32: the web
-  // compatibility campaign, then the owner's decision for Maximum: "i siti
-  // devono funzionare, almeno quelli fidati"), except where they stay out
-  // (CFG.wkout): a site where the user blocked them (the shield), or a page of
-  // one of I.K.E.'s safety warnings (shields.py worker_danger). Only the
+  // workers from the site's files that cannot get the protection) run at
+  // Kontrol (1.1.32: the web compatibility campaign), except where they stay
+  // out (CFG.wkout): a site where the user blocked them (the shield), or a page
+  // of one of I.K.E.'s safety warnings (shields.py worker_danger). At Maximum
+  // they always stay out (the owner's decision of 2026-11-28, after the worker
+  // guard study: the strictness of 1.1.31, no exception at Maximum). Only the
   // site's own files can be in them; every worker a page's script can make
   // from its own text (blob:, data:) keeps the protection at every level.
   // Reports to I.K.E.'s diagnosis of incompatibilities (1.1.32, incompat.py):
@@ -303,7 +304,11 @@
     reported[kind] = 1;
     try { RAPPLY(REPORT_LOG, REPORT_CON, [REPORT_KEY + ' ' + kind]); } catch (e) {}
   }
-  var keepWorkersOut = strict && (function () {
+  // Maximum (the owner's decision after the worker guard study, 2026-11-28):
+  // the site's own workers that cannot be protected stay out, as in 1.1.31,
+  // whatever was chosen for the site at Kontrol; the user who wants them
+  // chooses Kontrol for the site. Kontrol: the rules below.
+  var keepWorkersOut = strict && (maximum || (function () {
     // the request check's own rules (shields.py workers_out, the review)
     var W = CFG.wkout || {}, map = W.map || {}, exact = W.exact || [], sites = W.sites || [];
     if (exact.indexOf(host) >= 0) return true;
@@ -318,7 +323,7 @@
       h = h.slice(i + 1);
     }
     return null;          // the home network's sites: below, once siteOf is known
-  })();
+  })());
 
   // ---- seed: random per browser session, different for every site ----------
   function hash(str) {

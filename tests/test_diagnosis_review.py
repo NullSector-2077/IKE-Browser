@@ -224,7 +224,7 @@ def steps(ike, qapp, out):
 
 
 def test_allow_again_on_a_subdomain_of_a_blocked_parent(run_ike, site):
-    out = run_ike(SUBDOMAIN % site, settings={"shield_level": "maximum", "https_only": False}, timeout=120)
+    out = run_ike(SUBDOMAIN % site, settings={"shield_level": "strict", "https_only": False}, timeout=120)
     assert out["blocked"].startswith("refused"), out
     assert out["button"] == "Allow them again", out
     # this site allowed, the parent's block left as it was

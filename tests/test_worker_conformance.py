@@ -82,7 +82,9 @@ KNOWN = {("plain", "missing"): ["Event", False], ("noblob", "missing"): ["Event"
 @pytest.mark.parametrize("level", ["strict", "maximum"])
 def test_the_queue_matches_chrome_140(run_ike, site, level):
     out = run_ike(STEPS % site, settings={"shield_level": level, "https_only": False}, timeout=200)
-    for key in ("plain", "noblob"):
+    # Maximum (2026-11-28): a policy without blob: workers leaves the site's
+    # file unprotected, so it is refused there; only the protected copy is compared
+    for key in ("plain", "noblob") if level == "strict" else ("plain",):
         got = out[key]
         for name, want in CHROME.items():
             if got[name] == KNOWN.get((key, name)):

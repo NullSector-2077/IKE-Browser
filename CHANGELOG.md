@@ -1,5 +1,37 @@
 # Changelog
 
+## Next version (in preparation, no number yet)
+
+- **Kontrol and Maximum told apart again for the sites' own workers** (the
+  owner's decision of 2026-11-28, after two feasibility studies of a "worker
+  guard", docs/review/worker-guard-study.md, which is not adopted: it would
+  need a privileged DevTools channel that cannot be narrowed). Workers that
+  get I.K.E.'s protection (made from a page's text, dedicated workers from a
+  site's file through their protected copy, the workers they start) are
+  protected at both levels as before. The ones that cannot be protected (a
+  site's own service workers and shared workers, and a dedicated worker
+  whose protected copy the site's policy refuses):
+  - **Kontrol** lets them run, as in 1.1.32; the shield now says plainly
+    that they can show the computer's real details, the user can block them
+    on the site and allow them again, and the octagon never plays its green
+    on a site where they ran in this session (their service and shared
+    workers live on across its pages) nor on a page a service worker serves;
+  - **Maximum** refuses them again, as 1.1.31 did, with 1.1.32's code
+    (nested workers, queues and transfers, Trusted Types, frames): no
+    exception lets them in at Maximum, neither a "workers allowed" choice
+    made at Kontrol (it stays stored and counts at Kontrol only) nor the
+    site's fingerprinting switch (1.1.31 let the latter in). Where a site
+    waits on them, the octagon turns orange and the shield explains why and
+    offers "Use Kontrol on this site", the user's own choice (the site's level
+    in the shield undoes it); "Repair this site" never lets them in at
+    Maximum, and the level is never lowered by itself. A service worker
+    registered before at a lower level still serves the page it was started
+    for (Qt WebEngine cannot stop it at once): it is unregistered, its script
+    refused, and the octagon gives no green on such a page.
+  (`ike/shields.py`, `ike/resources/fingerprint.js`, `ike/incompat.py`,
+  `ike/repair.py`, `ike/shieldpanel.py`, `ike/window.py`,
+  tests/test_site_workers.py.)
+
 ## 1.1.32
 
 - **Sign-in pages no longer wait for ever for passkeys** (the owner: "we must

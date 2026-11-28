@@ -134,11 +134,14 @@ routes useless; it cannot stop a script written against it:
   the page; elsewhere such a worker keeps the protection or does not start.
   A worker from a site's file at Maximum is still refused rather than run
   without the protection (at Kontrol see the next point).
-- **The site's own workers at Kontrol and Maximum** (1.1.32, the owner's
-  decisions after the web compatibility campaign,
-  docs/review/web-compat-2026-11.md, and for Maximum the same day: "i siti
-  devono funzionare, almeno quelli fidati"; docs/review/fp-audit-1.1.32.md
-  measured what they show): a
+- **The site's own workers at Kontrol** (1.1.32, the owner's decision after
+  the web compatibility campaign, docs/review/web-compat-2026-11.md;
+  docs/review/fp-audit-1.1.32.md measured what they show). **At Maximum they
+  are always refused** (the owner's decision of 2026-11-28 after the worker
+  guard study, docs/review/worker-guard-study.md: the strictness of 1.1.31,
+  with no exception at Maximum, neither the site's "workers allowed" choice
+  made at Kontrol nor its fingerprinting switch; the shield explains it and
+  offers Kontrol for the site as the user's own choice). At Kontrol: a
   site's service workers, shared workers, and dedicated workers from its own
   files when its policy refuses the protected copy (WhatsApp, Telegram,
   Google's apps, GitHub) run with the engine's own values: the real graphics
@@ -149,14 +152,15 @@ routes useless; it cannot stop a script written against it:
   can make one either), plus what those files import themselves (a push
   notification library, for example). Every worker a page's script can make
   from its own text keeps the protection. Balanced has always let them run
-  (the same values). They stay out, at Kontrol and Maximum, on a page of one
+  (the same values). They stay out at Kontrol on a page of one
   of I.K.E.'s safety warnings (`shields.worker_danger`: a page of the
   malware and phishing lists opened anyway, a site opened without its secure
   connection or allowed into the home network, a lookalike of a famous
   site) and on a site where the user blocked them in the shield (the quiet
-  line "This site uses background programs: it works better, but protects
-  you a little less.", "Block them on this site"; the octagon does not light
-  up for them). The request check refuses their files there; fingerprint.js
+  line "This site uses background programs that cannot be protected: they
+  can show your computer's real details. Block them if you prefer more
+  protection.", "Block them on this site"; the octagon does not light up for
+  them, and plays no green on that site for the rest of the session). The request check refuses their files there; fingerprint.js
   is told (`wkout`) and unregisters an older service worker. A block made
   while a tab of the site still runs its workers: a page there gets a shared
   worker of its own (whose file the request check refuses) and cannot take

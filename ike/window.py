@@ -32,7 +32,7 @@ from PyQt6.QtWidgets import (
 )
 
 from . import APP_LONG_NAME, APP_NAME, __version__, effects, polish
-from .config import LEVEL_NAMES, LEVELS
+from .config import LEVEL_NAMES, LEVELS, rank
 from .features import WindowFeatures, tab_icon
 from .i18n import T
 from .shieldpanel import TOOLBAR_LETTER, TOOLBAR_SHIELD_GROW, ShieldButton, ShieldPanel, shield_icon
@@ -2792,6 +2792,13 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             return False
         if self.app.shields.worker_danger(host):
             return False                        # a page of a warning the user went through: never green
+        from .shields import site_of
+        if site_of(host) in getattr(self.app.shields, "workers_open_sites", ()) \
+                and cfg.site_opt(host, "workers") is not True:
+            # Kontrol: the site's own workers that cannot be protected ran in
+            # this session (its service and shared workers live on): the
+            # protection is not whole there, so no green (2026-11-28)
+            return False
         if not self.app.diagnosis.settled(view):
             return False
         now = time.monotonic()
@@ -2819,9 +2826,31 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             return True
         return any(cfg.site_opt(host, k) is False for k in self.EXCEPTION_KEYS)
 
-    def _confirm(self, view, load_no):
+    # in I.K.E.'s own world (the page cannot answer it): is the page in the
+    # hands of a service worker? At Kontrol and Maximum no service worker of a
+    # site's file has the protection; one registered before (at a lower level,
+    # in an earlier session) still serves the page it was started for, as the
+    # engine keeps a page's controller until it is left (fingerprint.js
+    # unregisters it at Maximum, Qt cannot stop it at once): no green there
+    SW_CONTROLLER_JS = "!!(navigator.serviceWorker && navigator.serviceWorker.controller)"
+
+    def _confirm(self, view, load_no, checked=False):
         if not self.confirm_due(view, load_no):
             return
+        if not checked:
+            try:
+                level = rank(self.app.config.level_for(view.url().host().lower()))
+            except RuntimeError:
+                return
+            if level >= 3:
+                from PyQt6.QtWebEngineCore import QWebEngineScript
+                try:
+                    view.page().runJavaScript(
+                        self.SW_CONTROLLER_JS, QWebEngineScript.ScriptWorldId.ApplicationWorld,
+                        lambda r, v=view, n=load_no: None if r is not False else self._confirm(v, n, True))
+                except RuntimeError:
+                    pass
+                return
         if self.shield_btn.interference.confirm():
             view._ike_confirmed = load_no
             view._ike_confirmed_site = (view.url().host().lower(), time.monotonic())

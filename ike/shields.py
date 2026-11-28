@@ -364,9 +364,14 @@ _NETWORK_HINTS = {b"rtt": b"50", b"downlink": b"10", b"ect": b"4g"}
 # of 2026-11-28): WhatsApp and Telegram need their workers, so they run. Only
 # the site's own files can be in them; workers made from a page's own text
 # (blob:, data:), which any script of the page can make, keep the protection.
-# They are counted ("workers_open"), and the shield says so. At Maximum the
-# user can allow them for one site (site_opts "workers": False, the shield
-# and "Repair this site"); the ones refused are counted ("workers").
+# They are counted ("workers_open"), and the shield says so; the user can
+# block them on a site (site_opts "workers": True) and allow them again.
+# Maximum (the owner's decision of 2026-11-28, after the worker guard study:
+# the strictness of 1.1.31 with 1.1.32's code): they are always refused, no
+# exception at Maximum (a site's "workers" choice counts only at Kontrol, the
+# site's fingerprinting switch does not let them in either); "Repair this
+# site" explains it and offers Kontrol for the site, the user's own choice.
+# The ones refused are counted ("workers").
 _WORKER_KIND = {t: k for t, k in ((getattr(_RT, n, None), k) for n, k in (
     ("ResourceTypeServiceWorker", "service"), ("ResourceTypeSharedWorker", "shared"),
     ("ResourceTypeWorker", "dedicated"))) if t is not None}
@@ -758,15 +763,20 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             # only the visited site's own file (1.1.32, the independent review:
             # a frame of another site, an embedded widget, an ad, stays out at
             # Kontrol too, and is never counted for the site nor offered to it).
-            # 1.1.32, the owner's decision (Maximum too: "i siti devono
-            # funzionare, almeno quelli fidati"): the site's own run at Kontrol
-            # and Maximum, except where the user blocked them on the site (the
-            # shield) or on a page I.K.E.'s safety warnings call dangerous;
-            # there whatever the repairs left (the fingerprinting protection
-            # off too: the review)
+            # Kontrol (1.1.32): the site's own run, except where the user
+            # blocked them on the site (the shield) or on a page I.K.E.'s safety
+            # warnings call dangerous; there whatever the repairs left (the
+            # fingerprinting protection off too: the review)
+            # Maximum (the owner's decision of 2026-11-28, after the worker
+            # guard study): a worker script asked for as a worker is one the
+            # protection could not wrap (the protected copy loads the site's
+            # file as a script), so it never runs at Maximum: no exception
+            # there, neither the site's choice made at Kontrol nor the
+            # fingerprinting switch of the site (1.1.31 let the latter in);
+            # the user who wants such workers chooses Kontrol for the site
             own = host_site == first_site
             fp_on = cfg.site_opt(first_host, "fp") is not False
-            if self.s.worker_danger(first_host) or (
+            if lv >= 4 or self.s.worker_danger(first_host) or (
                     fp_on and (not own or cfg.site_opt(first_host, "workers") is True)):
                 info.block(True)       # no worker from a file without the protection (1.1.25)
                 if own:
@@ -775,6 +785,10 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
                 return
             if fp_on:                  # (the protection off on the site: as Balanced, not counted)
                 self._count(first_host, "workers_open")     # the site's own, with the engine's values (1.1.32)
+                # for the rest of the session: a service or shared worker
+                # started now keeps running across this site's later pages
+                # without asking for its script again (no green there)
+                self.s.workers_open_sites.add(first_site)
         if cfg["login_compat"]:
             try:
                 init_host = info.initiator().host().lower()
@@ -1044,6 +1058,9 @@ class Shields(QObject):
         self.lan_blocked = {}           # local address a public page tried to open -> that site
         self.lan_allowed = set()        # public sites the user let open local addresses (session)
         self._lookalikes = {}           # host -> imitates a famous site? (worker_danger, 1.1.32)
+        # the sites whose own unprotected workers ran at Kontrol in this session:
+        # their service and shared workers live on across later pages (no green)
+        self.workers_open_sites = set()
         self.profiles = []
         self.user_scripts = None         # set by the application
         self.interceptor = Interceptor(self)
