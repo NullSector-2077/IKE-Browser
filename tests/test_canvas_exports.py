@@ -7,8 +7,11 @@ sites, which it takes for the same value, so it never counted. Now an export
 (toDataURL, toBlob, convertToBlob, in pages and workers) is the picture with
 the site's noise, every time:
 
-- every export of the same drawing is the same, at Balanced and at Strict,
-  and it is what getImageData gives (the site's noise, never the real picture);
+- every export of the same drawing is the same, at Balanced and at Strict:
+  what getImageData gives (the site's noise, never the real picture) with a
+  little noise of its own at the edges of the drawing, from a key of the
+  site's (as much as the variation of 1.1.27 to 1.1.29: "Nothing gets worse"
+  measures it), so it is the same at every export on a site;
 - the noise touches the lowest bit only;
 - flat colours are never changed: a canvas of solid rectangles exports the
   same picture every time at Strict (1.1.25's exact canvases);
@@ -142,7 +145,8 @@ def test_every_export_is_the_sites_own_picture(run_ike, site, level):
     r = json.loads(out["r"])
     assert not r["twoDiffer"] and r["distinct"] == 1, r        # the same picture at every export
     assert not r["blobsDiffer"] and not r["workerDiffer"], r
-    assert r["readsSame"] and r["exportIsNoised"], r           # what getImageData gives: the site's noise
+    assert r["readsSame"], r                                   # getImageData: the same at every read
+    assert not r["exportIsNoised"], r                          # the export's own noise on top of it
     assert r["worst"] <= 1, r                                  # the lowest bit only
     if level == "strict":
         assert r["plainSame"], r                               # solid rectangles stay exact (1.1.25)
