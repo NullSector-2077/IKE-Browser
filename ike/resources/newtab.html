@@ -1,7 +1,8 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><title>I.K.E.</title>
 <style>
-:root{--bg:{{bg}};--fg:{{fg}};--mute:{{mute}};--card:{{card}};--line:{{line}};--acc:{{acc}}}
+:root{--bg:{{bg}};--fg:{{fg}};--mute:{{mute}};--card:{{card}};--line:{{line}};--acc:{{acc}};--k:{{k}}}
+{{cyberfont}}
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
  background:var(--bg);color:var(--fg);font-family:system-ui,"Noto Sans",sans-serif}
@@ -17,8 +18,14 @@ input{width:100%;font:inherit;font-size:17px;padding:12px 16px;border-radius:6px
 input::placeholder{color:var(--mute);opacity:1}
 input:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 25%,transparent)}
 .stats{display:flex;flex-wrap:wrap;justify-content:center;gap:14px 44px;margin-top:30px;text-align:center}
-.stats b{display:block;font-size:26px;font-weight:600;color:var(--acc);font-variant-numeric:tabular-nums}
-.stats span{font-size:13px;color:var(--mute)}
+/* 1.1.30: the figures and their words in the logo's typeface (Orbitron) and the colour of its K */
+.stats{font-family:"IKE Cyber",sans-serif}
+/* Orbitron's own line height is taller than the system font's: kept to the old box, so the figures
+   take no more room than before (the weather's details beside them still fit) */
+.stats b{line-height:1.15}.stats span{line-height:1.35}
+.stats{column-gap:34px}  /* Orbitron is wider: the three figures keep their old overall width */
+.stats b{display:block;font-size:20px;font-weight:500;letter-spacing:0;color:var(--k);font-variant-numeric:tabular-nums}
+.stats span{font-size:11px;letter-spacing:0;color:var(--mute)}
 .tiles{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;width:min(1570px,96vw);margin-top:26px}
 .tile{position:relative;width:92px}
 .tile>a:first-child,.tile .open{display:flex;flex-direction:column;align-items:center;gap:8px;padding:6px 2px;
@@ -195,11 +202,35 @@ function ikeIconLater(img) {
       gD.lang = lang;
       hi = IkeGreeting.create(gD, {
         title: function (t) { put(document.getElementById("greet-t"), t); },
-        line: function (t) { put(document.getElementById("greet-l"), t); }
+        line: function (t, k) { think(document.getElementById("greet-l"), t, k); }
       }, function (st) { new Image().src = "ike:greet?k=" + gD.k + "&s=" + encodeURIComponent(JSON.stringify(st)); });
     } catch (e) {}
   }
   function put(el, text) { if (el && el.textContent !== text) el.textContent = text; }
+  // 1.1.30 (the owner): I.K.E.'s own thoughts are written letter by letter, as
+  // if it were thinking them now; in about two and a half seconds (from 35 to
+  // 90 ms a letter), only with the interface's
+  // effects on and no reduced motion asked; the whole line is there at once
+  // for a screen reader. Other lines appear as before.
+  function think(el, text, key) {
+    if (!el || el.textContent === text) return;
+    var still = !document.body.classList.contains("fx") ||
+      (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+    if (key.indexOf("thought") !== 0 || still || !window.requestAnimationFrame) { put(el, text); return; }
+    // whole letters, as each script draws them (Hindi, Thai...: a letter with its marks)
+    var chars = window.Intl && Intl.Segmenter ? Array.from(new Intl.Segmenter(undefined, {granularity: "grapheme"})
+      .segment(text), function (x) { return x.segment; }) : Array.from(text), step = Math.max(35, Math.min(90, 2500 / chars.length)), start = null;
+    el.setAttribute("aria-label", text);
+    el.textContent = "";
+    function frame(t) {
+      if (start === null) start = t;
+      var n = Math.min(chars.length, Math.floor((t - start) / step) + 1);
+      el.textContent = chars.slice(0, n).join("");
+      if (n < chars.length) requestAnimationFrame(frame);
+      else el.removeAttribute("aria-label");
+    }
+    requestAnimationFrame(frame);
+  }
   function tick() {
     var now = new Date();
     put(clock, fmt(now, {hour: "2-digit", minute: "2-digit"}));

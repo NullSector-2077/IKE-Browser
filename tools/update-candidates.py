@@ -12,7 +12,7 @@ automatic fix, ledger entry and verified merge (tools/automerge.py).
     pyo3               a new pyo3 release line (the requirement in Cargo.toml raised)
     crate-major-<c>    a new major version of another direct crate of the engine
     ubo-scriptlets     uBlock Origin's scriptlets (rebuilt by tools/build-ubo-scriptlets.mjs)
-    darkreader         Dark Reader's engine and lists (rebuilt by tools/build-darkreader.py)
+    darkreader         Dark Reader's lists (tools/build-darkreader-lists.py): never a candidate, the browser fetches them
     breeze-icons       KDE's Breeze icons of the set "Breeze (KDE)" (rebuilt by tools/build-breeze-icons.py)
     test-qt            Qt's wheels of the automatic tests
     test-tools         pytest, ruff and what they bring
@@ -33,7 +33,9 @@ Rules (the plan below; the workflow follows them):
   by PRIORITY goes first;
 - a builder that refuses the new upstream version starts the builder's own
   path instead (``automation/builder/<id>``, WP11: an AI may only re-anchor
-  I.K.E.'s existing patches, tools/builder-anchor.py);
+  I.K.E.'s existing changes, tools/builder-anchor.py; uBlock Origin's
+  scriptlets only since 1.1.30), or, for a builder with nothing to re-anchor
+  (Dark Reader's lists, KDE's Breeze icons), waits for a person;
 - a source unreachable today makes nothing (the next run tries again).
 
 Each candidate's own commit is ``update: <id> <from> -> <to> (no AI)`` and may
@@ -104,9 +106,12 @@ PRIORITY = ("adblock", "pyo3", "crates", "crate-major-", "test-qt", "test-tools"
 # WEEKLY_DAY (UTC), not every day. In the week of 2026-11-20 crates and ci-cargo-deny alone started 26 runs of
 # Tests and 25 of Arch Linux, each rebuilt as an upstream moved by a patch release. What ships to users and
 # changes their protection stays daily: the AdBlock engine, pyo3, a crate's new major version, uBlock Origin's
-# scriptlets, Dark Reader, Breeze, the PKGBUILD, and test-qt (the early warning of a Qt release). Security fixes
+# scriptlets, Breeze, the PKGBUILD, and test-qt (the early warning of a Qt release). Security fixes
 # are their own branches (automation/update/security-*) and never wait. An open weekly candidate is left as it
 # is between Mondays: it still merges by itself when verified.
+# 1.1.30: Dark Reader's engine left I.K.E.; its lists are fetched by the browser itself once a day
+# (ike/darklists.py, 1.1.27: no new version every day for simple lists), so the copy I.K.E. comes with (for a
+# new profile, or one that could not fetch them) is refreshed weekly: never more than a week old in a release.
 WEEKLY = ("crates", "test-tools", "test-libs", "ci-")
 WEEKLY_DAY = 0                  # Monday
 UPDATE_COMMIT = re.compile(r"^update: ([a-z0-9_-]+) (.{1,300}) -> (.{1,300}) \(no AI\)$")

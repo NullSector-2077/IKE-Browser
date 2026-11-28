@@ -1,5 +1,255 @@
 # Changelog
 
+## 1.1.30
+
+1.1.29 was never published on its own: everything prepared for it is in
+this release.
+
+- **The shield's numbers in the logo's letters** (the owner's choice): the
+  number beside the octagon in the address bar, the "+N" that rises beside
+  it, and the new tab page's figures and their words are written in Orbitron,
+  the typeface of the logo's lettering, in the colour of the logo's K (its
+  light blue on a dark background, its darker blue on a light one, always
+  readable at 3:1), a little smaller and lighter than before. The font file
+  is shipped unchanged (SIL OFL 1.1, `ike/resources/fonts/orbitron.ttf`) and
+  never installed in the system's font list, so no page can find it
+  (`ike/cyberfont.py`); languages it has no letters for keep their own font.
+
+- **Cover Your Tracks says "randomized fingerprint"** (the owner: "I want to
+  be randomized"). Its code counts five values that differ between two sites
+  (the audio, the canvas and WebGL pictures, the plugins, the cores) and needs
+  four. The canvas and WebGL pictures varied at every export (1.1.27): it read
+  "randomized" on both of its sites, took that for the same value and counted
+  nothing. Now every export is the site's own picture (another on every site
+  and in every session, as Brave does), the plugins differ at every level
+  (Strict and Maximum: Chrome's five PDF viewers in an order of the site's own)
+  and the cores are 4 or 8 per site at every level where the computer has 8:
+  four or five of five, at Balanced, Strict and Maximum
+  (tests/test_cover_your_tracks.py runs Cover Your Tracks' comparison on two
+  sites). The common graphics card tried for 1.1.30 is gone again: on the
+  owner's computer Cover Your Tracks counted its Linux name as 1 browser in
+  58,876 (15.85 bits), against 1 in 183 for "None".
+- **Strict is now called Kontrol** (the owner's choice, the K of I.K.E.): the
+  shield's fourth level keeps its protections and its place, and every
+  setting already saved keeps its level (inside, the level is still
+  "strict"). The shield shows a K drawn like the logo's, in the light blue of
+  the logo's K (#65C2EF, 8.4:1 on the shield's centre), instead of the S;
+  every language calls the level Kontrol. The menus' inventory recorded for
+  1.1.30 reads the old name as the new one (tests/test_menus_reorg.py).
+
+- **Dark Reader leaves I.K.E.** (the owner's decision, after trying the I.K.E.
+  Dark Engine in 1.1.28): the I.K.E. Dark Engine is the dark mode for pages,
+  Chromium's own the other choice (Settings → Web pages → Dark mode method).
+  A profile that had Dark Reader gets the engine by itself; Dark Reader's
+  colours and per-site themes leave the profile (`dark_theme`,
+  `dark_site_themes`), its engine, panel and theme modules go (`darkpages.py`,
+  `darkpanel.py`, `darktheme.py`, `resources/darkreader.js`,
+  `resources/darkreader-proxy.js`) with their tests. The toolbar's Dark mode
+  button always opens the "I.K.E. Dark Engine" panel; with Chromium's own dark
+  mode its look is greyed, with a note. Dark Reader's lists stay (MIT,
+  `darkfixes.py`, `darklists.py`), fetched by the browser once a day.
+- **No white while a page arrives**: a page that is plainly light is darkened
+  as soon as its body and its style sheets are there, and what arrives after
+  is handled as it comes (a slowly arriving shop was white for about 2 s, now
+  never); a page that may say "dark already" is judged at DOMContentLoaded as
+  before (tests/test_dark_engine_detect.py).
+- **No white flash in frames**: a page in a frame is covered dark until the
+  engine has mapped it, then a frame meant to be transparent is transparent
+  again (Speedometer 3.1: frames with more than a quarter of light pixels 211
+  → 12, the rest its grey picture placeholders).
+- **Colours kept in registered variables are darkened too**: a page that
+  gives a colour only as the initial value of a registered custom property
+  (`@property --x { initial-value: #fff }`, used as `var(--x)`) kept it light,
+  so a band of a shop's home page stayed white under text made light. The
+  engine now sets the mapped value with no specificity (at the root, or on
+  every element when the property is not inherited), so a value the page sets
+  itself still wins (tests/test_dark_engine_hard.py). The owner's check also
+  says where a light area's variables get their value.
+- **A variable's fallback colour is darkened too**: a page that defines a
+  colour as another variable with a fallback (`--band-bg: var(--theme-bg,
+  #fff)`, the theme never defined) kept the fallback white; the engine now
+  maps the fallback where the variable is defined, in style sheets and in
+  style attributes alike.
+- **Rules added later without a change to the page are seen**: rules a page
+  inserts into a style sheet by script (`insertRule`, CSS-in-JS) change no
+  element, so nothing told the engine; the sheets are now looked at again
+  0.3, 1.5, 5 and 15 s after the page last changed. A style element whose
+  text is rewritten in place is seen at once (tests/test_dark_engine_hard.py).
+- **A page with many pictures can no longer keep the engine busy**: on a page
+  with a few large darkened pictures and many small icons, the engine made
+  room in its picture memory by letting the icons go, the page's next pass
+  asked for them again, and so on without end (the page stopped answering).
+  A picture left as it is now keeps that verdict when it leaves the memory,
+  only pictures that hold data are let go for their size, and a sheet, rule
+  or element is written again for a returning picture at most 40 times in
+  10 s.
+- The owner's check can click a site's age or cookie question first
+  (`--click "I'm Over 18"`) and takes a page that never stops loading (live
+  video) as it is after 20 s instead of giving up.
+- **A gradient next to a variable is darkened too**: a background written as a
+  gradient beside a variable in one value (`linear-gradient(#fff, #fff),
+  var(--picture)`) was left as written, so a panel of a site stayed white
+  under text made light; its gradients are now mapped, the variable left to
+  its own definition (tests/test_dark_engine_hard.py).
+- **Text over a photo stays readable**: photos are kept as they are while the
+  page's text is made light, so a caption drawn dark over a light photo (a
+  shop's banner or card) became light on light; text laid over a large picture
+  now gets a dark halo (tests/test_dark_engine_hard.py).
+- The owner's check also runs inside the owner's own I.K.E., on the page as
+  it is seen (`tests/dark_engine/live-diag.py`, signed in and scrolled), and
+  lists light text on a light layer or picture with the site's own rules.
+- **AUTOMAT follows Dark Reader's lists only**: the engine, its builder and its
+  re-anchoring are gone (`tools/build-darkreader-lists.py` rebuilds the
+  shipped lists byte for byte with `ike/darklists.py`'s own functions); the
+  lists are checked every day and fetched by the browser itself (no
+  candidate).
+- The Dark Engine's check on the owner's computer also writes `diagnose.txt`:
+  the large light areas the engine left and where their colour comes from (a
+  rule of a sheet, an inline style, a sheet the page cannot read, a frame, a
+  picture).
+- **Menus and Settings reorganised** (the owner's request; no function added
+  or removed, every shortcut unchanged: tests/test_menus_reorg.py compares
+  everything reachable with 1.1.30's inventory).
+  - The menu bar: File (open, save, print, downloads, backups, quit), Edit,
+    **Tabs** (new tabs and windows, containers, profiles, workspaces, close),
+    **Page** (zoom, reader, dark mode, translation, sound, source and
+    developer tools), View (only the window's bars), History, Bookmarks,
+    **Privacy** (levels, repairs, passwords, clearing data), Extensions, Tools
+    (command bar, resources, watched pages, search engines, Settings), Help
+    (now with About I.K.E.).
+  - The ☰ menu: no "More" any longer. New tab, window and private window,
+    then the owner's categories (Tabs and windows, Web page, Edit, File and
+    downloads, Audio and video, Bookmarks and history, Privacy and security,
+    Browser appearance, I.K.E. extensions, Performance and tools, Backup and
+    restore), Settings, Help, About, Quit; never more than two levels (a
+    submenu's entries are shown in place, under its name).
+  - Both are described in one place, `ike/menus.py`, and share the same
+    QActions.
+  - The extensions under five headings (Privacy and security, Browsing and
+    appearance, Audio and video, Productivity, System and resources), the
+    same in the menus and in Settings → I.K.E. extensions.
+  - Settings: the crowded pages split (**Web pages**: zoom, dark mode, the
+    Dark Engine, sound and DRM videos; **Ads and trackers**: the blocker and
+    its lists; **Site permissions**; the translation service under **Language
+    and translation**), and the 14 pages in four areas named in the list
+    (Basics, Appearance and browsing, Privacy and security, System and
+    extensions). Their icons 28 px (were 22). Every link and the names of
+    earlier versions open the right page; the search also finds an area by
+    its name.
+- **The Settings' search no longer misses options**: it could take an option
+  for one already seen (Python's id() of a short-lived Qt wrapper reused).
+- The note on Chrome extensions no longer names uBlock Origin, Dark Reader
+  and Consent-O-Matic: I.K.E. has all three built in (the owner).
+- **Where a link goes, again** (the owner): the address of the link under the
+  mouse in a small box at the page's bottom corner, as other browsers show it
+  (the other corner when the mouse is there). 1.0 had put it in the status
+  bar, which took room from the page each time: the whole page shook, and
+  1.0.1 removed it. The box lies over the page and moves nothing; KDE's
+  tooltip look, its corners slightly rounded.
+- Icons and texts aligned: the extensions' cards (icon and bold name in the
+  middle of the card) and the containers' dots in the menus (the owner).
+- **Short messages in Plasma's style** (zoom, notes; the owner): the window's
+  colour with a thin line and a soft shadow, the corners slightly rounded
+  (4 px), rising a few pixels as they fade in. They were a flat grey box.
+- **Sites see a more ordinary Chromium** (the Engine Privacy Layer study,
+  measured against Arch's own Chromium of the engine's version, Chrome and
+  Brave: docs/review/engine-privacy-study.md on the study's branch). At
+  Balanced and above `window.chrome` is the one Chromium 140 has (`loadTimes`,
+  `csi`, `app`, measured shape: no difference left), `permissions.query`
+  answers as Chromium where Qt WebEngine said "denied" for everything it has
+  no prompt for, and the network a page reads (rtt, downlink) and the network
+  hints are the common ones Strict already showed (Qt said rtt 0). CreepJS
+  already saw I.K.E. as "like headless" no more than Chrome and Brave.
+- **No advertising measurement**: Attribution Reporting and Topics are off in
+  the engine (`ConversionMeasurement`, `BrowsingTopics`; their APIs taken from
+  pages). Qt WebEngine kept an advertiser's attribution source in the profile,
+  where Chromium keeps none, and sent the Topics header.
+- **One language everywhere**: the engine is given the first language sites
+  are told at every level (it was at Maximum only), so shared and service
+  workers, dates and numbers say what the page says (they said "en" where
+  the page said "en-US"). The language header is written as Chrome writes it
+  (`de-DE,de;q=0.9,en-US;q=0.8`; Qt sent the list without weights, which no
+  Chromium does), and at Strict and Maximum it keeps the engine's own place
+  among the headers.
+- **HTTP/3**, as Chrome, Chromium and Brave use it (Qt WebEngine leaves it
+  off): faster on weak or changing networks, never through a proxy; a
+  `--disable-quic` of the user's keeps it off. Each site's connections, HTTP/3
+  sessions and what the engine remembers of servers are kept apart
+  (`PartitionConnectionsByNetworkIsolationKey`), so one site's traffic cannot
+  mark another's. Measured on real sites, 6 rounds each: CPU 24.5 s without,
+  25.1 s with HTTP/3, 24.7 s with both (within the runs' own spread of 22-28 s);
+  load times alike on GitHub's fast network.
+- **The Octagon: "Common English language"**: sites are told American English,
+  the most common language, at every level; I.K.E.'s own menus keep yours.
+- **The new tab page thinks**: 205 new lines (the owner: "it must seem that
+  I.K.E. really thinks"): 80 thoughts of I.K.E.'s own, 20 tips with real
+  shortcuts, 60 more fun facts, 45 more kind words, in every language.
+- **I.K.E.'s thoughts are written letter by letter** on the new tab page, as
+  if it were thinking them now (about two and a half seconds; whole letters in every
+  script; the other lines appear as before; not with reduced motion).
+- **A download flies to the Downloads button**: the file's icon goes in an arc
+  from the pointer to the button, smaller and fading as it lands (0.45 s).
+- **Touchpad: the swipe shows itself**: a round arrow comes in from the page's
+  edge while the fingers swipe back or forward, and fills with the theme's
+  blue when letting go will act; nothing where there is no page to go to.
+- **The broom has its own panel** (the owner): what the site keeps before
+  anything goes (its cookies, the data it stored, its cache, the cookies of
+  the other sites its page loaded that you never opened yourself, the
+  permissions you gave it), each with a switch and its count; "Clear" deletes
+  what is on (everything but the permissions at first), loads the page again
+  and says what went. A switch cleans the site by itself when its last tab is
+  closed: its cookies at once, what it stored before its next page can read it.
+- **The switches' knob keeps its colour** on and off (it turned white when
+  on); only the track becomes the theme's blue.
+- **A lighter toolbar** (the owner): the octagon in the address bar a little
+  smaller and its letter too, so its rim no longer nearly touches the bar's
+  border; the navigation and bookmarks bars a little lower (35 and 30 px
+  instead of 39 and 34 at the usual scale; buttons, icons and the address
+  field keep their size); the bookmarks bar's "more" button shows KDE's own
+  double arrow (as Falkon), exactly as tall and as thick as the Forward arrow.
+- Measured, not changed (the study's security part): Qt WebEngine has no
+  revocation list of Chrome's (a revoked certificate opens), and, as Chrome
+  140, it no longer applies its built-in HSTS preload list; I.K.E.'s own
+  automatic HTTPS (on by default) still sends every `http://` page to HTTPS.
+
+- **Skip the tracker's stop** (the owner's decision of 2026-11-27, from
+  Brave): a link that only passes through a tracker, with the real address
+  written inside it (newsletters such as Mailchimp, ActiveCampaign, Amazon
+  SES or Postmark; shops' affiliate links; some ad networks), opens that
+  address at once: the tracker never sees the click and the page opens
+  sooner. Google's AMP copies of articles (`google.com/amp/s/...`,
+  `*.cdn.ampproject.org`) open on the publisher's own site. The links are
+  those of Brave's public debounce list (MPL-2.0), shipped unchanged as
+  `ike/resources/brave-debounce.json` and followed by the daily maintenance
+  (`components.json`, entry `brave-debounce`; the manifest now also follows
+  an upstream with no releases by the newest commit of a branch). From
+  Balanced up, with "Remove tracking parameters from links" on (the default);
+  "Repair this site" turns it off for a site. I.K.E.'s own limits on any
+  rule (`ike/debounce.py`): only an http or https address, never one of this
+  computer or the home network, never one with a user name in it, never the
+  same site, never a sign-in or payment service, never the stops that also
+  check the destination for the user's safety (Facebook's and Instagram's
+  link shim, Steam's link filter, Google's and YouTube's own redirect pages),
+  at most three stops in a row. The new address goes through every
+  protection again, as the engine itself reads it (a host written in
+  escapes or other digits that the engine would read as the home network is
+  refused). A rule of the list may only name trackers: a pattern for every
+  site or a whole public suffix, a template leading elsewhere than YouTube,
+  or a regular expression that could take long is left out, and a new list
+  with such a rule fails the tests, so it never reaches main by itself
+  (independent review by a second model, tests/test_debounce.py). The
+  maintenance compares commit versions as commits (the merge's gate, the
+  inventory, the ledger). Google's AMP pages on a
+  publisher's own site are left as they are: telling them apart needs a
+  script in every page and a second load, for pages a computer rarely gets.
+- **Menus as wide as their entries, every time**: now and then, after a
+  window had been closed, a menu opened a little narrower than its entries
+  (20 to 40 px of the end cut). PyQt can hand I.K.E.'s style a menu entry's
+  description wrapped as something else, so the entry was measured by the
+  desktop's rules when the menu opened and by I.K.E.'s afterwards. The style
+  now reads it as a menu entry every time (`ike/uistyle.py`; found by
+  tests/test_text_fit.py, which also measures a menu only once it is open).
+
 ## 1.1.28
 
 - **The I.K.E. Dark Engine** (the owner's decision): I.K.E.'s own dark mode

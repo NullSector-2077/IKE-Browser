@@ -1,6 +1,7 @@
 """The I.K.E. Dark Engine in the browser (1.1.28): its own panel under the
 toolbar's Dark mode button, its look given to the open pages without loading
-them again, its choice and options in Settings, and Dark Reader still there."""
+them again, its choice and options in Settings (1.1.30: Dark Reader is no longer
+part of I.K.E.; with Chromium's own dark mode the panel's look is greyed)."""
 
 import json
 import os
@@ -84,12 +85,13 @@ def steps(ike, qapp, out):
     out["method"] = dlg.dark_engine.currentData()
     out["dlg_style"] = dlg.de_style.currentData()
     dlg.close()
-    # Dark Reader chosen again: its own panel
-    ike.set_dark_mode("on", win, "reader")
+    # Chromium's own dark mode chosen: the same panel, its look greyed with a note
+    ike.set_dark_mode("on", win, "engine")
     yield 1500
     win.show_dark_panel()
     yield 300
-    out["panel_reader"] = type(win.dark_panel).__name__
+    out["panel_chromium"] = [type(win.dark_panel).__name__, win.dark_panel.cards.isEnabled(),
+                             win.dark_panel.note.isVisible(), win.dark_panel.master.isEnabled()]
     win.dark_menu.hide()
 '''
 
@@ -108,8 +110,8 @@ def test_engine_panel_looks_and_settings(run_ike, site, tmp_path):
     assert out["after_b"][0] == out["during_a"][0], out                   # let go: the other one too
     assert out["depth"] == 95, out
     assert "I.K.E. Dark Engine" in out["methods"] and out["method"] == "ike" and out["dlg_style"] == "warm", out
-    assert any("Dark Reader" in m for m in out["methods"]), out
-    assert out["panel_reader"] == "DarkPanel", out
+    assert not any("Dark Reader" in m for m in out["methods"]), out       # 1.1.30: no Dark Reader
+    assert out["panel_chromium"] == ["EnginePanel", False, True, True], out
 
 
 def test_the_hidden_switch_of_the_experiment_becomes_the_choice(run_ike, site):

@@ -16,11 +16,9 @@ records that this recipe failed for this error, so it is not tried again for it)
    the component (tools/upstream-diff.py, upstream.json) says for sure that ``x`` was renamed to
    ``y``. Then ``x`` is replaced by ``y``, as a whole word, in the files of I.K.E. the failure
    involves.
-3. **A builder's patch re-anchored** (reanchor): on a builder's branch, when one of I.K.E.'s patches
-   of Dark Reader no longer finds its text, the new upstream lines the refusal shows are searched for
-   the lines closest to the old anchor (difflib); a clear single match becomes the new anchor. Only
-   the anchor changes: tools/builder-anchor.py checks that, and the builder itself that it is found
-   exactly once.
+
+(Until 1.1.30 a third recipe re-anchored a builder's patch of Dark Reader's engine; the engine left
+I.K.E. and with it the only builder with such patches.)
 
     automat-recipes.py --workdir DIR --failure FILE --status FILE [--memory FILE --component ID]
                        [--upstream FILE] [--related FILE] [--builder ID] [--checker FILE] [--allow-adblock]
@@ -28,8 +26,6 @@ records that this recipe failed for this error, so it is not tried again for it)
 """
 
 import argparse
-import ast
-import difflib
 import importlib.util
 import json
 import re
@@ -38,27 +34,20 @@ import sys
 from pathlib import Path
 
 AUTHOR = "Recipe"
-RECIPES = ("remembered-fix", "renamed-symbol", "re-anchor")
+RECIPES = ("remembered-fix", "renamed-symbol")
 MAX_RENAME_LINES = 60
 MAX_FILE = 600_000
-ANCHOR_RATIO = 0.84           # how close the new upstream lines must be to the old anchor (code of the same
-#                               shape but another name is about 0.77: not close enough)
-ANCHOR_MARGIN = 0.08          # and how much closer than any other place
 MISSING = re.compile(r"has no attribute '(\w+)'|cannot find (?:function|value|type|struct|trait|macro|method) `(\w+)`"
                      r"|no (?:method|function|associated item|variant|field) named `(\w+)`"
                      r"|cannot import name '(\w+)'|unresolved import `[\w:]*?(\w+)`|name '(\w+)' is not defined"
                      r"|(\w+) is not a function|(\w+) is not defined")
 IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{1,60}$")
-NUMBERED = re.compile(r"^\s{0,6}(\d{1,7})  (.*)$")
 SUMMARY = {
     "remembered-fix": "Lo stesso errore era già stato corretto in passato (%s): la stessa correzione è stata "
                       "applicata di nuovo da un programma, senza chiedere a nessuna AI. Passa comunque da tutti i "
                       "controlli e dai test.",
     "renamed-symbol": "Il componente aggiornato ha cambiato nome a %s: un programma ha sostituito il vecchio nome "
                       "con il nuovo nei file di I.K.E. coinvolti, senza chiedere a nessuna AI.",
-    "re-anchor": "Il testo a cui era agganciata la modifica di I.K.E. \"%s\" in Dark Reader è cambiato: un "
-                 "programma ha trovato le nuove righe corrispondenti e ha riagganciato la modifica (solo il punto "
-                 "di aggancio), senza chiedere a nessuna AI.",
 }
 
 
@@ -143,116 +132,6 @@ def renamed(failure, upstream, workdir, files):
     for name, text in changed.items():
         (Path(workdir) / name).write_text(text, "utf-8")
     return sorted(changed), SUMMARY["renamed-symbol"] % ("%s (ora %s)" % (old, new))
-
-
-# --- 3. a builder's patch re-anchored -----------------------------------------------------------------
-
-def refusal_of(failure):
-    """(patch name, the new upstream lines around the anchor as [text]) of a builder's refusal, or
-    (None, [])."""
-    name = re.search(r"I\.K\.E\.'s patch '([^'\n]{1,80})' \(PATCHES\)", failure or "")
-    block = re.search(r"## The new upstream version around the anchor\n\n```text\n(.*?)\n```", failure or "", re.S)
-    if not name or not block:
-        return None, []
-    lines, last = [], None
-    for raw in block.group(1).split("\n"):
-        m = NUMBERED.match(raw)
-        if not m:
-            continue                              # a label ("found at line 12:"), not a line of the file
-        number = int(m.group(1))
-        if last is not None and number != last + 1:
-            lines.append(None)                    # a gap: the lines before and after are not neighbours
-        lines.append(m.group(2))
-        last = number
-    return name.group(1), lines
-
-
-def closest(anchor, lines):
-    """The lines of the new upstream closest to the old anchor: (new anchor, ratio), or (None, why).
-    One clear place only: close enough (ANCHOR_RATIO) and closer than any other (ANCHOR_MARGIN)."""
-    want = [ln for ln in anchor.split("\n")]
-    while want and not want[-1].strip():
-        want.pop()
-    lead = 0
-    while lead < len(want) and not want[lead].strip():
-        lead += 1
-    core = want[lead:]
-    if not core:
-        return None, "an empty anchor"
-    target = "\n".join(ln.strip() for ln in core)
-    scored = []
-    for size in sorted({len(core), len(core) + 1, max(1, len(core) - 1)}):
-        for start in range(0, len(lines) - size + 1):
-            window = lines[start:start + size]
-            if any(w is None or len(w) >= 200 for w in window):
-                continue                          # a gap, or a line the report cut: not a place to anchor to
-            ratio = difflib.SequenceMatcher(None, target, "\n".join(w.strip() for w in window), autojunk=False).ratio()
-            scored.append((ratio, -abs(size - len(core)), start, size))
-    if not scored:
-        return None, "no whole lines of the new upstream to compare"
-    scored.sort(reverse=True)
-    best = scored[0]
-    if best[0] >= 0.999 and best[3] == len(core):
-        return None, "the anchor is still there: not a moved anchor"
-    if best[0] < ANCHOR_RATIO:
-        return None, "nothing close enough to the old anchor (%.2f)" % best[0]
-    others = [s for s in scored[1:] if s[2] + s[3] <= best[2] or s[2] >= best[2] + best[3]]
-    if others and best[0] - others[0][0] < ANCHOR_MARGIN:
-        return None, "two places are about as close (%.2f and %.2f)" % (best[0], others[0][0])
-    window = lines[best[2]:best[2] + best[3]]
-    # each line as the old anchor wrote its own: with its indentation, or from its first character
-    new = []
-    for i, w in enumerate(window):
-        model = core[min(i, len(core) - 1)]
-        new.append(w if model[:1].isspace() else w.lstrip())
-    text = "\n".join(new)
-    if anchor.endswith("\n"):
-        text += "\n"
-    if anchor.startswith("\n"):
-        text = "\n" + text
-    joined = "\n".join(x for x in lines if x is not None)
-    if joined.count(text.strip("\n")) != 1:
-        return None, "the new anchor is not found exactly once in the lines shown"
-    return text, best[0]
-
-
-def literal(text, indent):
-    """A Python literal of the text, one line of source per line of text."""
-    parts = text.split("\n")
-    pieces = [p + "\n" for p in parts[:-1]] + ([parts[-1]] if parts[-1] else [])
-    if len(pieces) <= 1:
-        return repr(text)
-    return ("\n" + " " * indent).join(repr(p) for p in pieces)
-
-
-def reanchor(failure, source):
-    """(new source of the builder, patch name) with the refused patch's anchor replaced by the closest
-    lines of the new upstream; (None, why) when no place is clear."""
-    name, lines = refusal_of(failure)
-    if not name:
-        return None, "the refusal names no patch of PATCHES with its upstream lines"
-    try:
-        tree = ast.parse(source)
-    except (SyntaxError, ValueError):
-        return None, "the builder does not parse"
-    node = None
-    for stmt in tree.body:
-        if isinstance(stmt, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "PATCHES" for t in stmt.targets) \
-                and isinstance(stmt.value, ast.List):
-            for item in stmt.value.elts:
-                if isinstance(item, ast.Tuple) and len(item.elts) == 3 and all(
-                        isinstance(e, ast.Constant) and isinstance(e.value, str) for e in item.elts) \
-                        and item.elts[0].value == name:
-                    node = item.elts[1]
-    if node is None:
-        return None, "PATCHES has no patch %r written as three plain texts" % name
-    new_anchor, why = closest(node.value, lines)
-    if new_anchor is None:
-        return None, why
-    rows = source.split("\n")
-    before = "\n".join(rows[:node.lineno - 1] + [rows[node.lineno - 1][:node.col_offset]])
-    after = "\n".join([rows[node.end_lineno - 1][node.end_col_offset:]] + rows[node.end_lineno:])
-    return before + literal(new_anchor, node.col_offset) + after, name
 
 
 # --- the recipes, one after the other -------------------------------------------------------------------
@@ -342,14 +221,6 @@ def main(argv=None):
                          if reserve.editable(f, a.allow_adblock) and not f.startswith(("tests/", "tools/", "docs/"))]
                 got = renamed(failure, upstream, workdir, files)
                 summary = got[1] if got else None
-            elif recipe == "re-anchor" and a.builder == "darkreader":
-                target = workdir / reserve.BUILDERS["darkreader"]
-                new, name = reanchor(failure, target.read_text("utf-8"))
-                if new is None:
-                    status["tried"].append("re-anchor: %s" % name)
-                else:
-                    target.write_text(new, "utf-8")
-                    summary = SUMMARY["re-anchor"] % re.sub(r"[^\w .-]", "", name)[:80]
         except Exception as e:                    # a recipe never ends the attempt: undone, the next one
             status["tried"].append("%s: %s" % (recipe, type(e).__name__))
             undo_all()

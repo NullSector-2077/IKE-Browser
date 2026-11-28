@@ -16,6 +16,15 @@ from pathlib import Path
 
 import pytest
 
+# Qt WebEngine's widgets must be loaded before any QApplication exists: a test that makes one in
+# the test process itself (to read a picture or measure a font) would otherwise stop a later test
+# of the same process from importing ike.app ("QtWebEngineWidgets must be imported ... before a
+# QCoreApplication instance is created"; it depended on the order the shards gave, 1.1.30)
+try:
+    import PyQt6.QtWebEngineWidgets  # noqa: F401
+except ImportError:                  # the tools' own tests run without Qt
+    pass
+
 ROOT = Path(__file__).resolve().parent.parent
 # the copy of I.K.E. to start: this repository, or an installed one
 # (IKE_TEST_APP=/usr/lib/ike-browser python3 -m pytest)

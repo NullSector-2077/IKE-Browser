@@ -934,7 +934,7 @@ def test_a_refused_reserve_fix_goes_to_the_next_model_with_the_reason(repo, tmp_
 
 
 @pytest.mark.parametrize("rel", ["ike-adblock/Cargo.toml", "ike-adblock/Cargo.lock",
-                                 "ike/resources/darkreader.js", "ike/resources/ubo-scriptlets.json",
+                                 "ike/resources/darkreader-data.json", "ike/resources/ubo-scriptlets.json",
                                  "ike/resources/icons/sets/x.svg", "docs/THIRD-PARTY.md"])
 def test_files_of_others_and_generated_ones_are_never_changed(repo, tmp_path, rel):
     """1.1.16: what comes from others or is generated has its own update tool;
@@ -1005,7 +1005,7 @@ def test_tests_are_not_weakened_in_other_ways(repo, tmp_path):
 @pytest.mark.parametrize("rel", ["tests/data/page.html", "tests/settings-keys.json",
                                  "ike/resources/videoads.js", "ike/resources/videorelay.js",
                                  "ike/resources/mediahook.js", "tools/test-requirements.txt",
-                                 "tools/automation-health.py", "tools/build-darkreader.py",
+                                 "tools/automation-health.py", "tools/build-darkreader-lists.py",
                                  "tools/build-ubo-scriptlets.mjs", "tools/third-party.py",
                                  ".github/autofix/prompt.md",
                                  # 2026-11-22: the maintenance's detector, inventory, ledger,
@@ -1291,7 +1291,7 @@ def test_only_an_engine_update_allows_the_wrapper():
 
 WRAPPER_PATHS = ["ike-adblock/src/lib.rs", "vendor/adblock/__init__.py", "ike/blocker.py", "ike/scriptlets.py"]
 NEVER_PATHS = ["ike-adblock/Cargo.toml", "ike-adblock/Cargo.lock", "ike-adblock/build.rs",
-               "vendor/adblock/adblock.pyi", "ike/resources/darkreader.js", "ike/resources/ubo-scriptlets.json",
+               "vendor/adblock/adblock.pyi", "ike/resources/darkreader-data.json", "ike/resources/ubo-scriptlets.json",
                "ike/resources/icons/sets/a.svg", "docs/THIRD-PARTY.md", ".github/workflows/tests.yml"]
 
 
@@ -3685,7 +3685,7 @@ def test_arch_reaches_the_automatic_fix_and_comes_back_tested_there():
     automerge = load("automerge")
     assert {"hand-over", "merge-ready"} <= automerge.OWN_JOBS
     # the guard keeps its rules: no workflow, builder, vendor, Cargo or test data file for any fix
-    for rel in (".github/workflows/arch.yml", "tools/build-darkreader.py", "ike-adblock/Cargo.toml",
+    for rel in (".github/workflows/arch.yml", "tools/build-darkreader-lists.py", "ike-adblock/Cargo.toml",
                 "vendor/adblock/__init__.py", "tests/data/x.json", "PKGBUILD"):
         assert guard.allowed_path(rel, False), rel
 

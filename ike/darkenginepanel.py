@@ -1,5 +1,6 @@
-"""The panel of the toolbar's Dark mode button when the I.K.E. Dark Engine is the
-dark mode method (1.1.28). Dark Reader keeps its own panel (darkpanel.py).
+"""The panel of the toolbar's Dark mode button (1.1.28; since 1.1.30, when Dark
+Reader left I.K.E., the only one: with Chromium's own dark mode as the method,
+its look is greyed and a line says it belongs to the I.K.E. Dark Engine).
 
 It opens under the button as the other panels do (window.show_dark_panel), in
 I.K.E.'s Plasma look: the engine's name with its moon, dark mode for every site
@@ -256,7 +257,10 @@ class EnginePanel(QWidget):
         detect.addWidget(self.detect, 0, Qt.AlignmentFlag.AlignTop)
         lay.addLayout(detect)
         reset_row = QHBoxLayout()
-        reset_row.addStretch(1)
+        self.note = dim(QLabel(T("The style is the I.K.E. Dark Engine's: Chromium's own dark mode has none"), self))
+        self.note.setWordWrap(True)
+        reset_row.addWidget(self.note, 1)
+        reset_row.addStretch(0)
         self.reset = QPushButton(_icon(("edit-undo",)), T("Reset"), self)
         self.reset.setToolTip(T("Style, depth, text and pictures back to their defaults"))
         self.reset.clicked.connect(self._reset)
@@ -319,6 +323,11 @@ class EnginePanel(QWidget):
             s.setValue(look[key])
             self.values[key].setText("%d%%" % look[key])
         self.detect.setChecked(look["detect"])
+        own = cfg["dark_engine"] != "engine"
+        for w in ([self.style_label, self.cards, self.detect, self.detect_label, self.reset]
+                  + list(self.sliders.values()) + list(self.values.values()) + list(self.slider_labels.values())):
+            w.setEnabled(own)
+        self.note.setVisible(not own)
         self._busy = False
 
     # --- what the panel changes -----------------------------------------

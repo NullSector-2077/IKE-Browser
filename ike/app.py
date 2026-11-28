@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -486,7 +487,7 @@ class IkeApp(QObject):
         """Turn dark mode for pages on or off and apply it without restarting."""
         cfg = self.config
         cfg["dark_mode"] = "on" if mode == "on" else "off"
-        if engine in ("reader", "engine", "ike"):
+        if engine in ("engine", "ike"):
             cfg["dark_engine"] = engine
         cfg.save()
         self._dark_changed()
@@ -520,42 +521,6 @@ class IkeApp(QObject):
                             or (want and engine != getattr(page, "_dark_engine", None))):
                         v.reload()
 
-    def push_dark_theme(self, view):
-        """Give the page of a tab the colours of dark mode now (1.1.25, the dark mode
-        panel): Dark Reader takes them in the page's isolated world, without loading
-        it again. Only a page made dark by Dark Reader; the colours are checked first."""
-        import json
-
-        from PyQt6.QtWebEngineCore import QWebEngineScript
-
-        from . import darktheme
-        if view is None or getattr(view, "sleeping", False) or getattr(view, "pending_url", None):
-            return False
-        page = view.page()
-        if not getattr(page, "_dark_on", False) or getattr(page, "_dark_engine", None) != "reader":
-            return False
-        url = view.url()
-        if url.scheme() not in ("http", "https", "file"):
-            return False
-        theme, _own = darktheme.of(self.config, url.host().lower())
-        js = "window.__ikeDarkTheme && window.__ikeDarkTheme(%s)" % json.dumps(darktheme.for_page(theme))
-        world = int(QWebEngineScript.ScriptWorldId.ApplicationWorld.value)
-        try:
-            frames = [page.mainFrame()]
-        except (AttributeError, RuntimeError):
-            page.runJavaScript(js, QWebEngineScript.ScriptWorldId.ApplicationWorld)
-            return True
-        seen = 0
-        while frames and seen < 200:          # the page's frames too (Qt 6.8+), a bounded number
-            f = frames.pop()
-            seen += 1
-            try:
-                f.runJavaScript(js, world)
-                frames.extend(f.children())
-            except RuntimeError:
-                pass
-        return True
-
     def push_engine_look(self, view, look):
         """One tab's page takes a look of the I.K.E. Dark Engine now (its panel, while a
         slider moves): only a page the engine made dark, nothing loaded again."""
@@ -579,34 +544,6 @@ class IkeApp(QObject):
             views = [v for vs in getattr(w, "workspaces", {}).values() for v in vs] or list(w.views)
             for v in views:
                 self.push_engine_look(v, cfg["dark_engine_look"])
-
-    def dark_theme_changed(self):
-        """The colours of dark mode were changed and kept (the dark mode panel, 1.1.25):
-        saved, given to every open page made dark by Dark Reader, and to the pages
-        loaded from now on (darkpages.retheme). Nothing is loaded again."""
-        from . import darkpages, darktheme
-        cfg = self.config
-        cfg["dark_theme"] = darktheme.clean(cfg["dark_theme"])
-        cfg["dark_site_themes"] = darktheme.clean_sites(cfg["dark_site_themes"])
-        cfg.save()
-        theme = darktheme.for_page(cfg["dark_theme"])
-
-        def own(host):
-            t, has = darktheme.of(cfg, host)
-            return darktheme.for_page(t) if has else None
-        profiles = {}
-        for w in self.windows:
-            w.sync_dark_icon()
-            views = [v for vs in getattr(w, "workspaces", {}).values() for v in vs] or list(w.views)
-            for v in views:
-                self.push_dark_theme(v)
-                try:
-                    p = v.page().profile()
-                    profiles[id(p)] = p
-                except RuntimeError:
-                    pass
-        for p in profiles.values():
-            darkpages.retheme(p, theme, own)
 
     def restart(self):
         """Close and start again, reopening the current tabs."""
@@ -752,10 +689,7 @@ class IkeApp(QObject):
                 now if ok else now - darklists.UPDATE_INTERVAL + darklists.RETRY_FAILED_AFTER)
             self.config.save()
             if ok:
-                darkfixes.reset()
-                from . import darkpages
-                for p in list(self.shields.profiles):
-                    darkpages.clear(p)          # the dark pages loaded next take the new lists
+                darkfixes.reset()               # the dark pages loaded next take the new lists
             elif why:
                 print("I.K.E.: Dark Reader's lists not updated: %s" % why, file=sys.stderr)
         self._dark_lists.done.connect(done)
@@ -917,6 +851,9 @@ class IkeApp(QObject):
             item._ike_dialog = dlg
             dlg.open()
         else:
+            win = self.active_window()
+            if win is not None:
+                win.download_fly(name)
             self._notify(T("Download started: %s") % name)
 
     # a site that starts one download after another (without the user saving
@@ -1637,7 +1574,19 @@ LNA_FEATURES = ("LocalNetworkAccessChecks:LocalNetworkAccessChecksWarn/false",
 # do not change. The Linux kernel's version left out of the client hints
 # (1.1.25): service and shared workers get the engine's own value, never the
 # profile's, and gave the real kernel. Not graphics switches.
-PRIVACY_FEATURES = ("StaticStorageQuota", "ReduceUserAgentDataLinuxPlatformVersion")
+PRIVACY_FEATURES = ("StaticStorageQuota", "ReduceUserAgentDataLinuxPlatformVersion",
+                    # 1.1.30: connections, HTTP/3 sessions and what the engine
+                    # remembers of servers (Alt-Svc) kept apart for each site the
+                    # user visits, so one site's traffic cannot mark another's
+                    "PartitionConnectionsByNetworkIsolationKey")
+# advertising measurement off (1.1.30, Engine Privacy Layer study): Qt
+# WebEngine leaves Attribution Reporting working (an advertiser's response
+# was stored in the profile's Conversions database, where Chromium 140 stores
+# nothing) and sends the Topics header; Chrome 158 has neither at work. The
+# blink features take their APIs away from pages (attributionSrc,
+# document.browsingTopics), the engine features the machinery behind them.
+PRIVACY_OFF_FEATURES = ("ConversionMeasurement", "BrowsingTopics")
+PRIVACY_OFF_BLINK = ("AttributionReporting", "TopicsAPI")
 
 
 def split_flags(text):
@@ -1758,8 +1707,13 @@ def _chromium_flags(config):
     # service workers followed the system's language (owner's decision for
     # 1.1.20, fingerprinting audit M-7). I.K.E.'s own interface keeps the
     # user's language. Read at start: a change of level applies after a restart.
-    if config["shield_level"] == "maximum" and "--lang" not in names:
-        flags.append("--lang=en-US")
+    # 1.1.30: at every level the engine is given the first language sites
+    # are told (engine_language), so workers, Intl and the engine's own texts
+    # agree with the page (the Engine Privacy Layer study found shared and
+    # service workers saying "en" where the page said "en-US").
+    if "--lang" not in names:
+        from .config import engine_language
+        flags.append("--lang=" + engine_lang_switch(engine_language(config)))
         names.add("--lang")
     if hasattr(os, "geteuid") and os.geteuid() == 0 and "--no-sandbox" not in names:
         # only reached with IKE_ALLOW_UNSAFE_ENGINE=1 (refuse_root): the
@@ -1773,6 +1727,14 @@ def _chromium_flags(config):
     # tenth more memory. Turning it off takes IKE_ALLOW_UNSAFE_ENGINE=1.
     if "--site-per-process" not in names and "--disable-site-isolation-trials" not in names:
         flags.append("--site-per-process")
+    # HTTP/3 (QUIC) as Chrome, Chromium and Brave use it (1.1.30, the owner;
+    # Engine Privacy Layer study): Qt WebEngine leaves it off, so a server saw
+    # a Chromium that never used it. Faster on weak or changing networks. The
+    # engine uses it only on direct connections: a proxy is never bypassed.
+    # --disable-quic from the environment keeps it off.
+    if "--enable-quic" not in names and "--disable-quic" not in names:
+        flags.append("--enable-quic")
+        names.add("--enable-quic")
     off = {x.split(":")[0].split("<")[0].lower() for f in flags if f.startswith("--disable-features=")
            for x in f.split("=", 1)[1].split(",")}
     want = [x for x in LNA_FEATURES + PRIVACY_FEATURES
@@ -1783,8 +1745,38 @@ def _chromium_flags(config):
                  x for x in f.split("=", 1)[1].split(",") if x.split(":")[0].split("<")[0] not in names_on)
                  for f in flags]                     # an inherited "warn only" does not win
         flags = _feature_flags([f for f in flags if f != "--enable-features="], enable=want)
+    on = {x.split(":")[0].split("<")[0].lower() for f in flags if f.startswith("--enable-features=")
+          for x in f.split("=", 1)[1].split(",")}
+    flags = _feature_flags(flags, disable=[x for x in PRIVACY_OFF_FEATURES if x.lower() not in on])
+    flags = _blink_off(flags, PRIVACY_OFF_BLINK)
     flags = _video_flags(flags, config, CONFIG_DIR)
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = join_flags(flags)
+
+
+def engine_lang_switch(header):
+    """The --lang the engine is given: the first language of an
+    Accept-Language list ("it-IT,it;q=0.9" -> "it-IT"); en-US otherwise."""
+    first = (header or "").split(",")[0].split(";")[0].strip()
+    return first if re.fullmatch(r"[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*", first) else "en-US"
+
+
+def _blink_off(flags, names):
+    """flags with names added to the one --disable-blink-features switch (the
+    engine reads only one), unless the same feature is asked on."""
+    out, off, on = [], [], set()
+    for f in flags:
+        if f.startswith("--disable-blink-features="):
+            off += [x for x in f.split("=", 1)[1].split(",") if x]
+        else:
+            if f.startswith("--enable-blink-features="):
+                on |= {x.lower() for x in f.split("=", 1)[1].split(",")}
+            out.append(f)
+    for x in names:
+        if x not in off and x.lower() not in on:
+            off.append(x)
+    if off:
+        out.append("--disable-blink-features=" + ",".join(off))
+    return out
 
 
 def memory_low(path="/proc/meminfo"):

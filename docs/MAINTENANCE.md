@@ -56,7 +56,8 @@ itself; the owner only signs.
    next free provider, up to `FIX_ATTEMPTS` (`tools/ai-providers.py`), the
    tests again after each. On a candidate of the engine (adblock, pyo3, a
    major crate) the AI may adapt I.K.E.'s wrapper; on a builder's branch it may
-   only re-anchor I.K.E.'s existing patches. An AI never edits a workflow: what
+   only re-anchor I.K.E.'s existing change (since 1.1.30 uBlock Origin's
+   library path only). An AI never edits a workflow: what
    it wanted there is a written proposal for a person. The cap is per day:
    when today's attempts are used up the branch stays open, the ledger says
    "retrying" and the next day it goes on (AUTOMAT).
@@ -502,15 +503,22 @@ the budget of the free quotas.
 
 **The component manifest** (`components.json`, `tools/component-manifest.py`).
 The one place an external integrated component is declared: its upstream
-(git with a tag pattern, npm or PyPI), the files it produces, an existing
+(git with a tag pattern or, for an upstream that makes no releases, a branch
+whose newest commit is the version; npm or PyPI), the files it produces, an existing
 builder of I.K.E.'s or a plain download with its sha256, its licence file and
 the test categories it needs (never fewer than the default, `no-regression`
-among them). Dark Reader and uBlock Origin's scriptlets are declared there,
+among them). Dark Reader's lists (since 1.1.30 without its engine) and uBlock
+Origin's scriptlets are declared there,
 and since 1.1.24 KDE's Breeze icons (`breeze-icons`: the icons I.K.E. uses,
 built by `tools/build-breeze-icons.py` from breeze-icons' newest release tag;
 only a change of those icons makes an update, and a release that lost one of
 them is refused and kept at the version in use, as it has no patches an AI
-could re-anchor); `tools/update-candidates.py` and `tools/check-components.py`
+could re-anchor), and since 1.1.30 Brave's debounce list (`brave-debounce`:
+`ike/resources/brave-debounce.json`, a plain download of
+`brave-lists/debounce.json` from https://github.com/brave/adblock-lists,
+followed on its `master` branch: any newer commit is a candidate, checked by
+the sha256 of the commit in use like every plain download; `ike/debounce.py`
+reads it); `tools/update-candidates.py` and `tools/check-components.py`
 read it, so a new entry gets its candidate `automation/update/<id>` and the
 whole chain with no change of code. A plain download is made only when the entry's own
 version, downloaded again, gives exactly the file the repository has; hosts
@@ -566,7 +574,7 @@ run out: then nothing merges, and the retry comes the next day. The owner's
 token has more rights than the workflow's own; it is used only by steps with
 no AI. Part 2 adds its own: the limits of the free quotas are careful guesses
 until a person checks them (the live headers correct them, but a provider
-that sends none is only counted); a recipe's rename or re-anchoring is a
+that sends none is only counted); a recipe's rename is a
 program's guess, kept only when every check passes; the job `try` runs code
 an AI wrote (with no key, a token that only reads, and a checksum on the fix
 that is pushed); with `AUTOMAT_CHATGPT_AUTOMERGE` on, a fix written outside
@@ -746,11 +754,10 @@ error (AUTOMAT's memory keeps the patch of a merged fix by the error's
 signature: applied again when the same error comes back, as on a candidate
 rebuilt from `main`); a symbol the upstream change renamed (the failure
 misses a name, and the upstream change says for sure it was renamed: replaced
-as a whole word in the files of I.K.E. involved); a builder's patch
-re-anchored (on a builder's branch, the new upstream lines the refusal shows
-are searched for the lines closest to the old anchor; one clear place only).
+as a whole word in the files of I.K.E. involved). (A third recipe re-anchored
+a patch of Dark Reader's engine builder; it left with the engine in 1.1.30.)
 What a recipe makes is treated exactly like an AI's fix: the cheap checks,
-the patch checker with the static guard (the builders' rule for an anchor),
+the patch checker with the static guard,
 the lint, then the tests, "Nothing gets worse" and the reviewers before any
 merge (its commit says `Author: Recipe / <name>`). An AI is asked only when
 no recipe applies or its result is refused; a recipe that failed for an
@@ -762,8 +769,8 @@ description gets what its authors changed between the version in `main` and
 the new one: for the engine's crates the versions that differ in
 `Cargo.lock` (the ones the failure names first), each crate's repository from
 crates.io, then GitHub's comparison of the two release tags and the release
-notes; Dark Reader by its two versions; uBlock Origin's scriptlets by their
-two commits; the test packages from PyPI. Only api.github.com, crates.io and
+notes; Dark Reader's lists by their two commits; uBlock Origin's scriptlets
+by their two commits; the test packages from PyPI. Only api.github.com, crates.io and
 pypi.org are asked, JSON only, the repository's token to GitHub alone. It is
 cut to a budget (the lines about the names the failure mentions first) and
 quoted as data: lines that look like instructions are left out, links cut,
@@ -970,7 +977,7 @@ or `/`, and a real update's branch can never be made background):
 | Class | What | Branches |
 |---|---|---|
 | 1 | security fixes | `automation/update/security-*` |
-| 2 | updates of what ships to users: the engine and ad-blocking crates, Dark Reader, uBlock Origin's scriptlets, the filter lists, Python and Qt, the Breeze icons, the daily candidate, a fix of `main`; anything unknown too (never starved; a trial started by hand has no prefix of its own and counts here) | every other `automation/update/*`, `automation/builder/*`, `automation/daily-maintenance`, `automation/autofix-main` |
+| 2 | updates of what ships to users: the engine and ad-blocking crates, Dark Reader's lists, uBlock Origin's scriptlets, the filter lists, Python and Qt, the Breeze icons, the daily candidate, a fix of `main`; anything unknown too (never starved; a trial started by hand has no prefix of its own and counts here) | every other `automation/update/*`, `automation/builder/*`, `automation/daily-maintenance`, `automation/autofix-main` |
 | 3 | updates of the CI and the tools | `automation/update/ci-*` |
 | 4 | background: the AUTOMAT drill, the replay bench, self-evolution | `automation/update/drill-*`, `automation/bench/*`, `automation/evolve/*` |
 
@@ -1264,7 +1271,7 @@ group of them, `--only <id>`):
 | pyo3, the bridge to Python | `pyo3` | `ike-adblock/Cargo.toml`, `ike-adblock/Cargo.lock` | A new release line: the requirement is raised (the automatic fix may adapt I.K.E.'s wrapper) |
 | A new major version of another direct crate of the engine (serde_json 2, ...) | `crate-major-<crate>` | `ike-adblock/Cargo.toml`, `ike-adblock/Cargo.lock` | Its requirement in `Cargo.toml` is raised, then `cargo update`; the automatic fix may adapt the wrapper. A major version of a crate only adblock brings (thiserror 2, rand, selectors...) cannot be taken by I.K.E.'s requirements: it comes with a new adblock, which is its own candidate; the ledger keeps it as retry-later, looked at weekly |
 | uBlock Origin scriptlets | `ubo-scriptlets` | `ike/resources/ubo-scriptlets.json` | The rebuilt scriptlets differ, not merely a new upstream commit |
-| Dark Reader: engine (npm "darkreader") and the lists of its extension (GitHub) | `darkreader` | `ike/resources/darkreader.js`, `darkreader-proxy.js`, `darkreader-data.json` (`tools/build-darkreader.py`) | A newer engine (which brings the newest lists with it). Since 1.1.27 lists that changed alone make no update: the browser fetches them itself once a day (`ike/darklists.py`, checked with the same functions as the builder), and the report only notes "lists changed (the browser fetches them itself)" |
+| Dark Reader's lists (its extension's site fixes, dark sites and detector hints, from its repository on GitHub; its engine left I.K.E. in 1.1.30) | `darkreader` | `ike/resources/darkreader-data.json` (`tools/build-darkreader-lists.py`) | **No candidate**: the browser fetches the lists itself once a day (`ike/darklists.py`), without GitHub; the daily check only notes "lists changed (the browser fetches them itself)" and still checks that they build safely. The bundled copy only serves a new profile or one that could not fetch them yet (see "Dark Reader's lists" below) |
 | The packages of the automatic tests: Qt's wheels; pytest, ruff and theirs; the other libraries | `test-qt`, `test-tools`, `test-libs` | `tools/test-requirements.txt` | A newer package set on PyPI (no new version of I.K.E.: nothing ships) |
 | The workflows' pins: every GitHub Action, cargo-deny, setup-python's and setup-node's versions, the Rust toolchain | `ci-<name>` | `.github/workflows/*.yml`, `.github/actions/*` (`tools/ci-pins.py`) | A newer release (see "The workflows' pins") |
 | The PKGBUILD's depends, optdepends and minima | `pkgbuild` | `PKGBUILD` (`tools/pkgbuild-sync.py`) | A module, Qt module or program the code uses and no package declares, a package needed at run time that is only optional, or a `# needs: <package> >= <version>` the code declares (see "Arch Linux's own packages") |
@@ -1275,22 +1282,68 @@ that engine (1.1.14). Filter lists and user
 scripts update themselves inside the browser (the daily check loads today's
 lists into the bundled engine: see "The default filter lists" below).
 
+### Dark Reader's lists (1.1.30: its engine is gone)
+
+Until 1.1.28 I.K.E. shipped Dark Reader's engine (its script, its
+style-sheet proxy, I.K.E.'s speed patches), built by I.K.E.'s builder of it
+from the npm package. In 1.1.30 the engine left I.K.E. (the owner's order):
+pages are darkened by the I.K.E. Dark Engine (`ike/darkengine.js`) or by
+Chromium's own dark mode. With it went the npm package, the proxy, the speed
+patches and their re-anchoring by an AI, the links and network-call checks of
+the engine, the panel's API check, Dark Reader's cost budget and its builder.
+
+Dark Reader's **lists** stay: the fixes for single sites, the sites that are
+dark already and the hints of a site's own dark theme
+(`ike/resources/darkreader-data.json`, read by `ike/darkfixes.py`; About shows
+its `version` and `lists_date`). They are kept current two ways:
+
+- **by the browser itself, every day** (since 1.1.27, `ike/darklists.py`): it
+  fetches the three files from Dark Reader's repository and uses them when
+  they pass its checks;
+- **the copy I.K.E. comes with, every week**: `tools/build-darkreader-lists.py`
+  writes `darkreader-data.json` from `src/config` of a checkout of Dark
+  Reader's repository (the version from its `package.json`, the commit and its
+  date), reading and checking the lists with the browser's own functions
+  (`ike/darklists.py`: `parse`, `data_problems`, `check`; the builder has no
+  reader of its own). The daily check (`tools/check-components.py --only
+  darkreader`) clones the repository and builds them; when they differ from
+  the copy in use it is only noted, never a candidate: the browser has them
+  already (the owner's rule of 1.1.27, "no new version for simple lists").
+  The builder still runs every day, so a list that does not parse or holds
+  what looks like a script is reported ("builder refused").
+
+Why no candidate (the owner, 2026-11-27: the browser downloads the lists itself every day, with no work on
+GitHub): the bundled copy is only the first start's fallback, refreshed when a version of I.K.E. is made
+anyway (a person may rebuild it with the builder below before signing). The rules of the build (each one STOPS it, writes nothing and keeps the
+copy in use):
+
+| Check | Stops when |
+|---|---|
+| Data for Dark Reader only (`DATA_SCRIPT_MARKS` of `ike/darklists.py`: `<script`, `</style`, `javascript:`, `expression(`, `-moz-binding`, `behavior:`, an HTML or script `data:` address, `onload=` / `onerror=`; no field but Dark Reader's, nothing but text) | anything looks like a script |
+| The common fix first (url `*`) | the site fixes do not start with it |
+| Not much shorter than the copy in use (`MIN_SHARE`, as the browser checks a download) | a list has less than half the entries: a broken checkout |
+| The version | the checkout's `package.json` gives none |
+
+A refusal is "builder refused" in the daily report (the step, the versions,
+for the site fixes the new list's first lines); the lists have no patches an
+AI may re-anchor, so it waits for a person (`tools/update-candidates.py`:
+"no patches an AI may re-anchor"). `tests/test_darkreader_lists.py` proves the
+rules; with `IKE_TEST_NETWORK=1` it also rebuilds the bundled copy from the
+commit it records, byte for byte.
+
 ### When a builder refuses a new upstream version
 
-Two of the components are not copied but built, with I.K.E.'s own changes:
-Dark Reader (`tools/build-darkreader.py`: the proxy taken out of the engine,
-I.K.E.'s speed patches, `PATCHES`, each of which must find its text, its
-"anchor", exactly once, and the checks of "Dark Reader's builder: the rules
-of every update" below) and uBlock Origin's scriptlets
+Some components are not copied but built: uBlock Origin's scriptlets
 (`tools/build-ubo-scriptlets.mjs`: `builtinScriptlets` of
-`src/js/resources/scriptlets.js`, read with Node.js). Since 1.1.20 (the
-owner's decision) `tools/check-components.py` keeps two kinds of trouble
-apart:
+`src/js/resources/scriptlets.js`, read with Node.js), Dark Reader's lists
+(`tools/build-darkreader-lists.py`, above) and KDE's Breeze icons
+(`tools/build-breeze-icons.py`). Since 1.1.20 (the owner's decision)
+`tools/check-components.py` keeps two kinds of trouble apart:
 
 | What happened | Called | What it does |
 |---|---|---|
-| An upstream source could not be read: the network, crates.io, PyPI, npm, GitHub, `git clone`, npm's hash that does not match | **source unreachable** | Infrastructure. The report's row says "check failed: source unreachable: ..."; `--apply` applies **nothing** and exits 1 (fail closed); the maintenance's check step fails and the automatic fix opens "GitHub or the runner failed: Daily maintenance candidate", no AI. The next daily run tries again. |
-| The new version was downloaded, but I.K.E.'s builder does not accept it: the proxy or `injectProxy` is not where it was, the npm package is laid out differently, the site fixes do not start with the common fix or hold what could be a script, a link a person must judge, a changed network call, the API of I.K.E.'s Dark Reader panel gone, a result that does not parse (Dark Reader's speed patches no longer stop it since 2026-11-24: see below); uBlock Origin's library moved, the builder stopped, found no scriptlets, or a scriptlet needs an entry the library does not have | **builder refused**: a component incompatibility | That component **stays at the version in use, with I.K.E.'s changes** (never replaced by the unpatched upstream). Every other component is still applied and tested (the crates' security updates included); `--apply` exits 0. The report has a section for the owner, and since 2026-11-22 the builders' path starts (below): an AI may re-anchor the existing patches on `automation/builder/<id>` only; the guard refuses `tools/build-*` to every other run. |
+| An upstream source could not be read: the network, crates.io, PyPI, npm, GitHub, `git clone`, a download's hash that does not match | **source unreachable** | Infrastructure. The report's row says "check failed: source unreachable: ..."; `--apply` applies **nothing** and exits 1 (fail closed); the maintenance's check step fails and the automatic fix opens "GitHub or the runner failed: Daily maintenance candidate", no AI. The next daily run tries again. |
+| The new version was downloaded, but I.K.E.'s builder does not accept it: uBlock Origin's library moved, the builder stopped, found no scriptlets, or a scriptlet needs an entry the library does not have; Dark Reader's lists hold what could be a script, lack the common fix first or are much shorter than the copy in use; a Breeze release lost an icon I.K.E. uses | **builder refused**: a component incompatibility | That component **stays at the version in use, with I.K.E.'s changes** (never replaced by the unchecked upstream). Every other component is still applied and tested (the crates' security updates included); `--apply` exits 0. The report has a section for the owner; for uBlock Origin since 2026-11-22 the builders' path starts (below): an AI may re-anchor the library's path on `automation/builder/ubo-scriptlets` only; the guard refuses `tools/build-*` to every other run. Dark Reader's lists and Breeze have nothing to re-anchor: they wait for a person. |
 
 **How to read the report** (the `components` issue, the run's summary, and the
 maintenance candidate's pull request when other components changed). The
@@ -1299,83 +1352,38 @@ version" and names the owner in a comment when it first appears. Its table
 marks the component "**refused**", and the section "Component incompatibility"
 gives:
 
-- the component and its versions, in use -> new (for Dark Reader the engine
-  version and the lists' commit; for uBlock Origin the commits);
-- the step that refused: for Dark Reader the proxy / `injectProxy` / the site
-  fixes, the links check, the network calls check, the panel's API or the
-  parse check; for uBlock Origin the builder;
+- the component and its versions, in use -> new (for Dark Reader's lists
+  their version and commit; for uBlock Origin the commits);
+- the step that refused: for Dark Reader's lists the lists' content, the
+  common fix or a list much shorter than the copy in use; for uBlock Origin
+  the builder;
 - the reason, as the builder said it;
-- "The new upstream version around the anchor": the anchor's lines no longer
-  found, and the new engine's lines (numbered) around the first anchor line
-  still there, or every place where the anchor is now found twice; for
-  uBlock Origin what the new checkout has where the builder looks (the file
-  and its exports, or the files next to it);
+- "The new upstream version around the anchor": for uBlock Origin what the
+  new checkout has where the builder looks (the file and its exports, or the
+  files next to it); for Dark Reader's site fixes the new list's first lines;
 - the builder's log.
-
-**Dark Reader's builder: the rules of every update** (the owner's decisions
-of 2026-11-24; the comment at the top of `tools/build-darkreader.py`). Dark
-Reader keeps updating by itself; after every update the builder:
-
-| Step | What it does | When it stops (builder refused) |
-|---|---|---|
-| The proxy change (`PROXY_BLOCK`, `PROXY_EVENT`): the style-sheet proxy asked for by an event with the session's token, never an inline script | Made | Always when it cannot be made: without it Google's sites break, or a page could start the proxy. Not a speed patch |
-| The speed patches (`PATCHES`) | Each family is made when all its texts are found exactly once. A family that no longer fits is **left out**, with the families that need it (`PATCH_NEEDS`), and the update ships without it: the builder prints "speed patch left out: ...", `darkreader-data.json` records it (`"ike_build"`, written only when something was left out or removed), and the daily report's note, so the candidate's CHANGELOG line and the signing notice, name it | Never |
-| Links in `darkreader.js` and `darkreader-proxy.js` | Kept: the links of `LINKS_ALLOWED` (each with its reason: Dark Reader's site and MIT licence in its notices, `https://fonts.googleapis.com/` compared with a sheet's address, the SVG / XLink / XHTML namespaces) and a bare scheme the code compares with (`https://`, `moz-extension://`). Removed: any other link in a comment; a link of a denied kind in a string (the string becomes `""`) or in a template literal (only the link goes). Denied kinds (`LINK_DENY`): donation (Patreon, Open Collective, PayPal, Liberapay, Ko-fi, Buy Me a Coffee, GitHub Sponsors, "donate" pages), social (X / Twitter, Facebook, Mastodon, Reddit, YouTube channels, Discord, Telegram ...), news / blog / "what's new", analytics / telemetry, advertising | An unknown link in a string or template literal; a denied link the code compares with or looks up (removing it would change what the code does); a link the reader cannot place |
-| Network calls (`NETWORK_CALLS`): fetch, XMLHttpRequest, sendBeacon, WebSocket, EventSource, importScripts, counted in the code (4.9.135: fetch 4 times, nothing else) | Counted | A new kind or another count: a person reads the new call, then updates `NETWORK_CALLS` |
-| The API of I.K.E.'s Dark Reader panel (`PANEL_API`): `enable(theme, fixes)`, `disable`, `setFetchMethod` and the theme's fields (brightness, contrast, sepia, grayscale, mode, useFont, fontFamily, textStroke, the dark and light scheme colours, scrollbarColor, selectionColor) | Checked | Any of it gone (the panel and `darkmode.js` would break) |
-| The site fixes (`darkreader-data.json`): CSS put in a style element, selectors, flags. Sites' own image and font addresses in the CSS are allowed: they are the sites' assets, and this list is not scrubbed | Checked: no field but Dark Reader's, nothing but text | Anything that looks like a script (`DATA_SCRIPT_MARKS`: `<script`, `</style`, `javascript:`, `expression(`, `-moz-binding`, `behavior:`, an HTML or script `data:` address, `onload=` / `onerror=`): in Chromium none of the list can run as a script, and this keeps it so |
-| The result | Read again by the builder's own reader of scripts (`lex`): removing links must leave the same code; and `node --check` (when Node.js is there, as in the daily check) must accept the files whenever it accepts Dark Reader's own engine | When either says no |
-
-A build that stops writes nothing: the Dark Reader in use stays, nothing
-breaks, and the refusal waits for Claude or a person (the daily report says
-which step; the builders' path below cannot fix these steps, only anchors).
-Dark Reader's unused message types `MARK_NEWS_AS_READ` / `MARK_NEWS_AS_DISPLAYED`
-are left in: names of an enum, no link, nothing calls them, and removing them
-would need one more patch to keep anchored. `tests/test_darkreader.py` proves
-the rules: injected links of each kind (removed or stopping), a speed patch
-whose anchor is gone (left out, the others made, the script still parses), the
-proxy's anchor gone (stop), the panel's API, the site fixes, and the real
-engine made again from the shipped one, rebuilt byte for byte; a guard checks
-that the shipped `darkreader.js`, `darkreader-proxy.js` and `darkmode.js` have
-only allowed links. Pages whose Content-Security-Policy refuses added `<style>`
-elements (archlinux.org) are handled in `darkmode.js`, not by a patch: a
-`<style>` made in I.K.E.'s isolated world whose sheet the policy refused is
-given to the page as a constructed style sheet with the same rules
-(`tests/test_dark_csp.py`); it works on the DOM Dark Reader uses (its
-`<style>` elements, their `sheet` and `textContent`), so an update of Dark
-Reader needs nothing for it.
 
 **The builders' path** (WP11, 2026-11-22). The daily maintenance starts it by
 itself (`autofix.yml`, work `builder/<id>/<date>`, with the refusal above as
 the failure description): on the isolated branch `automation/builder/<id>`
-an AI may **only re-anchor I.K.E.'s existing patches**, never add one, never
-change what a patch puts in, never change upstream code
-(`tools/builder-anchor.py`, enforced by the guard's `--builder <id>` mode and
-again by the verified merge):
+an AI may **only re-anchor I.K.E.'s existing change**, never add one, never
+change upstream code (`tools/builder-anchor.py`, enforced by the guard's
+`--builder <id>` mode and again by the verified merge). Since 1.1.30 only one
+builder has something to re-anchor:
 
-- Dark Reader (`tools/build-darkreader.py`): the same `PATCHES` by name and
-  in the same order, each replacement text byte-identical; only anchor texts
-  may change, re-found in the new upstream engine; everything outside
-  `PATCHES` byte-identical. Dark Reader keeps only measured patches (the
-  owner's decision of 2026-11-21): no patch can come in this way. Since
-  2026-11-24 a speed patch that no longer fits does not refuse the update
-  (it is left out, above), so this path starts only for a refusal; a left-out
-  patch is brought back by re-anchoring it under the same rule;
 - uBlock Origin (`tools/build-ubo-scriptlets.mjs`): only the path of the
   library it imports (a file under the checkout, ending in `.js`).
 
+(Dark Reader's engine builder, with its `PATCHES` re-anchored by an AI or by
+the recipe `re-anchor` of `tools/automat-recipes.py`, left with the engine.)
+
 The re-anchored builder then runs: `daily-maintenance.yml` (mode `builder`)
-applies the update on that branch with it (for uBlock Origin the builder
-itself refuses a library that is not there; for Dark Reader an anchor found
-not exactly once leaves its family out, said in the note), and its tests prove
-the result: `tests/test_darkreader.py` checks that the shipped engine is Dark
-Reader's own npm engine with exactly I.K.E.'s changes but the families
-recorded as left out (byte identity) and only the measured families, and the
-Dark Reader cost test runs with the whole suite. A builder
-that still refuses is given to the AI again, up to `FIX_ATTEMPTS`; then the
-branch is kept and the owner told. A person may always adapt a patch by hand
-in a pull request, as any change of `tools/`. Until the new version is merged,
-users keep the working, customised version.
+applies the update on that branch with it (the builder itself refuses a
+library that is not there), and its tests prove the result. A builder that
+still refuses is given to the AI again, up to `FIX_ATTEMPTS`; then the
+branch is kept and the owner told. A person may always adapt a builder by
+hand in a pull request, as any change of `tools/`. Until the new version is
+merged, users keep the working, customised version.
 
 ### The default filter lists in the bundled engine
 
@@ -1425,33 +1433,6 @@ library (when the engine builds): the section is added to its pull request,
 and it never stops the candidate. The unit tests use a small recorded
 snapshot of real rules (`tests/data/filter-lists-snapshot.txt`), offline;
 `IKE_TEST_NETWORK=1` also runs the check on the real lists.
-
-### Dark Reader's cost budget
-
-Dark Reader's patches applying is not enough: they are there to keep it
-fast. `tests/test_darkreader_cost.py` starts the browser once, with a local
-page that gives Dark Reader a fixed amount of work (600 style rules, 400
-styled elements, 60 shadow roots, an SVG, then 30 bursts of new styles and
-elements), and times it until the page is idle again with Dark Reader, with
-the engine's own dark mode and with no dark mode, in turns (a rotating
-order, one round to warm up, 7 rounds measured). It checks that each mode is
-what it claims, then compares the **median of each round's ratios** (Dark
-Reader / off, Dark Reader / engine dark), never absolute times, with
-`tests/data/darkreader-cost.json`: it fails only when a ratio is above the
-recorded one times its margin (2), a clear regression. It runs wherever the
-whole suite runs (`Tests`, the maintenance candidate, `arch.yml`); on GitHub
-the line "Dark Reader cost: ..." goes into the run's summary.
-
-Recorded on 2026-11-21 in a container with software drawing: Dark Reader /
-off about 3.1 (2.7 to 3.3 over five runs), Dark Reader / engine dark about
-3.3, engine dark / off about 1.0. **To update the baseline** after a
-deliberate change (a new Dark Reader engine that is slower for a good
-reason, a new patch, a GitHub runner whose ratios differ): run
-`IKE_DARK_COST_RECORD=1 python3 -m pytest -q tests/test_darkreader_cost.py`,
-compare with the "Dark Reader cost" lines of a few green GitHub runs, keep
-the larger values in `tests/data/darkreader-cost.json`, and say why in the
-pull request. The automatic fix can never change it (`tests/data/` is
-refused by its guard).
 
 ### Arch Linux's own packages
 
@@ -1600,7 +1581,7 @@ no change of the tool:
   and single packages), `cargo install` tools (cargo-deny), the Rust,
   Python and Node.js versions, the runner images and apt packages;
 - every `uses:` of a GitHub Action with the commit it is pinned to;
-- Dark Reader, uBlock Origin's scriptlets, the default filter lists
+- Dark Reader's lists, uBlock Origin's scriptlets, the default filter lists
   (`ike/config.py` `DEFAULT_LISTS`) and the vendored AdBlock engine.
 
 A module, program or build command that no declared package covers is a
@@ -1611,8 +1592,8 @@ pinned to a commit is "not pinned". Each record has its name, kind, type,
 origin (where in the repository it was found), distribution, the version in
 use, the available version (Arch from archlinux.org's JSON API as
 `check-components.py` reads it, crates.io's index, PyPI, npm, GitHub's tags
-with `git ls-remote`, the builders' own check for Dark Reader and uBlock
-Origin, the lists check for the lists), its update mode, the tests an update
+with `git ls-remote`, the builders' own check for Dark Reader's lists and
+uBlock Origin, the lists check for the lists), its update mode, the tests an update
 needs, its compatibility (a crate's update is "semver-compatible" or "major:
 needs a requirement change"), vulnerabilities, the last check and its result.
 What is not known or could not be read is "unknown" or "not checked", never
@@ -1995,7 +1976,7 @@ GitHub Actions, never in the browser (README, "External services"):
 | Components | Source | How |
 |---|---|---|
 | Python test and CI packages (pinned in `tools/test-requirements.txt` or a workflow) | The OSV database: `POST https://api.osv.dev/v1/querybatch` (ecosystem PyPI), then `GET /v1/vulns/<id>` once per advisory found | The name and version only, in batches of 500 |
-| npm: Dark Reader's engine (the version in `darkreader-data.json`); the modules of `tools/*.mjs` when a version is pinned (today none: "not checked") | OSV, ecosystem npm | The same |
+| npm: the modules of `tools/*.mjs` when a version is pinned (today none: "not checked"; Dark Reader's engine, asked until 1.1.28, left I.K.E., and its lists are data no advisory database covers) | OSV, ecosystem npm | The same |
 | GitHub Actions pinned to a commit | OSV, ecosystem "GitHub Actions", by the release the pin's comment names (`# v7.0.1`: 7.0.1) | The same; an action with no release named is "not checked" |
 | Arch packages (depends, makedepends, optdepends, `ARCH_PACKAGES`) | Arch's security tracker, `GET https://security.archlinux.org/issues/all.json` (every advisory group, AVG, with its packages, status, affected and fixed versions: the JSON `arch-audit` reads) | By the version the last green `arch.yml` run on `main` tested (else the repositories' one), compared as pacman's `vercmp`: "Vulnerable" (no fix yet), "Testing" (a fix in [testing]), "Fixed" with a newer version |
 | Rust crates | RustSec through cargo-deny (`security.yml`), as before | The findings of `main`'s last run, read from its job's log |
@@ -2038,8 +2019,9 @@ changes the browser gets its version when the owner orders the merge.
 2026-11-20 crates and ci-cargo-deny alone started 26 runs of Tests and 25 of Arch Linux, rebuilt as an upstream
 moved by a patch release. On other days the plan says `weekly`, and an open weekly candidate stays as it is (it
 still merges by itself when verified). Daily as before: the AdBlock engine, pyo3, a crate's new major version,
-uBlock Origin's scriptlets, Dark Reader, Breeze, the PKGBUILD and test-qt (the early warning of a Qt release);
-security fixes are their own branches and never wait.
+uBlock Origin's scriptlets, Breeze, the PKGBUILD and test-qt (the early warning of a Qt release);
+security fixes are their own branches and never wait. Dark Reader's lists make no candidate at all (the browser
+fetches them itself every day: see "Dark Reader's lists").
 
 Since 2026-11-22 (WP5) the daily maintenance makes **one isolated candidate per
 component**, or per small coherent group, instead of one combined candidate
@@ -2168,8 +2150,8 @@ push to `automation/daily-maintenance`, no pull request, no tests started, no
 automatic fixes of the real candidate carried over. The run's summary ("A
 rehearsal publishes nothing") lists the files the candidate would change and
 the component report; the artifacts `maintenance-candidate` (the bundle) and
-`component-report` hold the rest. Uses: a person who adapted a builder (a
-Dark Reader patch whose anchor is gone, see "When a builder refuses a new
+`component-report` hold the rest. Uses: a person who adapted a builder (the
+library's path of uBlock Origin's builder, see "When a builder refuses a new
 upstream version") sees, before merging, that the component is now applied;
 a trial injects a fault on a `trial/...` branch (an unreachable source, a
 broken anchor) without touching the real candidate. A rehearsal has its own
@@ -2422,7 +2404,7 @@ never touched.
    change only `ike/`, `tests/`, `tools/` and `docs/`; never the workflows, the
    signing and update channel, the version, the package recipe, the updater, the
    test harness or the release tools; never what comes from others or is
-   generated (Dark Reader, uBlock Origin's scriptlets, the icon sets, the ad
+   generated (Dark Reader's lists, uBlock Origin's scriptlets, the icon sets, the ad
    blocker's `Cargo.toml` and `Cargo.lock`, `docs/THIRD-PARTY.md`); of the ad
    blocker only I.K.E.'s own wrapper (`ike-adblock/src/`,
    `vendor/adblock/__init__.py`, `ike/blocker.py`, `ike/scriptlets.py`), and
@@ -2592,8 +2574,8 @@ wrapper of the ad blocker (`ike-adblock/src/`, `vendor/adblock/__init__.py`,
 `ike/blocker.py`, `ike/scriptlets.py`) only on a maintenance candidate whose
 `ike-adblock/Cargo.lock` builds another version of the `adblock` crate than
 `main` (`engine_update()` in `tools/autofix-plan.py`; anything it cannot read
-counts as no update, and a candidate that only brings Dark Reader, scriptlets or
-lists never gets it). The plan's `allow_adblock` reaches Antigravity (a section
+counts as no update, and a candidate that only brings Dark Reader's lists,
+scriptlets or filter lists never gets it). The plan's `allow_adblock` reaches Antigravity (a section
 "This run" in its instructions), the reserves (their instructions, and the
 files they may edit) and the checker (`--allow-adblock`); the reserves take
 their list of forbidden files from the checker itself, so the two cannot drift.
@@ -2905,8 +2887,8 @@ subtle weakening. So every commit is also measured against `main` (since
 2026-11-22): the step **"Nothing gets worse"** of `tests.yml` (the category
 `no-regression` of `tools/test-categories.py`, required for every kind that
 changes what reaches users: I.K.E.'s own code, so every AI fix and security
-fix, the AdBlock engine and its crates, the Dark Reader and uBlock Origin
-scriptlets builders, the filter lists, the PKGBUILD). It checks out `main`'s
+fix, the AdBlock engine and its crates, the builders of Dark Reader's lists
+and uBlock Origin's scriptlets, the filter lists, the PKGBUILD). It checks out `main`'s
 current commit (on `main` itself, the commit before) in a second worktree,
 gives it its own AdBlock engine, and runs `tools/no-regression.py` **from
 `main`'s copy**, with `main`'s copy of the inputs, on both commits in the same
@@ -3432,10 +3414,10 @@ a workflow; everything else is retried by itself.
   does the word "trial" in any commit of a ChatGPT branch.
 - `publish.py` and the release notice require both `tests` and `sandbox`
   green on the commit. The maintenance candidate may change only the update's
-  own files (engine, scriptlets, Dark Reader, test packages, licences, version
-  files), checked before it is pushed; it is bundled before the engine's crates
-  are built. Dark Reader's npm tarball must come from npm's registry with the
-  sha512 npm published.
+  own files (engine, scriptlets, Dark Reader's lists, test packages, licences,
+  version files), checked before it is pushed; it is bundled before the
+  engine's crates are built. (Dark Reader's npm tarball, checked against the
+  sha512 npm published, left with its engine in 1.1.30.)
 
 The weekly check (`health.yml`, `tools/automation-health.py`) reports, since
 1.1.18, a `main` without branch protection (the `protected` field of the

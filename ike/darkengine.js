@@ -2,8 +2,8 @@
 // dark mode for pages: one pass over the page's style sheets and inline styles,
 // one generated override style sheet per source sheet, then only the nodes and
 // sheets added later, in batches. No re-analysis of the whole page.
-// Also: style sheets of other sites (fetched as I.K.E. fetches them for Dark
-// Reader, resources/darkmode.js), rules added by script (insertRule, adopted
+// Also: style sheets of other sites (fetched through I.K.E.'s page bridge),
+// rules added by script (insertRule, adopted
 // sheets: the known sheets' lengths are compared with each batch), open shadow
 // roots, CSS variables (one mapping per use: background, text, border), shadows,
 // light background pictures (made dark; photos kept).
@@ -18,7 +18,7 @@
   // Installed for the whole profile, it does nothing on its own: a small script
   // per dark site (darkengine.py) registers that site's fix in
   // window.__ikeDECfg, and only a frame whose top site is registered is made
-  // dark (as resources/darkmode.js does for Dark Reader).
+  // dark.
   var reg = window.__ikeDECfg || (window.__ikeDECfg = {});
   var topHost = '';
   try {
@@ -367,7 +367,13 @@
         if (hb && hf && hd) return n + ':' + hb + ';--ike-fg-' + name + ':' + hf + ';--ike-bd-' + name + ':' + hd + ';';
       }
     }
-    if (v.indexOf('var(') >= 0 && !/[;{}]/.test(v)) return '--ike-fg-' + name + ':' + useVars(v, 'fg') + ';--ike-bd-' + name + ':' + useVars(v, 'border') + ';';
+    // another variable, with a colour to use when that one is not defined
+    // (--background-color: var(--theme-bg, #fff), a shop's widgets): the fallback
+    // is mapped in all three, else an undefined theme leaves the light colour
+    if (v.indexOf('var(') >= 0 && !/[;{}]/.test(v)) {
+      var vb = useVars(v, 'bg');
+      return (vb !== v ? n + ':' + vb + ';' : '') + '--ike-fg-' + name + ':' + useVars(v, 'fg') + ';--ike-bd-' + name + ':' + useVars(v, 'border') + ';';
+    }
     if (v.indexOf('gradient') >= 0) return n + ':' + mapColors(v, 'bg') + ';';
     if (COLTEST.test(v) && (/shadow|-bg|background/i.test(n) || /px/.test(v))) return n + ':' + mapColors(v, 'bg') + ';';
     return '';
@@ -385,8 +391,15 @@
       // Give declarations waiting for the next frame their completed layers.
       // The frame will request a trim again after it consumes them.
       if (pendingPictures || frame) return;
+      // over the size in characters only the pictures that hold some are let go;
+      // a picture left as it is keeps its verdict (kept), so that the page's next
+      // pass does not load it again (a page with a few large darkened pictures and
+      // many small icons made room, asked for the icons again, made room again...)
       for (var entry of pics) {
-        if (pics.size <= pictureLimit && pictureChars <= pictureCharLimit) break;
+        var overCount = pics.size > pictureLimit, overChars = pictureChars > pictureCharLimit;
+        if (!overCount && !overChars) break;
+        if (!overCount && !entry[1].data) continue;
+        if (entry[1].state === 'keep') remember(entry[0]);
         pics.delete(entry[0]);
         if (entry[1].data) pictureChars -= entry[1].data.length;
       }
@@ -394,8 +407,14 @@
       stats.pictureCacheChars = pictureChars;
     }, 0);
   }
+  var kept = new Set(), KEPT = { state: 'keep', data: null, waiting: [] };
+  function remember(url) {
+    if (kept.size >= 20000) kept.clear();
+    kept.add(url);
+  }
   function picture(url, done) {
     var p = pics.get(url);
+    if (!p && kept.has(url)) return KEPT;
     if (p) {
       if (p.state === 'wait') {
         if (done) p.waiting.push(done);
@@ -407,6 +426,7 @@
     }
     p = { state: 'wait', data: null, waiting: done ? [done] : [] };
     pics.set(url, p);
+    stats.pictures++;
     pendingPictures++;
     stats.pictureCacheEntries = pics.size;
     var img = new Image();
@@ -487,9 +507,29 @@
   function clipsText(st) {
     return st.getPropertyValue('background-clip') === 'text' || st.getPropertyValue('-webkit-background-clip') === 'text';
   }
+  // the gradients of a value, each mapped with its variables per use (the rest,
+  // pictures and the variables between the layers, left as written)
+  function mapGradients(v, kind) {
+    var out = '', i = 0;
+    for (;;) {
+      var j = v.indexOf('gradient(', i);
+      if (j < 0) return out + v.slice(i);
+      var depth = 0, e = j + 8;
+      for (; e < v.length; e++) { if (v[e] === '(') depth++; else if (v[e] === ')' && !--depth) break; }
+      out += v.slice(i, j) + useVars(v.slice(j, e + 1), kind);
+      i = e + 1;
+    }
+  }
   function background(st, value, mine, base, again, skipPicture) {
     var ours = mine && mine['background-image'] === value;
     var source = ours ? imageSources.get(st) : value;
+    if (source && source.indexOf('var(') >= 0 && source.indexOf('gradient(') >= 0) {
+      // a gradient next to a variable (linear-gradient(#fff, #fff), var(--picture)):
+      // its colours are mapped, the variable left to its own definition
+      imageSources.delete(st);
+      var g = mapGradients(source, clipsText(st) ? 'fg' : 'bg');
+      return g !== value ? g : null;
+    }
     if (!source || source === 'none' || source.indexOf('var(') >= 0) {
       imageSources.delete(st);
       return null;
@@ -632,7 +672,7 @@
     if (off) return;
     var mine = ruleWrote.get(r);
     if (!mine) { mine = {}; ruleWrote.set(r, mine); }
-    var again = function () { quiet(function () { inRule(r, base); }); };
+    var again = function () { if (calm(r)) quiet(function () { inRule(r, base); }); };
     var l = items(r.style, base, again, false, mine, function () { return r.selectorText || ''; });
     if (!l.length) return;
     var st = r.style;
@@ -640,6 +680,24 @@
       try { mine[l[i][0]] = writeProp(r, st, l[i][0], l[i][1], l[i][2]); } catch (e) {}
     }
     stats.rules++;
+  }
+  // a registered custom property (@property) gives its initial value where
+  // nothing sets it: a page's light default would stay light (a band of a
+  // shop's home page drawn with background: var(--background-color), the
+  // colour only in @property's initial-value). Its mapped value is set with no
+  // specificity at the root (inherited) or on every element (not inherited), so
+  // any value the page sets itself, mapped where it is, still wins.
+  var registeredDone = new WeakMap();
+  function isPropertyRule(r) { return typeof r.inherits === 'boolean' && 'initialValue' in r && typeof r.name === 'string'; }
+  function registered(r) {
+    var sheet = baseSheet || (baseEl && baseEl.sheet);
+    if (!sheet || !r.initialValue || r.name.indexOf('--') !== 0) return;
+    var done = registeredDone.get(sheet);
+    if (!done) registeredDone.set(sheet, done = new Set());
+    if (done.has(r.name)) return;
+    done.add(r.name);
+    var d = defineVar(r.name, r.initialValue);
+    if (d) try { sheet.insertRule((r.inherits ? ':where(:root)' : ':where(*)') + '{' + d + '}', sheet.cssRules.length); } catch (e) {}
   }
   function inPlace(list, base, from) {
     for (var i = from || 0; i < list.length; i++) {
@@ -651,6 +709,8 @@
         inPlace(r.cssRules, base, 0);
       } else if (r.styleSheet) {                     // @import
         try { inPlace(r.styleSheet.cssRules, r.styleSheet.href || base, 0); } catch (e) {}
+      } else if (isPropertyRule(r)) {
+        registered(r);
       }
     }
   }
@@ -675,6 +735,8 @@
         else out.push(inner.join('\n'));
       } else if (r.styleSheet) {                     // @import
         try { rules(r.styleSheet.cssRules, out, r.styleSheet.href || base, again); } catch (e) {}
+      } else if (isPropertyRule(r)) {
+        registered(r);
       }
     }
   }
@@ -683,7 +745,8 @@
   // Owner nodes are scanned for changes. Constructed sheets are looked up only
   // while adopted, so their records must not keep replaced sheets alive.
   var recs = new Map(), adoptedRecords = new WeakMap(), generatedStyles = new WeakSet();
-  var stats = { sheets: 0, fetched: 0, rules: 0, ms: 0, pictureCacheEntries: 0, pictureCacheChars: 0,
+  var stats = { sheets: 0, fetched: 0, rules: 0, ms: 0, batches: 0, looks: 0, looksMs: 0, pictures: 0,
+    pictureCacheEntries: 0, pictureCacheChars: 0,
     shadowRoots: 0 };
   function own(el) { return generatedStyles.has(el); }
   // The first value of every property written into the page's own rules and
@@ -744,6 +807,56 @@
       } catch (e) {}
     });
     dqa('.ike-de-lift').forEach(function (el) { el.classList.remove('ike-de-lift'); });
+    dqa('.ike-de-halo').forEach(function (el) { el.classList.remove('ike-de-halo'); });
+    haloDone = new WeakSet();
+  }
+  // --- text laid over a photo --------------------------------------------------
+  // Photos are kept as they are, the text of the page is made light: a caption a
+  // designer drew dark over a light photo (a shop's banner, a card) became light
+  // on light. Text drawn over a large picture of the page gets a dark halo.
+  var haloDone = new WeakSet(), haloTimer = 0;
+  function halosLater() {
+    if (haloTimer || off) return;
+    haloTimer = setTimeout(function () { haloTimer = 0; if (ready.done) quiet(halos); }, 300);
+  }
+  // only the pictures near the window (the rest when the page is scrolled to
+  // them), everything read first and the marks written once at the end, so
+  // that the page is laid out once
+  function halos() {
+    if (off || !ready.done) return;
+    var imgs = dqa('img'), far = innerHeight, marks = [];
+    for (var i = 0; i < imgs.length; i++) {
+      var img = imgs[i];
+      if (haloDone.has(img) || !img.complete || !img.naturalWidth || img.naturalWidth < 100) continue;
+      var r = img.getBoundingClientRect();
+      if (r.bottom < -far || r.top > innerHeight + far) continue;
+      haloDone.add(img);
+      if (r.width < 120 || r.height < 80) continue;
+      var box = img.parentElement;
+      for (var up = 0; box && up < 4; up++, box = box.parentElement) {
+        var br = box.getBoundingClientRect();
+        if (br.width * br.height > r.width * r.height * 2.5) break;
+        textsOver(box, img, r, marks);
+      }
+    }
+    for (var m = 0; m < marks.length; m++) marks[m].classList.add('ike-de-halo');
+  }
+  addEventListener('scroll', halosLater, { passive: true, capture: true });
+  function textsOver(box, img, r, marks) {
+    var els = box.querySelectorAll('*'), k = 0;
+    for (var j = 0; j < els.length && k < 60; j++) {
+      var e = els[j];
+      if (e === img || e.contains(img) || e.classList.contains('ike-de-halo')) continue;
+      var words = false;
+      for (var c = e.firstChild; c; c = c.nextSibling) if (c.nodeType === 3 && c.data.trim()) { words = true; break; }
+      if (!words) continue;
+      k++;
+      var tr = e.getBoundingClientRect();
+      var ox = Math.min(tr.right, r.right) - Math.max(tr.left, r.left), oy = Math.min(tr.bottom, r.bottom) - Math.max(tr.top, r.top);
+      if (!tr.width || ox <= 0 || oy <= 0 || ox * oy < 0.5 * tr.width * tr.height) continue;
+      var tc = parse(getComputedStyle(e).color);
+      if (tc && lum(tc) >= 0.3 && marks.indexOf(e) < 0) marks.push(e);
+    }
   }
   function makeStyle() {
     var style = _create.call(document, 'style');
@@ -751,9 +864,18 @@
     generatedStyles.add(style);
     return style;
   }
+  // a safety net: a sheet or a rule written again because a picture came back is
+  // written again at most 40 times in 10 s (a page that keeps asking for the same
+  // pictures cannot keep the engine busy; the next change of the page writes it)
+  var calmCounts = new WeakMap();
+  function calm(key) {
+    var now = performance.now(), c = calmCounts.get(key);
+    if (!c || now - c[0] > 10000) calmCounts.set(key, c = [now, 0]);
+    return ++c[1] <= 40;
+  }
   function write(rec, list, base) {
     var t0 = performance.now(), n = list.length, out = [];
-    var again = function () { rec.n = -1; schedule(); };
+    var again = function () { if (calm(rec)) { rec.n = -1; schedule(); } };
     // a sheet that only grew at its end (CSS-in-JS): only the new rules
     var target = rec.el ? rec.el.sheet : rec.sheet;
     if (target && rec.n > 0 && n > rec.n && list[rec.n - 1] === rec.last) {
@@ -839,8 +961,7 @@
       rec.root = null;
     }
   }
-  // a style sheet of another site: its text comes as Dark Reader's own does in
-  // I.K.E. (resources/darkmode.js): a plain fetch without cookies, else the
+  // a style sheet of another site: its text comes by a plain fetch without cookies, else the
   // browser's own fetch (passwords.py PageBridge.fetchCss: the same address the
   // page loaded, style sheets only, checked by the filter lists)
   var bridgeWait = null, asks = {}, seq = 0;
@@ -1029,7 +1150,7 @@
       done[n] = writeProp(el, st, n, v, prio);
     };
     if (attr && PRE.test(attr)) {
-      var again = function () { applied.delete(el); quiet(function () { inline(el); }); };
+      var again = function () { if (calm(el)) { applied.delete(el); quiet(function () { inline(el); }); } };
       var names = [], shorts = false;
       for (var i = 0; i < st.length; i++) names.push(st[i]);
       for (var q = 0; q < names.length; q++) {
@@ -1204,6 +1325,8 @@
     t += ':where(button,select,input[type=button],input[type=submit],input[type=reset]){background-color:' +
       hex(BG[0], BG[1], LB + 0.07) + '}';
     t += '.ike-de-lift{filter:invert(100%) hue-rotate(180deg)!important}';
+    // text made light over a photo the engine keeps as it is: a dark halo keeps it readable
+    t += '.ike-de-halo{text-shadow:0 0 2px rgba(0,0,0,.95),0 0 6px rgba(0,0,0,.7)!important}';
     var s = makeStyle();
     s.textContent = t;
     return s;
@@ -1259,6 +1382,10 @@
     return out;
   }
   function looksDark() {
+    var t0 = performance.now();
+    try { return looksDarkNow(); } finally { stats.looks++; stats.looksMs += performance.now() - t0; }
+  }
+  function looksDarkNow() {
     if (!dBody() || innerWidth < 8 || innerHeight < 8) return false;
     var sheet = baseSheet || (baseEl && baseEl.sheet);
     if (sheet) sheet.disabled = true;
@@ -1329,7 +1456,9 @@
   // --- start, then only what is added ----------------------------------------
   var baseEl = null, coverSheet = null, coverRule = null;
   var off = false, pending = [], queued = false, wait = null;
-  var OBS = { childList: true, subtree: true, attributes: true,
+  // characterData: the text of a <style> changed in place (a framework that
+  // rewrites its style element's text node): the sheet is a new one
+  var OBS = { childList: true, subtree: true, attributes: true, characterData: true,
     attributeFilter: ['style', 'bgcolor', 'fill', 'stroke', 'href', 'rel', 'media', 'disabled'] };
   function stop() {
     off = true;
@@ -1429,7 +1558,16 @@
         if (ready.done) grown();
       });
       trimPicturesLater();
+      later();
     });
+  }
+  // rules a page inserts with insertRule change no node, so nothing tells us:
+  // after a burst of changes the sheets' lengths are looked at again a few
+  // times (0.3, 1.5, 5 and 15 s later), then not until the page changes again
+  var LATER = [300, 1500, 5000, 15000], laterStep = 0, laterTimer = 0;
+  function later() {
+    if (laterTimer || off || laterStep >= LATER.length) return;
+    laterTimer = setTimeout(function () { laterTimer = 0; laterStep++; schedule(); }, LATER[laterStep]);
   }
   // work done outside the observer: the page's changes still waiting are
   // handled first, the records of our own writes are dropped after
@@ -1446,9 +1584,15 @@
   }
   var touched = new Set();
   function handle(list) {
+    stats.batches++;
     for (var i = 0; i < list.length; i++) {
       var m = list[i], t = m.target;
       if (!t.isConnected) continue;
+      if (m.type === 'characterData') {
+        var sp = t.parentNode;
+        if (sp && sp.localName === 'style' && !own(sp)) { try { sheetOf(sp); } catch (e) {} }
+        continue;
+      }
       if (m.type === 'attributes') {
         if (t.localName === 'link') { trackLink(t); sheetOf(t); }
         else if (!own(t) && needsInline(t)) touched.add(t);
@@ -1488,6 +1632,7 @@
       stats.ms += performance.now() - t0;
       return;
     }
+    if (laterStep) { laterStep = 0; clearTimeout(laterTimer); laterTimer = 0; }
     for (var i = 0; i < ms.length; i++) queue.push(ms[i]);
     if (queue.length > 20000) quiet(function () {});
     else schedule();
@@ -1506,12 +1651,14 @@
       adopt(document, baseSheet);
     }
     // The body can paint while a parser-blocking resource is pending.
-    // Cover its canvas background until the author declarations are mapped.
-    if (window === window.top) {
-      coverSheet = baseSheet || baseEl.sheet;
-      coverRule = coverSheet.cssRules[coverSheet.insertRule(
-        ':root:root > body{background-color:' + BGHEX + '!important;color:' + FGHEX + '}', 0)];
-    }
+    // Cover its canvas background until the author declarations are mapped. In a
+    // frame too (a page in a frame painted its own white until mapped: Speedometer's
+    // pages, a shop's embedded parts); the cover goes as soon as the mapping starts,
+    // and a frame meant to be transparent is transparent again from then on.
+    coverSheet = baseSheet || baseEl.sheet;
+    coverRule = coverSheet.cssRules[coverSheet.insertRule(window === window.top
+      ? ':root:root > body{background-color:' + BGHEX + '!important;color:' + FGHEX + '}'
+      : ':root:root, :root:root > body{background-color:' + BGHEX + '!important;color:' + FGHEX + '}', 0)];
     return true;
   }
   if (!start()) {
@@ -1533,7 +1680,19 @@
     var t = e.target;
     if (t && t.localName === 'link') t.__ikeDEFailed = true;
   }, true);
+  // begun while the page arrived: shadow roots attached by its scripts meanwhile
+  // (on any element: no change of the document tells of them) are found now
+  function lateRoots() {
+    quiet(function () {
+      var all = dqa('*');
+      for (var i = 0; i < all.length; i++) {
+        var sr = all[i].shadowRoot;
+        if (sr && !roots.has(sr)) { try { shadow(all[i]); } catch (e) {} }
+      }
+    });
+  }
   function ready() {
+    if (ready.done && earlyDone && !lateRoots.done) { lateRoots.done = true; lateRoots(); }
     if (off || ready.done) return;
     var pend = sheetsPending();
     if (pend && readyWait < 15) {
@@ -1545,6 +1704,12 @@
     if (wait) wait.disconnect();
     start();
     if (isDarkAlready()) { waitForLightTheme(); return; }
+    begin();
+  }
+  // The mapping of the page, from now on (at DOMContentLoaded, or earlier: see early())
+  function begin() {
+    if (off || ready.done) return;
+    if (earlyWatch) { earlyWatch.disconnect(); earlyWatch = null; }
     ready.done = true;
     // Wait for the page's color-scheme metadata before rewriting author styles.
     mo.observe(document, OBS);
@@ -1563,10 +1728,52 @@
     mo.takeRecords();
     stats.ms += performance.now() - t0;
     // CSS-in-JS and components that start late: looked at again a few times
-    [500, 1500, 4000].forEach(function (t) { setTimeout(function () { quiet(function () { hosts.forEach(function (h) { if (h.shadowRoot) shadow(h); }); grown(true); }); }, t); });
+    [500, 1500, 4000].forEach(function (t) { setTimeout(function () { quiet(function () { hosts.forEach(function (h) { if (h.shadowRoot) shadow(h); }); grown(true); halos(); }); }, t); });
+    // pictures that arrive later (as the page is scrolled): their captions too
+    _listen.call(document, 'load', function (e) { if (e.target && e.target.localName === 'img') halosLater(); }, true);
+  }
+  // --- an early start: the page is darkened while it arrives -----------------------
+  // A page that comes slowly (a big shop) was drawn with its own light panels until
+  // DOMContentLoaded: seconds of white. As soon as its <body> exists and its style
+  // sheets are there, a page that is plainly light is darkened at once, and what
+  // arrives after is handled as it comes. Anything that may say "dark already"
+  // (Dark Reader's lock, a dark colour scheme, a dark theme marker, a hint of the
+  // lists, a dark canvas or body) leaves the judgement to DOMContentLoaded, as before.
+  var earlyWatch = null, earlyDone = false;
+  function earlyLight() {
+    if (dq('meta[name="darkreader-lock"]')) return false;
+    var m = dq('meta[name="color-scheme"]');
+    if (m && /dark/i.test(m.content || '')) return false;
+    if (!LOOK.detect || siteFix.chosen) return true;
+    if (fix.hint && !fix.hint.noDarkTheme) return false;
+    var root = dRoot();
+    if (/dark/i.test((root.getAttribute('data-theme') || '') + ' ' + (root.className && root.className.baseVal === undefined ? root.className : ''))) return false;
+    var sheet = baseSheet || (baseEl && baseEl.sheet);
+    if (sheet) sheet.disabled = true;
+    try {
+      return lum(drawnBackground(dBody(), canvasColor())) >= 0.2;
+    } catch (e) {
+      return false;
+    } finally {
+      if (sheet) sheet.disabled = false;
+    }
+  }
+  function early() {
+    if (off || ready.done || earlyDone || !dBody() || sheetsPending()) return;
+    earlyDone = true;
+    if (earlyWatch) { earlyWatch.disconnect(); earlyWatch = null; }
+    if (earlyLight()) begin();
   }
   if (_ready.call(document) !== 'loading' && dBody()) ready();
-  else _listen.call(document, 'DOMContentLoaded', ready, { once: true });
+  else {
+    _listen.call(document, 'DOMContentLoaded', ready, { once: true });
+    earlyWatch = new MutationObserver(early);
+    earlyWatch.observe(document, { childList: true, subtree: true });
+    _listen.call(document, 'load', function (e) {
+      var t = e.target;
+      if (t && t.localName === 'link' && !earlyDone) early();
+    }, true);
+  }
   window.addEventListener('load', function () { quiet(function () { grown(true); }); }, { once: true });
   window.__ikeDEStats = stats;           // isolated world only: for tests/dark_engine
   }

@@ -30,6 +30,7 @@ import os
 import re
 import sys
 import threading
+import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -39,6 +40,16 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox")
+# a dark mode forced for every Chromium program of the computer (set for another
+# browser) is taken away, as I.K.E. itself does (ike/app.py _strip_dark_flags):
+# else "without dark mode" is the engine's own forced dark, and the Dark Engine
+# runs on top of it
+from ike.app import _strip_dark_flags, split_flags  # noqa: E402
+
+_flags, FORCED_DARK = _strip_dark_flags(split_flags(os.environ["QTWEBENGINE_CHROMIUM_FLAGS"]))
+os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(_flags)
+if FORCED_DARK:
+    print("a forced dark mode of the computer (QTWEBENGINE_CHROMIUM_FLAGS) is left out here, as in I.K.E.", flush=True)
 
 import pages  # noqa: E402
 
@@ -78,6 +89,90 @@ new QWebChannel(qt.webChannelTransport, function (channel) {
   })});
 });
 """
+
+
+# DE_DIAG=1: for the Dark Engine's pages, the large light areas left on the screen and
+# where their colour comes from (a rule of a style sheet, an inline style, a sheet the
+# page cannot read, a frame, a picture), to find why a part stayed light
+DIAG = r"""(function(){
+function rgba(s){var m=/rgba?\(([^)]+)\)/.exec(s||'');if(!m)return null;var p=m[1].split(/[ ,\/]+/).filter(Boolean).map(Number);return [p[0],p[1],p[2],p.length>3?p[3]:1];}
+function lum(c){function f(v){v/=255;return v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4)}return 0.2126*f(c[0])+0.7152*f(c[1])+0.0722*f(c[2]);}
+function label(e){return e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(typeof e.className==='string'&&e.className?'.'+e.className.trim().split(/\s+/).slice(0,3).join('.'):'');}
+var sheets=[],unreadable=[];
+for(var i=0;i<document.styleSheets.length;i++){var sh=document.styleSheets[i];try{sh.cssRules;sheets.push(sh);}catch(e){unreadable.push(sh.href||'(inline)');}}
+function rulesFor(el){var found=[];function walk(list,href){for(var j=0;j<list.length&&found.length<4;j++){var r=list[j];
+ try{if(r.selectorText&&r.style&&(r.style.backgroundColor||r.style.background)&&el.matches(r.selectorText))found.push((href||'inline')+' :: '+r.selectorText.slice(0,80)+' { background: '+(r.style.backgroundColor||r.style.background).slice(0,60)+' }');
+ else if(r.cssRules)walk(r.cssRules,href);}catch(e){}}}
+ for(var k=0;k<sheets.length;k++)walk(sheets[k].cssRules,(sheets[k].href||'').slice(-60));return found;}
+// where a variable used by a light area's rules gets its value: the element and
+// its ancestors (a style attribute, a rule of a readable sheet), @property
+function varsOf(list){var names={};list.forEach(function(s){var re=/var\(\s*(--[\w-]+)/g,m;while((m=re.exec(s)))names[m[1]]=1;});return Object.keys(names).slice(0,4);}
+function definedAt(el,name){var res=[],props=[];
+ function walk(list,href){for(var j=0;j<list.length;j++){var r=list[j];try{
+  if(r.constructor&&r.constructor.name==='CSSPropertyRule'&&r.name===name)props.push('@property '+name+' initial-value '+r.initialValue+' inherits '+r.inherits+' ('+(href||'inline')+')');
+  else if(r.selectorText&&r.style&&r.style.getPropertyValue(name))walkRule(r,href);
+  else if(r.cssRules)walk(r.cssRules,href);}catch(e){}}}
+ var chain=[];for(var a=el;a&&a.nodeType===1&&chain.length<20;a=a.parentElement)chain.push(a);
+ function walkRule(r,href){for(var c=0;c<chain.length;c++){try{if(chain[c].matches(r.selectorText)){res.push('rule on '+label(chain[c])+' :: '+(href||'inline')+' :: '+r.selectorText.slice(0,80)+' { '+name+': '+r.style.getPropertyValue(name).trim().slice(0,60)+(r.style.getPropertyPriority(name)?' !important':'')+' }');return;}}catch(e){}}}
+ for(var k=0;k<sheets.length&&res.length<6;k++)walk(sheets[k].cssRules,(sheets[k].href||'').slice(-60));
+ for(var c=0;c<chain.length;c++){var at=chain[c].getAttribute('style')||'';if(at.indexOf(name)>=0)res.push('style attribute on '+label(chain[c])+': '+at.slice(Math.max(0,at.indexOf(name)-20),at.indexOf(name)+80));}
+ return {name:name,value:getComputedStyle(el).getPropertyValue(name).trim().slice(0,80),where:res.slice(0,8),property:props.slice(0,2),
+  ancestors:chain.slice(0,4).map(function(a){var o=a.outerHTML;return o.slice(0,o.indexOf('>')+1).slice(0,240);})};}
+var out=[],all=document.querySelectorAll('body *'),W=innerWidth,H=innerHeight;
+for(var i=0;i<all.length&&out.length<25;i++){var e=all[i],r=e.getBoundingClientRect();
+ if(r.width*r.height<W*H*0.01||r.bottom+scrollY<0||r.top>H*6||r.right<0||r.left>W)continue;   // the page down to six screens, not only what is seen
+ var cs=getComputedStyle(e);if(cs.visibility==='hidden'||+cs.opacity<0.3)continue;
+ var bg=rgba(cs.backgroundColor),img=cs.backgroundImage;
+ var light=bg&&bg[3]>0.5&&lum(bg)>0.5;
+ if(!light&&(r.top>H||!(/^(IMG|IFRAME|CANVAS|VIDEO|EMBED|OBJECT)$/.test(e.tagName))))continue;
+ out.push({el:label(e),rect:[Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)],
+  bg:cs.backgroundColor,image:img.slice(0,80),inline:(e.getAttribute('style')||'').slice(0,120),
+  shadowHost:!!e.shadowRoot,frame:e.tagName==='IFRAME'?(e.src||'(no src)').slice(0,80):null,rules:light?rulesFor(e):[]});
+ var last=out[out.length-1];if(last.rules.length)last.vars=varsOf(last.rules).map(function(n){return definedAt(e,n);});}
+// light text drawn over a picture (an <img> or a background picture under it, no
+// opaque colour between): where a light photo kept its light under a text made light
+var onpic=[],seenTxt=new Set();
+var tw=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+for(var tn=tw.nextNode();tn&&onpic.length<15;tn=tw.nextNode()){
+ if(!tn.data.trim())continue;var te=tn.parentElement;if(!te||seenTxt.has(te))continue;seenTxt.add(te);
+ var tr=te.getBoundingClientRect();if(tr.width<20||tr.height<8||tr.bottom<0||tr.top>H||tr.right<0||tr.left>W)continue;
+ var tc=rgba(getComputedStyle(te).color);if(!tc||lum(tc)<0.45)continue;
+ var stack=document.elementsFromPoint(Math.min(W-1,Math.max(0,tr.left+tr.width/2)),Math.min(H-1,Math.max(0,tr.top+tr.height/2)));
+ var past=false;
+ for(var si=0;si<stack.length;si++){var se=stack[si];if(se===te||se.contains(te)){past=true;}if(!past&&!te.contains(se))continue;
+  var ss=getComputedStyle(se),sb=rgba(ss.backgroundColor),pic=ss.backgroundImage.indexOf('url(')>=0?ss.backgroundImage:(se.tagName==='IMG'?(se.currentSrc||se.src):'');
+  if(pic){onpic.push({text:tn.data.trim().slice(0,40),el:label(te),rect:[Math.round(tr.left),Math.round(tr.top),Math.round(tr.width),Math.round(tr.height)],
+   color:getComputedStyle(te).color,under:label(se),picture:String(pic).slice(0,140)});break;}
+  if(sb&&sb[3]>0.5)break;}}
+// light text whose background, looked at layer by layer under it, is light: a colour,
+// a gradient, a ::before/::after layer or an inset shadow (what a plain colour test misses)
+var lowc=[],seenL=new Set();
+function layerOf(se){var ss=getComputedStyle(se),r=[];
+ ['::before','::after'].forEach(function(ps){var p=getComputedStyle(se,ps);if(p.content&&p.content!=='none'){var pb=rgba(p.backgroundColor);
+  if((pb&&pb[3]>0.5)||p.backgroundImage!=='none')r.push({kind:ps,color:p.backgroundColor,image:p.backgroundImage.slice(0,120)});}});
+ if(ss.backgroundImage!=='none')r.push({kind:'image',color:ss.backgroundColor,image:ss.backgroundImage.slice(0,160)});
+ if(/inset/.test(ss.boxShadow))r.push({kind:'inset shadow',color:ss.boxShadow.slice(0,120)});
+ var b=rgba(ss.backgroundColor);if(b&&b[3]>0.5)r.push({kind:'colour',color:ss.backgroundColor});return r;}
+var tw2=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+for(var t2=tw2.nextNode();t2&&lowc.length<20;t2=tw2.nextNode()){
+ if(!t2.data.trim())continue;var e2=t2.parentElement;if(!e2||seenL.has(e2))continue;seenL.add(e2);
+ var r2=e2.getBoundingClientRect();if(r2.width<10||r2.height<8||r2.bottom<0||r2.top>H||r2.right<0||r2.left>W)continue;
+ var c2=rgba(getComputedStyle(e2).color);if(!c2||lum(c2)<0.35)continue;
+ var st2=document.elementsFromPoint(Math.min(W-1,Math.max(0,r2.left+Math.min(r2.width/2,40))),Math.min(H-1,Math.max(0,r2.top+r2.height/2)));
+ var found=null,chain=[];
+ for(var k2=0;k2<st2.length&&!found;k2++){var x2=st2[k2];if(x2!==e2&&!x2.contains(e2)&&!e2.contains(x2))continue;
+  var ls=layerOf(x2);chain.push(label(x2));
+  for(var m2=0;m2<ls.length&&!found;m2++){var L=ls[m2],lc=rgba(L.color);
+   if(L.kind==='colour'){if(lum(lc)>0.5)found={layer:label(x2),kind:L.kind,value:L.color,rules:rulesFor(x2)};else{found='dark';}}
+   else if(L.kind.charAt(0)===':'&&lc&&lc[3]>0.5&&lum(lc)>0.5)found={layer:label(x2)+L.kind,kind:L.kind,value:L.color,rules:rulesFor(x2)};
+   else if(/gradient|url\(/.test(L.image||'')||L.kind==='inset shadow'){
+    var gc=(L.image||L.color||'').match(/rgba?\([^)]*\)|#[0-9a-f]{3,8}\b|\bwhite\b/gi)||[];
+    if(gc.some(function(c){var q=rgba(c)||(/white|#fff/i.test(c)?[255,255,255,1]:null);return q&&q[3]>0.3&&lum(q)>0.5;})||/url\(/.test(L.image||''))
+     found={layer:label(x2),kind:L.kind,value:(L.image||L.color),inline:(x2.getAttribute('style')||'').slice(0,120)};}}}
+ if(found&&found!=='dark')lowc.push({text:t2.data.trim().slice(0,40),el:label(e2),rect:[Math.round(r2.left),Math.round(r2.top),Math.round(r2.width),Math.round(r2.height)],
+  color:getComputedStyle(e2).color,under:found,path:chain.slice(0,6)});}
+return JSON.stringify({light:out,onpicture:onpic,lowcontrast:lowc,unreadable:unreadable.slice(0,20),sheets:document.styleSheets.length,
+ adopted:document.adoptedStyleSheets.length,frames:document.querySelectorAll('iframe').length});})()"""
 
 
 def serve(snaps, speedo):
@@ -193,7 +288,7 @@ def main():
 
     class Page(QWebEnginePage):
         def javaScriptConsoleMessage(self, level, msg, line, src):
-            if os.environ.get("DE_DEBUG"):
+            if os.environ.get("DE_DEBUG") or msg.startswith("[ike-de]"):
                 print("console:", msg, line, src[-40:], flush=True)
 
     class Guard(QWebEngineUrlRequestInterceptor):
@@ -316,7 +411,8 @@ def main():
         prof, guard, log = profile_for(mode)
         url, orig, expected_content = url_of(name)
         if mode == "dr":
-            from ike import darkpages
+            from drcompare import darkpages as _drp
+            darkpages = _drp()
             darkpages.prepare(prof, orig, "127.0.0.1" if not a.live else QUrl(orig).host(),
                               {"brightness": 100, "contrast": 100, "sepia": 0}, True, False)
         if mode.startswith("proto"):
@@ -369,7 +465,37 @@ def main():
             elif kind == "time":
                 QTimer.singleShot(1500, timing)
             else:
-                QTimer.singleShot(settle, shoot)
+                QTimer.singleShot(settle, click_then_shoot)
+
+        # DE_CLICK=text: a button or link with that text is clicked first (a site's
+        # age or cookie question), then the page is given the time to settle again
+        # DE_SCROLL=1: the page is scrolled down six screens and back first, as a
+        # reader does, so that what a page loads only when it is reached is there
+        def scroll_then_shoot():
+            if job["finished"]:
+                return
+            if not os.environ.get("DE_SCROLL"):
+                shoot()
+                return
+            page.runJavaScript(
+                "(function(){var i=0,h=innerHeight;var t=setInterval(function(){i++;scrollTo(0,i*h/2);"
+                "if(i>=12){clearInterval(t);setTimeout(function(){scrollTo(0,0)},800);}},300);})()", 0,
+                lambda _: None if job["finished"] else QTimer.singleShot(6000, shoot))
+
+        def click_then_shoot():
+            if job["finished"]:
+                return
+            text = os.environ.get("DE_CLICK", "")
+            if not text:
+                scroll_then_shoot()
+                return
+            page.runJavaScript(
+                "(function(t){t=t.toLowerCase();var es=document.querySelectorAll('button,a,[role=button],input[type=submit]');"
+                "for(var i=0;i<es.length;i++){var s=(es[i].innerText||es[i].value||'').trim().toLowerCase();"
+                "if(s&&s.indexOf(t)>=0){es[i].click();return true;}}return false;})(%s)" % json.dumps(text), 0,
+                lambda clicked: None if job["finished"] else (
+                    print("clicked", mode, name, bool(clicked), flush=True),
+                    QTimer.singleShot(max(settle, 4000), scroll_then_shoot)))
 
         def poll():
             if job["finished"]:
@@ -429,6 +555,8 @@ def main():
                                "load:Math.round(n.loadEventEnd||0)})})()", 0, got)
 
         def shoot():
+            if job["finished"]:
+                return
             def probed(js):
                 if job["finished"]:
                     return
@@ -448,6 +576,12 @@ def main():
                     d["http_status"] = job["status"]
                     (out / ("%s__%s.json" % (name, mode))).write_text(json.dumps(d))
                     print("shot", mode, name, "engine:", v, flush=True)
+                    if mode.startswith("proto") and os.environ.get("DE_DIAG"):
+                        def diag(js2):
+                            (out / ("%s__%s.diag.json" % (name, mode))).write_text(js2 or "null")
+                            finish()
+                        page.runJavaScript(DIAG, 0, diag)
+                        return
                     finish()
                 if mode.startswith("proto"):
                     page.runJavaScript("JSON.stringify(window.__ikeDEStats||null)", 1, lambda v: stats(json.loads(v or "null")))
@@ -460,8 +594,28 @@ def main():
 
         page.loadingChanged.connect(loaded)
         page.load(QUrl(url))
-        QTimer.singleShot(20000, lambda: None if job["loaded"] else finish("navigation timed out"))
-        QTimer.singleShot(3000000 if kind == "speedo" else 30000 + settle,
+        def slow():
+            # a page that never stops loading (live video, endless requests): its
+            # picture is taken as it is after 20 s, not given up
+            if job["loaded"] or job["finished"]:
+                return
+            if kind == "shot":
+                job["loaded"] = True
+                job["status"] = 0
+                print("still loading after 20 s, taken as it is:", mode, name, flush=True)
+                t_ask = time.monotonic()
+                # how long the page takes to answer a script (a page kept busy shows here)
+                page.runJavaScript("1", 0, lambda _: print("page answered a script after %.1f s:" % (time.monotonic() - t_ask),
+                                                            mode, name, flush=True))
+                if mode.startswith("proto"):
+                    # what the engine did meanwhile (its own time, batches, looks at the page, pictures)
+                    page.runJavaScript("JSON.stringify(window.__ikeDEStats||null)", 1,
+                                       lambda v: print("engine while busy:", mode, name, v, flush=True))
+                QTimer.singleShot(settle, click_then_shoot)
+            else:
+                finish("navigation timed out")
+        QTimer.singleShot(20000, slow)
+        QTimer.singleShot(3000000 if kind == "speedo" else 120000 + 2 * settle,
                           lambda: finish("measurement timed out"))
 
     QTimer.singleShot(0, next_job)
