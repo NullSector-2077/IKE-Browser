@@ -1517,7 +1517,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             prefix = "💤 "
         elif view.page().isAudioMuted():
             prefix = "🔇 "
-        elif view.page().isRecentlyAudible():
+        elif view.page().recentlyAudible():
             prefix = "🔊 "
         tip = title
         g = self.groups.get(view.group) if view.group else None
