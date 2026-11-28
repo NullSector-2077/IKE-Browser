@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Sluit die kluis as I.K.E. ongebruik is vir",
 "%d minutes": "%d minute",
 "Lock the vault when the screen is locked or the computer sleeps": "Sluit die kluis as die skerm gesluit is of die rekenaar slaap",
-"Print preview": "Drukvoorskou"
+"Print preview": "Drukvoorskou",
+"What I.K.E. stopped for you, counted on this computer only.": "Wat I.K.E. vir jou gekeer het, net op hierdie rekenaar getel.",
+"This session, by kind": "Hierdie sessie, volgens soort",
+"This session, the sites that tried most": "Hierdie sessie, die werwe wat die meeste probeer het",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Niks hiervan verlaat jou rekenaar nie. Die syfers van hierdie sessie begin weer wanneer I.K.E. begin.",
+"Nothing blocked yet in this session.": "Nog niks in hierdie sessie geblokkeer nie."
 }
 }

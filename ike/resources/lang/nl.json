@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "De kluis vergrendelen als I.K.E. niet wordt gebruikt gedurende",
 "%d minutes": "%d minuten",
 "Lock the vault when the screen is locked or the computer sleeps": "De kluis vergrendelen als het scherm wordt vergrendeld of de computer slaapt",
-"Print preview": "Afdrukvoorbeeld"
+"Print preview": "Afdrukvoorbeeld",
+"What I.K.E. stopped for you, counted on this computer only.": "Wat I.K.E. voor je heeft tegengehouden, alleen op deze computer geteld.",
+"This session, by kind": "Deze sessie, per soort",
+"This session, the sites that tried most": "Deze sessie, de sites die het vaakst probeerden",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Niets hiervan verlaat je computer. De cijfers van deze sessie beginnen opnieuw wanneer I.K.E. start.",
+"Nothing blocked yet in this session.": "Nog niets geblokkeerd in deze sessie."
 }
 }

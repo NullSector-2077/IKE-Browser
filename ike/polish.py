@@ -91,6 +91,10 @@ PARTS = {
     # 1.1.30 (the owner)
     "download_fly": True,    # a file that starts downloading flies to the Downloads button
     "swipe_arrow": True,     # touchpad: an arrow at the edge shows the swipe back or forward coming
+    # 1.1.31 (the owner)
+    "dark_morph": True,      # the page mode's sun turns into the moon (and back), not a plain swap
+    "page_fade": True,       # the old page fades into the new one (and into its dark colours), pagefade.py
+    "shield_flip": True,     # the shield's octagon turns half a turn, as a coin, to the new level
 }
 
 MARK_MS = 180
@@ -192,9 +196,70 @@ def blend_icon(a, b, t):
     return QIcon(BlendIconEngine(a, b, t))
 
 
-def fade_icon(owner, key, old, new, config, apply, ms=ICON_MS, name="icon_fade"):
+class MorphIconEngine(BlendIconEngine):
+    """a turning into b (1.1.31, the sun and the moon of the page mode): a turns away a quarter of a
+    turn, smaller and fading, while b turns in from the other side, growing to its size."""
+
+    def paint(self, painter, rect, mode, state):
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        base, c = painter.opacity(), QRectF(rect).center()
+        # the first goes in the first half or so, the second comes in the second: they hardly overlap
+        out, come = max(0.0, 1 - self.t / 0.55), max(0.0, (self.t - 0.45) / 0.55)
+        for icon, k, turn in ((self.a, out, (1 - out) * 90), (self.b, come, (come - 1) * 90)):
+            if k <= 0 or icon.isNull():
+                continue
+            painter.save()
+            painter.translate(c)
+            painter.rotate(turn)
+            painter.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k)
+            painter.translate(-c)
+            painter.setOpacity(base * k)
+            icon.paint(painter, rect, Qt.AlignmentFlag.AlignCenter, mode, state)
+            painter.restore()
+        painter.restore()
+
+    def clone(self):
+        return MorphIconEngine(self.a, self.b, self.t)
+
+
+def morph_icon(a, b, t):
+    return QIcon(MorphIconEngine(a, b, t))
+
+
+class FlipIconEngine(BlendIconEngine):
+    """a turning half a turn, as a coin, and showing b on its other side (1.1.31, the owner: the
+    shield's octagon when the protection level changes): narrower and narrower, then b wider and
+    wider, a little darker while it is edge-on."""
+
+    def paint(self, painter, rect, mode, state):
+        t = self.t
+        icon, k = (self.a, 1 - 2 * t) if t < 0.5 else (self.b, 2 * t - 1)
+        if icon.isNull():
+            return
+        k = math.sin(k * math.pi / 2)                 # as a turning coin seen from the front
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        c = QRectF(rect).center()
+        painter.translate(c)
+        painter.scale(max(0.04, k), 1.0)
+        painter.translate(-c)
+        painter.setOpacity(painter.opacity() * (0.55 + 0.45 * k))
+        icon.paint(painter, rect, Qt.AlignmentFlag.AlignCenter, mode, state)
+        painter.restore()
+
+    def clone(self):
+        return FlipIconEngine(self.a, self.b, self.t)
+
+
+def flip_icon(a, b, t):
+    return QIcon(FlipIconEngine(a, b, t))
+
+
+def fade_icon(owner, key, old, new, config, apply, ms=ICON_MS, name="icon_fade", blend=blend_icon, every=0.2):
     """Show new in place of old with a short fade: apply(icon) is called at each
-    step and, at the end, with new itself. Without effects: new at once."""
+    step and, at the end, with new itself. Without effects: new at once.
+    blend: how the two are mixed (morph_icon: turning); every: the least step."""
     fades = owner.__dict__.setdefault("_ike_icon_fades", {})
     anim = fades.get(key)
     running = anim is not None and anim.state() == QVariantAnimation.State.Running
@@ -218,9 +283,9 @@ def fade_icon(owner, key, old, new, config, apply, ms=ICON_MS, name="icon_fade")
     def step(v):
         # a handful of steps is enough for a 16-pixel icon, and each one asks the tab bar to lay out again
         v = float(v)
-        if v - anim.ike_last >= 0.2:
+        if v - anim.ike_last >= every:
             anim.ike_last = v
-            apply(blend_icon(old, anim.ike_to, v))
+            apply(blend(old, anim.ike_to, v))
     anim.valueChanged.connect(step)
 
     def done():
@@ -229,7 +294,7 @@ def fade_icon(owner, key, old, new, config, apply, ms=ICON_MS, name="icon_fade")
             apply(anim.ike_to)
     anim.finished.connect(done)
     fades[key] = anim
-    apply(blend_icon(old, new, 0.0))
+    apply(blend(old, new, 0.0))
     anim.start()
     return anim
 

@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "A tároló zárolása, ha az I.K.E. nincs használatban ennyi ideig:",
 "%d minutes": "%d perc",
 "Lock the vault when the screen is locked or the computer sleeps": "A tároló zárolása, ha a képernyő zárolva van vagy a számítógép alvó állapotba kerül",
-"Print preview": "Nyomtatási kép"
+"Print preview": "Nyomtatási kép",
+"What I.K.E. stopped for you, counted on this computer only.": "Amit az I.K.E. megállított önnek, csak ezen a számítógépen számolva.",
+"This session, by kind": "Ez a munkamenet, fajta szerint",
+"This session, the sites that tried most": "Ez a munkamenet, a legtöbbet próbálkozó oldalak",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Ebből semmi sem hagyja el a számítógépét. A munkamenet számai újraindulnak, amikor az I.K.E. elindul.",
+"Nothing blocked yet in this session.": "Ebben a munkamenetben még semmi sincs letiltva."
 }
 }

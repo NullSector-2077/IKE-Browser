@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Lås boksen, når I.K.E. ikke har været brugt i",
 "%d minutes": "%d minutter",
 "Lock the vault when the screen is locked or the computer sleeps": "Lås boksen, når skærmen låses, eller computeren går i dvale",
-"Print preview": "Vis udskrift"
+"Print preview": "Vis udskrift",
+"What I.K.E. stopped for you, counted on this computer only.": "Hvad I.K.E. har stoppet for dig, kun talt på denne computer.",
+"This session, by kind": "Denne session, efter type",
+"This session, the sites that tried most": "Denne session, de websteder der prøvede mest",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Intet af dette forlader din computer. Tallene for denne session starter forfra, når I.K.E. starter.",
+"Nothing blocked yet in this session.": "Intet blokeret endnu i denne session."
 }
 }

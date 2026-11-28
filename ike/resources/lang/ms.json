@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Kunci peti besi apabila I.K.E. tidak digunakan selama",
 "%d minutes": "%d minit",
 "Lock the vault when the screen is locked or the computer sleeps": "Kunci peti besi apabila skrin dikunci atau komputer tidur",
-"Print preview": "Pratonton cetakan"
+"Print preview": "Pratonton cetakan",
+"What I.K.E. stopped for you, counted on this computer only.": "Apa yang dihentikan oleh I.K.E. untuk anda, dikira di komputer ini sahaja.",
+"This session, by kind": "Sesi ini, mengikut jenis",
+"This session, the sites that tried most": "Sesi ini, laman yang paling banyak mencuba",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Tiada satu pun daripada ini meninggalkan komputer anda. Angka sesi ini bermula semula apabila I.K.E. dimulakan.",
+"Nothing blocked yet in this session.": "Belum ada apa-apa disekat dalam sesi ini."
 }
 }

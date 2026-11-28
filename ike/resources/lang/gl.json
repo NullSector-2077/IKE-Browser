@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Pechar con chave a caixa forte cando I.K.E. non se usa durante",
 "%d minutes": "%d minutos",
 "Lock the vault when the screen is locked or the computer sleeps": "Pechar con chave a caixa forte cando a pantalla se bloquea ou o computador entra en suspensión",
-"Print preview": "Vista previa da impresión"
+"Print preview": "Vista previa da impresión",
+"What I.K.E. stopped for you, counted on this computer only.": "O que I.K.E. detivo por ti, contado só neste ordenador.",
+"This session, by kind": "Esta sesión, por tipo",
+"This session, the sites that tried most": "Esta sesión, os sitios que máis o intentaron",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nada disto sae do teu ordenador. As cifras desta sesión comezan de novo cando se inicia I.K.E.",
+"Nothing blocked yet in this session.": "Aínda non se bloqueou nada nesta sesión."
 }
 }

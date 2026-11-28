@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "I-lock ang vault kapag hindi ginagamit ang I.K.E. nang",
 "%d minutes": "%d minuto",
 "Lock the vault when the screen is locked or the computer sleeps": "I-lock ang vault kapag naka-lock ang screen o natutulog ang computer",
-"Print preview": "Preview ng pag-print"
+"Print preview": "Preview ng pag-print",
+"What I.K.E. stopped for you, counted on this computer only.": "Ang pinigilan ng I.K.E. para sa iyo, binilang sa computer na ito lamang.",
+"This session, by kind": "Ang session na ito, ayon sa uri",
+"This session, the sites that tried most": "Ang session na ito, ang mga site na pinakamaraming sumubok",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Wala rito ang umaalis sa iyong computer. Ang mga bilang ng session na ito ay magsisimula muli kapag nagsimula ang I.K.E.",
+"Nothing blocked yet in this session.": "Wala pang na-block sa session na ito."
 }
 }

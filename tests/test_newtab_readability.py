@@ -178,7 +178,8 @@ def test_every_text_reads_over_any_photo(run_ike, tmp_path, scheme):
         page = out[name]
         assert page["label"] == "Internet Kontrol Experience"
         assert page["mark"][0].startswith("color(srgb") and page["weather"][0].startswith("color(srgb")
-        assert page["mark"][1:] == page["weather"][1:] == ["blur(16px) saturate(1.35)", "10px", "none"]
+        # 1.1.31: a clearer glass with a thin edge (the owner)
+        assert page["mark"][1:] == page["weather"][1:] == ["blur(14px) saturate(1.4)", "10px", "solid"]
 
 
 def test_a_strong_or_no_veil_changes_nothing_about_the_guarantee(run_ike, tmp_path):

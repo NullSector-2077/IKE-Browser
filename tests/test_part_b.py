@@ -446,12 +446,14 @@ WEATHER_STEPS = """
         yield 800
         win.add_tab()
         yield 800
-        # switched off: nothing in the corner, nothing asked
+        # switched off: no clock and no weather in the corner, nothing asked (1.1.31: only the corner's
+        # gear stays, to switch them on again from the page itself)
         ike.config["newtab_clock"] = False
         ike.config["newtab_weather"] = False
         v2 = win.add_tab()
         yield 1000
-        page_text(v2, "document.querySelector('.corner').innerHTML", res, "off")
+        page_text(v2, "[].map.call(document.querySelector('.corner').children, function (e) { return e.className; })"
+                      ".join(' ')", res, "off")
         yield 300
         out["off"] = res.get("off")
 """
@@ -475,4 +477,4 @@ def test_newtab_clock_and_weather(run_ike, weather_server):
     assert forecasts == ["/forecast?latitude=41.89&longitude=12.51&current=temperature_2m%2Cweather_code%2Cwind_speed_10m"
                          "%2Cwind_direction_10m%2Capparent_temperature%2Crelative_humidity_2m%2Cpressure_msl"
                          "%2Cprecipitation_probability"]
-    assert out["off"] == ""
+    assert out["off"] == "np-wrap np-corner", out["off"]

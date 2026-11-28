@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Zablokuj sejf, gdy I.K.E. nie jest używany przez",
 "%d minutes": "%d minut",
 "Lock the vault when the screen is locked or the computer sleeps": "Zablokuj sejf, gdy ekran zostanie zablokowany lub komputer przejdzie w stan uśpienia",
-"Print preview": "Podgląd wydruku"
+"Print preview": "Podgląd wydruku",
+"What I.K.E. stopped for you, counted on this computer only.": "Co I.K.E. zatrzymał dla Ciebie, liczone tylko na tym komputerze.",
+"This session, by kind": "Ta sesja, według rodzaju",
+"This session, the sites that tried most": "Ta sesja, strony, które próbowały najczęściej",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nic z tego nie opuszcza Twojego komputera. Liczby tej sesji zaczynają się od nowa przy uruchomieniu I.K.E.",
+"Nothing blocked yet in this session.": "W tej sesji nic jeszcze nie zostało zablokowane."
 }
 }

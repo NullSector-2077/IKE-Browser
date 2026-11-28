@@ -236,8 +236,15 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Status
 
-- **1.1.30** (1.1.29 included, never published on its own) is merged into
-  `main` and waits for the owner's signature (`python3 tools/publish.py`).
+- **1.1.31** is prepared as one release (the owner: one test round for the
+  whole release): the new tab page customised from itself (its own small
+  panels), a clearer glass, the logo's light, I.K.E. Kontrol (`ike:kontrol`),
+  pages that change softly, the sun and the moon, the shield's turn, the
+  Dark Engine's empty layers and the backdrop between pages (#224), and the
+  comparison session's package (#226: phishing list, vault lock, spelling,
+  history kept for a chosen time, print preview). It reaches `main` when its
+  single test round is green; then the owner signs.
+- **1.1.30** (1.1.29 included, never published on its own) is published.
   Its work: the I.K.E. Dark Engine as the only page dark mode (Dark Reader's
   engine removed, its lists kept), the menus and Settings reorganised, the
   level Strict shown as Kontrol, Brave's debounce list (skip the tracker's

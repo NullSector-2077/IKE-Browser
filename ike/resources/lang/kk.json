@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "I.K.E. мынша уақыт пайдаланылмаса, қойманы құлыптау",
 "%d minutes": "%d минут",
 "Lock the vault when the screen is locked or the computer sleeps": "Экран құлыпталғанда немесе компьютер ұйқы режиміне өткенде қойманы құлыптау",
-"Print preview": "Басып шығаруды алдын ала қарау"
+"Print preview": "Басып шығаруды алдын ала қарау",
+"What I.K.E. stopped for you, counted on this computer only.": "I.K.E. сіз үшін тоқтатқандар, тек осы компьютерде есептелген.",
+"This session, by kind": "Осы сеанс, түрі бойынша",
+"This session, the sites that tried most": "Осы сеанс, ең көп әрекеттенген сайттар",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Мұның ешқайсысы компьютеріңізден шықпайды. Осы сеанстың сандары I.K.E. іске қосылғанда қайта басталады.",
+"Nothing blocked yet in this session.": "Осы сеанста әлі ештеңе бұғатталмаған."
 }
 }

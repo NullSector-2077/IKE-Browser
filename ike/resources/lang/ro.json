@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Blochează seiful când I.K.E. nu este folosit timp de",
 "%d minutes": "%d min",
 "Lock the vault when the screen is locked or the computer sleeps": "Blochează seiful când ecranul este blocat sau computerul intră în repaus",
-"Print preview": "Previzualizare tipărire"
+"Print preview": "Previzualizare tipărire",
+"What I.K.E. stopped for you, counted on this computer only.": "Ce a oprit I.K.E. pentru tine, numărat doar pe acest computer.",
+"This session, by kind": "Această sesiune, după tip",
+"This session, the sites that tried most": "Această sesiune, site-urile care au încercat cel mai mult",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nimic din toate acestea nu părăsește computerul tău. Cifrele acestei sesiuni pornesc din nou când pornește I.K.E.",
+"Nothing blocked yet in this session.": "Nimic blocat încă în această sesiune."
 }
 }

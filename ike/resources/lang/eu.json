@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Blokeatu kutxa gotorra I.K.E. erabili gabe dagoenean denbora honetan:",
 "%d minutes": "%d minutu",
 "Lock the vault when the screen is locked or the computer sleeps": "Blokeatu kutxa gotorra pantaila blokeatzean edo ordenagailua lo geratzean",
-"Print preview": "Inprimatzeko aurrebista"
+"Print preview": "Inprimatzeko aurrebista",
+"What I.K.E. stopped for you, counted on this computer only.": "I.K.E.k zuregatik geldiarazi duena, ordenagailu honetan bakarrik zenbatua.",
+"This session, by kind": "Saio hau, motaren arabera",
+"This session, the sites that tried most": "Saio hau, gehien saiatu diren guneak",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Honetatik ezer ez da zure ordenagailutik ateratzen. Saio honetako zenbakiak berriro hasten dira I.K.E. abiaraztean.",
+"Nothing blocked yet in this session.": "Oraindik ez da ezer blokeatu saio honetan."
 }
 }

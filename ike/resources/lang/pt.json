@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Bloquear o cofre quando o I.K.E. não for usado por",
 "%d minutes": "%d minutos",
 "Lock the vault when the screen is locked or the computer sleeps": "Bloquear o cofre quando a tela for bloqueada ou o computador entrar em suspensão",
-"Print preview": "Visualização de impressão"
+"Print preview": "Visualização de impressão",
+"What I.K.E. stopped for you, counted on this computer only.": "O que o I.K.E. parou por você, contado apenas neste computador.",
+"This session, by kind": "Esta sessão, por tipo",
+"This session, the sites that tried most": "Esta sessão, os sites que mais tentaram",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nada disto sai do seu computador. Os números desta sessão recomeçam quando o I.K.E. inicia.",
+"Nothing blocked yet in this session.": "Nada bloqueado ainda nesta sessão."
 }
 }

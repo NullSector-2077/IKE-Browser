@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "I.K.E. shuncha vaqt ishlatilmasa, xazinani qulflash",
 "%d minutes": "%d daqiqa",
 "Lock the vault when the screen is locked or the computer sleeps": "Ekran qulflanganda yoki kompyuter uyqu rejimiga oʻtganda xazinani qulflash",
-"Print preview": "Chop etishdan oldin koʻrish"
+"Print preview": "Chop etishdan oldin koʻrish",
+"What I.K.E. stopped for you, counted on this computer only.": "I.K.E. siz uchun to'xtatganlar, faqat shu kompyuterda sanalgan.",
+"This session, by kind": "Bu seans, turi bo'yicha",
+"This session, the sites that tried most": "Bu seans, eng ko'p urinib ko'rgan saytlar",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Bularning hech biri kompyuteringizdan chiqmaydi. Bu seans raqamlari I.K.E. ishga tushganda qaytadan boshlanadi.",
+"Nothing blocked yet in this session.": "Bu seansda hali hech narsa bloklanmagan."
 }
 }

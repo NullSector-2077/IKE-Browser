@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Lukusta hoidla, kui I.K.E. pole kasutusel olnud",
 "%d minutes": "%d minutit",
 "Lock the vault when the screen is locked or the computer sleeps": "Lukusta hoidla, kui ekraan lukustatakse või arvuti jääb unerežiimi",
-"Print preview": "Prindi eelvaade"
+"Print preview": "Prindi eelvaade",
+"What I.K.E. stopped for you, counted on this computer only.": "Mida I.K.E. sinu eest peatas, loetud ainult selles arvutis.",
+"This session, by kind": "See seanss, liigi järgi",
+"This session, the sites that tried most": "See seanss, saidid, mis proovisid kõige rohkem",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Midagi sellest ei lahku sinu arvutist. Selle seansi arvud algavad uuesti, kui I.K.E. käivitub.",
+"Nothing blocked yet in this session.": "Selles seansis pole veel midagi blokeeritud."
 }
 }

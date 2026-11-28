@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "I.K.E. এতক্ষণ ব্যবহার না হলে ভল্টে তালা দিন:",
 "%d minutes": "%d মিনিট",
 "Lock the vault when the screen is locked or the computer sleeps": "স্ক্রিন লক হলে বা কম্পিউটার স্লিপে গেলে ভল্টে তালা দিন",
-"Print preview": "প্রিন্টের পূর্বরূপ"
+"Print preview": "প্রিন্টের পূর্বরূপ",
+"What I.K.E. stopped for you, counted on this computer only.": "I.K.E. আপনার জন্য যা থামিয়েছে, শুধু এই কম্পিউটারে গোনা।",
+"This session, by kind": "এই সেশন, ধরন অনুযায়ী",
+"This session, the sites that tried most": "এই সেশন, যে সাইটগুলো সবচেয়ে বেশি চেষ্টা করেছে",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "এর কিছুই আপনার কম্পিউটারের বাইরে যায় না। I.K.E. চালু হলে এই সেশনের সংখ্যা আবার শুরু হয়।",
+"Nothing blocked yet in this session.": "এই সেশনে এখনও কিছু ব্লক করা হয়নি।"
 }
 }

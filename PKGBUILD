@@ -3,7 +3,7 @@
 # Builds I.K.E. from this repository. Run `makepkg -si` from a clone; the
 # sources are taken from the clone itself (no download).
 pkgname=ike-browser
-pkgver=1.1.30
+pkgver=1.1.31
 pkgrel=1
 pkgdesc="I.K.E. - Internet Kontrol Experience: private, independent web browser"
 arch=('x86_64')

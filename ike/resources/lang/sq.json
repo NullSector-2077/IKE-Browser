@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Kyçe kasafortën kur I.K.E. nuk përdoret për",
 "%d minutes": "%d minuta",
 "Lock the vault when the screen is locked or the computer sleeps": "Kyçe kasafortën kur ekrani kyçet ose kompjuteri fle",
-"Print preview": "Paraparje e shtypjes"
+"Print preview": "Paraparje e shtypjes",
+"What I.K.E. stopped for you, counted on this computer only.": "Çfarë ndaloi I.K.E. për ju, e numëruar vetëm në këtë kompjuter.",
+"This session, by kind": "Ky sesion, sipas llojit",
+"This session, the sites that tried most": "Ky sesion, sajtet që provuan më shumë",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Asgjë nga kjo nuk largohet nga kompjuteri juaj. Shifrat e këtij sesioni nisin nga e para kur niset I.K.E.",
+"Nothing blocked yet in this session.": "Ende asgjë e bllokuar në këtë sesion."
 }
 }

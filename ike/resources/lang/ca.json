@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Bloca la caixa forta quan I.K.E. no s'usa durant",
 "%d minutes": "%d minuts",
 "Lock the vault when the screen is locked or the computer sleeps": "Bloca la caixa forta quan la pantalla es bloca o l'ordinador entra en repòs",
-"Print preview": "Previsualització d'impressió"
+"Print preview": "Previsualització d'impressió",
+"What I.K.E. stopped for you, counted on this computer only.": "El que I.K.E. ha aturat per a tu, comptat només en aquest ordinador.",
+"This session, by kind": "Aquesta sessió, per tipus",
+"This session, the sites that tried most": "Aquesta sessió, els llocs que més ho han intentat",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Res d'això surt del teu ordinador. Les xifres d'aquesta sessió tornen a començar quan s'inicia I.K.E.",
+"Nothing blocked yet in this session.": "Encara no s'ha blocat res en aquesta sessió."
 }
 }

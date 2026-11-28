@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Lås hvelvet når I.K.E. ikke er brukt på",
 "%d minutes": "%d minutter",
 "Lock the vault when the screen is locked or the computer sleeps": "Lås hvelvet når skjermen låses eller datamaskinen går i dvale",
-"Print preview": "Forhåndsvisning av utskrift"
+"Print preview": "Forhåndsvisning av utskrift",
+"What I.K.E. stopped for you, counted on this computer only.": "Det I.K.E. har stoppet for deg, bare telt på denne datamaskinen.",
+"This session, by kind": "Denne økten, etter type",
+"This session, the sites that tried most": "Denne økten, nettstedene som prøvde mest",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Ingenting av dette forlater datamaskinen din. Tallene for denne økten starter på nytt når I.K.E. starter.",
+"Nothing blocked yet in this session.": "Ingenting blokkert ennå i denne økten."
 }
 }

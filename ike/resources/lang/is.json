@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Læsa hvelfingunni þegar I.K.E. hefur ekki verið notað í",
 "%d minutes": "%d mínútur",
 "Lock the vault when the screen is locked or the computer sleeps": "Læsa hvelfingunni þegar skjánum er læst eða tölvan fer í svefn",
-"Print preview": "Prentforskoðun"
+"Print preview": "Prentforskoðun",
+"What I.K.E. stopped for you, counted on this computer only.": "Það sem I.K.E. stöðvaði fyrir þig, talið aðeins á þessari tölvu.",
+"This session, by kind": "Þessi lota, eftir tegund",
+"This session, the sites that tried most": "Þessi lota, vefirnir sem reyndu mest",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Ekkert af þessu fer úr tölvunni þinni. Tölur þessarar lotu byrja upp á nýtt þegar I.K.E. ræsist.",
+"Nothing blocked yet in this session.": "Ekkert hefur verið lokað á í þessari lotu enn."
 }
 }

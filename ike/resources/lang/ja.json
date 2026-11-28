@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "I.K.E. を使用しない状態が続いたら保管庫をロック",
 "%d minutes": "%d 分",
 "Lock the vault when the screen is locked or the computer sleeps": "画面のロック時またはスリープ時に保管庫をロック",
-"Print preview": "印刷プレビュー"
+"Print preview": "印刷プレビュー",
+"What I.K.E. stopped for you, counted on this computer only.": "I.K.E. があなたのために止めたもの。このコンピューターだけで数えています。",
+"This session, by kind": "このセッション、種類別",
+"This session, the sites that tried most": "このセッション、最も多く試みたサイト",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "これらはいずれもコンピューターの外に出ません。このセッションの数は I.K.E. の起動時にリセットされます。",
+"Nothing blocked yet in this session.": "このセッションではまだ何もブロックされていません。"
 }
 }

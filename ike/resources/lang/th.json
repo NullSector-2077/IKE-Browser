@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "ล็อกคลังเมื่อไม่ได้ใช้ I.K.E. เป็นเวลา",
 "%d minutes": "%d นาที",
 "Lock the vault when the screen is locked or the computer sleeps": "ล็อกคลังเมื่อหน้าจอถูกล็อกหรือคอมพิวเตอร์เข้าสู่โหมดสลีป",
-"Print preview": "ตัวอย่างก่อนพิมพ์"
+"Print preview": "ตัวอย่างก่อนพิมพ์",
+"What I.K.E. stopped for you, counted on this computer only.": "สิ่งที่ I.K.E. หยุดไว้ให้คุณ นับเฉพาะในคอมพิวเตอร์เครื่องนี้",
+"This session, by kind": "เซสชันนี้ ตามประเภท",
+"This session, the sites that tried most": "เซสชันนี้ เว็บไซต์ที่พยายามมากที่สุด",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "ไม่มีสิ่งใดในนี้ออกจากคอมพิวเตอร์ของคุณ ตัวเลขของเซสชันนี้จะเริ่มใหม่เมื่อ I.K.E. เริ่มทำงาน",
+"Nothing blocked yet in this session.": "ยังไม่มีสิ่งใดถูกบล็อกในเซสชันนี้"
 }
 }

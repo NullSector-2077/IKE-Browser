@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "I.K.E. ఇంత సమయం ఉపయోగించకపోతే వాల్ట్‌ను లాక్ చేయి",
 "%d minutes": "%d నిమిషాలు",
 "Lock the vault when the screen is locked or the computer sleeps": "స్క్రీన్ లాక్ అయినప్పుడు లేదా కంప్యూటర్ స్లీప్‌కు వెళ్ళినప్పుడు వాల్ట్‌ను లాక్ చేయి",
-"Print preview": "ప్రింట్ ప్రివ్యూ"
+"Print preview": "ప్రింట్ ప్రివ్యూ",
+"What I.K.E. stopped for you, counted on this computer only.": "I.K.E. మీ కోసం ఆపినవి, ఈ కంప్యూటర్‌లో మాత్రమే లెక్కించబడ్డాయి.",
+"This session, by kind": "ఈ సెషన్, రకం ప్రకారం",
+"This session, the sites that tried most": "ఈ సెషన్, ఎక్కువగా ప్రయత్నించిన సైట్‌లు",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "వీటిలో ఏదీ మీ కంప్యూటర్‌ను దాటి వెళ్లదు. I.K.E. ప్రారంభమైనప్పుడు ఈ సెషన్ సంఖ్యలు మళ్లీ మొదలవుతాయి.",
+"Nothing blocked yet in this session.": "ఈ సెషన్‌లో ఇంకా ఏదీ నిరోధించబడలేదు."
 }
 }

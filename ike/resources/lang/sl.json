@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Zakleni trezor, ko se I.K.E. ne uporablja",
 "%d minutes": "%d minut",
 "Lock the vault when the screen is locked or the computer sleeps": "Zakleni trezor, ko se zaslon zaklene ali računalnik preide v stanje spanja",
-"Print preview": "Predogled tiskanja"
+"Print preview": "Predogled tiskanja",
+"What I.K.E. stopped for you, counted on this computer only.": "Kaj je I.K.E. ustavil za vas, šteto samo na tem računalniku.",
+"This session, by kind": "Ta seja, po vrsti",
+"This session, the sites that tried most": "Ta seja, strani, ki so najbolj poskušale",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nič od tega ne zapusti vašega računalnika. Številke te seje se začnejo znova, ko se I.K.E. zažene.",
+"Nothing blocked yet in this session.": "V tej seji še ni nič blokirano."
 }
 }

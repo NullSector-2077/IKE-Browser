@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "قفل کردن گاوصندوق وقتی I.K.E. استفاده نمی‌شود به مدت",
 "%d minutes": "%d دقیقه",
 "Lock the vault when the screen is locked or the computer sleeps": "قفل کردن گاوصندوق وقتی صفحه قفل می‌شود یا رایانه به خواب می‌رود",
-"Print preview": "پیش‌نمایش چاپ"
+"Print preview": "پیش‌نمایش چاپ",
+"What I.K.E. stopped for you, counted on this computer only.": "آنچه I.K.E. برای شما متوقف کرد، فقط روی همین رایانه شمرده شده.",
+"This session, by kind": "این نشست، بر اساس نوع",
+"This session, the sites that tried most": "این نشست، سایت‌هایی که بیشتر تلاش کردند",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "هیچ‌کدام از این‌ها از رایانهٔ شما خارج نمی‌شود. اعداد این نشست با شروع I.K.E. از نو شروع می‌شوند.",
+"Nothing blocked yet in this session.": "هنوز در این نشست چیزی مسدود نشده است."
 }
 }

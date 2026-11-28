@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Заклучи го сефот кога I.K.E. не се користи",
 "%d minutes": "%d минути",
 "Lock the vault when the screen is locked or the computer sleeps": "Заклучи го сефот кога екранот е заклучен или компјутерот спие",
-"Print preview": "Преглед пред печатење"
+"Print preview": "Преглед пред печатење",
+"What I.K.E. stopped for you, counted on this computer only.": "Што I.K.E. запре за вас, броено само на овој компјутер.",
+"This session, by kind": "Оваа сесија, по вид",
+"This session, the sites that tried most": "Оваа сесија, страниците што најмногу се обидоа",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Ништо од ова не го напушта вашиот компјутер. Бројките на оваа сесија почнуваат одново кога ќе се стартува I.K.E.",
+"Nothing blocked yet in this session.": "Сè уште ништо не е блокирано во оваа сесија."
 }
 }

@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "საცავის ჩაკეტვა, როცა I.K.E. არ გამოიყენება",
 "%d minutes": "%d წუთი",
 "Lock the vault when the screen is locked or the computer sleeps": "საცავის ჩაკეტვა, როცა ეკრანი ჩაკეტილია ან კომპიუტერი ძილის რეჟიმშია",
-"Print preview": "ბეჭდვის გადახედვა"
+"Print preview": "ბეჭდვის გადახედვა",
+"What I.K.E. stopped for you, counted on this computer only.": "რაც I.K.E.-მ თქვენთვის შეაჩერა, დათვლილი მხოლოდ ამ კომპიუტერზე.",
+"This session, by kind": "ეს სესია, სახეობის მიხედვით",
+"This session, the sites that tried most": "ეს სესია, საიტები, რომლებიც ყველაზე მეტად ცდილობდნენ",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "ამათგან არაფერი ტოვებს თქვენს კომპიუტერს. ამ სესიის რიცხვები თავიდან იწყება I.K.E.-ის გაშვებისას.",
+"Nothing blocked yet in this session.": "ამ სესიაში ჯერ არაფერია დაბლოკილი."
 }
 }

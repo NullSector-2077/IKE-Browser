@@ -271,7 +271,7 @@ class IkeApp(QObject):
         """The Settings button of the new tab page, or its background photo button."""
         win = self.active_window()
         if win is not None:
-            win.open_settings("newtab" if what == "background" else None)
+            win.open_settings("newtab" if what in ("background", "newtab") else None)
 
     # --- the search engines' own icons (address bar and new tab page, 1.1.10) ---
     def engine_icon(self, engine):

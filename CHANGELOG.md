@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.31
 
 - **Pages that steal passwords are stopped** (the owner's choice after the
   comparison with the best-known browsers): the Phishing URL Blocklist
@@ -44,6 +44,64 @@
   rgba(0,0,0,.03)`); written back so, the whole dark declaration was not valid
   and the page's light one stayed. Such a layer is now written as `none`
   (tests/test_dark_engine_hard.py).
+- **The new tab page is customised from the new tab page** (the owner's
+  request): a small gear beside the clock and the weather (it shows when the
+  mouse is over them) and one beside the counter open a small panel in the
+  style of Plasma's widgets, with the switches of the rest of I.K.E.: clock,
+  weather, its city, temperature, wind and pressure units; the counter (this
+  month or since installation) and the site tiles (bookmarks, most visited
+  or none, hidden tiles shown again). A choice changes only that setting and
+  the page comes back in place with the panel open; only the page itself can
+  do it (the session's key), a web page cannot (`ike/newtab.py`,
+  tests/test_newtab_panels.py).
+- **The names of the favourite sites are readable** (they were grey): in the
+  text colour, a little heavier, in the light and the dark theme.
+- **A clearer glass on the new tab page** (the owner's request): over a
+  photo, each group of text (greeting, wordmark, clock and weather, counter,
+  buttons, the sites' names) sits on a glass that shows the photo, with a
+  thin discreet edge, and the letters and the weather's symbols have a soft
+  halo in the page's colour. The glass is tinted only as much as the photo
+  under that group asks, from 8 % (18 % before): every text still reads at
+  4.5:1 on the worst part of the photo, the large figures at 3:1, and the
+  sites' small names now at 7:1 (tests/test_newtab_readability.py: white,
+  black, busy and I.K.E.'s own photo, light and dark theme).
+- **The clock and the weather are smaller** (the owner: the weather was too
+  large for a second row of sites): the clock 32 px (42), the weather's
+  symbol about 1.15 cm (2 cm); in a narrow window its details now fit too.
+- **The logo lights up on the new tab page** (the owner's choice): a light
+  starts from the left and the right ends of both lines of the logo's
+  circuit at once, faint, and grows as it runs to the middle, where the two
+  lights meet in a small flash; each branch lights up as the light passes
+  it, at the same speed, and its pad gives a small discreet glow when the
+  light reaches it (the lengths and the timings come from the logo's own
+  drawing). The light is a little wider than the white traces, full colour
+  over them and fading outwards. About 3 seconds of light, then 2 seconds of
+  rest. Only with the interface's effects on (so not with reduced motion
+  asked, nor with the battery saver at work); nothing moves during the rest,
+  and a tab that is not shown runs none. Measured on a computer drawing
+  without a graphics card, the new tab page with the light takes about 3 %
+  of one processor core more than without (tests/test_newtab_logo.py).
+- **Pages change softly** (the owner: "pages come in abruptly"): the old
+  page's picture stays over the tab until the new page has drawn its first
+  content, then fades away in a fifth of a second; turning dark mode on or
+  off for a page fades its colours the same way. Nothing waits for it: the
+  new page loads as fast as before under the picture, which lets the mouse
+  through; a very quick page that has drawn already is simply shown
+  (`ike/pagefade.py`, tests/test_graphics_131.py).
+- **The page mode's sun turns into the moon** and back, instead of a plain
+  swap of icons, and **the shield's octagon turns half a turn**, as a coin,
+  to show the new protection level. With the interface's effects only.
+- **I.K.E. Kontrol** (`ike:kontrol`, also from the counter's panel on the new
+  tab page): what I.K.E. blocked, counted on this computer only: this month,
+  the month before and since installation, and this session's counts by
+  kind and the sites that tried most, as traces of the logo's circuit ending
+  in a small octagonal pad (the owner's choice). The sites of private
+  windows are never listed, they only add to the totals; a web page can
+  neither open nor read the page (`ike/resources/kontrol.html`,
+  tests/test_kontrol.py).
+- **About I.K.E. names Dark Reader's lists**, with the date of the lists in
+  use, and no longer a Dark Reader version: since 1.1.30 only its lists are
+  part of I.K.E.
 
 ## 1.1.30
 
