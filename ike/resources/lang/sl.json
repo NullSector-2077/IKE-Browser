@@ -1589,6 +1589,21 @@
 "Developer": "Za razvijalce",
 "Edit": "Uredi",
 "Undo, cut, copy and paste": "Razveljavi, izreži, kopiraj in prilepi",
-"Recently visited": "Nedavno obiskano"
+"Recently visited": "Nedavno obiskano",
+"1 month": "1 mesec",
+"3 months": "3 mesece",
+"6 months": "6 mesecev",
+"1 year": "1 leto",
+"2 years": "2 leti",
+"Keep the history": "Hrani zgodovino",
+"The pages visited and the downloads list older than this are deleted by themselves. Bookmarks, passwords, cookies and settings are kept.": "Obiskane strani in seznam prenosov, starejši od tega, se izbrišejo sami. Zaznamki, gesla, piškotki in nastavitve se ohranijo.",
+"Spelling": "Črkovanje",
+"Check spelling while typing": "Preverjaj črkovanje med tipkanjem",
+"Dictionaries in use: %s. Checked on this computer: nothing you type is sent anywhere.": "Uporabljeni slovarji: %s. Preverjanje poteka v tem računalniku: nič, kar vtipkate, se ne pošilja nikamor.",
+"No dictionary is installed. Install the one of your language with pacman, for example hunspell-it or hunspell-en_us, then restart I.K.E.": "Nameščen ni noben slovar. Namestite slovar svojega jezika s pacman, na primer hunspell-it ali hunspell-en_us, nato znova zaženite I.K.E.",
+"Lock the vault when I.K.E. is not used for": "Zakleni trezor, ko se I.K.E. ne uporablja",
+"%d minutes": "%d minut",
+"Lock the vault when the screen is locked or the computer sleeps": "Zakleni trezor, ko se zaslon zaklene ali računalnik preide v stanje spanja",
+"Print preview": "Predogled tiskanja"
 }
 }

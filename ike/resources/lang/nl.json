@@ -1589,6 +1589,21 @@
 "Developer": "Ontwikkelaar",
 "Edit": "Bewerken",
 "Undo, cut, copy and paste": "Ongedaan maken, knippen, kopiëren en plakken",
-"Recently visited": "Recent bezocht"
+"Recently visited": "Recent bezocht",
+"1 month": "1 maand",
+"3 months": "3 maanden",
+"6 months": "6 maanden",
+"1 year": "1 jaar",
+"2 years": "2 jaar",
+"Keep the history": "Geschiedenis bewaren",
+"The pages visited and the downloads list older than this are deleted by themselves. Bookmarks, passwords, cookies and settings are kept.": "Bezochte pagina's en de downloadlijst die ouder zijn dan dit, worden vanzelf verwijderd. Bladwijzers, wachtwoorden, cookies en instellingen blijven bewaard.",
+"Spelling": "Spelling",
+"Check spelling while typing": "Spelling controleren tijdens het typen",
+"Dictionaries in use: %s. Checked on this computer: nothing you type is sent anywhere.": "Gebruikte woordenboeken: %s. Gecontroleerd op deze computer: niets wat je typt wordt ergens naartoe gestuurd.",
+"No dictionary is installed. Install the one of your language with pacman, for example hunspell-it or hunspell-en_us, then restart I.K.E.": "Er is geen woordenboek geïnstalleerd. Installeer dat van je taal met pacman, bijvoorbeeld hunspell-it of hunspell-en_us, en start I.K.E. daarna opnieuw op.",
+"Lock the vault when I.K.E. is not used for": "De kluis vergrendelen als I.K.E. niet wordt gebruikt gedurende",
+"%d minutes": "%d minuten",
+"Lock the vault when the screen is locked or the computer sleeps": "De kluis vergrendelen als het scherm wordt vergrendeld of de computer slaapt",
+"Print preview": "Afdrukvoorbeeld"
 }
 }
