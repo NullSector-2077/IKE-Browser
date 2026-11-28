@@ -165,6 +165,14 @@ def main():
             wanted.add(v["name"])
         if e.get("inline"):
             lines.append("      inline style: %s" % e["inline"])
+    for e in d.get("lowcontrast", []):
+        u = e["under"]
+        lines.append("   light text on a light %s: %r %s at %s colour %s, under it %s: %s%s" % (
+            u["kind"], e["text"], e["el"], e["rect"], e["color"], u["layer"], u["value"],
+            ("  [style: %s]" % u["inline"]) if u.get("inline") else ""))
+        for r in u.get("rules", []):
+            lines.append("      rule: %s" % r)
+        lines.append("      layers: %s" % " > ".join(e.get("path", [])))
     for e in d.get("onpicture", []):
         lines.append("   light text on a picture: %r %s at %s colour %s, over %s: %s"
                      % (e["text"], e["el"], e["rect"], e["color"], e["under"], e["picture"]))
