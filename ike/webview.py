@@ -128,6 +128,12 @@ class WebPage(QWebEnginePage):
             # page before its address loads (1.1.19: it was white)
             self.set_backdrop(DARK_BLANK)
         self.loadStarted.connect(lambda: setattr(self, "_loaded_url", None))
+        # the dark backdrop given again as the new page takes the old one's place:
+        # a page of another site comes in a new renderer, whose first frame could
+        # be white on some graphics drivers before the colour reached it (1.1.31:
+        # the owner's white flash between two pages, with and without dark mode)
+        self.loadStarted.connect(self._backdrop_again)
+        self.urlChanged.connect(self._backdrop_again)
         self.permissionRequested.connect(self._permission)
         self.fullScreenRequested.connect(self._fullscreen)
         self.urlChanged.connect(self._inject_cosmetics)
@@ -328,6 +334,11 @@ class WebPage(QWebEnginePage):
         ace = bytes(QUrl.toAce(host)).decode("ascii", "replace") if host else ""
         darkengine.prepare(profile, url.toString(), ace or url.scheme() + ":", own_on,
                            self.app.shields.dark_chosen(host), cfg["dark_engine_look"])
+
+    def _backdrop_again(self, *_):
+        if self._backdrop is not None:
+            from PyQt6.QtGui import QColor
+            self.setBackgroundColor(QColor.fromRgba(self._backdrop))
 
     def set_backdrop(self, colour):
         """The page's background colour, the one shown before it paints."""
