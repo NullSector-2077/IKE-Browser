@@ -55,19 +55,6 @@
   }
   var THEN = Promise.prototype.then, DEFPROP = Object.defineProperty, SPECIES = Symbol.species;
   var natives = hardMap();         // replacement -> source text of the original
-  // the variation of the next exported picture (1.1.27, jitter): a new value
-  // at every export, from the site's secret key and the number of exports so
-  // far, which a page cannot work out (the same sequence again only for the
-  // same key: the automatic checks compare runs with a fixed one)
-  var exportsMade = 0;
-  function freshSalt() {
-    exportsMade = (exportsMade + 1) | 0;
-    var h = (seed ^ mul32(exportsMade, 0x9E3779B1)) | 0;
-    h ^= h >>> 16; h = mul32(h, 0x85EBCA6B);
-    h ^= h >>> 13; h = mul32(h, 0xC2B2AE35);
-    h ^= h >>> 16;
-    return h | 1;
-  }
   // A promise of the engine's, given a reaction of the protection: then()
   // asks the promise for its constructor (the "species"), and a getter on
   // Promise.prototype.constructor was handed the engine's own promise, with
@@ -603,6 +590,8 @@
   // areas and known test patterns stay exact), one in 32 of them. getImageData
   // is left as it was (a second read gives the same pixels: pages that edit
   // pictures read and write them back). Large pictures: a part of the pixels.
+  // (Not applied since 1.1.29, the owner's decision: an exported picture is the
+  // site's own, see exported(); kept for the workers' prelude, which takes it.)
   function jitter(data, w, h, salt) {
     var row = w * 4, n = w * h, step = n > 100000 ? ((n + 99999) / 100000) | 0 : 1;
     var at = function (q) {
@@ -739,10 +728,10 @@
   }
   // Strict and Maximum (1.1.25): one WebGL identity for every user (GLX above):
   // the extensions offered are those of the fixed list the real context has,
-  // the others are never enabled; the card's name is the site's common card
-  // (x.gpu, 1.1.29; until 1.1.28 the extension was not offered); the limits
-  // are the fixed floor (never above the real ones). The enum is read once,
-  // as the engine reads it.
+  // the others are never enabled (WEBGL_debug_renderer_info among them: the
+  // card's name gives the engine's own INVALID_ENUM and null, as Chrome
+  // without the extension); the limits are the fixed floor (never above the
+  // real ones). The enum is read once, as the engine reads it.
   // Self-contained: it also runs inside workers (passed by its source).
   function glIdentity(GLP, wrap, RA, low, tagOf, len, F32, I32, Arr, put, x) {
     var E = { __proto__: null }, L = { __proto__: null }, k;
@@ -772,8 +761,6 @@
       return function (p) {
         if (!arguments.length || odd(p)) return RA(orig, this, arguments);
         var e = p >>> 0, r = RA(orig, this, [e]);
-        // UNMASKED_VENDOR_WEBGL / UNMASKED_RENDERER_WEBGL (the extension enabled): the site's card
-        if ((e === 37445 || e === 37446) && x.gpu && typeof r === 'string') return x.gpu[e - 37445];
         var l = L[e];
         if (l === undefined || r === null || r === undefined) return r;
         if (typeof r === 'number') return l[0] === 1 ? (r > l[1] ? r : l[1]) : (r < l[1] ? r : l[1]);
@@ -874,12 +861,15 @@
   // ---- values shared by every realm and by workers ---------------------------
   var realCores = navigator.hardwareConcurrency || 4;
   // A number of cores that most computers report, so the value itself is
-  // common: 4 or 8, no more than the computer has (and 4 at least). Balanced
-  // picks one of them per site; Strict and above always the higher one.
+  // common: 4 or 8, no more than the computer has (and 4 at least), one of
+  // them per site.
   // Before 1.1.21 rarer values (2, 6, 12) were picked too, and made the
   // browser stand out (Cover Your Tracks: "2 cores", 5.7 bits).
   var usual = [4, 8].filter(function (n) { return n <= Math.max(realCores, 4); });
-  var cores = strict ? usual[usual.length - 1] : usual[seed % usual.length];
+  // 1.1.29 (the owner): one of them per site at every level, Strict and
+  // Maximum too (they gave the higher one everywhere: Cover Your Tracks
+  // counts the cores as randomized when two sites see different ones)
+  var cores = usual[seed % usual.length];
   // ---- graphics card (1.1.18) --------------------------------------------------
   // Balanced: each site gets one of a few models that are common on Linux,
   // written exactly as Chrome reports them there (vendor, renderer, and what
@@ -889,12 +879,9 @@
   // Linux their name always carries the LLVM and DRM versions, which made
   // each such name very rare (seen in Cover Your Tracks). A fixed value of
   // our own would mark I.K.E.'s users; the real one marks the computer.
-  // Strict and Maximum (1.1.29, the owner's choice): one of the cards most
-  // common in Steam's hardware survey (STEAM_GPUS), the same in every frame
-  // and worker of a site, another on another site and in another session.
-  // Until 1.1.28 no name at all: Cover Your Tracks counted that "None" as
-  // rare (1 browser in 183, 7.5 bits), more than any common card. WebGPU is
-  // still not offered.
+  // Strict and Maximum: no name at all. The WEBGL_debug_renderer_info
+  // extension, the only source of the vendor and renderer pair, is hidden in
+  // every frame and worker, and WebGPU is not offered.
   var DEBUG_GPU_EXTENSION = 'webgl_debug_renderer_info';
   var GPUS = [
     ['Google Inc. (Intel)', 'ANGLE (Intel, Mesa Intel(R) UHD Graphics 620 (KBL GT2), OpenGL 4.6)', 'intel', 'gen-9'],
@@ -907,16 +894,6 @@
     ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 3060/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'ampere']
   ];
   var PICK = seed >>> 7;
-  // the cards most used by Steam's players (Valve's survey of October 2026:
-  // RTX 3060 first, then RTX 5070, RTX 4060 Laptop GPU, RTX 4060, RTX 3050),
-  // written as Chrome on Linux writes an NVIDIA card on NVIDIA's driver
-  var STEAM_GPUS = [
-    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 3060/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'ampere'],
-    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 5070/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'blackwell'],
-    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'lovelace'],
-    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 4060/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'lovelace'],
-    ['Google Inc. (NVIDIA Corporation)', 'ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 3050/PCIe/SSE2, OpenGL 4.5.0)', 'nvidia', 'ampere']
-  ];
   // The model for this site among those of the real card's maker (1.1.18):
   // the limits and extensions WebGL and WebGPU report depend on the maker, so
   // an Intel name over an NVIDIA card's limits would be a contradiction a
@@ -956,10 +933,9 @@
   // instead of a random part of the extensions hidden with the real limits (a
   // combination of its own, and "suspicious" to the fingerprinting scripts
   // that compare them):
-  // - a common card's name (1.1.29, the owner's choice; 1.1.25 to 1.1.28 gave
-  //   none, as a common name over limits that are not that card's own is a
-  //   contradiction a script can prove; "None" proved rarer in Cover Your
-  //   Tracks): one of STEAM_GPUS, through WEBGL_debug_renderer_info;
+  // - no card name: WEBGL_debug_renderer_info is not offered (the owner's
+  //   choice; a common card's name over limits that are not that card's own
+  //   would be a contradiction a script can prove);
   // - the extensions are a fixed list every common desktop card has (Intel on
   //   Mesa from Ivy Bridge on, AMD on Mesa, NVIDIA's own driver, the llvmpipe
   //   software renderer), never one the real context lacks, never enabled;
@@ -978,9 +954,8 @@
       'ext_frag_depth', 'ext_srgb', 'ext_texture_compression_rgtc', 'ext_texture_filter_anisotropic',
       'khr_parallel_shader_compile', 'oes_element_index_uint', 'oes_fbo_render_mipmap', 'oes_standard_derivatives',
       'oes_texture_float', 'oes_texture_float_linear', 'oes_texture_half_float', 'oes_texture_half_float_linear',
-      'oes_vertex_array_object', 'webgl_color_buffer_float', 'webgl_compressed_texture_s3tc', 'webgl_debug_renderer_info',
-      'webgl_depth_texture', 'webgl_draw_buffers', 'webgl_lose_context', 'webgl_multi_draw'],
-    gpu: STEAM_GPUS[PICK % STEAM_GPUS.length],
+      'oes_vertex_array_object', 'webgl_color_buffer_float', 'webgl_compressed_texture_s3tc', 'webgl_depth_texture',
+      'webgl_draw_buffers', 'webgl_lose_context', 'webgl_multi_draw'],
     lim: {
       3379: [0, 16384], 34076: [0, 16384], 34024: [0, 16384], 3386: [2, 16384, 16384],  // textures, viewport (llvmpipe, Mesa)
       34921: [0, 16], 36347: [0, 1024], 36349: [0, 1024], 36348: [0, 15],               // attributes (ES3), uniforms (llvmpipe), varyings (ES3)
@@ -1129,10 +1104,23 @@
     for (var i = 0; i < p.length; i++) if (p[i] < '0' || p[i] > '9') return false;
     return true;
   }
-  function pluginList(w, real, PA) {
-    var next = rng(seed ^ 0x51ed27), fakes = { __proto__: null, length: 2 }, n = RAPPLY(PA.len, real, []);
+  // invent: the two invented entries (Balanced and below). Strict and Maximum
+  // (1.1.29, the owner): none, the engine's own entries in an order of the
+  // site's own (another on every site and in every session), so the list still
+  // differs between two sites, as Cover Your Tracks checks ("randomized"),
+  // and holds nothing Chrome does not have.
+  function pluginList(w, real, PA, invent) {
+    var next = rng(seed ^ 0x51ed27), fakes = { __proto__: null, length: invent ? 2 : 0 }, n = RAPPLY(PA.len, real, []);
     var proto = w.Plugin ? w.Plugin.prototype : w.Object.prototype;
-    for (var i = 0; i < 2; i++) {
+    var order = [], j, t;
+    for (j = 0; j < n; j++) put(order, j, j);
+    if (!invent) {
+      for (j = n - 1; j > 0; j--) {          // a shuffle of the site's own
+        var r = next() % (j + 1);
+        t = order[j]; order[j] = order[r]; order[r] = t;
+      }
+    }
+    for (var i = 0; i < fakes.length; i++) {
       var f = O_CREATE(proto);
       PLUGIN_FAKES.set(f, { name: word(next, 6 + next() % 5) + ' ' + word(next, 5 + next() % 4),
         description: word(next, 7 + next() % 6), filename: word(next, 8 + next() % 5, true) });
@@ -1140,7 +1128,7 @@
     }
     var info = {
       real: real, n: n + fakes.length,
-      at: function (k) { return k < n ? real[k] : fakes[k - n]; },
+      at: function (k) { return k < n ? real[order[k]] : fakes[k - n]; },
       named: function (name) {
         var r = RAPPLY(PA.named, real, [name]);
         if (r) return r;
@@ -1537,19 +1525,8 @@
       else if (tg === 'Uint8ClampedArray') farble(px, c.seed, rng, RAW(LENG, px, []));
       else if (tg === 'Float16Array') viewNoise(TW, px, 0, -1, c.seed, rng, farble, true);
     };
-    // the variation of every exported picture, as in the page (1.1.27, jitter)
-    var exportsW = 0;
-    var exported = function (img, w, h) {
-      var px = RAW(IMGD, img, []);
-      if (RAW(TAGG, px, []) !== 'Uint8ClampedArray') return;
-      exportsW = (exportsW + 1) | 0;
-      var k = (c.seed ^ (exportsW * 40503)) | 0;
-      k = (k + (k << 1) + (k << 4) + (k << 7) + (k << 8) + (k << 24)) | 0;
-      k ^= k >>> 15;
-      k = (k + (k << 1) + (k << 4) + (k << 7) + (k << 8) + (k << 24)) | 0;
-      k ^= k >>> 13;
-      jitter(px, w, h, k | 1);
-    };
+    // an exported picture: as it is, with the site's noise, as in the page (1.1.29)
+    var exported = function () {};
     var OCW = self.OffscreenCanvas, OCWP = OCW && OCW.prototype;
     var O2WP = self.OffscreenCanvasRenderingContext2D && OffscreenCanvasRenderingContext2D.prototype;
     var OCV = { w: getOf(OCWP, 'width'), h: getOf(OCWP, 'height'), ctx: OCWP && OCWP.getContext,
@@ -2416,10 +2393,13 @@
       else noiseImage(img);
       return img;
     }
-    // a picture about to be exported: the variation of this export (jitter)
+    // a picture about to be exported: as it is, with the site's noise (1.1.29,
+    // the owner: Cover Your Tracks counts a canvas or a WebGL picture as
+    // randomized when it differs between two sites, and calls the same
+    // "randomized" on both sites equal: the variation of every export of
+    // 1.1.27 to 1.1.28 made it never count. The same picture on a site, another
+    // on every other site and in every session, as Brave does.)
     function exported(img, cw, ch) {
-      var px = pixels(img);
-      if (TAG(px) === 'Uint8ClampedArray') jitter(px, cw, ch, freshSalt());
       return img;
     }
     function noisyCopy(canvas) {
@@ -2666,9 +2646,10 @@
     var NP = w.Navigator.prototype;
     // Plugins: the real list plus two entries whose names differ on every site.
     // Strict and Maximum (1.1.25): the engine's own list, Chrome's five PDF
-    // viewers with their two types, the same for everyone; the two invented
-    // ones had no type, which a one-line check tells ("missing mimetype").
-    if (!strict && w.Proxy && w.Reflect) {
+    // viewers with their two types; the two invented ones had no type, which a
+    // one-line check tells ("missing mimetype"). 1.1.29: in an order of the
+    // site's own (pluginList).
+    if (w.Proxy && w.Reflect) {
       var pluginViews = hardMap(), PAP0 = w.PluginArray && w.PluginArray.prototype;
       // the engine's own, taken before they are wrapped below
       var PA = { len: getterOf(PAP0, 'length'), named: PAP0 && PAP0.namedItem };
@@ -2677,7 +2658,7 @@
         var real = RAPPLY(orig, this, []);
         try {
           var view = pluginViews.get(real);
-          if (!view) { view = pluginList(w, real, PA); pluginViews.set(real, view); }
+          if (!view) { view = pluginList(w, real, PA, !strict); pluginViews.set(real, view); }
           return view;
         } catch (e) { return real; }
       });

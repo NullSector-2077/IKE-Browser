@@ -1,17 +1,15 @@
-"""Every exported picture of a canvas varies (1.1.27, the owner's decision).
+"""Exported pictures of a canvas: the site's own (1.1.29, the owner's decision).
 
-Cover Your Tracks draws its canvas twice in a page and calls the fingerprint
-"randomized" when the two pictures differ, "unique" when they are the same.
-Since 1.1.20 the noise was the same for every read of a site (so that
-averaging many reads cannot remove it), and Cover Your Tracks showed a
-"unique" fingerprint, though it was a new one in every session and on every
-site. Now an export (toDataURL, toBlob, convertToBlob, in pages and workers)
-adds a varying part on top of the site's noise:
+Cover Your Tracks counts a canvas or a WebGL picture as "randomized" when it
+differs between two sites (tests/test_cover_your_tracks.py); a picture that
+varied at every export (1.1.27 to 1.1.28) read "randomized" on both of its
+sites, which it takes for the same value, so it never counted. Now an export
+(toDataURL, toBlob, convertToBlob, in pages and workers) is the picture with
+the site's noise, every time:
 
-- two exports of the same drawing differ, at Balanced and at Strict;
-- the majority of many exports is the picture with the site's noise (what
-  getImageData gives), never the real picture: averaging gains nothing;
-- getImageData still gives the same pixels at every read;
+- every export of the same drawing is the same, at Balanced and at Strict,
+  and it is what getImageData gives (the site's noise, never the real picture);
+- the noise touches the lowest bit only;
 - flat colours are never changed: a canvas of solid rectangles exports the
   same picture every time at Strict (1.1.25's exact canvases);
 - with the shield off nothing changes.
@@ -65,6 +63,7 @@ window.run = async function () {
     major.push(+best);
   }
   r.majorityIsNoised = major.join() === g1.join();
+  r.exportIsNoised = dec[0].join() === g1.join();
   // how much an export differs from the site's picture: lowest bits only
   var worst = 0;
   for (var b = 0; b < g1.length; b++) worst = Math.max(worst, Math.abs(dec[0][b] - g1[b]));
@@ -137,17 +136,16 @@ def steps(ike, qapp, out):
 
 
 @pytest.mark.parametrize("level", ["balanced", "strict"])
-def test_every_export_varies_and_averaging_gains_nothing(run_ike, site, level):
+def test_every_export_is_the_sites_own_picture(run_ike, site, level):
     out = run_ike(STEPS % site, settings={"shield_level": level}, timeout=120)
     assert "error" not in out, out.get("error")
     r = json.loads(out["r"])
-    assert r["twoDiffer"] and r["distinct"] >= 14, r       # Cover Your Tracks: "randomized"
-    assert r["blobsDiffer"] and r["workerDiffer"], r
-    assert r["readsSame"], r                               # getImageData as before
-    assert r["majorityIsNoised"], r                        # many exports give the site's noise back
-    assert r["worst"] <= 1, r                              # the lowest bit only
+    assert not r["twoDiffer"] and r["distinct"] == 1, r        # the same picture at every export
+    assert not r["blobsDiffer"] and not r["workerDiffer"], r
+    assert r["readsSame"] and r["exportIsNoised"], r           # what getImageData gives: the site's noise
+    assert r["worst"] <= 1, r                                  # the lowest bit only
     if level == "strict":
-        assert r["plainSame"], r                           # solid rectangles stay exact (1.1.25)
+        assert r["plainSame"], r                               # solid rectangles stay exact (1.1.25)
 
 
 def test_nothing_changes_with_the_shield_off(run_ike, site):
