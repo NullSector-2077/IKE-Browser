@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **No white frame between two pages** (the owner saw one on a fast site,
+  with and without dark mode): the page's backdrop colour is given again when
+  the new page starts and when its address changes, so that the renderer of
+  another site gets it from its first frame (`ike/webview.py`).
 - **Dark Engine: a background of a gradient and a colour is darkened** (a
   panel of a site stayed white in 1.1.30): Chromium reads a layer without a
   picture as `initial` in the list (`background: linear-gradient(#fff, #fff),
