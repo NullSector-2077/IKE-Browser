@@ -450,6 +450,84 @@
    "unasked": {
     "automation/update/drill-qt": 1
    }
+  },
+  "2026-11-28": {
+   "answered": 1,
+   "answered_for": {
+    "automation/autofix-main": 1
+   },
+   "no_provider": 0,
+   "providers": {
+    "Groq": {
+     "by": {
+      "automation/autofix-main": {
+       "requests": 4,
+       "tokens": 20667
+      }
+     },
+     "classes": {
+      "2": {
+       "requests": 4,
+       "tokens": 20667
+      }
+     },
+     "observed": {
+      "requests": {
+       "at": 1795838774,
+       "limit": 1000,
+       "mark": 4,
+       "remaining": 998,
+       "reset": 173,
+       "window": "day"
+      },
+      "tokens": {
+       "at": 1795838774,
+       "limit": 8000,
+       "mark": 20667,
+       "remaining": 3414,
+       "reset": 35,
+       "window": "minute"
+      }
+     },
+     "requests": 4,
+     "spent": "",
+     "tokens": 20667
+    },
+    "OpenRouter": {
+     "account": "free",
+     "by": {},
+     "classes": {},
+     "observed": {
+      "requests": {
+       "limit": 50,
+       "mark": 0,
+       "window": "day"
+      }
+     },
+     "requests": 0,
+     "spent": "",
+     "tokens": 0
+    },
+    "Z.AI": {
+     "by": {
+      "automation/autofix-main": {
+       "requests": 7,
+       "tokens": 66633
+      }
+     },
+     "classes": {
+      "2": {
+       "requests": 7,
+       "tokens": 66633
+      }
+     },
+     "observed": {},
+     "requests": 7,
+     "spent": "",
+     "tokens": 66633
+    }
+   },
+   "runs": 1
   }
  },
  "schema": 1

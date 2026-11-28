@@ -82,6 +82,20 @@
     "task": "python"
    }
   ],
+  "automation/autofix-main@e2bc2dd6dd0c696d": [
+   {
+    "attempt": 1,
+    "date": "2026-11-28",
+    "detail": "rotated",
+    "files": [],
+    "model": "",
+    "outcome": "no-fix",
+    "provider": "",
+    "sig": "e2bc2dd6dd0c696d",
+    "summary": "Il test di fingerprinting ha rilevato differenze nei valori di navigator.plugins tra main e questa build. Il problema \u00e8 che I.K.E. sta mascherando sempre i plugin, anche quando non dovrebbe. Dalle log, sembra che i plugin vengano sempre mascherati ('here a disguise, in every sess",
+    "task": "python"
+   }
+  ],
   "automation/autofix-main@ff0d9646c9168f7c": [
    {
     "attempt": 1,
@@ -381,11 +395,11 @@
  "solved": {},
  "streak": {
   "automation/autofix-main": {
-   "at": "2026-11-27T20:28:39Z",
-   "date": "2026-11-27",
+   "at": "2026-11-28T04:12:13Z",
+   "date": "2026-11-28",
    "n": 1,
-   "sig": "8e557b70d4b39805",
-   "since": "2026-11-27"
+   "sig": "e2bc2dd6dd0c696d",
+   "since": "2026-11-28"
   },
   "automation/update/drill-qt": {
    "at": "2026-11-27T22:47:39Z",
