@@ -165,9 +165,6 @@ class CleanPanel(QWidget):
             self.tracker_names.setText(T("Other sites on this page: %s") % shown)
         else:
             self.tracker_names.setText("")
-        
-        # Ensure consistent plugin masking
-        self.win._mask_plugins()
 
     # --- what the user does --------------------------------------------------
     def _clear(self):
