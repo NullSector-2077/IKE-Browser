@@ -213,7 +213,7 @@ def _git(workdir, *args, text=True):
 MAX_FILES = 5
 TOTAL_TIMEOUT = REGISTRY.RESERVES_TIMEOUT
 REQUEST_TIMEOUT = 150
-FILES_BUDGET = 60_000          # characters of whole files sent along
+FILES_BUDGET = 400_000         # characters of whole files at most (each provider gets those that fit its own budget)
 MAX_TOKENS = 6000
 # fitting a request to a provider's limit of tokens per minute (fitted, 2026-11-25)
 FIT_SHARE = 0.9                # of the limit a fitted request may take (the estimate is careful already)
@@ -333,6 +333,18 @@ def chain(env=os.environ):
     variable; tools/ai-providers.py)."""
     out = []
     off = unavailable(env)
+    gemini = env.get(REGISTRY.GEMINI_KEY, "").strip()
+    if gemini and not off & {"Antigravity", "Gemini"}:
+        # Gemini through its own API, under Antigravity's name and quota (2026-11-28: the CLI never ran)
+        named = [m.strip() for m in (env.get(REGISTRY.GEMINI_MODELS_VAR) or "").split(",") if m.strip()]
+        ids = []
+        for m in named + list(REGISTRY.GEMINI_MODELS):
+            mid = REGISTRY.gemini_api_id(m)
+            if mid and mid not in ids:
+                ids.append(mid)
+        ids += [m for m in REGISTRY.discovered(env, "Antigravity") if m not in ids]
+        out += [("Antigravity", REGISTRY.GEMINI_OPENAI, gemini, m, REGISTRY.GEMINI_BUDGET, REGISTRY.GEMINI_TOKENS)
+                for m in ids]
     for name, url, key_var, models_var, default, budget, tokens in PROVIDERS:
         key = env.get(key_var, "").strip()
         if not key:

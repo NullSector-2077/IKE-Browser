@@ -22,18 +22,20 @@ def load(name):
 def test_the_excerpted_file_is_editable_and_nothing_else(tmp_path):
     reserve, context = load("autofix-reserve"), load("autofix-context")
     (tmp_path / "ike").mkdir()
-    big = "".join("x%d = %d\n" % (i, i) for i in range(20000)) + "page.recentlyAudible()\n"
+    lines = 60000                                             # larger than the whole files any provider gets
+    big = "".join("x%d = %d\n" % (i, i) for i in range(lines)) + "page.recentlyAudible()\n"
+    assert len(big) > reserve.FILES_BUDGET
     (tmp_path / "ike" / "window.py").write_text(big)
     (tmp_path / "ike" / "other.py").write_text("y = 1\n")
-    failure = ('Traceback (most recent call last):\n  File "/srv/ike/window.py", line 20001, in tab\n'
-               "AttributeError: 'QWebEnginePage' object has no attribute 'recentlyAudible'\n")
+    failure = ('Traceback (most recent call last):\n  File "/srv/ike/window.py", line %d, in tab\n'
+               "AttributeError: 'QWebEnginePage' object has no attribute 'recentlyAudible'\n") % (lines + 1)
     text, related = context.build(tmp_path, failure, recent=False)
     assert related[0] == "ike/window.py"
     shown = reserve.files_shown(tmp_path, related)
     assert "ike/window.py" not in shown                       # too large to be shown whole
     editable = reserve.editable_files(shown, text, related)
     assert "ike/window.py" in editable and "ike/other.py" not in editable
-    edit = {"file": "ike/window.py", "find": "20001  page.recentlyAudible()",
+    edit = {"file": "ike/window.py", "find": "%d  page.recentlyAudible()" % (lines + 1),
             "replace": "page.isRecentlyAudible()"}
     assert reserve.apply_edits(tmp_path, [edit], editable) == ["ike/window.py"]
     assert (tmp_path / "ike" / "window.py").read_text().endswith("page.isRecentlyAudible()\n")

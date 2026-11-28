@@ -933,6 +933,10 @@ jobs:
         id: agent
         timeout-minutes: 20
         env:
+          # Gemini through its own API, first among the reserves when the order says so (2026-11-28: the
+          # Antigravity CLI never ran in the closed room; tools/autofix-agent.py hands over to this step)
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AUTOFIX_MODEL: ${{ vars.AUTOFIX_MODEL }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -1077,7 +1081,7 @@ jobs:
           # start from the clean checkout; what they answer is applied as text,
           # never run, and checked by the same checker before it is kept.
           if [ "$result" != "refused" ] && [ -z "$changed" ]; then
-            if [ -n "$GROQ_API_KEY$ZAI_API_KEY$OPENROUTER_API_KEY" ]; then
+            if [ -n "$GEMINI_API_KEY$GROQ_API_KEY$ZAI_API_KEY$OPENROUTER_API_KEY" ]; then
               refused=""
               if [ -s "$out/refused.md" ]; then refused="--refused $out/refused.md"; fi
               # AUTOMAT part 2: the inner loop (strict format, cheap checks, the errors back to the same

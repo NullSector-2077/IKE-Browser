@@ -260,6 +260,18 @@ next to the code it guards.
 - **Guard**: `tests/test_groq_output_limit.py`.
 - **Rule**: a learned limit that makes a provider unaskable must be one that a later answer can correct.
 
+### 20. Gemini's agent never ran in the closed room (2026-11-25 to 2026-11-28)
+
+- **Sign**: "Agent stopped: temporary" for every Gemini model (2026-11-25), "Agent stopped: timeout" after 8
+  minutes (2026-11-28), and each time "Ricerche di nomi (DNS) dell'agente bloccate: ~150".
+- **Cause**: the Antigravity CLI looks up names besides the Gemini API (pinned in /etc/hosts); the closed room
+  refuses every lookup, so the CLI never reached its work. Gemini had made no fix at all.
+- **Done**: the CLI is not started (only with `AUTOFIX_AGENT_CLI=on`); Gemini is asked through its own API by
+  the reserves' step (the host the reviewers already use), under Antigravity's name and quota, with a budget
+  that holds whole large files (`tools/autofix-reserve.py` `chain`, `tools/ai-providers.py` `GEMINI_OPENAI`).
+- **Guard**: `tests/test_gemini_api_first.py`.
+- **Rule**: a provider that never produced an answer is first a question about whether it can run at all.
+
 ## Prepared responses (what Claude does, in order)
 
 | Situation | First step | Never |
