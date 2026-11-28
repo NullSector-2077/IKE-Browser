@@ -248,7 +248,8 @@ are agreed with the project owner; do not reopen them without asking.
 - **Next: 1.1.32**, the site-compatibility work of two other conversations.
   Until it is published AUTOMAT merges nothing into `main` (the owner's
   decision of 2026-11-28): "Merge green fixes" (`automerge.yml`) is disabled
-  and AUTOMAT's #229 and #230 wait; AUTOMAT re-enables it when 1.1.32 is out.
+  and AUTOMAT re-enables it when 1.1.32 is out. AUTOMAT's own fixes (#229,
+  #230, #231, #234) go in together as #235, at the owner's request.
 - **Dark Engine, open points** (for the next conversation): the owner saw a
   white flash on a fast dark site (1.1.31 gives the backdrop again at every
   new page and fades pages: to be verified on the owner's PC) and had a
