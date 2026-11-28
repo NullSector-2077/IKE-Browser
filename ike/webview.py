@@ -804,6 +804,11 @@ class WebView(QWebEngineView):
         super().__init__(window)
         self.window_ref = window
         self.setPage(WebPage(profile, window, self))
+        # 1.1.31: the old page fades into the new one (pagefade.py)
+        from . import pagefade
+        app = getattr(window, "app", None)
+        if app is not None:
+            pagefade.attach(self, app.config)
         self.muted_by_user = False
         self._watched = None
         self.loadFinished.connect(lambda _ok: self._watch_keys())
@@ -811,6 +816,12 @@ class WebView(QWebEngineView):
             self.page().action(wa).triggered.connect(self._ensure_copied)
         self._menu_selection = ""
         self._watch_keys()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        fade = getattr(self, "ike_page_fade", None)
+        if fade is not None:
+            fade.resized()
 
     def load(self, url):
         # an address the browser opens (address bar, bookmarks, links of its

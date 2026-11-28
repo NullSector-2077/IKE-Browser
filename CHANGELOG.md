@@ -12,6 +12,38 @@
   rgba(0,0,0,.03)`); written back so, the whole dark declaration was not valid
   and the page's light one stayed. Such a layer is now written as `none`
   (tests/test_dark_engine_hard.py).
+- **The new tab page is customised from the new tab page** (the owner's
+  request): a small gear beside the clock and the weather (it shows when the
+  mouse is over them) and one beside the counter open a small panel in the
+  style of Plasma's widgets, with the switches of the rest of I.K.E.: clock,
+  weather, its city, temperature, wind and pressure units; the counter (this
+  month or since installation) and the site tiles (bookmarks, most visited
+  or none, hidden tiles shown again). A choice changes only that setting and
+  the page comes back in place with the panel open; only the page itself can
+  do it (the session's key), a web page cannot (`ike/newtab.py`,
+  tests/test_newtab_panels.py).
+- **The names of the favourite sites are readable** (they were grey): in the
+  text colour, a little heavier, in the light and the dark theme.
+- **The logo lights up on the new tab page** (the owner's choice): every four
+  seconds a short light runs along the circuit of the logo and the pads
+  flash. Only with the interface's effects on (so not with reduced motion
+  asked, nor with the battery saver at work), nothing moves between two
+  pulses and a tab that is not shown runs none; one pulse costs about 2 % of
+  one processor core while it lasts on a computer drawing without a graphics
+  card (tests/test_newtab_logo.py).
+- **Pages change softly** (the owner: "pages come in abruptly"): the old
+  page's picture stays over the tab until the new page has drawn its first
+  content, then fades away in a fifth of a second; turning dark mode on or
+  off for a page fades its colours the same way. Nothing waits for it: the
+  new page loads as fast as before under the picture, which lets the mouse
+  through; a very quick page that has drawn already is simply shown
+  (`ike/pagefade.py`, tests/test_graphics_131.py).
+- **The page mode's sun turns into the moon** and back, instead of a plain
+  swap of icons, and **the shield's octagon turns half a turn**, as a coin,
+  to show the new protection level. With the interface's effects only.
+- **About I.K.E. names Dark Reader's lists**, with the date of the lists in
+  use, and no longer a Dark Reader version: since 1.1.30 only its lists are
+  part of I.K.E.
 
 ## 1.1.30
 

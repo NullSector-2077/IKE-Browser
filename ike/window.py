@@ -1263,7 +1263,13 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         glyph = (icon(("weather-clear-night", "weather-clear-night-symbolic")) if dark
                  else icon(("weather-clear", "weather-clear-symbolic")))
         if glyph.cacheKey() != self.act_dark.icon().cacheKey():
-            self.act_dark.setIcon(glyph)
+            # 1.1.31 (the owner): when the mode changes, the sun turns into the moon and back
+            # (polish "dark_morph", with the interface's effects); a new icon theme: at once
+            turned = getattr(self, "_dark_shown", None) not in (None, dark)
+            self._dark_shown = dark
+            polish.fade_icon(self, "dark", self.act_dark.icon() if turned else None, glyph, self.app.config,
+                             self.act_dark.setIcon, ms=280, name="dark_morph", blend=polish.morph_icon,
+                             every=0.06)
 
     def _sync_forward_icon(self):
         glyph = icon("go-next", QStyle.StandardPixmap.SP_ArrowForward)
@@ -2635,9 +2641,14 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             if shown is None:
                 self.shield_btn.setIcon(new)
             else:
-                # Another level: the icon fades into the new one (1.1.9).
-                polish.fade_icon(self, "shield", self.shield_btn.icon(), new, cfg, self.shield_btn.setIcon,
-                                 ms=260, name="shield_fade")
+                # Another level: the icon fades into the new one (1.1.9); 1.1.31 (the owner): the
+                # octagon turns half a turn, as a coin, and shows the new level on its other side
+                if polish.moving(cfg, "shield_flip"):
+                    polish.fade_icon(self, "shield", self.shield_btn.icon(), new, cfg, self.shield_btn.setIcon,
+                                     ms=340, name="shield_flip", blend=polish.flip_icon, every=0.06)
+                else:
+                    polish.fade_icon(self, "shield", self.shield_btn.icon(), new, cfg, self.shield_btn.setIcon,
+                                     ms=260, name="shield_fade")
             self.m_level.setIcon(shield_icon(level, 16))
             tip = T("I.K.E. Shield: choose the protection level")
             self.shield_btn.setToolTip("%s — %s" % (tip, T(LEVEL_NAMES[level])))
@@ -2967,10 +2978,14 @@ class BrowserWindow(WindowFeatures, QMainWindow):
             rows.append(("I.K.E. AdBlock", adblock.BACKEND))
         except Exception:
             rows.append(("I.K.E. AdBlock", T("not loaded")))
-        dr = self._head_of("darkreader-data.json", ("version", "lists_date"))
-        if dr.get("version"):
-            rows.append(("Dark Reader", "%s (%s %s)" % (dr["version"], T("site lists of"),
-                                                       dr.get("lists_date", "?"))))
+        # 1.1.31 (the owner): only Dark Reader's lists are in I.K.E. (since 1.1.30 its dark mode is the
+        # I.K.E. Dark Engine): their date, the one the browser fetched when newer than its own copy
+        dr = self._head_of("darkreader-data.json", ("lists_date",))
+        from . import darklists
+        fetched = darklists.load_fetched()
+        date = (fetched or {}).get("lists_date") if darklists.newer_than(fetched, dr) else dr.get("lists_date")
+        if date:
+            rows.append(("Dark Reader's lists", "%s %s" % (T("site lists of"), date)))
         ubo = self._head_of("ubo-scriptlets.json", ("date", "commit"))
         if ubo.get("date"):
             rows.append(("uBlock Origin scriptlets", "%s (%s)" % (ubo["date"], ubo.get("commit", "")[:7])))
