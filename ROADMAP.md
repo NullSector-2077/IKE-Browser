@@ -250,11 +250,11 @@ are agreed with the project owner; do not reopen them without asking.
   decision of 2026-11-28): "Merge green fixes" (`automerge.yml`) is disabled
   and AUTOMAT re-enables it when 1.1.32 is out. AUTOMAT's own fixes (#229,
   #230, #231, #234) go in together as #235, at the owner's request.
-- **Dark Engine, open points** (for the next conversation): the owner saw a
-  white flash on a fast dark site (1.1.31 gives the backdrop again at every
-  new page and fades pages: to be verified on the owner's PC) and had a
-  white box on one site (empty layers, fixed in #224: to be verified). The
-  diagnosis on the owner's own I.K.E. is `tests/dark_engine/live-diag.py`
+- **Dark Engine**: the white flash on a fast dark site (1.1.31 gives the
+  backdrop again at every new page and fades pages) and the white box on one
+  site (empty layers, #224) are fixed, verified by the owner on his PC with
+  1.1.31 (2026-11-28). No open point. The diagnosis on the owner's own
+  I.K.E., when a new case comes, is `tests/dark_engine/live-diag.py`
   (its docstring says how), the private-profile one `owner-check.sh`
   (`docs/DARK-ENGINE.md`). The branches `feature/1.1.29-dark-engine` and
   `experiment/ike-dark-engine` are kept by the owner: never delete them.
