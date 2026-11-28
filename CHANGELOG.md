@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.33
+
+- Automatic fix after a failure of "Tests" on automation/update/drill-qt: Tests failed on automation/update/drill-qt (jobs: tests shard 4/4, tests shard 1/4, tests shard 3/4, tests shard 2/4, tests checks, tests installed 3/4)
+
 ## 1.1.32
 
 - **Sign-in pages no longer wait for ever for passkeys** (the owner: "we must
