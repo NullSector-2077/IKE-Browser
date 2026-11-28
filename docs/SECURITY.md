@@ -147,14 +147,23 @@ routes useless; it cannot stop a script written against it:
   notification library, for example). Every worker a page's script can make
   from its own text keeps the protection. Balanced has always let them run
   (the same values); Maximum refuses them, except on a site where the user
-  allowed them (the bar above the page, the shield, "Repair this site").
+  allowed them ("Repair this site", put forward by the shield when their
+  refusal breaks the site). A site raised to Maximum while a tab of it still
+  runs its workers: a page at Maximum gets a shared worker of its own (whose
+  file the request check refuses) and cannot take back an unregistered
+  service worker with register(); the page that still uses the old service
+  worker keeps it until it is left, as the engine's unregister() does, and
+  nothing the site stored is deleted.
   Only the site the user visits: a frame of another site (a widget, an ad)
   gets no free worker at Kontrol either, nor is offered to the user. Known
   limits (the independent review of 1.1.32): a dedicated worker whose
   protected copy the policy refused is started from the site's file inside
   the same Worker object, so the first such worker of each document hands
   its messages and errors to the page as events of the protection's
-  (`isTrusted` false); and a script of the page that adds a `<meta>` policy
+  (`isTrusted` false), as is the error of a worker whose file is missing
+  (the protected worker loads the file itself;
+  tests/test_worker_conformance.py checks every other point against Chrome
+  140); and a script of the page that adds a `<meta>` policy
   refusing blob workers makes that document's later file workers start from
   the site's own file (a `<meta>` cannot be told from the server's policy).
   Either way only the site's own files run there.
@@ -361,6 +370,36 @@ the shield off on a Google site, or "Make sign-in work" off, Google sees the
 engine as it is. The varying part of an export is in the page's world:
 like the rest of the noise it cannot resist a script written against it
 (see "Known limits of the noise").
+
+## The diagnosis of "Repair this site" and the shield's colours (1.1.32)
+
+`ike/incompat.py`, `ike/interference.py`. What a page can and cannot do to it:
+
+- **Evidence.** A finding needs an intervention the request check
+  (`shields.Interceptor`, I.K.E.'s own process) saw for that page, per
+  profile and site: a page cannot write there. The page's own world can only
+  add weak evidence, through a console message carrying a key made at
+  start (`secrets.token_hex`) and handed only to fingerprint.js's closure;
+  messages without it, with a guessed one, or with an unknown kind are
+  ignored and never logged. Weak evidence alone never raises anything. The
+  probe that looks whether the page is empty runs in I.K.E.'s isolated world:
+  the page can draw what it likes, but cannot run or answer it.
+- **What a finding can do.** Only colour the octagon yellow or orange and
+  put forward, in the shield panel, the one narrow repair its evidence
+  names, for that same site. Nothing is turned off until the user presses
+  "Repair this site" and answers that the page works; the trial lives in
+  memory and is undone on cancel. A page that fakes a breakage can at most
+  make I.K.E. propose, to the user, a change for itself that its own requests
+  made relevant: never another site, never the level, never the sandbox,
+  TLS, certificates or the engine's isolation (none of them is a repair key).
+- **Red** comes only from I.K.E.'s safety warnings already in effect
+  (`securebar.danger_of`: it reads them, never shows, hides or decides one)
+  and never offers "Repair this site". **Green** says only that nothing was
+  found during that load; it never plays with the protection off, with an
+  exception on the site, over plain http, after a failed load, with a
+  warning or with evidence still being looked at, and its words say it does
+  not prove the site is safe.
+- **Nothing leaves the computer**: no report, no network request, no AI.
 
 ## Known limits (not solved)
 

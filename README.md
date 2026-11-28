@@ -90,11 +90,18 @@ profiles: `ike-browser --profile NAME`.
   in plain colours); a worker a page's script makes gets the same
   protection. The site's own background workers (service workers, shared
   workers, workers from its files: WhatsApp and Telegram need them) run at
-  Kontrol, and the shield counts them; Maximum refuses them, and a bar above
-  the page says so, with "Allow them on this site" for that site alone (or
-  "Repair this site", which finds them before the whole fingerprinting
-  protection). Maximum also tells sites English only, with dates and numbers
-  written the American way.
+  Kontrol, and the shield counts them; Maximum refuses them, and when that
+  breaks a site the shield says so and "Repair this site" turns off only
+  them, for that site alone. Maximum also tells sites English only, with
+  dates and numbers written the American way.
+- The shield's octagon says what I.K.E. found on the page in front (1.1.32):
+  a short green run when the page loaded well with nothing to say (it does
+  not prove the site is safe), slow yellow pulses when a protection may stop
+  a feature of the site, orange ones when it may stop something essential
+  ("Repair this site" in the shield turns off only the probable cause, for
+  that site), red ones while one of I.K.E.'s safety warnings is in effect.
+  The words are in its tooltip and in the shield panel; nothing is turned
+  off by itself.
 - The engine's advertising measurement (Attribution Reporting, Topics) is
   off; WebRTC does not show your local IP addresses (Settings → Privacy);
   HTTP/3 is on, as in Chrome, and connections are kept apart for each site.

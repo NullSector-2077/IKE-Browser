@@ -47,20 +47,70 @@
   that cannot be copied behave exactly as in Chromium; found by the
   independent review). What these workers can read is in
   docs/SECURITY.md. The shield counts them ("Site's own workers allowed").
-- **Maximum says when it refuses a site's own workers**: a bar above the
-  page ("This level blocks the site's own background workers: the site may
-  not work.") with "Allow them on this site", the same note and button in
-  the shield, and the count of refused workers. Allowing them is remembered
-  with the site's repairs ("Undo the repair" takes it back) and changes
-  nothing else; the other sites stay as they are. The button answers half a
-  second after the bar appears (a click meant for the page cannot allow
-  them), and the bar never shows while "Repair this site" runs. "Repair this site" knows
-  the workers as a protection of their own, tried right after the
-  fingerprinting protection, so on WhatsApp it now turns off only the
-  workers, not the whole fingerprinting protection
-  (`ike/shields.py`, `ike/resources/fingerprint.js`, `ike/workersbar.py`,
-  `ike/shieldpanel.py`, `ike/repair.py`; tests/test_site_workers.py, five
-  new texts in every language pack).
+- **"Repair this site" becomes a diagnosis and repair centre, and the
+  shield's octagon says what it found** (the owner's brief "Ripara sito" and
+  its colours). Philosophy: protect as much as possible, interfere as little
+  as possible, act only on a protection that really breaks a site. A finding
+  needs a protection that really acted on the page, as I.K.E.'s request
+  check saw it (a page cannot report anything into it), an error coherent
+  with it, a real sign that something important does not work (a worker the
+  page waits on refused, a page that stays empty or a player in error, looked
+  at once by a probe in I.K.E.'s own world a few seconds after the load) and
+  a repair narrower than "everything off" where one exists. What the page
+  itself reports, through a channel with a key it cannot read, only adds to
+  that; ordinary blocks (ads, trackers, cookies, a service worker alone, the
+  site's own errors) never raise anything. Nothing is turned off by itself,
+  the level never changes by itself, nothing is sent anywhere, no other site
+  is touched. The octagon keeps its shape, size, place, colour and letter;
+  over its rim two pulses run in opposite directions:
+  **yellow** (#FACC15, slow, 5 s) when a protection may stop some feature
+  of a site that stays usable; **orange** (#FF9100, 2.8 s, a short wave
+  where they meet) when it may stop something essential; **red** (#FF254F,
+  2 s) only while one of I.K.E.'s own safety warnings is in effect (a
+  lookalike site, a page on the malware and phishing lists, a missing
+  secure connection, an attack on the home network, a certificate the
+  engine refused), never with "Repair this site"; and a short **green**
+  (#00E676, once, 1.8 s) when a main page loaded well over a secure
+  connection with nothing to say, protection on and no exception on the
+  site ("I.K.E. found nothing wrong while loading this page. This does not
+  prove the site is safe."). Red comes first, then orange, yellow, green.
+  The words are in the shield's tooltip, for screen readers and in the
+  shield panel, with the probable cause and what the repair changes; there
+  "Repair this site" is put forward and turns off the probable cause first,
+  for that site only, and "This site works fine" ends the finding. Yellow
+  and orange stay until the site works again (a repair kept and the page
+  verified by the probe, or the user's word), not when the panel opens or
+  closes; then a short fade. Per tab and per site; a private window keeps
+  its own evidence. Nothing runs without a finding; with one, about 24
+  pictures a second of the octagon alone (0.2 ms each), none while the
+  window is hidden; with the interface's effects off, a still rim (and no
+  green). The bar above the page for Maximum's refused workers is gone,
+  absorbed into the shield (`ike/incompat.py`, `ike/interference.py`,
+  `ike/securebar.py` `danger_of`, `ike/shieldpanel.py`, `ike/window.py`,
+  `ike/repair.py`; tests/test_interference.py, tests/test_site_workers.py;
+  twelve new texts in every language pack, two gone). "Repair this site"
+  also knows dark mode and WebRTC's local addresses as protections of their
+  own.
+- **Maximum keeps the sites' own workers out after a change of level**
+  (the brief's level transitions): a shared worker started at Kontrol in a
+  tab still open could be joined by a page at Maximum without its file being
+  asked for, and a service worker unregistered at Maximum was taken back by
+  the page's own register(), both with the engine's own values. Now a page
+  at Maximum (or a frame of another site) gets a shared worker of its own,
+  whose file the request check refuses, and register() of a scope
+  unregistered there answers as the engine does when the file is refused.
+  Nothing stored by the site is deleted (`ike/resources/fingerprint.js`;
+  tests/test_site_workers.py).
+- **The protected workers behave as the engine's own**: a page of the
+  compatibility suite (tests/compat/webtech/conformance.html) compares
+  I.K.E. at Kontrol with Chrome for Testing 140 on 22 points (order of 100
+  messages, transferred buffers, ports, OffscreenCanvas, copies made when
+  posting, clone and transfer errors in the engine's words, terminate(),
+  late listeners, errors, nested, module and concurrent workers): all the
+  same, but for isTrusted of an event I.K.E. passes on (a missing worker
+  file, and the first worker of a document whose policy refuses blob:
+  workers), written down in docs/SECURITY.md
+  (tests/test_worker_conformance.py).
 - **Lower navigation and bookmarks bars** (the owner chose "A" from a
   preview): only the empty room above and below the buttons goes (2 px left
   instead of 5): with KDE's Breeze the address bar's row is 40 px (46) and the
