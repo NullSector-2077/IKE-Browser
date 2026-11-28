@@ -123,7 +123,9 @@ class IkeApp(QObject):
         self._timer = QTimer(self)
         self._timer.setInterval(3600 * 1000)
         self._timer.timeout.connect(self.check_updates)
+        self._timer.timeout.connect(self.expire_history)     # the history kept for a chosen time
         self._timer.start()
+        QTimer.singleShot(8000, self.expire_history)
         self._save_timer = QTimer(self)
         self._save_timer.setInterval(60 * 1000)
         self._save_timer.timeout.connect(self._periodic_save)
@@ -642,6 +644,7 @@ class IkeApp(QObject):
     # --- settings / updates ------------------------------------------
     def settings_changed(self):
         self.desktop.settings_changed()
+        self.expire_history()
         self.battery.start()
         self.shields.apply_settings()
         self._apply_dns()
@@ -1418,6 +1421,37 @@ class IkeApp(QObject):
         self.forget_downloads(since)           # the downloads of that time leave the list too
         if urls:
             self.profile.clearVisitedLinks([QUrl(u) for u in urls])
+
+    # the choices of Settings -> Privacy, "Keep the history": days (0 = always, the default)
+    HISTORY_KEEP = (0, 30, 91, 182, 365, 730)
+
+    def history_keep_days(self):
+        try:
+            days = int(self.config.get("history_keep_days", 0))
+        except (TypeError, ValueError):
+            return 0
+        return days if days in self.HISTORY_KEEP else 0
+
+    def expire_history(self, now=None):
+        """Delete the history older than the time the user chose to keep it
+        (at the start, every hour and when the setting changes); nothing when
+        it is kept always. Bookmarks, passwords, cookies and the sites' data
+        are not history and stay. Returns how many pages went."""
+        days = self.history_keep_days()
+        if not days:
+            return 0
+        before = (time.time() if now is None else now) - days * 86400
+        try:
+            urls = self.storage.expire_history(before)
+        except Exception:
+            return 0
+        log = self.__dict__.get("_download_log")
+        if log is not None:
+            log.forget_before(before)
+        if urls:
+            for p in self.all_profiles():
+                p.clearVisitedLinks([QUrl(u) for u in urls])
+        return len(urls)
 
     def clear_data(self, history, cookies, cache, permissions):
         if history:

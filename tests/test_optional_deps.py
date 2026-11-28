@@ -97,6 +97,22 @@ def check_intel_media_driver():
     assert list(Path("/usr/lib/dri").glob("iHD_drv_video.so")), "iHD_drv_video.so is not in /usr/lib/dri"
 
 
+def _dictionary(name):
+    """Spell checking (ike/spelling.py): the dictionary is in the folder the engine reads, and found."""
+    from ike import spelling
+    folder = spelling.dictionary_dir()
+    assert (folder / ("%s.bdic" % name)).is_file(), "%s.bdic is not in %s" % (name, folder)
+    assert name in spelling.installed()
+
+
+def check_hunspell_en_us():
+    _dictionary("en_US")
+
+
+def check_hunspell_it():
+    _dictionary("it_IT")
+
+
 CHECKS = {
     "noto-fonts-cjk": check_noto_fonts_cjk,
     "noto-fonts": check_noto_fonts,
@@ -104,6 +120,8 @@ CHECKS = {
     "chromium-widevine": check_chromium_widevine,
     "libva-nvidia-driver": check_libva_nvidia_driver,
     "intel-media-driver": check_intel_media_driver,
+    "hunspell-en_us": check_hunspell_en_us,
+    "hunspell-it": check_hunspell_it,
 }
 
 

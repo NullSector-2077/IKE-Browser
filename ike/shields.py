@@ -1530,6 +1530,8 @@ class Shields(QObject):
             from .config import engine_language
             p.setHttpAcceptLanguage(engine_language(cfg))
             self._chrome_fonts(p)
+            from . import spelling
+            spelling.apply(p, cfg)            # spell checking while typing (spelling.py)
             p.settings().setAttribute(
                 QWebEngineSettings.WebAttribute.WebRTCPublicInterfacesOnly,
                 bool(cfg["webrtc_hide_ip"]))

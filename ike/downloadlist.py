@@ -205,6 +205,14 @@ class DownloadList(QObject):
         else:
             self._changed()
 
+    def forget_before(self, before):
+        """The history is kept for a chosen time only: the ended downloads of
+        normal windows older than `before` (seconds) go from the list."""
+        keep = [e for e in self.entries if e.private or e.live or e.when >= before]
+        if len(keep) != len(self.entries):
+            self.entries[:] = keep
+            self._changed()
+
     # --- kept across restarts ----------------------------------------------
     def load(self):
         if self.storage is None:
