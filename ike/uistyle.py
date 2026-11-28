@@ -329,6 +329,23 @@ def _menu_has_switches(menu):
     return any(_toggle(a) and a.isVisible() for a in menu.actions())
 
 
+def _menu_checkable(opt, menu):
+    """Can an entry of menu be ticked? Asked of the menu itself: QMenu sets
+    opt.menuHasCheckableItems while it measures its entries one by one (False
+    for those before the first that can be ticked), so a menu measured twice
+    came out about 30 px wider or narrower than its entries (1.1.30)."""
+    if isinstance(menu, QMenu):
+        return any(a.isCheckable() and a.isVisible() and not a.isSeparator() for a in menu.actions())
+    return bool(opt.menuHasCheckableItems)
+
+
+def _menu_has_icons(opt, menu):
+    """Has an entry of menu an icon (asked of the menu, as _menu_checkable)?"""
+    if isinstance(menu, QMenu):
+        return any(a.isVisible() and not a.isSeparator() and not a.icon().isNull() for a in menu.actions())
+    return opt.maxIconWidth > 0
+
+
 def _menu_has_shortcuts(menu):
     """Has an entry of menu a shortcut (its own, or after a tab in its text)?"""
     if not isinstance(menu, QMenu):
@@ -379,7 +396,7 @@ def menu_header_font(font):
 def menu_check_width(opt, menu):
     """The check column of a menu drawn by I.K.E.: none without an entry that
     can be ticked, a switch's width with one turned on and off, else a radio's."""
-    if not opt.menuHasCheckableItems:
+    if not _menu_checkable(opt, menu):
         return 0
     if isinstance(menu, QMenu) and _menu_has_switches(menu):
         return menu_switch_size(opt.fontMetrics)[0]
@@ -571,9 +588,9 @@ class IkeStyle(QProxyStyle):
     def _switch_room(self, opt, menu):
         """The room added before the entries of menu for their switches (0:
         the switch goes in the column of the tick: Fusion, and no icons)."""
-        if not isinstance(menu, QMenu) or not opt.menuHasCheckableItems or not _menu_has_switches(menu):
+        if not isinstance(menu, QMenu) or not _menu_checkable(opt, menu) or not _menu_has_switches(menu):
             return 0
-        if opt.maxIconWidth <= 0 and self.baseStyle().name().lower() == "fusion":
+        if not _menu_has_icons(opt, menu) and self.baseStyle().name().lower() == "fusion":
             return 0
         return menu_switch_size(opt.fontMetrics)[0] + 6
 
@@ -589,7 +606,7 @@ class IkeStyle(QProxyStyle):
             if element == QStyle.ControlElement.CE_MenuEmptyArea:
                 return                   # the panel is painted (PE_PanelMenu)
         if element == QStyle.ControlElement.CE_MenuItem and isinstance(widget, QMenu) \
-                and isinstance(opt, QStyleOptionMenuItem) and opt.menuHasCheckableItems:
+                and isinstance(opt, QStyleOptionMenuItem) and _menu_checkable(opt, widget):
             T = QStyleOptionMenuItem.MenuItemType
             if opt.menuItemType in (T.Normal, T.DefaultItem, T.SubMenu):
                 room = self._switch_room(opt, widget)
