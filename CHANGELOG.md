@@ -249,6 +249,7 @@ this release.
   desktop's rules when the menu opened and by I.K.E.'s afterwards. The style
   now reads it as a menu entry every time (`ike/uistyle.py`; found by
   tests/test_text_fit.py, which also measures a menu only once it is open).
+- Automatic fix after a failure of "Tests" on automation/autofix-main: Tests failed on main (jobs: tests checks)
 
 ## 1.1.28
 
