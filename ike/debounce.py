@@ -1,4 +1,4 @@
-"""Skip the tracker's stop (1.1.29, the owner's decision of 2026-11-27).
+"""Skip the tracker's stop (1.1.30, the owner's decision of 2026-11-27).
 
 Many links do not lead to their site: they go through a tracker first, which
 counts the click and sends the browser on. The links of newsletters (Mailchimp,

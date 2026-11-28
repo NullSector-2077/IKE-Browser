@@ -20,7 +20,7 @@ from collections import namedtuple
 # actions: attributes of the window (QAction or QMenu) hidden while the
 # extension is off; toolbar: keys of toolbar buttons hidden while it is off.
 # hook: what has to be done again when it is switched (see changed()).
-# category: the group it is shown under (CATEGORIES below, 1.1.29).
+# category: the group it is shown under (CATEGORIES below, 1.1.30).
 Ext = namedtuple("Ext", "id name icon description key default options actions toolbar hook category")
 
 
@@ -29,7 +29,7 @@ def _t(text):
     return text
 
 
-# 1.1.29 (the owner's grouping): the extensions under five headings, in the
+# 1.1.30 (the owner's grouping): the extensions under five headings, in the
 # menu bar's Extensions menu, in ☰ → I.K.E. extensions and in Settings → I.K.E.
 # extensions alike. (key, name, icon names)
 CATEGORIES = (

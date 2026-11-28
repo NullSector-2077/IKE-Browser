@@ -343,7 +343,7 @@ def _search_targets(page, query):
     targets, covered = [], set()
 
     def key(x):
-        # the widget itself (1.1.29): Python's id() of a wrapper made for the
+        # the widget itself (1.1.30): Python's id() of a wrapper made for the
         # moment can be given again to another widget's, which then counted
         # as already seen and an option could not be found
         return sip.unwrapinstance(x)
@@ -507,7 +507,7 @@ def _align_forms(page):
 
 
 class _NavDelegate(QStyledItemDelegate):
-    """The pages' list of Settings (1.1.29): the name of an area (Basics,
+    """The pages' list of Settings (1.1.30): the name of an area (Basics,
     Appearance and browsing...) drawn small, bold and dimmed above the first
     page of the area shown, in the same row, so a row is still a page."""
 
@@ -559,7 +559,7 @@ class SettingsDialog(QDialog):
     # The pages, in the order of the sidebar (1.1.20). Their names are what
     # open_settings(page) takes; the names of earlier versions still work.
     WIDE_COMBO = 300      # px: a combo box with an entry wider than this is narrowed (_narrow)
-    # 1.1.29 (the owner's reorganisation): the crowded pages split, and the
+    # 1.1.30 (the owner's reorganisation): the crowded pages split, and the
     # pages in four areas, each with its name in the list: I.K.E.'s basics,
     # how it looks and browses, privacy and security, the computer and the
     # extensions (their names: area_names). (key, its pages)
@@ -586,7 +586,7 @@ class SettingsDialog(QDialog):
 
     @classmethod
     def area_names(cls):
-        """{area: its name} (1.1.29)."""
+        """{area: its name} (1.1.30)."""
         names = {"basics": T("Basics"), "browsing": T("Appearance and browsing"),
                  "privacy": T("Privacy and security"), "system": T("System and extensions")}
         return {key: names[key] for key, _p in cls.AREAS}
@@ -610,7 +610,7 @@ class SettingsDialog(QDialog):
         lay.addLayout(body, 1)
         self.nav = QListWidget(self)
         self.nav.setObjectName("settingsNav")
-        # 1.1.29, the owner: the pages' icons larger, 28 px (sharp on any
+        # 1.1.30, the owner: the pages' icons larger, 28 px (sharp on any
         # scale: drawn by the icon theme at the screen's own size)
         self.nav.setIconSize(QSize(28, 28))
         self.nav.setSpacing(0)
@@ -663,7 +663,7 @@ class SettingsDialog(QDialog):
             "privacy": (self._privacy, ("preferences-web-browser-cookies", "view-private", "preferences-system-privacy"),
                         T("Encrypted DNS, containers and the data kept on this computer.")),
             "permissions": (self._permissions, ("preferences-desktop-user-password", "object-locked",
-                                                "preferences-security"),
+                                                "preferences-security", "changes-prevent-symbolic"),
                             T("What sites may use: camera, microphone, location, notifications and more.")),
             "extensions": (self._extensions, ("preferences-plugin", "application-x-addon"),
                            T("Features that come with I.K.E. Switch on only the ones you want.")),
@@ -905,7 +905,7 @@ class SettingsDialog(QDialog):
         _row(f, "", lang_row, T("More languages: a language pack from a file, or from I.K.E.'s list."))
         _row(f, T("Languages for websites"), self.accept_lang,
              T("Sites use it to choose the language of their pages. Empty: the languages of your system."))
-        # (1.1.29: the translation of pages, here from System)
+        # (1.1.30: the translation of pages, here from System)
         box, g = self._group(T("Translation"))
         self.translate = QLineEdit(self.cfg["translate_url"])
         _row(g, T("Translation service"), self.translate,
@@ -1148,7 +1148,7 @@ class SettingsDialog(QDialog):
         return w
 
     def _sites(self):
-        """Web pages (1.1.29, from Appearance and System): how pages are
+        """Web pages (1.1.30, from Appearance and System): how pages are
         shown, their dark mode, their sound and their protected videos."""
         w = QWidget()
         lay = QVBoxLayout(w)
@@ -1654,7 +1654,7 @@ class SettingsDialog(QDialog):
         return w
 
     def _blocker(self):
-        """Ads and trackers (1.1.29, from Protection): the blocker, its lists
+        """Ads and trackers (1.1.30, from Protection): the blocker, its lists
         and the user's own rules."""
         w = QWidget()
         lay = QVBoxLayout(w)
@@ -1736,7 +1736,7 @@ class SettingsDialog(QDialog):
         return w
 
     def _permissions(self):
-        """Site permissions (1.1.29, from Privacy): what sites may use."""
+        """Site permissions (1.1.30, from Privacy): what sites may use."""
         w = QWidget()
         lay = QVBoxLayout(w)
         box, g = self._group(T("Permissions"))
@@ -1789,7 +1789,7 @@ class SettingsDialog(QDialog):
         lay = QVBoxLayout(w)
         lay.setSpacing(6)
         self.ext_switch = {}
-        # 1.1.29: under the owner's five headings, as in the menus
+        # 1.1.30: under the owner's five headings, as in the menus
         for key, name, icons, exts in ikeextensions.by_category():
             lay.addWidget(self._ext_heading(T(name), icons, key))
             for e in exts:
@@ -1835,7 +1835,7 @@ class SettingsDialog(QDialog):
         pic.setPixmap(ikeextensions.icon(e).pixmap(QSize(28, 28), self.devicePixelRatioF()))
         pic.setFixedSize(34, 34)
         pic.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        # 1.1.29 (the owner): the icon and the name on one line, in the middle of
+        # 1.1.30 (the owner): the icon and the name on one line, in the middle of
         # the card's height (the name was at its top, above the icon's middle)
         row.addWidget(pic, 0, Qt.AlignmentFlag.AlignVCenter)
         text = QVBoxLayout()

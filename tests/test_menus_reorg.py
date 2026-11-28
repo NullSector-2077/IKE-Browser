@@ -1,9 +1,9 @@
-"""1.1.29 (the owner): the menus and Settings reorganised.
+"""1.1.30 (the owner): the menus and Settings reorganised.
 
 - Nothing that was reachable before is lost: every entry of the menu bar and
   of the ☰ menu, every keyboard shortcut (the same keys, on the same
   commands), every option of Settings (tests/ui_inventory.py, compared with
-  tests/data/ui-inventory-before.json recorded on 1.1.29).
+  tests/data/ui-inventory-before.json recorded on 1.1.30).
 - The ☰ menu has no "More" and goes at most two levels deep.
 - The extensions are under the owner's five headings, the same in the menus
   and in Settings.
@@ -18,17 +18,20 @@ from pathlib import Path
 from conftest import screen
 from ui_inventory import STEPS as INVENTORY
 
-# 1.1.29: the level Strict is called Kontrol (the owner's choice; the level's key stays "strict"):
+# 1.1.30: the level Strict is called Kontrol (the owner's choice; the level's key stays "strict"):
 # the inventory recorded before stays as it was, its name is read as the new one
 BEFORE = json.loads((Path(__file__).parent / "data" / "ui-inventory-before.json").read_text("utf-8")
                     .replace("Strict", "Kontrol"))
 
 # the old ☰ menu's own submenus: their entries are now in its categories
 GONE_MENUS = {"More", "File", "Edit", "View", "Tools", "History", "Bookmarks", "Protection", "Zoom"}
-# choices taken out on purpose in 1.1.29 itself (the owner: Dark Reader left
+# choices taken out on purpose in 1.1.30 itself (the owner: Dark Reader left
 # I.K.E., the I.K.E. Dark Engine is the dark mode for pages)
 GONE_CHOICES = {"Dark Reader (can be set per site, immediate)"}
 # the one-line descriptions of the pages that were split (new ones replace them)
+# shown only when the AdBlock engine could not be loaded: the inventory was recorded on a computer
+# without the engine, the test runs with it too (GitHub Actions, the installed package, Arch)
+ENGINE_ONLY = {"The I.K.E. AdBlock engine could not be loaded: only basic domain blocking is active."}
 GONE_ABOUTS = {
     "Colours, icons, tabs, toolbar and the dark mode of pages.",
     "How I.K.E. works with your computer: desktop, video, memory and translation.",
@@ -107,7 +110,7 @@ def test_nothing_reachable_was_lost(run_ike):
         return i
     items = [{json.dumps(choices_kept(i)) for p in inv["settings"] for i in p["items"]} for inv in (BEFORE, after)]
     lost = {json.loads(i)[1] if json.loads(i)[0] == "label" else i for i in items[0] - items[1]}
-    assert lost <= GONE_ABOUTS, sorted(lost - GONE_ABOUTS)
+    assert lost - ENGINE_ONLY <= GONE_ABOUTS, sorted(lost - ENGINE_ONLY - GONE_ABOUTS)
     assert after["extensions"] == BEFORE["extensions"]
     assert after["settings_icon"] == [28, 28]
     # the ☰ menu: no "More", at most two levels (a category, then its entries)
@@ -205,7 +208,7 @@ def steps(ike, qapp, out):
     cards = [(c.property("ext"), c.mapTo(page, c.rect().topLeft()).y()) for c in page.findChildren(QFrame)
              if c.objectName() == "ike_ext_card"]
     out["ext_cards"] = [k for k, _y in sorted(cards, key=lambda c: c[1])]
-    # each card's icon and its bold name on one line (the owner, 1.1.29)
+    # each card's icon and its bold name on one line (the owner, 1.1.30)
     from PyQt6.QtWidgets import QLabel
     dlg.show_page("extensions")
     yield 300

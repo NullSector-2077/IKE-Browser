@@ -102,6 +102,53 @@ def _in_unreadable(urls, names):
     return lines
 
 
+def _sources(urls, classes):
+    """Where the unreadable sheets (fetched here, no cookies) style these classes:
+    the rules as written, so that a value built of variables can be followed."""
+    import re
+    import urllib.request
+    lines, texts = [], {}
+    for u in urls:
+        if not u.startswith(("http://", "https://")):
+            continue
+        try:
+            req = urllib.request.Request(u.split("#")[0], headers={"User-Agent": "Mozilla/5.0"})
+            texts[u] = urllib.request.urlopen(req, timeout=20).read(4 * 1024 * 1024).decode("utf-8", "replace")
+        except Exception:                           # noqa: BLE001 - a report, never a failure
+            continue
+    names = set()
+    for c in sorted(classes):
+        n = 0
+        for u, text in texts.items():
+            for m in re.finditer(r"\." + re.escape(c) + r"(?![\w-])", text):
+                s, e = text.rfind("}", 0, m.start()) + 1, text.find("}", m.end())
+                rule = " ".join(text[s:e + 1].split())
+                if "background" not in rule and "--" not in rule:
+                    continue
+                lines.append("   source of .%s in %s: %s" % (c, u.rsplit("/", 1)[-1][:50], rule[:400]))
+                names.update(re.findall(r"var\(\s*(--[\w-]+)", rule))
+                n += 1
+                if n >= 4:
+                    break
+            if n >= 4:
+                break
+    for v in sorted(names)[:8]:
+        n = 0
+        for u, text in texts.items():
+            for m in re.finditer(re.escape(v) + r"\s*:", text):
+                s = text.rfind("{", 0, m.start())
+                sel_start = text.rfind("}", 0, s) + 1
+                e = text.find(";", m.end())
+                lines.append("   %s defined in %s: %s { %s }" % (v, u.rsplit("/", 1)[-1][:50],
+                             " ".join(text[sel_start:s].split())[:120], " ".join(text[m.start():e].split())[:160]))
+                n += 1
+                if n >= 4:
+                    break
+            if n >= 4:
+                break
+    return lines
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("out", nargs="?", default=str(Path.home() / ("ike-dark-check-" + datetime.date.today().isoformat())))
@@ -138,7 +185,7 @@ def main():
                 {"url": u, "entry": "index", "site": urllib.parse.urlsplit(u).hostname,
                  "expected_content": EXPECTED_CONTENT.get(n)}))
         env = dict(os.environ, QT_QPA_PLATFORM=os.environ.get("QT_QPA_PLATFORM", "offscreen"), DE_DIAG="1", DE_CLICK=a.click, DE_SCROLL="1")
-        # Dark Reader left I.K.E. in 1.1.29: it is compared only when a checkout of 1.1.28
+        # Dark Reader left I.K.E. in 1.1.30: it is compared only when a checkout of 1.1.28
         # is given (DE_DR_ROOT, tests/dark_engine/drcompare.py)
         global MODES
         if not ((HERE.parents[1] / "ike" / "darkpages.py").is_file() or os.environ.get("DE_DR_ROOT")):
@@ -210,6 +257,17 @@ def main():
                 wanted.add(v["name"])
             if e.get("inline"):
                 diag.append("      inline style: %s" % e["inline"])
+        for e in d.get("lowcontrast", []):
+            u = e["under"]
+            diag.append("   light text on a light %s: %r %s at %s colour %s, under it %s: %s%s" % (
+                u["kind"], e["text"], e["el"], e["rect"], e["color"], u["layer"], u["value"],
+                ("  [style: %s]" % u["inline"]) if u.get("inline") else ""))
+            for r in u.get("rules", []):
+                diag.append("      rule: %s" % r)
+            diag.append("      layers: %s" % " > ".join(e.get("path", [])))
+        for e in d.get("onpicture", []):
+            diag.append("   light text on a picture: %r %s at %s colour %s, over %s: %s"
+                        % (e["text"], e["el"], e["rect"], e["color"], e["under"], e["picture"]))
         diag.extend(_in_unreadable(d.get("unreadable", []), wanted))
     (out / "diagnose.txt").write_text("\n".join(diag) + "\n")
     print((out / "metrics.txt").read_text())

@@ -1,6 +1,9 @@
 # Changelog
 
-## 1.1.29
+## 1.1.30
+
+1.1.29 was never published on its own: everything prepared for it is in
+this release.
 
 - **The shield's numbers in the logo's letters** (the owner's choice): the
   number beside the octagon in the address bar, the "+N" that rises beside
@@ -12,13 +15,27 @@
   never installed in the system's font list, so no page can find it
   (`ike/cyberfont.py`); languages it has no letters for keep their own font.
 
+- **Cover Your Tracks says "randomized fingerprint"** (the owner: "I want to
+  be randomized"). Its code counts five values that differ between two sites
+  (the audio, the canvas and WebGL pictures, the plugins, the cores) and needs
+  four. The canvas and WebGL pictures varied at every export (1.1.27): it read
+  "randomized" on both of its sites, took that for the same value and counted
+  nothing. Now every export is the site's own picture (another on every site
+  and in every session, as Brave does), the plugins differ at every level
+  (Strict and Maximum: Chrome's five PDF viewers in an order of the site's own)
+  and the cores are 4 or 8 per site at every level where the computer has 8:
+  four or five of five, at Balanced, Strict and Maximum
+  (tests/test_cover_your_tracks.py runs Cover Your Tracks' comparison on two
+  sites). The common graphics card tried for 1.1.30 is gone again: on the
+  owner's computer Cover Your Tracks counted its Linux name as 1 browser in
+  58,876 (15.85 bits), against 1 in 183 for "None".
 - **Strict is now called Kontrol** (the owner's choice, the K of I.K.E.): the
   shield's fourth level keeps its protections and its place, and every
   setting already saved keeps its level (inside, the level is still
   "strict"). The shield shows a K drawn like the logo's, in the light blue of
   the logo's K (#65C2EF, 8.4:1 on the shield's centre), instead of the S;
   every language calls the level Kontrol. The menus' inventory recorded for
-  1.1.29 reads the old name as the new one (tests/test_menus_reorg.py).
+  1.1.30 reads the old name as the new one (tests/test_menus_reorg.py).
 
 - **Dark Reader leaves I.K.E.** (the owner's decision, after trying the I.K.E.
   Dark Engine in 1.1.28): the I.K.E. Dark Engine is the dark mode for pages,
@@ -69,6 +86,18 @@
 - The owner's check can click a site's age or cookie question first
   (`--click "I'm Over 18"`) and takes a page that never stops loading (live
   video) as it is after 20 s instead of giving up.
+- **A gradient next to a variable is darkened too**: a background written as a
+  gradient beside a variable in one value (`linear-gradient(#fff, #fff),
+  var(--picture)`) was left as written, so a panel of a site stayed white
+  under text made light; its gradients are now mapped, the variable left to
+  its own definition (tests/test_dark_engine_hard.py).
+- **Text over a photo stays readable**: photos are kept as they are while the
+  page's text is made light, so a caption drawn dark over a light photo (a
+  shop's banner or card) became light on light; text laid over a large picture
+  now gets a dark halo (tests/test_dark_engine_hard.py).
+- The owner's check also runs inside the owner's own I.K.E., on the page as
+  it is seen (`tests/dark_engine/live-diag.py`, signed in and scrolled), and
+  lists light text on a light layer or picture with the site's own rules.
 - **AUTOMAT follows Dark Reader's lists only**: the engine, its builder and its
   re-anchoring are gone (`tools/build-darkreader-lists.py` rebuilds the
   shipped lists byte for byte with `ike/darklists.py`'s own functions); the
@@ -80,7 +109,7 @@
   picture).
 - **Menus and Settings reorganised** (the owner's request; no function added
   or removed, every shortcut unchanged: tests/test_menus_reorg.py compares
-  everything reachable with 1.1.29's inventory).
+  everything reachable with 1.1.30's inventory).
   - The menu bar: File (open, save, print, downloads, backups, quit), Edit,
     **Tabs** (new tabs and windows, containers, profiles, workspaces, close),
     **Page** (zoom, reader, dark mode, translation, sound, source and
@@ -122,14 +151,6 @@
 - **Short messages in Plasma's style** (zoom, notes; the owner): the window's
   colour with a thin line and a soft shadow, the corners slightly rounded
   (4 px), rising a few pixels as they fade in. They were a flat grey box.
-- **A common graphics card at Strict and Maximum** (the owner's choice, after
-  Cover Your Tracks on his computer: canvas, WebGL and audio "randomized",
-  yet "unique" in the summary, the card's name "None" counting 1 browser in
-  183, 7.52 bits). Sites are now told one of the cards most used in Steam's
-  hardware survey of October 2026 (RTX 3060, RTX 5070, RTX 4060 Laptop GPU,
-  RTX 4060, RTX 3050), as Chrome on Linux names an NVIDIA card, the same in
-  every frame and worker of a site, another on another site and in another
-  session. The limits and extensions stay the shared ones of 1.1.25.
 - **Sites see a more ordinary Chromium** (the Engine Privacy Layer study,
   measured against Arch's own Chromium of the engine's version, Chrome and
   Brave: docs/review/engine-privacy-study.md on the study's branch). At

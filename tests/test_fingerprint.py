@@ -218,13 +218,14 @@ def test_scriptlets_do_not_change_fingerprint(run_ike, site, level):
     if level == "balanced":                 # Maximum hides the graphics card's name
         assert "Direct3D11" not in plain["webgl"][3], plain["webgl"]
     # 1.1.18: the card named to the site is a common model, without driver
-    # versions, the same in a worker; at Strict and Maximum one of the cards most
-    # common in Steam's survey (1.1.29; until 1.1.28 no name at all)
+    # versions, the same in a worker; at Strict and Maximum no name at all
     webgl, in_worker = plain["webgl"], plain["worker"][6]
-    assert webgl[2].startswith("Google Inc. (") and webgl[3].startswith("ANGLE ("), webgl
-    assert not any(w in webgl[3] for w in ("LLVM", "DRM", "radeonsi", "SwiftShader")), webgl[3]
-    assert "WEBGL_debug_renderer_info" in webgl[5]
-    assert in_worker[0] == webgl[3], (in_worker, webgl)
-    if level != "balanced":
-        from conftest import steam_card
-        assert steam_card(webgl[3]), webgl[3]
+    if level == "balanced":
+        assert webgl[2].startswith("Google Inc. (") and webgl[3].startswith("ANGLE ("), webgl
+        assert not any(w in webgl[3] for w in ("LLVM", "DRM", "radeonsi", "SwiftShader")), webgl[3]
+        assert "WEBGL_debug_renderer_info" in webgl[5]
+        assert in_worker[0] == webgl[3], (in_worker, webgl)
+    else:
+        assert webgl[2] is None and webgl[3] is None, webgl
+        assert "WEBGL_debug_renderer_info" not in webgl[5]
+        assert in_worker[0] is None and "WEBGL_debug_renderer_info" not in in_worker[1], in_worker

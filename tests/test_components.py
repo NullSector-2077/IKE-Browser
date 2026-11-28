@@ -689,7 +689,7 @@ def dark_repo(repo, bundled=None):
 
 @pytest.mark.skipif(not shutil.which("git"), reason="needs git")
 def test_dark_readers_lists_are_built_and_anything_like_a_script_is_refused(repo, tmp_path, monkeypatch):
-    """1.1.29: Dark Reader's engine left I.K.E.; the component is its lists, built from a checkout of its
+    """1.1.30: Dark Reader's engine left I.K.E.; the component is its lists, built from a checkout of its
     repository (no npm). New lists are noted, never a candidate (the browser fetches them itself);
     anything that looks like a script, a site fixes list without the common fix first, or a list much
     shorter than the copy in use is refused at its step, and nothing of the lists in use is replaced."""

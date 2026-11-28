@@ -1575,11 +1575,11 @@ LNA_FEATURES = ("LocalNetworkAccessChecks:LocalNetworkAccessChecksWarn/false",
 # (1.1.25): service and shared workers get the engine's own value, never the
 # profile's, and gave the real kernel. Not graphics switches.
 PRIVACY_FEATURES = ("StaticStorageQuota", "ReduceUserAgentDataLinuxPlatformVersion",
-                    # 1.1.29: connections, HTTP/3 sessions and what the engine
+                    # 1.1.30: connections, HTTP/3 sessions and what the engine
                     # remembers of servers (Alt-Svc) kept apart for each site the
                     # user visits, so one site's traffic cannot mark another's
                     "PartitionConnectionsByNetworkIsolationKey")
-# advertising measurement off (1.1.29, Engine Privacy Layer study): Qt
+# advertising measurement off (1.1.30, Engine Privacy Layer study): Qt
 # WebEngine leaves Attribution Reporting working (an advertiser's response
 # was stored in the profile's Conversions database, where Chromium 140 stores
 # nothing) and sends the Topics header; Chrome 158 has neither at work. The
@@ -1707,7 +1707,7 @@ def _chromium_flags(config):
     # service workers followed the system's language (owner's decision for
     # 1.1.20, fingerprinting audit M-7). I.K.E.'s own interface keeps the
     # user's language. Read at start: a change of level applies after a restart.
-    # 1.1.29: at every level the engine is given the first language sites
+    # 1.1.30: at every level the engine is given the first language sites
     # are told (engine_language), so workers, Intl and the engine's own texts
     # agree with the page (the Engine Privacy Layer study found shared and
     # service workers saying "en" where the page said "en-US").
@@ -1727,7 +1727,7 @@ def _chromium_flags(config):
     # tenth more memory. Turning it off takes IKE_ALLOW_UNSAFE_ENGINE=1.
     if "--site-per-process" not in names and "--disable-site-isolation-trials" not in names:
         flags.append("--site-per-process")
-    # HTTP/3 (QUIC) as Chrome, Chromium and Brave use it (1.1.29, the owner;
+    # HTTP/3 (QUIC) as Chrome, Chromium and Brave use it (1.1.30, the owner;
     # Engine Privacy Layer study): Qt WebEngine leaves it off, so a server saw
     # a Chromium that never used it. Faster on weak or changing networks. The
     # engine uses it only on direct connections: a proxy is never bypassed.

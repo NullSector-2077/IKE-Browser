@@ -1,4 +1,4 @@
-"""1.1.29: the engine privacy layer (Engine Privacy Layer study, 2026-11-27,
+"""1.1.30: the engine privacy layer (Engine Privacy Layer study, 2026-11-27,
 docs/review/engine-privacy-study.md on the study branch).
 
 - Attribution Reporting and Topics off in the engine: Qt WebEngine kept an

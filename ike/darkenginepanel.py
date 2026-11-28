@@ -1,4 +1,4 @@
-"""The panel of the toolbar's Dark mode button (1.1.28; since 1.1.29, when Dark
+"""The panel of the toolbar's Dark mode button (1.1.28; since 1.1.30, when Dark
 Reader left I.K.E., the only one: with Chromium's own dark mode as the method,
 its look is greyed and a line says it belongs to the I.K.E. Dark Engine).
 

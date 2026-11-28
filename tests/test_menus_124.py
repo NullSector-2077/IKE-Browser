@@ -7,7 +7,7 @@ criterio e logica, e con le scritte centrate bene").
 - The ☰ menu's submenus each have their icon (in 1.1.23 they had none and
   their texts began left of the other menus'), and no text touches the arrow
   of its submenu, in every widget style (KDE's Breeze left 3 px or less:
-  "View" and "Tools" touched it). (1.1.29: "More" gave way to the owner's
+  "View" and "Tools" touched it). (1.1.30: "More" gave way to the owner's
   categories, tests/test_menus_reorg.py.)
 - The Settings' search field keeps the pages that have the words typed and
   marks the options, by their names, their ⓘ explanations and their choices,
@@ -46,7 +46,7 @@ ENTRIES_1123 = [
     "Reopen closed tab", "Show all history", "Bookmark this page", "Manage bookmarks", "Manage containers…",
     "New profile…", "New workspace…", "Rename workspace…", "Delete workspace",
 ]
-# the ☰ menu of 1.1.23, its own entries (1.1.29: its submenus Protection, Zoom,
+# the ☰ menu of 1.1.23, its own entries (1.1.30: its submenus Protection, Zoom,
 # History, Bookmarks and More are the owner's categories now, and Screenshot's
 # entries are shown in place, under its name)
 BURGER_1123 = ["New tab", "New window", "New private window", "I.K.E. extensions",
@@ -226,8 +226,8 @@ def test_settings_search(run_ike, tmp_path):
     assert "general" not in res["zoom"]["shown"]
     # by an explanation only (the ⓘ of the video decoding, page System)
     assert res["va-api"]["found"].get("system", 0) >= 1, res["va-api"]
-    # by a choice of a combo box (Chromium's own dark mode, Web pages since 1.1.29;
-    # Dark Reader left in 1.1.29)
+    # by a choice of a combo box (Chromium's own dark mode, Web pages since 1.1.30;
+    # Dark Reader left in 1.1.30)
     assert res["scura automatica"]["found"].get("sites", 0) >= 1
     # small or capital letters, accents: "DOWNLOAD", "modalita" for "modalità"
     assert "downloads" in res["DOWNLOAD"]["found"]
@@ -313,7 +313,7 @@ def steps(ike, qapp, out):
     out["buttons"] = [btn[k] is not None and btn[k].isVisible() for k in NEW] if not win.toolbar_spilled else "spilled"
     # what each does
     # 1.1.25: the Zoom button opens its panel (tests/test_zoom_panel.py); the menus keep the
-    # three entries (1.1.29: ☰ → Web page, under "Zoom")
+    # three entries (1.1.30: ☰ → Web page, under "Zoom")
     out["zoom_menu"] = [a.text() for a in (win.act_zoom_in, win.act_zoom_out, win.act_zoom_reset)]
     out["zoom_button"] = [win.act_tb_zoom.menu() is None]
     btn["zoom"].click()

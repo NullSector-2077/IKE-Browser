@@ -75,6 +75,7 @@
   "media-playback-pause": "actions/22/media-playback-pause.svg",
   "media-playback-pause-symbolic": "actions/22/media-playback-pause-symbolic.svg -> actions/22/media-playback-pause.svg",
   "media-playback-start": "actions/22/media-playback-start.svg",
+  "media-seek-forward-symbolic": "actions/22/media-seek-forward-symbolic.svg -> actions/22/media-seek-forward.svg",
   "object-locked": "actions/22/object-locked.svg -> actions/22/document-encrypted.svg",
   "open-menu-symbolic": "actions/22/open-menu-symbolic.svg -> actions/22/application-menu.svg",
   "phone": "devices/22/phone.svg -> devices/22/smartphone.svg",

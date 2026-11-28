@@ -290,7 +290,7 @@ class WebPage(QWebEnginePage):
         page_url = url.scheme() in ("http", "https", "file")
         on = page_url and self.app.shields.dark_for(host)
         engine = cfg["dark_engine"]
-        # 1.1.29: the I.K.E. Dark Engine (darkengine.py, in ApplicationWorld) or
+        # 1.1.30: the I.K.E. Dark Engine (darkengine.py, in ApplicationWorld) or
         # Chromium's own dark mode; Dark Reader is no longer part of I.K.E.
         from . import darkengine
         native_on = on and engine == "engine"

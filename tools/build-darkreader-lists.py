@@ -15,7 +15,7 @@ extension, read from the checkout's src/config:
 with "version" (Dark Reader's version, from the checkout's package.json),
 "lists_commit" and "lists_date". ike/darkfixes.py reads them; ike/window.py
 shows the version and the date in About. Dark Reader's engine left I.K.E. in
-1.1.29 (the I.K.E. Dark Engine and Chromium's own dark mode remain); only its
+1.1.30 (the I.K.E. Dark Engine and Chromium's own dark mode remain); only its
 lists stay, and the browser itself fetches them once a day (ike/darklists.py):
 this copy is what a new profile, or one that could not fetch them, uses.
 

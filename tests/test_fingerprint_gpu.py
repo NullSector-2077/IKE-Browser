@@ -4,8 +4,8 @@ every kind (from an address, srcdoc, empty frames used at once, nested), and
 workers of every kind (blob of any type and size, data, module, from an
 address, shared, started by a worker, from a blob address made in a worker). At
 Balanced every place names the same common model for the site; at Strict and
-Maximum too, one of the cards most common in Steam's survey (1.1.29, the
-owner's choice; until 1.1.28 no place named a model). Software WebGL (SwiftShader) stands in for a graphics
+Maximum no place names a model and the WEBGL_debug_renderer_info extension
+is hidden everywhere. Software WebGL (SwiftShader) stands in for a graphics
 card in the tests; its name must never reach a page.
 
 Known limit: a worker started from an address of the site
@@ -20,7 +20,6 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
-from conftest import steam_card
 
 # what one place reports: [vendor, renderer, extension offered, cores]
 GL_PROBE = r"""
@@ -212,13 +211,14 @@ def test_the_same_card_everywhere(run_ike, site, level):
     real = run_ike("URL = %r\n" % site + STEPS, settings={"shield_level": "off"},
                    env={"QTWEBENGINE_CHROMIUM_FLAGS": FLAGS}, timeout=120)["r"]["page_webgl"][1]
     assert real and real not in json.dumps(seen), ("the real renderer reached the page", real)
-    names = {(v[0], v[1]) for v in seen.values()}
-    assert len(names) == 1, ("not the same card everywhere", seen)
-    vendor, renderer = names.pop()
-    assert vendor.startswith("Google Inc. (") and renderer.startswith("ANGLE ("), (vendor, renderer)
-    assert all(v[2] for v in seen.values()), seen
-    if level != "balanced":
-        assert vendor == "Google Inc. (NVIDIA Corporation)" and steam_card(renderer), (vendor, renderer)
+    if level == "balanced":
+        names = {(v[0], v[1]) for v in seen.values()}
+        assert len(names) == 1, ("not the same card everywhere", seen)
+        vendor, renderer = names.pop()
+        assert vendor.startswith("Google Inc. (") and renderer.startswith("ANGLE ("), (vendor, renderer)
+        assert all(v[2] for v in seen.values()), seen
+    else:
+        assert all(v[0] is None and v[1] is None and not v[2] for v in seen.values()), seen
     cores = {v[3] for v in seen.values()}
     assert len(cores) == 1, ("not the same number of cores everywhere", seen)
 

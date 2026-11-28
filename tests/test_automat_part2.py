@@ -1448,7 +1448,7 @@ def test_which_versions_changed_is_read_from_the_two_branches():
              ("origin/automation/update/test-tools", upstream.REQUIREMENTS): "pytest==9.1.1\n"}
     show = show_of(files)
     assert [c["name"] for c in upstream.changes_of("automation/update/adblock", show, RUST_FAILURE)][0] == "adblock"
-    # Dark Reader's lists (its engine left in 1.1.29): the two commits of the lists, compared exactly
+    # Dark Reader's lists (its engine left in 1.1.30): the two commits of the lists, compared exactly
     dr = upstream.changes_of("automation/update/darkreader", show)
     assert dr[0]["exact"] == ("3" * 40, "4" * 40) and dr[0]["repo"] == "darkreader/darkreader"
     assert dr[0]["kind"] == "git" and dr[0]["prefer"] == ("src/config/",)
@@ -1629,7 +1629,7 @@ def test_a_fix_that_solved_this_very_error_is_applied_again(tmp_path):
 
 
 def test_the_recipes_never_run_on_a_builders_branch(tmp_path):
-    """The recipe that re-anchored a patch of Dark Reader's engine left with the engine (1.1.29): on a
+    """The recipe that re-anchored a patch of Dark Reader's engine left with the engine (1.1.30): on a
     builder's branch (uBlock Origin's scriptlets) no recipe runs, a renamed symbol included."""
     files = {"ike/__init__.py": '__version__ = "1.1.10"\n'}
     out, repo = recipe_run(tmp_path / "b", dict(WRAPPER, **files), PY_FAILURE, ["--builder", "ubo-scriptlets"],

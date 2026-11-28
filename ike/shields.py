@@ -544,7 +544,7 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
     def _skip_tracker(self, info, url, host):
         """A link that only passes through a tracker on its way, with the real
         address written inside it (newsletters, affiliate links, Google's AMP
-        copies), opens that address at once (1.1.29, debounce.py); True when
+        copies), opens that address at once (1.1.30, debounce.py); True when
         it did. Balanced and above, with "Remove tracking parameters from
         links" on; the site's own "params" option (what "Repair this site"
         turns off) leaves it off, for the tracker's site and for the site
@@ -825,14 +825,14 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
         if cfg["send_gpc"]:
             info.setHttpHeader(b"Sec-GPC", b"1")
         if lv >= 2 and cfg.site_opt(first_host, "fp") is not False:
-            # the common network of the page (Balanced too since 1.1.29)
+            # the common network of the page (Balanced too since 1.1.30)
             _common_network(info)
         if lv >= 3 and cfg.site_opt(first_host, "fp") is not False:
             _reduce_full_version(info)
             # Maximum: en-US; Strict: the one language navigator.languages
             # shows, as Chrome writes it; the full list in the header
             # contradicted it (review of 1.1.19, M5). Written only when the
-            # profile's own differs (1.1.29): a header written here moves to
+            # profile's own differs (1.1.30): a header written here moves to
             # the end of the request's headers, an order no Chromium has.
             want = b"en-US,en;q=0.9" if lv >= 4 else one_language(cfg)
             if want != _profile_language(cfg):
@@ -974,7 +974,7 @@ class Shields(QObject):
         self.action_key = secrets.token_hex(16)   # the new tab page's own links (IkeSchemeHandler)
         self.stats = {}
         self.requests = {}               # site -> requests made for it (see resources)
-        self.page_sites = {}             # site -> other sites its pages loaded (the broom's panel, 1.1.29)
+        self.page_sites = {}             # site -> other sites its pages loaded (the broom's panel, 1.1.30)
         self.redirected = set()
         self.upgraded = set()
         self.http_allowed = set()
@@ -1593,7 +1593,7 @@ class Shields(QObject):
                 "ike-video-relay", self._videorelay_src.replace("__IKE_VIDEO_HOSTS__", json.dumps(bases)),
                 False, False))
 
-    # --- the broom's automatic cleaning (1.1.29, cleanpanel.py) ----------
+    # --- the broom's automatic cleaning (1.1.30, cleanpanel.py) ----------
     AUTOCLEAN = "ike-autoclean"
     AUTOCLEAN_JS = (
         "(function(){try{localStorage.clear();sessionStorage.clear();}catch(e){}"
@@ -1734,7 +1734,7 @@ class Shields(QObject):
         store.cookieRemoved.connect(lambda c: jar.pop(key(c), None))
 
     def forget_cookies(self, profile, site):
-        """I.K.E. deleted a site's cookies (the broom, 1.1.29): its lists forget
+        """I.K.E. deleted a site's cookies (the broom, 1.1.30): its lists forget
         them, so a count after that is right."""
         for name in ("cookie_jars", "cookies_seen"):
             source = getattr(self, name, {}).get(profile)

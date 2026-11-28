@@ -1,5 +1,5 @@
 """The builder of the copy of Dark Reader's lists I.K.E. comes with
-(tools/build-darkreader-lists.py, 1.1.29: Dark Reader's engine left I.K.E., its
+(tools/build-darkreader-lists.py, 1.1.30: Dark Reader's engine left I.K.E., its
 lists stay).
 
 - It writes only ike/resources/darkreader-data.json, in the shape the browser
@@ -129,7 +129,7 @@ def test_the_bundled_copy_is_one_the_browser_accepts():
     data = json.loads(BUNDLED.read_text("utf-8"))
     assert list(data) == ["version", "lists_commit", "lists_date", "fixes", "dark_sites", "detector_hints"]
     assert darklists.check(data, data) == ""
-    # the engine left in 1.1.29; darkmode.js (unused) stays until it leaves tools/fix-guard.py PROTECTED_JS, a
+    # the engine left in 1.1.30; darkmode.js (unused) stays until it leaves tools/fix-guard.py PROTECTED_JS, a
     # change of the guard's own list made by a person
     assert [p.name for p in sorted(BUNDLED.parent.glob("dark*.js"))] == ["darkmode.js"]
 

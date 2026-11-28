@@ -13,7 +13,7 @@ Components and where the version in use is written:
 - Dark Reader's lists (fixes for single sites, sites that are dark already,
   hints of a site's own dark theme): ``ike/resources/darkreader-data.json``
   (rebuilt with tools/build-darkreader-lists.py from the newest commit of Dark
-  Reader's repository). Its engine left I.K.E. in 1.1.29. The browser fetches
+  Reader's repository). Its engine left I.K.E. in 1.1.30. The browser fetches
   the lists itself once a day (ike/darklists.py), so a change of them is a
   weekly candidate only (tools/update-candidates.py, WEEKLY);
 - KDE's Breeze icons, the shipped icon set "breeze" (1.1.24):
@@ -531,7 +531,7 @@ def apply_scriptlets(root, info):
     shutil.copyfile(info["_file"], root / "ike" / "resources" / "ubo-scriptlets.json")
 
 
-# --- Dark Reader's lists (its engine left I.K.E. in 1.1.29) --------------------
+# --- Dark Reader's lists (its engine left I.K.E. in 1.1.30) --------------------
 
 def darkreader_lists_hash(data):
     lists = {k: data[k] for k in ("fixes", "dark_sites", "detector_hints")}
@@ -590,7 +590,7 @@ def build_darkreader(root, work, dr_src=None):
 
 
 def check_darkreader(root, work, dr_src=None):
-    """1.1.29: Dark Reader's engine is gone, its lists are the whole component. The browser fetches
+    """1.1.30: Dark Reader's engine is gone, its lists are the whole component. The browser fetches
     them itself once a day, without GitHub's automation (ike/darklists.py, 1.1.27, the owner's decision: no
     new version for simple lists), so a change of the lists makes NO candidate: it is only noted. The copy
     I.K.E. comes with is the first start's fallback; the builder still checks every day that the lists

@@ -1,4 +1,4 @@
-"""The panel of the toolbar's broom, "Clear this site's data" (1.1.29, the
+"""The panel of the toolbar's broom, "Clear this site's data" (1.1.30, the
 owner's choice).
 
 It opens under the button, as the zoom's and the downloads' panels do

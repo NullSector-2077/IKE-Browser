@@ -17,7 +17,7 @@ records that this recipe failed for this error, so it is not tried again for it)
    ``y``. Then ``x`` is replaced by ``y``, as a whole word, in the files of I.K.E. the failure
    involves.
 
-(Until 1.1.29 a third recipe re-anchored a builder's patch of Dark Reader's engine; the engine left
+(Until 1.1.30 a third recipe re-anchored a builder's patch of Dark Reader's engine; the engine left
 I.K.E. and with it the only builder with such patches.)
 
     automat-recipes.py --workdir DIR --failure FILE --status FILE [--memory FILE --component ID]

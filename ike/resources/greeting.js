@@ -189,7 +189,7 @@
       ["night3", function (c) { return c.p == "night"; }], ["night4", function (c) { return c.p == "night"; }]]],
     ["fact", function (c) { return 2; }, numbered("fact", 90)],
     ["cheer", function (c) { return 2; }, numbered("cheer", 75)],
-    // 1.1.29: I.K.E.'s own thoughts (the owner: "it must seem that I.K.E. really thinks") and tips
+    // 1.1.30: I.K.E.'s own thoughts (the owner: "it must seem that I.K.E. really thinks") and tips
     ["thought", function (c) { return 3; }, numbered("thought", 80)],
     ["tip", function (c) { return 1; }, numbered("tip", 20)]
   ];

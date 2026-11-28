@@ -507,9 +507,29 @@
   function clipsText(st) {
     return st.getPropertyValue('background-clip') === 'text' || st.getPropertyValue('-webkit-background-clip') === 'text';
   }
+  // the gradients of a value, each mapped with its variables per use (the rest,
+  // pictures and the variables between the layers, left as written)
+  function mapGradients(v, kind) {
+    var out = '', i = 0;
+    for (;;) {
+      var j = v.indexOf('gradient(', i);
+      if (j < 0) return out + v.slice(i);
+      var depth = 0, e = j + 8;
+      for (; e < v.length; e++) { if (v[e] === '(') depth++; else if (v[e] === ')' && !--depth) break; }
+      out += v.slice(i, j) + useVars(v.slice(j, e + 1), kind);
+      i = e + 1;
+    }
+  }
   function background(st, value, mine, base, again, skipPicture) {
     var ours = mine && mine['background-image'] === value;
     var source = ours ? imageSources.get(st) : value;
+    if (source && source.indexOf('var(') >= 0 && source.indexOf('gradient(') >= 0) {
+      // a gradient next to a variable (linear-gradient(#fff, #fff), var(--picture)):
+      // its colours are mapped, the variable left to its own definition
+      imageSources.delete(st);
+      var g = mapGradients(source, clipsText(st) ? 'fg' : 'bg');
+      return g !== value ? g : null;
+    }
     if (!source || source === 'none' || source.indexOf('var(') >= 0) {
       imageSources.delete(st);
       return null;
@@ -787,6 +807,56 @@
       } catch (e) {}
     });
     dqa('.ike-de-lift').forEach(function (el) { el.classList.remove('ike-de-lift'); });
+    dqa('.ike-de-halo').forEach(function (el) { el.classList.remove('ike-de-halo'); });
+    haloDone = new WeakSet();
+  }
+  // --- text laid over a photo --------------------------------------------------
+  // Photos are kept as they are, the text of the page is made light: a caption a
+  // designer drew dark over a light photo (a shop's banner, a card) became light
+  // on light. Text drawn over a large picture of the page gets a dark halo.
+  var haloDone = new WeakSet(), haloTimer = 0;
+  function halosLater() {
+    if (haloTimer || off) return;
+    haloTimer = setTimeout(function () { haloTimer = 0; if (ready.done) quiet(halos); }, 300);
+  }
+  // only the pictures near the window (the rest when the page is scrolled to
+  // them), everything read first and the marks written once at the end, so
+  // that the page is laid out once
+  function halos() {
+    if (off || !ready.done) return;
+    var imgs = dqa('img'), far = innerHeight, marks = [];
+    for (var i = 0; i < imgs.length; i++) {
+      var img = imgs[i];
+      if (haloDone.has(img) || !img.complete || !img.naturalWidth || img.naturalWidth < 100) continue;
+      var r = img.getBoundingClientRect();
+      if (r.bottom < -far || r.top > innerHeight + far) continue;
+      haloDone.add(img);
+      if (r.width < 120 || r.height < 80) continue;
+      var box = img.parentElement;
+      for (var up = 0; box && up < 4; up++, box = box.parentElement) {
+        var br = box.getBoundingClientRect();
+        if (br.width * br.height > r.width * r.height * 2.5) break;
+        textsOver(box, img, r, marks);
+      }
+    }
+    for (var m = 0; m < marks.length; m++) marks[m].classList.add('ike-de-halo');
+  }
+  addEventListener('scroll', halosLater, { passive: true, capture: true });
+  function textsOver(box, img, r, marks) {
+    var els = box.querySelectorAll('*'), k = 0;
+    for (var j = 0; j < els.length && k < 60; j++) {
+      var e = els[j];
+      if (e === img || e.contains(img) || e.classList.contains('ike-de-halo')) continue;
+      var words = false;
+      for (var c = e.firstChild; c; c = c.nextSibling) if (c.nodeType === 3 && c.data.trim()) { words = true; break; }
+      if (!words) continue;
+      k++;
+      var tr = e.getBoundingClientRect();
+      var ox = Math.min(tr.right, r.right) - Math.max(tr.left, r.left), oy = Math.min(tr.bottom, r.bottom) - Math.max(tr.top, r.top);
+      if (!tr.width || ox <= 0 || oy <= 0 || ox * oy < 0.5 * tr.width * tr.height) continue;
+      var tc = parse(getComputedStyle(e).color);
+      if (tc && lum(tc) >= 0.3 && marks.indexOf(e) < 0) marks.push(e);
+    }
   }
   function makeStyle() {
     var style = _create.call(document, 'style');
@@ -1255,6 +1325,8 @@
     t += ':where(button,select,input[type=button],input[type=submit],input[type=reset]){background-color:' +
       hex(BG[0], BG[1], LB + 0.07) + '}';
     t += '.ike-de-lift{filter:invert(100%) hue-rotate(180deg)!important}';
+    // text made light over a photo the engine keeps as it is: a dark halo keeps it readable
+    t += '.ike-de-halo{text-shadow:0 0 2px rgba(0,0,0,.95),0 0 6px rgba(0,0,0,.7)!important}';
     var s = makeStyle();
     s.textContent = t;
     return s;
@@ -1656,7 +1728,9 @@
     mo.takeRecords();
     stats.ms += performance.now() - t0;
     // CSS-in-JS and components that start late: looked at again a few times
-    [500, 1500, 4000].forEach(function (t) { setTimeout(function () { quiet(function () { hosts.forEach(function (h) { if (h.shadowRoot) shadow(h); }); grown(true); }); }, t); });
+    [500, 1500, 4000].forEach(function (t) { setTimeout(function () { quiet(function () { hosts.forEach(function (h) { if (h.shadowRoot) shadow(h); }); grown(true); halos(); }); }, t); });
+    // pictures that arrive later (as the page is scrolled): their captions too
+    _listen.call(document, 'load', function (e) { if (e.target && e.target.localName === 'img') halosLater(); }, true);
   }
   // --- an early start: the page is darkened while it arrives -----------------------
   // A page that comes slowly (a big shop) was drawn with its own light panels until

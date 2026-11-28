@@ -11,7 +11,7 @@ the colours editor, languages, import, resources, watched pages, site
 permissions, the command bar); since 1.1.24 also the menus of the toolbar
 buttons a user can add, the Settings' search with nothing found and the
 four steps of the welcome of the first start; since 1.1.25 the dark mode
-panel of the toolbar (1.1.29: the I.K.E. Dark Engine's, also with Chromium's own dark
+panel of the toolbar (1.1.30: the I.K.E. Dark Engine's, also with Chromium's own dark
 mode), the zoom panel and the downloads panel (empty, and with a download of
 each kind).
 tests/textfit.py says what is checked: a button's text at least 4 px from
@@ -144,7 +144,7 @@ def steps(ike, qapp, out):
         win.shield_panel.adv_btn.setChecked(False)
         win.shield_menu.hide()
         if hasattr(win, "show_dark_panel"):
-            # the dark mode panel: the I.K.E. Dark Engine's (1.1.28; the only one since 1.1.29,
+            # the dark mode panel: the I.K.E. Dark Engine's (1.1.28; the only one since 1.1.30,
             # Dark Reader's left I.K.E.), and with Chromium's own dark mode (its look greyed, a note)
             engine = ike.config["dark_engine"]
             for method, what in (("ike", "I.K.E. Dark Engine panel"), ("engine", "dark mode panel, Chromium's")):

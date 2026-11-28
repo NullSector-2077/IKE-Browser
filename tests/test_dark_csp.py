@@ -1,4 +1,4 @@
-"""Page dark mode under a strict Content-Security-Policy (1.1.26; since 1.1.29
+"""Page dark mode under a strict Content-Security-Policy (1.1.26; since 1.1.30
 with the I.K.E. Dark Engine, which writes into the page's own rules and needs no
 <style> of its own there, so the policy does not stop it).
 

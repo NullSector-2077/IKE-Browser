@@ -52,7 +52,7 @@ WEEKDAY = (
     ("wkend3", "Make this weekend evening a nice one"),
 )
 PERIOD = ['Good things are coming today', 'A new day, a new chance', 'Keep going, you are halfway there', 'A good moment for some fresh air', 'Time to relax, you earned it', 'The day is done, well done', 'A quiet time to wind down', 'Tomorrow is a new day']
-# 1.1.29 (the owner: "it must seem that I.K.E. really thinks"): I.K.E.'s own thoughts
+# 1.1.30 (the owner: "it must seem that I.K.E. really thinks"): I.K.E.'s own thoughts
 THOUGHTS = [
     'I blocked some trackers for you. No need to thank me',
     "Trackers don't like me. The feeling is mutual",
@@ -135,7 +135,7 @@ THOUGHTS = [
     'Every new tab is a fresh page. Literally',
     'I think, therefore I browse',
 ]
-# 1.1.29: tips, each a real shortcut or part of I.K.E. (window.py)
+# 1.1.30: tips, each a real shortcut or part of I.K.E. (window.py)
 TIPS = [
     'Tip: Ctrl+Shift+T brings back a closed tab',
     'Tip: Ctrl+D saves the page as a bookmark',
@@ -158,7 +158,7 @@ TIPS = [
     'Tip: Ctrl+T opens a tab, Ctrl+W closes it',
     'Tip: Ctrl+M shows the menu bar',
 ]
-# 1.1.29: more fun facts
+# 1.1.30: more fun facts
 MORE_FACTS_129 = [
     'Fun fact: a group of owls is called a parliament',
     "Fun fact: a blue whale's heart is as big as a small car",
@@ -221,7 +221,7 @@ MORE_FACTS_129 = [
     'Fun fact: the dot over the letter i is called a tittle',
     'Fun fact: the first message sent by email was a test',
 ]
-# 1.1.29: more kind words
+# 1.1.30: more kind words
 MORE_CHEERS_129 = [
     "You're allowed to take things slowly",
     'Done is often better than perfect',

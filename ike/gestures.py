@@ -67,7 +67,7 @@ def handle(view, event):
 
 
 def _arrow(view, dx):
-    """The swipe's arrow at the page's edge (polish.SwipeArrow, 1.1.29): shown
+    """The swipe's arrow at the page's edge (polish.SwipeArrow, 1.1.30): shown
     while the fingers move toward a page there is, gone otherwise."""
     arrow = view.__dict__.get("_ike_swipe_arrow")
     win = getattr(view, "window_ref", None)

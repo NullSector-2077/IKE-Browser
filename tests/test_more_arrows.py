@@ -43,7 +43,7 @@ def steps(ike, qapp, out):
     source = win.act_fwd.icon().pixmap(win.nav.iconSize(), ratio)
     source = source.copy(QRegion(source.mask()).boundingRect()).toImage()
     pair = more.icon().pixmap(more.iconSize(), ratio).toImage()
-    # 1.1.29 (the owner): the desktop's double arrow, as tall as the Forward glyph
+    # 1.1.30 (the owner): the desktop's double arrow, as tall as the Forward glyph
     from ike import icons as ike_icons
     double = ike_icons.themed(("arrow-right-double",)).pixmap(win.nav.iconSize(), ratio)
     double = double.copy(QRegion(double.mask()).boundingRect()).toImage()
@@ -81,7 +81,7 @@ def test_the_double_arrow_sits_in_the_middle(run_ike, tmp_path, scale, theme):
         assert h == 26 and (w >= h if key == "bookmarks" else w == h), (key, w, h)
         assert tooltip == name == tip
         assert offset and max(abs(v) for v in offset) <= 1, (key, offset)
-    # 1.1.29 (the owner): the desktop's own double arrow, Forward's height
+    # 1.1.30 (the owner): the desktop's own double arrow, Forward's height
     height, forward, _wider, _narrow, same = out["double"]
     assert height == forward and same in (True, None), out["double"]
     assert out["names"] and out["names"][1] in ("arrow-right-double", "go-next"), out["names"]

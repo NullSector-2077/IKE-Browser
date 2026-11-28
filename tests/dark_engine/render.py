@@ -129,7 +129,49 @@ for(var i=0;i<all.length&&out.length<25;i++){var e=all[i],r=e.getBoundingClientR
   bg:cs.backgroundColor,image:img.slice(0,80),inline:(e.getAttribute('style')||'').slice(0,120),
   shadowHost:!!e.shadowRoot,frame:e.tagName==='IFRAME'?(e.src||'(no src)').slice(0,80):null,rules:light?rulesFor(e):[]});
  var last=out[out.length-1];if(last.rules.length)last.vars=varsOf(last.rules).map(function(n){return definedAt(e,n);});}
-return JSON.stringify({light:out,unreadable:unreadable.slice(0,20),sheets:document.styleSheets.length,
+// light text drawn over a picture (an <img> or a background picture under it, no
+// opaque colour between): where a light photo kept its light under a text made light
+var onpic=[],seenTxt=new Set();
+var tw=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+for(var tn=tw.nextNode();tn&&onpic.length<15;tn=tw.nextNode()){
+ if(!tn.data.trim())continue;var te=tn.parentElement;if(!te||seenTxt.has(te))continue;seenTxt.add(te);
+ var tr=te.getBoundingClientRect();if(tr.width<20||tr.height<8||tr.bottom<0||tr.top>H||tr.right<0||tr.left>W)continue;
+ var tc=rgba(getComputedStyle(te).color);if(!tc||lum(tc)<0.45)continue;
+ var stack=document.elementsFromPoint(Math.min(W-1,Math.max(0,tr.left+tr.width/2)),Math.min(H-1,Math.max(0,tr.top+tr.height/2)));
+ var past=false;
+ for(var si=0;si<stack.length;si++){var se=stack[si];if(se===te||se.contains(te)){past=true;}if(!past&&!te.contains(se))continue;
+  var ss=getComputedStyle(se),sb=rgba(ss.backgroundColor),pic=ss.backgroundImage.indexOf('url(')>=0?ss.backgroundImage:(se.tagName==='IMG'?(se.currentSrc||se.src):'');
+  if(pic){onpic.push({text:tn.data.trim().slice(0,40),el:label(te),rect:[Math.round(tr.left),Math.round(tr.top),Math.round(tr.width),Math.round(tr.height)],
+   color:getComputedStyle(te).color,under:label(se),picture:String(pic).slice(0,140)});break;}
+  if(sb&&sb[3]>0.5)break;}}
+// light text whose background, looked at layer by layer under it, is light: a colour,
+// a gradient, a ::before/::after layer or an inset shadow (what a plain colour test misses)
+var lowc=[],seenL=new Set();
+function layerOf(se){var ss=getComputedStyle(se),r=[];
+ ['::before','::after'].forEach(function(ps){var p=getComputedStyle(se,ps);if(p.content&&p.content!=='none'){var pb=rgba(p.backgroundColor);
+  if((pb&&pb[3]>0.5)||p.backgroundImage!=='none')r.push({kind:ps,color:p.backgroundColor,image:p.backgroundImage.slice(0,120)});}});
+ if(ss.backgroundImage!=='none')r.push({kind:'image',color:ss.backgroundColor,image:ss.backgroundImage.slice(0,160)});
+ if(/inset/.test(ss.boxShadow))r.push({kind:'inset shadow',color:ss.boxShadow.slice(0,120)});
+ var b=rgba(ss.backgroundColor);if(b&&b[3]>0.5)r.push({kind:'colour',color:ss.backgroundColor});return r;}
+var tw2=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+for(var t2=tw2.nextNode();t2&&lowc.length<20;t2=tw2.nextNode()){
+ if(!t2.data.trim())continue;var e2=t2.parentElement;if(!e2||seenL.has(e2))continue;seenL.add(e2);
+ var r2=e2.getBoundingClientRect();if(r2.width<10||r2.height<8||r2.bottom<0||r2.top>H||r2.right<0||r2.left>W)continue;
+ var c2=rgba(getComputedStyle(e2).color);if(!c2||lum(c2)<0.35)continue;
+ var st2=document.elementsFromPoint(Math.min(W-1,Math.max(0,r2.left+Math.min(r2.width/2,40))),Math.min(H-1,Math.max(0,r2.top+r2.height/2)));
+ var found=null,chain=[];
+ for(var k2=0;k2<st2.length&&!found;k2++){var x2=st2[k2];if(x2!==e2&&!x2.contains(e2)&&!e2.contains(x2))continue;
+  var ls=layerOf(x2);chain.push(label(x2));
+  for(var m2=0;m2<ls.length&&!found;m2++){var L=ls[m2],lc=rgba(L.color);
+   if(L.kind==='colour'){if(lum(lc)>0.5)found={layer:label(x2),kind:L.kind,value:L.color,rules:rulesFor(x2)};else{found='dark';}}
+   else if(L.kind.charAt(0)===':'&&lc&&lc[3]>0.5&&lum(lc)>0.5)found={layer:label(x2)+L.kind,kind:L.kind,value:L.color,rules:rulesFor(x2)};
+   else if(/gradient|url\(/.test(L.image||'')||L.kind==='inset shadow'){
+    var gc=(L.image||L.color||'').match(/rgba?\([^)]*\)|#[0-9a-f]{3,8}\b|\bwhite\b/gi)||[];
+    if(gc.some(function(c){var q=rgba(c)||(/white|#fff/i.test(c)?[255,255,255,1]:null);return q&&q[3]>0.3&&lum(q)>0.5;})||/url\(/.test(L.image||''))
+     found={layer:label(x2),kind:L.kind,value:(L.image||L.color),inline:(x2.getAttribute('style')||'').slice(0,120)};}}}
+ if(found&&found!=='dark')lowc.push({text:t2.data.trim().slice(0,40),el:label(e2),rect:[Math.round(r2.left),Math.round(r2.top),Math.round(r2.width),Math.round(r2.height)],
+  color:getComputedStyle(e2).color,under:found,path:chain.slice(0,6)});}
+return JSON.stringify({light:out,onpicture:onpic,lowcontrast:lowc,unreadable:unreadable.slice(0,20),sheets:document.styleSheets.length,
  adopted:document.adoptedStyleSheets.length,frames:document.querySelectorAll('iframe').length});})()"""
 
 

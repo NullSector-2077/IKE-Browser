@@ -192,7 +192,7 @@ def run(run_ike, site, **settings):
 
 
 def test_the_engine_by_default_and_no_dark_reader(run_ike, site):
-    # 1.1.29: Dark Reader is no longer part of I.K.E.; a profile that chose it gets the engine
+    # 1.1.30: Dark Reader is no longer part of I.K.E.; a profile that chose it gets the engine
     out = run(run_ike, site)
     assert out["page"]["dr"] == 0 and json.loads(out["engine"])["sheets"] >= 1 and out["native"] is False, out
     assert "ike-dark-engine-x" in out["scripts"], out
