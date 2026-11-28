@@ -400,9 +400,19 @@ like the rest of the noise it cannot resist a script written against it
   names, for that same site. Nothing is turned off until the user presses
   "Repair this site" and answers that the page works; the trial lives in
   memory and is undone on cancel. A page that fakes a breakage can at most
-  make I.K.E. propose, to the user, a change for itself that its own requests
-  made relevant: never another site, never the level, never the sandbox,
-  TLS, certificates or the engine's isolation (none of them is a repair key).
+  make I.K.E. propose, to the user, a change for itself: the narrow one its
+  own requests made relevant, or (an empty page, a player in error after a
+  block of the site's own address: yellow only, since such a block is often
+  an ordinary tracker) the search "Repair this site" has always been, step
+  by step with the user's answers, which may end by offering the shield off
+  for that site. Never another site, never by itself, never the sandbox,
+  TLS, certificates or the engine's isolation (none of them is a repair
+  key). Red never comes from what a page prints: the notice for "a part of
+  this page" (read from the engine's console words) stays a notice. The
+  probe reads web components' shadow roots and form fields, so a page of
+  components or a sign-in form is not "empty". The request check cannot
+  tell tabs apart: the evidence of a site belongs to its page whose load
+  started last.
 - **Red** comes only from I.K.E.'s safety warnings already in effect
   (`securebar.danger_of`: it reads them, never shows, hides or decides one)
   and never offers "Repair this site". **Green** says only that nothing was

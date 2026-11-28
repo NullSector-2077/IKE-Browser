@@ -91,9 +91,18 @@
   the shield (`ike/incompat.py`, `ike/interference.py`,
   `ike/securebar.py` `danger_of`, `ike/shieldpanel.py`, `ike/window.py`,
   `ike/repair.py`; tests/test_interference.py, tests/test_site_workers.py;
-  twelve new texts in every language pack, two gone). "Repair this site"
-  also knows dark mode and WebRTC's local addresses as protections of their
-  own.
+  new texts in every language pack, three gone). "Repair this site" also
+  knows dark mode and WebRTC's local addresses as protections of their own.
+  An independent review (Fable 5.2) tried to break all of it in the real
+  browser; what it found is fixed and tested (tests/test_diagnosis_review.py):
+  a frame's console message could turn the octagon red, the green could play
+  on a page of the lists opened anyway or with a parent domain's exception,
+  an empty-looking page of web components or a sign-in form, or a missing
+  video, could turn it orange after an ordinary tracker block (now the
+  probe reads them, and those two causes are yellow), a kept repair did not
+  end the finding by itself, a service worker could come back on a site's
+  second page where its workers are blocked, and the worker queue answered
+  three odd calls differently from Chrome 140.
 - **The sites' own workers run at Maximum too, except where it is not safe**
   (the owner's decision of 2026-11-28: "i siti devono funzionare, almeno
   quelli fidati"). Maximum now treats a site's own service workers, shared
