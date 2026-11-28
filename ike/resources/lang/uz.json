@@ -1609,6 +1609,11 @@
 "This session, by kind": "Bu seans, turi bo'yicha",
 "This session, the sites that tried most": "Bu seans, eng ko'p urinib ko'rgan saytlar",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Bularning hech biri kompyuteringizdan chiqmaydi. Bu seans raqamlari I.K.E. ishga tushganda qaytadan boshlanadi.",
-"Nothing blocked yet in this session.": "Bu seansda hali hech narsa bloklanmagan."
+"Nothing blocked yet in this session.": "Bu seansda hali hech narsa bloklanmagan.",
+"The site's own background workers": "Saytning oʻz fon jarayonlari",
+"Background workers blocked": "Bloklangan fon jarayonlari",
+"Site's own workers allowed": "Saytning oʻz jarayonlariga ruxsat berildi",
+"This level blocks the site's own background workers: the site may not work.": "Bu daraja saytning oʻz fon jarayonlarini bloklaydi: sayt ishlamasligi mumkin.",
+"Allow them on this site": "Bu saytda ularga ruxsat berish"
 }
 }

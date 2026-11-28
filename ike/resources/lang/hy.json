@@ -1609,6 +1609,11 @@
 "This session, by kind": "Այս աշխատաշրջանը, ըստ տեսակի",
 "This session, the sites that tried most": "Այս աշխատաշրջանը, ամենաշատը փորձած կայքերը",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Սրանից ոչինչ դուրս չի գալիս ձեր համակարգչից։ Այս աշխատաշրջանի թվերը նորից են սկսվում, երբ I.K.E.-ն մեկնարկում է։",
-"Nothing blocked yet in this session.": "Այս աշխատաշրջանում դեռ ոչինչ արգելափակված չէ։"
+"Nothing blocked yet in this session.": "Այս աշխատաշրջանում դեռ ոչինչ արգելափակված չէ։",
+"The site's own background workers": "Կայքի սեփական ֆոնային գործընթացները",
+"Background workers blocked": "Արգելափակված ֆոնային գործընթացներ",
+"Site's own workers allowed": "Կայքի սեփական գործընթացները թույլատրված են",
+"This level blocks the site's own background workers: the site may not work.": "Այս մակարդակը արգելափակում է կայքի սեփական ֆոնային գործընթացները. կայքը կարող է չաշխատել:",
+"Allow them on this site": "Թույլատրել դրանք այս կայքում"
 }
 }

@@ -1609,6 +1609,11 @@
 "This session, by kind": "এই সেশন, ধরন অনুযায়ী",
 "This session, the sites that tried most": "এই সেশন, যে সাইটগুলো সবচেয়ে বেশি চেষ্টা করেছে",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "এর কিছুই আপনার কম্পিউটারের বাইরে যায় না। I.K.E. চালু হলে এই সেশনের সংখ্যা আবার শুরু হয়।",
-"Nothing blocked yet in this session.": "এই সেশনে এখনও কিছু ব্লক করা হয়নি।"
+"Nothing blocked yet in this session.": "এই সেশনে এখনও কিছু ব্লক করা হয়নি।",
+"The site's own background workers": "সাইটের নিজস্ব ব্যাকগ্রাউন্ড ওয়ার্কার",
+"Background workers blocked": "ব্যাকগ্রাউন্ড ওয়ার্কার অবরুদ্ধ",
+"Site's own workers allowed": "সাইটের নিজস্ব ওয়ার্কার অনুমোদিত",
+"This level blocks the site's own background workers: the site may not work.": "এই স্তর সাইটের নিজস্ব ব্যাকগ্রাউন্ড ওয়ার্কার অবরুদ্ধ করে: সাইটটি কাজ নাও করতে পারে।",
+"Allow them on this site": "এই সাইটে এগুলো অনুমতি দিন"
 }
 }

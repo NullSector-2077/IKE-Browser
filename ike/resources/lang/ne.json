@@ -1609,6 +1609,11 @@
 "This session, by kind": "यो सत्र, प्रकार अनुसार",
 "This session, the sites that tried most": "यो सत्र, सबैभन्दा धेरै प्रयास गर्ने साइटहरू",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "यसमध्ये केही पनि तपाईंको कम्प्युटर बाहिर जाँदैन। I.K.E. सुरु हुँदा यस सत्रका अङ्कहरू फेरि सुरु हुन्छन्।",
-"Nothing blocked yet in this session.": "यो सत्रमा अहिलेसम्म केही पनि रोकिएको छैन।"
+"Nothing blocked yet in this session.": "यो सत्रमा अहिलेसम्म केही पनि रोकिएको छैन।",
+"The site's own background workers": "साइटका आफ्नै पृष्ठभूमि वर्कर",
+"Background workers blocked": "रोकिएका पृष्ठभूमि वर्कर",
+"Site's own workers allowed": "साइटका आफ्नै वर्करलाई अनुमति",
+"This level blocks the site's own background workers: the site may not work.": "यो तहले साइटका आफ्नै पृष्ठभूमि वर्कर रोक्छ: साइटले काम नगर्न सक्छ।",
+"Allow them on this site": "यो साइटमा तिनलाई अनुमति दिनुहोस्"
 }
 }

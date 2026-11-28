@@ -1609,6 +1609,11 @@
 "This session, by kind": "Tato relace, podle druhu",
 "This session, the sites that tried most": "Tato relace, stránky, které se snažily nejvíc",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nic z toho neopouští váš počítač. Čísla této relace začínají znovu při spuštění I.K.E.",
-"Nothing blocked yet in this session.": "V této relaci zatím nebylo nic zablokováno."
+"Nothing blocked yet in this session.": "V této relaci zatím nebylo nic zablokováno.",
+"The site's own background workers": "Vlastní procesy webu na pozadí",
+"Background workers blocked": "Zablokované procesy na pozadí",
+"Site's own workers allowed": "Povolené vlastní procesy webu",
+"This level blocks the site's own background workers: the site may not work.": "Tato úroveň blokuje vlastní procesy webu na pozadí: web nemusí fungovat.",
+"Allow them on this site": "Povolit je na tomto webu"
 }
 }

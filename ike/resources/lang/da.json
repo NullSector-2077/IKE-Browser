@@ -1609,6 +1609,11 @@
 "This session, by kind": "Denne session, efter type",
 "This session, the sites that tried most": "Denne session, de websteder der prøvede mest",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Intet af dette forlader din computer. Tallene for denne session starter forfra, når I.K.E. starter.",
-"Nothing blocked yet in this session.": "Intet blokeret endnu i denne session."
+"Nothing blocked yet in this session.": "Intet blokeret endnu i denne session.",
+"The site's own background workers": "Webstedets egne baggrundsprocesser",
+"Background workers blocked": "Baggrundsprocesser blokeret",
+"Site's own workers allowed": "Webstedets egne processer tilladt",
+"This level blocks the site's own background workers: the site may not work.": "Dette niveau blokerer webstedets egne baggrundsprocesser: webstedet virker måske ikke.",
+"Allow them on this site": "Tillad dem på dette websted"
 }
 }

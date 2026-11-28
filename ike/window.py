@@ -575,6 +575,8 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self.lookalike_bar = LookalikeBar(self)
         from .securebar import SecureBar
         self.secure_bar = SecureBar(self)
+        from .workersbar import WorkersBar
+        self.workers_bar = WorkersBar(self)
         right = QWidget(self)
         rl = QVBoxLayout(right)
         rl.setContentsMargins(0, 0, 0, 0)
@@ -583,6 +585,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         rl.addWidget(self.repair_bar)
         rl.addWidget(self.lookalike_bar)
         rl.addWidget(self.secure_bar)
+        rl.addWidget(self.workers_bar)
         self.content = QSplitter(Qt.Orientation.Horizontal, self)
         self.content.addWidget(self.stack)
         self.content.addWidget(self._build_split_holder())
@@ -2204,6 +2207,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         self._update_bookbar()
         self.lookalike_bar.show_for(v)
         self.secure_bar.show_for(v)
+        self.workers_bar.show_for(v)
         self.site_tint.update(v)
         if self.findbar.isVisible():
             self.findbar.close_bar()
@@ -2283,6 +2287,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
                 self.site_tint.page_loaded(v)
         self.lookalike_bar.show_for(v)
         self.secure_bar.show_for(v)
+        self.workers_bar.show_for(v)
         self.site_tint.update(v)
 
     def _url_changed(self, view):
@@ -2297,6 +2302,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         if view is self.current_view():
             self.lookalike_bar.show_for(view)
             self.secure_bar.show_for(view)
+            self.workers_bar.show_for(view)
             self.site_tint.update(view)
             self._update_bookbar()
             self.urlbar.setModified(False)
@@ -2629,6 +2635,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     def _shield_now(self):
         self._shield_due = False
         self.update_shield()
+        self.workers_bar.show_for(self.current_view())        # workers refused at Maximum (1.1.31)
 
     def update_shield(self):
         host = self.current_host()

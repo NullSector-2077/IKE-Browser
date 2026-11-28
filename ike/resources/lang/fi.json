@@ -1609,6 +1609,11 @@
 "This session, by kind": "Tämä istunto, lajeittain",
 "This session, the sites that tried most": "Tämä istunto, eniten yrittäneet sivustot",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Mikään tästä ei lähde tietokoneeltasi. Tämän istunnon luvut alkavat alusta, kun I.K.E. käynnistyy.",
-"Nothing blocked yet in this session.": "Tässä istunnossa ei ole vielä estetty mitään."
+"Nothing blocked yet in this session.": "Tässä istunnossa ei ole vielä estetty mitään.",
+"The site's own background workers": "Sivuston omat taustaprosessit",
+"Background workers blocked": "Estetyt taustaprosessit",
+"Site's own workers allowed": "Sivuston omat prosessit sallittu",
+"This level blocks the site's own background workers: the site may not work.": "Tämä taso estää sivuston omat taustaprosessit: sivusto ei ehkä toimi.",
+"Allow them on this site": "Salli ne tällä sivustolla"
 }
 }

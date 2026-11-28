@@ -359,6 +359,13 @@ class ShieldPanel(QWidget):
         self.repair_btn.setToolTip(T("Find the protection that breaks this page and turn off "
                                      "only that one, for this site only"))
         self.repair_btn.clicked.connect(self._repair)
+        # 1.1.31: the site's own workers refused at this level (Maximum): the
+        # user sees it and can allow them for this site alone
+        self.workers_note = QLabel(T("This level blocks the site's own background workers: "
+                                     "the site may not work."), self)
+        self.workers_note.setWordWrap(True)
+        self.workers_allow = QPushButton(T("Allow them on this site"), self)
+        self.workers_allow.clicked.connect(self._allow_workers)
         self.repaired = QLabel(self)
         self.repaired.setWordWrap(True)
         self.repaired_undo = QPushButton(T("Undo the repair"), self)
@@ -396,6 +403,8 @@ class ShieldPanel(QWidget):
         lay.addWidget(QLabel(T("Protection on this site"), self))
         lay.addWidget(self.site_level)
         lay.addWidget(self.hint)
+        lay.addWidget(self.workers_note)
+        lay.addWidget(self.workers_allow)
         lay.addWidget(self.repair_btn)
         lay.addWidget(self.repaired)
         lay.addWidget(self.repaired_undo)
@@ -478,6 +487,12 @@ class ShieldPanel(QWidget):
                 (T("Cross-site cookies refused"), st["cookies"]),
                 (T("Upgrades to HTTPS"), st["https"]),
                 (T("Tracking parameters removed"), st["params"]))
+        # the site's own workers (1.1.31): refused (Maximum), or let run with
+        # the computer's own values (Kontrol); shown only where there are any
+        if st.get("workers"):
+            rows += ((T("Background workers blocked"), st["workers"]),)
+        if st.get("workers_open"):
+            rows += ((T("Site's own workers allowed"), st["workers_open"]),)
         self.kinds.show_stats(rows if web else [])
         self.detail.setText("<table>%s</table>" % "".join(
             "<tr><td>%s&nbsp;&nbsp;&nbsp;</td><td align='right'><b>%d</b></td></tr>" % r
@@ -490,6 +505,9 @@ class ShieldPanel(QWidget):
         for w in (self.ads, self.cookies):
             w.setEnabled(web and on)
         from . import repair
+        blocked = web and on and bool(st.get("workers")) and "workers" in repair.active(cfg, host)
+        self.workers_note.setVisible(blocked)
+        self.workers_allow.setVisible(blocked)
         self.repair_btn.setVisible(web and on and bool(cfg["repair_button"]))
         fixed = repair.repaired(cfg, host) if web else []
         self.repaired.setText(T("Repaired: turned off here: %s.") % ", ".join(
@@ -506,6 +524,17 @@ class ShieldPanel(QWidget):
     def _repair(self):
         self.win.shield_menu.hide()
         self.win.repair_site()
+
+    def _allow_workers(self):
+        """The site's own workers, refused at this level, run on this site
+        (1.1.31); kept with the repairs, so "Undo the repair" takes it back."""
+        host = self.win.current_host()
+        if not host:
+            return
+        from .workersbar import allow
+        allow(self.win.app, host)
+        self.win.workers_bar.hide()
+        self._apply()
 
     def _undo_repair(self):
         from . import repair
