@@ -1,4 +1,4 @@
-"""The sites' own workers at Kontrol and Maximum (1.1.31, the owner's decision
+"""The sites' own workers at Kontrol and Maximum (1.1.32, the owner's decision
 after the web compatibility campaign of 2026-11-28,
 docs/review/web-compat-2026-11.md).
 

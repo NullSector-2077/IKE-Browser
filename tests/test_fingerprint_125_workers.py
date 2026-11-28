@@ -9,7 +9,7 @@ it is started from a blob address holding the protection and then runs the
 site's script, with its real address (location, relative addresses, errors).
 Where that cannot be done (a content security policy that refuses blob
 workers) the worker is refused at Maximum, as when its script cannot be
-fetched: it never runs without the protection; at Kontrol (1.1.31) the
+fetched: it never runs without the protection; at Kontrol (1.1.32) the
 site's own file runs instead (tests/test_site_workers.py). Balanced is
 unchanged.
 
@@ -157,7 +157,7 @@ def test_workers_from_files_are_protected(run_ike, site, level):
         assert r["workers"]["sharedFile"] == "ERR error event", r["workers"]["sharedFile"]
         assert r["sw"]["reg"].startswith("ERR TypeError"), r["sw"]
     else:
-        # Kontrol (1.1.31): the site's own shared and service workers run, with the
+        # Kontrol (1.1.32): the site's own shared and service workers run, with the
         # engine's values (docs/SECURITY.md); every other worker above keeps the page's
         assert isinstance(r["workers"]["sharedFile"], dict), r["workers"]["sharedFile"]
         assert not str(r["sw"]["reg"]).startswith("ERR"), r["sw"]
@@ -192,7 +192,7 @@ def test_file_workers_keep_their_own_address(run_ike, site):
 def test_a_policy_against_blob_workers(run_ike, site, level):
     """worker-src 'self' refuses the blob address: at Maximum the worker is
     refused (never started from the file without the protection); Kontrol
-    (1.1.31) starts the site's own file in its place, Balanced as before."""
+    (1.1.32) starts the site's own file in its place, Balanced as before."""
     got = run(run_ike, site, [("c", "http://localhost:%d/csp.html")], level, gl=False)["c"]
     if level == "maximum":
         assert got["got"] == "Event", got
@@ -263,7 +263,7 @@ def test_file_workers_start_like_the_engine(run_ike, site):
     stack frame; a script that throws, a missing one, a classic worker given
     a module, a URL object, an error raised later: the same events as the
     engine's, with the site's address, never the protection's blob address.
-    A policy against blob workers: the site's own file runs (1.1.31; it was
+    A policy against blob workers: the site's own file runs (1.1.32; it was
     refused), with no report naming the protection. A text file is refused
     (the engine runs it)."""
     pages = [("p4", "http://localhost:%d/p4.html"), ("p5", "http://localhost:%d/p5.html")]
@@ -287,7 +287,7 @@ def test_file_workers_start_like_the_engine(run_ike, site):
     x, y = a["module"]["data"], b["module"]["data"]
     for f in ("tag", "meta", "href", "stack", "name", "got"):
         assert x[f] == y[f], (f, x[f], y[f])
-    # a policy against blob workers: at Kontrol (1.1.31) the site's own file, as with
+    # a policy against blob workers: at Kontrol (1.1.32) the site's own file, as with
     # the shield off, and no report naming the protection
     assert a["csp"]["violations"] == [] and a["csp"]["worker"]["href"].endswith("/rel-worker.js"), a["csp"]
     assert b["csp"]["worker"]["href"].endswith("/rel-worker.js"), b["csp"]

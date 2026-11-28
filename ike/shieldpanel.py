@@ -359,7 +359,7 @@ class ShieldPanel(QWidget):
         self.repair_btn.setToolTip(T("Find the protection that breaks this page and turn off "
                                      "only that one, for this site only"))
         self.repair_btn.clicked.connect(self._repair)
-        # 1.1.31: the site's own workers refused at this level (Maximum): the
+        # 1.1.32: the site's own workers refused at this level (Maximum): the
         # user sees it and can allow them for this site alone
         self.workers_note = QLabel(T("This level blocks the site's own background workers: "
                                      "the site may not work."), self)
@@ -487,7 +487,7 @@ class ShieldPanel(QWidget):
                 (T("Cross-site cookies refused"), st["cookies"]),
                 (T("Upgrades to HTTPS"), st["https"]),
                 (T("Tracking parameters removed"), st["params"]))
-        # the site's own workers (1.1.31): refused (Maximum), or let run with
+        # the site's own workers (1.1.32): refused (Maximum), or let run with
         # the computer's own values (Kontrol); shown only where there are any
         if st.get("workers"):
             rows += ((T("Background workers blocked"), st["workers"]),)
@@ -527,7 +527,7 @@ class ShieldPanel(QWidget):
 
     def _allow_workers(self):
         """The site's own workers, refused at this level, run on this site
-        (1.1.31); kept with the repairs, so "Undo the repair" takes it back."""
+        (1.1.32); kept with the repairs, so "Undo the repair" takes it back."""
         host = self.win.current_host()
         if not host:
             return

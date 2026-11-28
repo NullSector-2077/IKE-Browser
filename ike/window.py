@@ -2635,7 +2635,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):
     def _shield_now(self):
         self._shield_due = False
         self.update_shield()
-        self.workers_bar.show_for(self.current_view())        # workers refused at Maximum (1.1.31)
+        self.workers_bar.show_for(self.current_view())        # workers refused at Maximum (1.1.32)
 
     def update_shield(self):
         host = self.current_host()

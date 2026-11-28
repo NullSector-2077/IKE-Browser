@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.31
+## 1.1.32
 
 - **WhatsApp and Telegram work at Kontrol** (the owner: they worked only at
   Compatibility and Balanced; WhatsApp turned into a white page after a
@@ -75,6 +75,8 @@
   name in the refusal (`securitypolicyviolation`'s `sample`, and the report its
   server receives); with the seed the noise can be taken off. The name is now
   random, another in every document.
+## 1.1.31
+
 - **Pages that steal passwords are stopped** (the owner's choice after the
   comparison with the best-known browsers): the Phishing URL Blocklist
   (curben's malware-filter, from OpenPhish, IPThreat and PhishTank, updated
