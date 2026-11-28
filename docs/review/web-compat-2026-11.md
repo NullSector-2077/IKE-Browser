@@ -80,7 +80,7 @@ before the video check had finished).
 | WhatsApp Web (partial) | ok | ok | part | part | ok | ok |
 | Telegram Web K (partial) | ok | ok | FAIL | FAIL | ok | ok |
 | Telegram Web A (partial) | ok | ok | part | part | ok | ok |
-| Discord (partial) | FAIL | FAIL | FAIL | FAIL | ok | ok |
+| Discord (partial) | FAIL* | FAIL* | FAIL* | FAIL* | ok | ok |
 | Microsoft Teams (partial) | ok | ok | ok | ok | ok | ok |
 | YouTube | FAIL | FAIL | FAIL | FAIL | FAIL | FAIL |
 | Twitch | ok | ok | ok | ok | ok | ok |
@@ -111,8 +111,9 @@ before the video check had finished).
 | Gemini (partial) | ok | ok | ok | ok | ok | ok |
 
 Summary: at Compatibility and Balanced every page that works in Chromium 140
-works in I.K.E., except Discord (engine, 4.2) and Outlook's public page
-(Microsoft refuses Brave too, 4.3). At Kontrol and Maximum the
+works in I.K.E., except Outlook's public page
+(Microsoft refuses Brave too, 4.3). *Discord: the test setup, not I.K.E.
+(4.2): it works at every level in a real window. At Kontrol and Maximum the
 same, plus the three messaging pages of 4.1. Twitch, Vimeo's player, Shaka,
 HLS.js and (when Cloudflare let it through) Bitmovin play at Kontrol and
 Maximum, as the owner saw.
@@ -127,7 +128,7 @@ Maximum, as the owner saw.
 | A4 | White page after a level change | Balanced → Kontrol/Maximum | n/a | white only with dark mode off | A1/A2 after the reload the level change makes; back to Balanced recovers | High (same as A1/A2) | screenshots: 100 % white pixels; recovery at Balanced; no lasting damage after early changes | S1 |
 | A5 | Service workers of many sites (offline, push, faster start): Reddit, Twitch, Spotify, SoundCloud, RaiPlay, Amazon, AliExpress, Teams | Kontrol, Maximum | work / work | same | R1/R2 | Low (no visible break before sign-in) | blocked service worker scripts | S1 |
 | A6 | Teams (and Google apps, GitHub, Gemini) after sign-in: dedicated workers refused | Kontrol, Maximum | work / work | same | R1/R3 with `worker-src 'self'` | Unverified (needs account) | 2 blocked `Worker` requests on Teams; site policies measured | S1 |
-| A7 | Discord: sign-in page never rendered | every level | works / works | same | Qt WebEngine 6.140 (also bare Qt, without I.K.E.); exact API not found | Medium | bare Qt reproducer | S3 (report to Qt) |
+| A7 | Discord: sign-in page never rendered | every level (first runs) | works / works | same | **test setup** (offscreen, or software WebGL forced): works in I.K.E. at every level in a real X window, as in Falkon | none | 4.2 | none |
 | A8 | Outlook: "request blocked, automated process" page for visitors not signed in | every level | works / **blocked too** | same | Microsoft's page refuses browsers that are not Chrome (Brave too, bare Qt too); not headers, not kernel version, not `window.chrome` | Low (sign-in at login.live.com works) | curl with the same headers passes; Brave gets the same page | none for now; check from home |
 | A9 | WebAuthn capability questions never answered | every level | answered / — | same | Qt WebEngine | Low (latent) | bare Qt test | S3 |
 | A10 | WebRTC between two peers in one page | every level | works / — | same | "Hide the IP address in WebRTC" (public interfaces only) in a container without a public interface | Low / to verify on a PC | works with the option off | S4 |
@@ -220,14 +221,17 @@ workers (the browser allows nothing else); a page's third-party scripts
 cannot start them, except through files the site itself serves (a push SDK
 imported by the site's service worker, for example).
 
-### 4.2 Discord does not render its sign-in page — MEDIUM (engine)
+### 4.2 Discord: not a problem (corrected after the comparison with Falkon)
 
-Every level, also with the shield off and **in a bare Qt WebEngine 6.140
-window without I.K.E.**: the page loads its 450 resources and renders
-nothing (no error, no rejected promise). Chromium 140 and Brave: works. A Qt
-WebEngine problem, not I.K.E.'s; the exact missing piece was not found in
-this campaign (the WebAuthn queries of 4.4 were ruled out: Discord does not
-call them before it renders).
+In the first runs Discord's sign-in page stayed empty at every level and in a
+bare Qt WebEngine window. Falkon, on the same Qt WebEngine 6.140 in the same
+container, showed it at once; so did a bare Qt WebEngine window and I.K.E.
+itself at Balanced, Kontrol and Maximum, once they ran in a real X window
+(Xvfb) **without** the test switch `--ignore-gpu-blocklist` and waited 25 s.
+The empty page came from the test setup (the offscreen platform, or software
+WebGL forced on by that switch), not from I.K.E. or the engine. The matrix
+below keeps the first result with this note; tests/compat/README.md warns
+about it.
 
 ### 4.3 Microsoft's Outlook page calls I.K.E. (and Brave) "an automated process" — LOW
 
@@ -401,7 +405,7 @@ Cost: one dictionary lookup per worker request; nothing at page start.
 
 ### S3 — Engine problems: report them and follow the Qt releases
 
-- Discord (4.2) and the WebAuthn questions (4.4): report to Qt
+- The WebAuthn questions (4.4): report to Qt
   (bugreports.qt.io) with the bare Qt WebEngine reproducer of
   `tests/compat` (no I.K.E. involved); run the suite again on each new
   `qt6-webengine` of Arch.
@@ -440,9 +444,8 @@ measurement.
   Brave protects inside workers because it changes the Chromium engine
   itself; I.K.E. on Qt WebEngine cannot, which is the origin of the choice
   between refusing the workers and letting them run.
-- Falkon and qutebrowser were installed but not needed: for Discord and
-  Outlook a bare Qt WebEngine window (the same engine, nothing around it)
-  already gave the answer.
+- qutebrowser could not be run through the test proxy; its source was read
+  instead (section 9).
 - The engine sandbox was off (container); the sandbox does not change what a
   page can do.
 - One crash at the end of a run in Xvfb (Maximum, after the last site, while
@@ -458,3 +461,33 @@ each page did), `sites.json` (44 pages and their checks), `baseline.js`
 `webtech/` (technologies, streaming, DRM). One full matrix takes about 45
 minutes per level on 4 cores; two levels can run at once. Not part of
 AUTOMAT, of `python3 -m pytest` or of GitHub Actions, as asked.
+
+## 9. Other Qt WebEngine browsers (Falkon 26.08, qutebrowser 3.7)
+
+Asked by the owner: do the other browsers on the same engine have these
+problems, and how do they solve them?
+
+- **Workers**: neither Falkon nor qutebrowser refuses a site's workers, and
+  neither has fingerprinting protection in workers (or in pages): WhatsApp
+  and Telegram work there for that reason. The breakage at Kontrol and
+  Maximum was I.K.E.'s own rule (4.1), not the engine; I.K.E. now lets the
+  site's own workers run at Kontrol and keeps every worker a page's script
+  can make protected, which neither of them does.
+- **Site quirks** (qutebrowser, `content.site_specific_quirks`, on by
+  default): small scripts per site: WhatsApp (unregister the service worker
+  and reload when WhatsApp shows its "update your browser" page, from the
+  time WhatsApp refused Qt's user agent), Discord (`outerWidth` = `innerWidth`,
+  against Discord's logging out with vertical tabs), Google Docs (a Firefox
+  user agent, for dead keys, a Qt bug), `String.replaceAll` and `Array.at`
+  for old engines, user agents for Google and GNOME's GitLab. I.K.E. needs
+  none of them today: its user agent has no "QtWebEngine" (WhatsApp and
+  Google accept it; Google's sign-in gets a Firefox identity since 1.1.27),
+  and the engine is recent. The Discord one did not change the test result
+  (4.2). Site lists are against the campaign's rules anyway; noted only for
+  comparison.
+- **Outlook's public page**: Falkon gets the same "automated process" page
+  as I.K.E. and Brave (4.3): Microsoft's choice.
+- **Discord**: Falkon shows it; so does I.K.E. in a real window (4.2).
+- **WebAuthn questions that never settle** (4.4): an engine gap, the same in
+  every Qt browser.
+

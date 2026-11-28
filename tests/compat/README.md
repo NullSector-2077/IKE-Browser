@@ -36,7 +36,10 @@ node tests/compat/baseline.js /path/to/chrome tests/compat/sites.json ~/compat/o
 
 `--ignore-gpu-blocklist` is only for machines without a graphics card (a
 container): the engine refuses WebGL on a software renderer otherwise. On a
-real PC leave it out, so the engine chooses its own GPU path.
+real PC leave it out, so the engine chooses its own GPU path. It has a cost:
+with it (or with the offscreen platform) Discord's sign-in page stays empty,
+in Qt WebEngine as such; without it, in an X window, Discord works (the
+campaign of 2026-11-28, section 4.2). Check a failing site both ways.
 
 Results: `OUT/results.json` (one record per site), `OUT/<site>.png`,
 `OUT/stderr.txt` (the engine's own messages).
