@@ -242,6 +242,13 @@ this release.
   inventory, the ledger). Google's AMP pages on a
   publisher's own site are left as they are: telling them apart needs a
   script in every page and a second load, for pages a computer rarely gets.
+- **Menus as wide as their entries, every time**: now and then, after a
+  window had been closed, a menu opened a little narrower than its entries
+  (20 to 40 px of the end cut). PyQt can hand I.K.E.'s style a menu entry's
+  description wrapped as something else, so the entry was measured by the
+  desktop's rules when the menu opened and by I.K.E.'s afterwards. The style
+  now reads it as a menu entry every time (`ike/uistyle.py`; found by
+  tests/test_text_fit.py, which also measures a menu only once it is open).
 
 ## 1.1.28
 
