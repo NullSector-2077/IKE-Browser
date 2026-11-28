@@ -158,6 +158,8 @@ def main():
                     help="any other address to check (repeatable); kept on this computer only")
     ap.add_argument("--click", default="",
                     help="click first a button or link with this text (an age or cookie question), e.g. \"I'm Over 18\"")
+    ap.add_argument("--flash", action="store_true",
+                    help="measure white flashes while each page arrives (a picture every 50 ms for 4 s)")
     ap.add_argument("--modes", default="",
                     help="the renders to compare (default off,proto); with DE_JS_<mode>=file a mode runs another "
                          "copy of the engine, e.g. --modes off,proto128,proto with DE_JS_proto128=an older darkengine.js")
@@ -184,7 +186,7 @@ def main():
             (Path(tmp) / n / "manifest.json").write_text(json.dumps(
                 {"url": u, "entry": "index", "site": urllib.parse.urlsplit(u).hostname,
                  "expected_content": EXPECTED_CONTENT.get(n)}))
-        env = dict(os.environ, QT_QPA_PLATFORM=os.environ.get("QT_QPA_PLATFORM", "offscreen"), DE_DIAG="1", DE_CLICK=a.click, DE_SCROLL="1")
+        env = dict(os.environ, QT_QPA_PLATFORM=os.environ.get("QT_QPA_PLATFORM", "offscreen"), DE_DIAG="1", DE_CLICK=a.click, DE_SCROLL="1", DE_FLASH="1" if a.flash else "")
         # Dark Reader left I.K.E. in 1.1.30: it is compared only when a checkout of 1.1.28
         # is given (DE_DR_ROOT, tests/dark_engine/drcompare.py)
         global MODES
@@ -272,6 +274,17 @@ def main():
     (out / "diagnose.txt").write_text("\n".join(diag) + "\n")
     print((out / "metrics.txt").read_text())
     print("\n".join(lines))
+    if a.flash:
+        print("\nWhite while the page arrives (share of the window light, the worst picture, and when):")
+        for n in names:
+            for m in MODES:
+                try:
+                    f = json.loads((shots / ("%s__%s.json" % (n, m))).read_text()).get("flash")
+                except (OSError, ValueError):
+                    f = None
+                if f:
+                    print("  %s / %s: worst %d%% light at %s ms; %d of %d pictures more than a quarter light"
+                          % (n, m, round(f["max"] * 100), f["at"], f["light_frames"], f["frames"]))
     print("\nEverything is in", out)
     return render.returncode
 

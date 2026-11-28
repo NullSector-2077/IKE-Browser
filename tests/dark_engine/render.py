@@ -421,6 +421,12 @@ def main():
         view = QWebEngineView()
         page = Page(prof, view)
         view.setPage(page)
+        if mode.startswith("proto"):
+            # as I.K.E. does (webview.py set_backdrop): before the page paints, the
+            # window shows the engine's dark background, not Qt's white
+            from PyQt6.QtGui import QColor
+            from ike import darkengine as _de
+            page.setBackgroundColor(QColor(_de.background(None)))
         channel = QWebChannel(page)
         bridge = Bridge(guard, log)
         channel.registerObject("ike", bridge)
@@ -574,6 +580,9 @@ def main():
                         return
                     d["engine"] = v
                     d["http_status"] = job["status"]
+                    if job.get("flash"):
+                        d["flash"] = job["flash"]
+                        print("flash", mode, name, json.dumps(job["flash"]), flush=True)
                     (out / ("%s__%s.json" % (name, mode))).write_text(json.dumps(d))
                     print("shot", mode, name, "engine:", v, flush=True)
                     if mode.startswith("proto") and os.environ.get("DE_DIAG"):
@@ -593,6 +602,33 @@ def main():
             page.runJavaScript(probe, 0, probed)
 
         page.loadingChanged.connect(loaded)
+        # DE_FLASH=1: while the page arrives, a picture every 50 ms for 4 s: how much
+        # of the window is light (a white flash before the page is darkened) and when
+        if os.environ.get("DE_FLASH") and kind == "shot":
+            t_load = time.monotonic()
+            flash = job.setdefault("flash", {"max": 0.0, "at": None, "frames": 0, "light_frames": 0})
+
+            def sample():
+                if job["finished"] or time.monotonic() - t_load > 4.0:
+                    return
+                img = view.grab().toImage()
+                w, h = img.width(), img.height()
+                if w > 8 and h > 8:
+                    light = total = 0
+                    for yy in range(6, h, max(1, h // 30)):
+                        for xx in range(6, w, max(1, w // 40)):
+                            c = img.pixelColor(xx, yy)
+                            total += 1
+                            if 0.2126 * c.red() + 0.7152 * c.green() + 0.0722 * c.blue() > 180:
+                                light += 1
+                    share = light / max(1, total)
+                    flash["frames"] += 1
+                    if share > 0.25:
+                        flash["light_frames"] += 1
+                    if share > flash["max"]:
+                        flash["max"], flash["at"] = round(share, 3), int((time.monotonic() - t_load) * 1000)
+                QTimer.singleShot(50, sample)
+            QTimer.singleShot(0, sample)
         page.load(QUrl(url))
         def slow():
             # a page that never stops loading (live video, endless requests): its
