@@ -23,8 +23,9 @@
 # and the daily check starts it on main when any of those packages changed in
 # Arch; it installs the optional dependencies too, whose targeted tests
 # (tests/test_optional_deps.py) run where they are present and say "not
-# verified" where they are not. Once a week arch-testing.yml calls it with
-# Arch's [core-testing] and [extra-testing] (input testing).
+# verified" where they are not. arch-testing.yml calls it with Arch's
+# [core-testing] and [extra-testing] (input testing) once a week, and when the
+# daily check finds news in [testing] (daily-check.yml, job start-arch-testing).
 # Since 2026-11-24 (the owner's priority, AUTOMAT block 1, step 1) the work is
 # split across parallel jobs in the same container: the suite on the sources in
 # SHARDS parts ("Arch Linux shard k/N"), the suite against the package built and
@@ -53,7 +54,7 @@ on:
   schedule:
     - cron: "41 3 * * 1"     # Mondays, 03:41 UTC
   workflow_dispatch:
-  # WP10 (b): arch-testing.yml, once a week, with Arch's testing repositories
+  # WP10 (b): arch-testing.yml (weekly, and on news in [testing]), with Arch's testing repositories
   workflow_call:
     inputs:
       testing:

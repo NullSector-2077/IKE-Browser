@@ -1,7 +1,9 @@
 # I.K.E. on the packages Arch Linux is about to ship (WP10 (b), 2026-11-22):
-# once a week arch.yml runs with Arch's [core-testing] and [extra-testing]
-# repositories on, so a change that would break I.K.E. is found before it
-# reaches users with `pacman -Syu`.
+# once a week (Wednesdays), and whenever the daily check finds a package of the
+# tested closure new in Arch's [testing] (daily-check.yml, job
+# start-arch-testing), arch.yml runs with Arch's [core-testing] and
+# [extra-testing] repositories on, so a change that would break I.K.E. is found
+# before it reaches users with `pacman -Syu`.
 #
 # A failure on main goes to the automatic fix (tools/autofix-plan.py,
 # "Arch Linux (testing)"): pacman, the mirrors and the container are not the

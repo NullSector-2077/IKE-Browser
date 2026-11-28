@@ -16,7 +16,10 @@
 # that names the sandbox and isolation switches or ENGINE_SAFETY
 # (ike/app.py, in any file), the security tests, ike-adblock/deny.toml and any
 # line naming a RustSec advisory, and stops every other assistant (exit 3).
-# Nothing merges by itself: the pull request waits for the owner's order.
+# A security branch merges by itself only through the verified merge
+# (tools/automerge.py, read from main) when it is fully verified, like every
+# isolated branch of the automation; with no safe fix it stays blocked and the
+# owner is told.
 #
 # - sandbox: the security tests with the engine's sandbox really on, as a
 #   normal user (every other test runs with it off, because GitHub's runners

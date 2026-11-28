@@ -1,6 +1,8 @@
 # The weekly cleanup of the branches (2026-11-24; tools/branch-sweep.py, no AI): a branch is deleted
-# when its tip is fully contained in main (none of its commits is missing from main), no pull request
-# of it is open, its tip is older than seven days and it is not protected. Protected, in one place
+# when a pull request of it was merged into main at exactly its tip (head.ref, head.sha and base all
+# match), its tip is fully contained in main (none of its commits is missing from main), no pull
+# request of it is open and none has it as its base, its tip is older than seven days and it is not
+# protected. Protected, in one place
 # (tools/branch-sweep.py PROTECTED): main, automat/memory, automation/autofix-main,
 # automation/daily-maintenance, automation/audit, the multiplatform archive (windows/port,
 # windows/engine, linux/packages, linux/flatpak, linux/distro-checks, docs/multiplatform-plan),
