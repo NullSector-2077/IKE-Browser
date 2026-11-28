@@ -1054,7 +1054,10 @@ def test_hard_tasks_go_to_the_strongest_free_model_and_simple_ones_to_the_fast_o
     names = list(route.NAMES)
     strong, fast = limits["routing"]["strong"], limits["routing"]["fast"]
     assert route.order("rust", names, limits=limits) == strong and route.order("multi-file", names, limits=limits) == strong
-    assert route.order("python", names, limits=limits) == fast and strong[0] != fast[0]
+    # the agent that reads the files itself (Antigravity) starts every kind of task (2026-11-28: when the simple
+    # ones started with Groq, the rotation skipped it and Gemini was never asked); the rest differ
+    assert route.order("python", names, limits=limits) == fast and strong[0] == fast[0] == "Antigravity"
+    assert strong[1:] != fast[1:]
     assert route.hard("rust") and route.hard("builder") and not route.hard("python") and not route.hard("manifest")
     # only the providers that are there, and a later attempt starts one further down
     assert route.order("rust", ["Groq", "OpenRouter"], limits=limits) == ["OpenRouter", "Groq"]

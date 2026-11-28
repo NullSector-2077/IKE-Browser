@@ -45,10 +45,10 @@
    "Groq"
   ],
   "fast": [
+   "Antigravity",
    "Groq",
    "Z.AI",
-   "OpenRouter",
-   "Antigravity"
+   "OpenRouter"
   ],
   "min_samples": 3,
   "temperature": 0.1,
@@ -56,7 +56,7 @@
    "simple": 2000,
    "hard": 6000
   },
-  "source": "a starting order only (strong: the agent that reads files and the largest context first; fast: the quickest answers first), unverified; tools/automat-route.py replaces it with the success rate AUTOMAT's memory records per provider and kind of task once a pair has min_samples attempts"
+  "source": "a starting order only (strong: the agent that reads files and the largest context first; fast: the agent first too since 2026-11-28, then the quickest answers: from 2026-11-26 to 2026-11-28 the simple tasks started with Groq, the rotation then skipped Antigravity and Gemini was never asked, while the reserves, which see only a snapshot of the files, fixed nothing), unverified; tools/automat-route.py replaces it with the success rate AUTOMAT's memory records per provider and kind of task once a pair has min_samples attempts"
  },
  "providers": {
   "Antigravity": {
