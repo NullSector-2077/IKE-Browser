@@ -1564,8 +1564,11 @@ def test_a_symbol_the_upstream_change_renamed_is_replaced_without_any_ai(tmp_pat
     out, repo = recipe_run(tmp_path, WRAPPER, PY_FAILURE, ["--allow-adblock"], "vendor/adblock/__init__.py\nike/blocker.py\n",
                            up=RENAMED)
     assert out["result"] == "ok" and out["recipe"] == "renamed-symbol" and out["author"] == "Recipe / renamed-symbol"
-    assert "engine.check_network_request(url, source)" in (repo / "vendor/adblock/__init__.py").read_text()
-    assert "check_network_request(u, s)" in (repo / "ike/blocker.py").read_text()
+    # in Python both releases are read, the old name first (2026-11-28: a plain rename broke today's release)
+    assert ('(engine.check_network_urls if hasattr(engine, "check_network_urls") else engine.check_network_request)'
+            '(url, source)') in (repo / "vendor/adblock/__init__.py").read_text()
+    assert '(e.check_network_urls if hasattr(e, "check_network_urls") else e.check_network_request)(u, s)' \
+        in (repo / "ike/blocker.py").read_text()
     assert "nessuna AI" in (repo / ".autofix/summary.md").read_text()
     assert (repo / "tests/test_adblock.py").read_text() == WRAPPER["tests/test_adblock.py"]      # never a test
     # not sure, no recipe: no rename in the upstream change, two new names, or a name the failure does not miss

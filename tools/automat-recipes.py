@@ -15,7 +15,8 @@ records that this recipe failed for this error, so it is not tried again for it)
    attribute 'x'", "cannot find function `x`", "cannot import name 'x'"), and the upstream change of
    the component (tools/upstream-diff.py, upstream.json) says for sure that ``x`` was renamed to
    ``y``. Then ``x`` is replaced by ``y``, as a whole word, in the files of I.K.E. the failure
-   involves.
+   involves; in Python, ``a.x`` becomes ``(a.x if hasattr(a, "x") else a.y)``, so the code works with
+   both releases (the old name first: today's Qt on Arch, and the tests that stub it).
 
 (Until 1.1.30 a third recipe re-anchored a builder's patch of Dark Reader's engine; the engine left
 I.K.E. and with it the only builder with such patches.)
@@ -109,6 +110,50 @@ def rename_for(failure, upstream):
     return sure[0] if len(sure) == 1 else None
 
 
+def compatible_python(text, old, new):
+    """The Python source with every use of the attribute ``old`` read from both releases (2026-11-28, the drill:
+    a plain rename passed Qt 7's tests and broke today's Qt, Arch Linux and a test that stubs the old name, and
+    the AIs then undid it): ``x.old`` becomes ``(x.old if hasattr(x, "old") else x.new)``, the old name first.
+    A bare name or an imported one is renamed. None when the text cannot be parsed or does not use it."""
+    import ast
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return None
+    data = text.encode("utf-8")
+    starts = [0]
+    for line in data.split(b"\n")[:-1]:
+        starts.append(starts[-1] + len(line) + 1)
+
+    def at(line, col):
+        return starts[line - 1] + col
+    spans = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr == old and node.end_lineno is not None:
+            v0, v1 = at(node.value.lineno, node.value.col_offset), at(node.value.end_lineno, node.value.end_col_offset)
+            value = data[v0:v1].decode("utf-8")
+            if "\n" in value:
+                continue
+            spans.append((at(node.lineno, node.col_offset), at(node.end_lineno, node.end_col_offset),
+                          '(%s.%s if hasattr(%s, "%s") else %s.%s)' % (value, old, value, old, value, new)))
+        elif isinstance(node, ast.Name) and node.id == old:
+            spans.append((at(node.lineno, node.col_offset), at(node.end_lineno, node.end_col_offset), new))
+        elif isinstance(node, ast.alias) and node.name == old and getattr(node, "lineno", None):
+            s0 = at(node.lineno, node.col_offset)            # "old" or "old as x": the name only
+            spans.append((s0, s0 + len(old.encode("utf-8")), new))
+    if not spans:
+        return None
+    spans.sort()
+    kept, end = [], -1
+    for s in spans:                          # the outermost of overlapping uses only
+        if s[0] >= end:
+            kept.append(s)
+            end = s[1]
+    for s0, s1, repl in reversed(kept):
+        data = data[:s0] + repl.encode("utf-8") + data[s1:]
+    return data.decode("utf-8")
+
+
 def renamed(failure, upstream, workdir, files):
     """(changed files, summary) after replacing the renamed name, as a whole word, in the given files of
     I.K.E.; None when no rename is sure or nothing uses the old name."""
@@ -125,7 +170,8 @@ def renamed(failure, upstream, workdir, files):
         text = path.read_text("utf-8", "replace")
         hits = sum(1 for ln in text.split("\n") if word.search(ln))
         if hits:
-            changed[name] = word.sub(new, text)
+            both = compatible_python(text, old, new) if name.endswith(".py") else None
+            changed[name] = both if both is not None else word.sub(new, text)
             lines += hits
     if not changed or lines > MAX_RENAME_LINES:
         return None
