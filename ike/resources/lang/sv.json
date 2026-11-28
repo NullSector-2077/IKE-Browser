@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Fara: I.K.E. har hittat en verklig risk för din säkerhet på den här webbplatsen. Läs varningen ovanför sidan.",
 "A protection may interfere with some features of this site.": "Ett skydd kan störa vissa funktioner på den här webbplatsen.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Ett skydd kan hindra den här webbplatsen från att fungera ordentligt. Använd “Reparera den här webbplatsen”.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. hittade inget konstigt medan den här sidan laddades. Det bevisar inte att webbplatsen är säker."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. hittade inget konstigt medan den här sidan laddades. Det bevisar inte att webbplatsen är säker.",
+"This site uses background programs: it works better, but protects you a little less.": "Den här webbplatsen använder bakgrundsprogram: den fungerar bättre, men skyddar dig lite mindre.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Den här webbplatsens bakgrundsprogram är blockerade: mer skydd, men webbplatsen kanske inte fungerar.",
+"Block them on this site": "Blockera dem på den här webbplatsen",
+"Allow them again": "Tillåt dem igen"
 }
 }

@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Nguy hiểm: I.K.E. đã phát hiện một rủi ro thực sự cho sự an toàn của bạn trên trang này. Hãy đọc cảnh báo phía trên trang.",
 "A protection may interfere with some features of this site.": "Một biện pháp bảo vệ có thể cản trở một số tính năng của trang này.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Một biện pháp bảo vệ có thể khiến trang này không hoạt động đúng cách. Hãy dùng “Sửa trang này”.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. không phát hiện điều gì bất thường khi tải trang này. Điều này không chứng minh rằng trang an toàn."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. không phát hiện điều gì bất thường khi tải trang này. Điều này không chứng minh rằng trang an toàn.",
+"This site uses background programs: it works better, but protects you a little less.": "Trang này dùng các chương trình chạy nền: trang hoạt động tốt hơn, nhưng bảo vệ bạn ít hơn một chút.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Các chương trình chạy nền của trang này bị chặn: bảo vệ tốt hơn, nhưng trang có thể không hoạt động.",
+"Block them on this site": "Chặn trên trang này",
+"Allow them again": "Cho phép lại"
 }
 }

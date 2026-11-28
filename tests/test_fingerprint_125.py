@@ -269,10 +269,12 @@ def steps(ike, qapp, out):
 '''
 
 
-def test_maximum_unregisters_an_older_service_worker(run_ike, site):
+def test_a_block_unregisters_an_older_service_worker(run_ike, site):
     """A service worker registered at Balanced would still start with the
-    engine's own values at Maximum: it is unregistered there. Kontrol keeps
-    it (1.1.32: WhatsApp starts from its service worker)."""
+    engine's own values where the site's own workers stay out (the user's
+    block in the shield, a page of a safety warning): it is unregistered
+    there. Kontrol and Maximum keep it (1.1.32: WhatsApp starts from its
+    service worker; Maximum by the owner's decision of 2026-11-28)."""
     port, seen = site
     out = run_ike(STEPS % port, settings={"shield_level": "balanced"}, timeout=180)
     assert json.loads(out["r1"])["regs"] == 1
@@ -281,7 +283,11 @@ def test_maximum_unregisters_an_older_service_worker(run_ike, site):
     out = run_ike(STEPS_OLD_WORKER % port, settings={"shield_level": "strict"}, keep_profile=True, timeout=120)
     assert out["regs"] == 1, out                          # kept at Kontrol
     out = run_ike(STEPS_OLD_WORKER % port, settings={"shield_level": "maximum"}, keep_profile=True, timeout=120)
-    assert out["regs"] == 0, out
+    assert out["regs"] == 1, out                          # kept at Maximum
+    out = run_ike(STEPS_OLD_WORKER % port, settings={"shield_level": "maximum",
+                                                     "site_opts": {"127.0.0.1": {"workers": True}}},
+                  keep_profile=True, timeout=120)
+    assert out["regs"] == 0, out                          # the user's block
 
 
 # ---- WebGL ---------------------------------------------------------------------------------------

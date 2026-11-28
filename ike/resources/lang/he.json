@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "סכנה: I.K.E. מצא סיכון ממשי לבטיחותך באתר הזה. יש לקרוא את האזהרה שמעל הדף.",
 "A protection may interfere with some features of this site.": "הגנה עלולה להפריע לחלק מהתכונות של האתר הזה.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "הגנה עלולה למנוע מהאתר הזה לעבוד כראוי. יש להשתמש באפשרות “תיקון האתר הזה”.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. לא מצא שום דבר חשוד בזמן טעינת הדף הזה. אין בכך הוכחה שהאתר בטוח."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. לא מצא שום דבר חשוד בזמן טעינת הדף הזה. אין בכך הוכחה שהאתר בטוח.",
+"This site uses background programs: it works better, but protects you a little less.": "האתר הזה משתמש בתוכניות רקע: הוא עובד טוב יותר, אבל ההגנה עליך מעט פחותה.",
+"This site's background programs are blocked: more protection, but the site may not work.": "תוכניות הרקע של האתר הזה חסומות: יותר הגנה, אבל ייתכן שהאתר לא יעבוד.",
+"Block them on this site": "לחסום אותן באתר זה",
+"Allow them again": "לאפשר אותן שוב"
 }
 }

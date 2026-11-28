@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Վտանգ՝ I.K.E.-ն այս կայքում իրական ռիսկ է հայտնաբերել ձեր անվտանգության համար։ Կարդացեք էջի վերևում գտնվող զգուշացումը։",
 "A protection may interfere with some features of this site.": "Պաշտպանությունը կարող է խանգարել այս կայքի որոշ գործառույթների։",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Պաշտպանությունը կարող է խանգարել այս կայքի ճիշտ աշխատանքին։ Օգտագործեք «Վերանորոգել այս կայքը» գործառույթը։",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E.-ն այս էջի բեռնման ընթացքում խնդիր չի հայտնաբերել։ Դա չի ապացուցում, որ կայքն անվտանգ է։"
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E.-ն այս էջի բեռնման ընթացքում խնդիր չի հայտնաբերել։ Դա չի ապացուցում, որ կայքն անվտանգ է։",
+"This site uses background programs: it works better, but protects you a little less.": "Այս կայքն օգտագործում է ֆոնային ծրագրեր. այն ավելի լավ է աշխատում, բայց ձեզ մի փոքր ավելի քիչ է պաշտպանում։",
+"This site's background programs are blocked: more protection, but the site may not work.": "Այս կայքի ֆոնային ծրագրերն արգելափակված են. ավելի շատ պաշտպանություն, բայց կայքը կարող է չաշխատել։",
+"Block them on this site": "Արգելափակել դրանք այս կայքում",
+"Allow them again": "Կրկին թույլատրել դրանք"
 }
 }

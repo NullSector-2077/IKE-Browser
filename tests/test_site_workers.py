@@ -13,12 +13,15 @@ so the fallback never ran.
   inside the same object, the messages posted before the switch delivered,
   no error and no report of the refused copy for the page); a worker made
   from the page's own text keeps the protection; they are counted.
-- Maximum: refused as before, counted; the shield's octagon turns orange
-  (the diagnosis, incompat.py: the app waits on refused workers and stays
-  empty), "Repair this site" turns off the probable cause first (the
-  workers, for that site only: the other sites' stay refused), the octagon
-  goes back to normal once the user says the page works, and "Undo the
-  repair" takes it back.
+- Maximum: the same (the owner's decision of 2026-11-28: "i siti devono
+  funzionare, almeno quelli fidati"), with a quiet line in the shield and
+  "Block them on this site"; refused on a page of a safety warning (a page
+  of the lists opened anyway) and where the user blocked them: there the
+  shield's octagon turns orange when the app waits on them and stays empty,
+  "Repair this site" turns off the probable cause first (the user's block,
+  for that site only: the other sites keep theirs), the octagon goes back to
+  normal once the user says the page works, and "Undo the repair" brings the
+  block back; never on a page of a safety warning.
 - "Repair this site" finds the workers, not the whole fingerprinting
   protection, when only the workers break the page.
 
@@ -230,11 +233,21 @@ def steps(ike, qapp, out):
 '''
 
 
-def run(run_ike, port, level, hosts=("127.0.0.1",), opts=None):
+# a page of the protection lists the user opened anyway (securebar.py "Continue anyway")
+DANGER = '''
+    ike.shields.pages_allowed.add("127.0.0.1")
+    ike.shields.apply_settings()
+'''
+
+
+def run(run_ike, port, level, hosts=("127.0.0.1",), opts=None, before=""):
     settings = {"shield_level": level, "https_only": False}
     if opts:
         settings["site_opts"] = opts
-    return run_ike(STEPS % (json.dumps(list(hosts)), port), settings=settings, timeout=150)
+    script = STEPS % (json.dumps(list(hosts)), port)
+    if before:
+        script = script.replace("def steps(ike, qapp, out):\n", "def steps(ike, qapp, out):\n" + before.lstrip("\n"), 1)
+    return run_ike(script, settings=settings, timeout=150)
 
 
 def test_kontrol_runs_the_sites_own_workers(run_ike, site):
@@ -254,20 +267,36 @@ def test_kontrol_runs_the_sites_own_workers(run_ike, site):
     assert out["127.0.0.1_state"] is None                 # nothing broken: the octagon as it is
 
 
-def test_maximum_refuses_them_and_says_so(run_ike, site):
+def test_maximum_runs_them_too(run_ike, site):
     out = run(run_ike, site, "maximum")
+    r = out["127.0.0.1"]
+    assert r["first"] == ["echo one", "echo two"] and r["shared"] == "shared hi" and r["sw"] == "sw hi", r
+    stats = out["127.0.0.1_stats"]
+    assert stats["workers"] == 0 and stats["workers_open"] >= 3, stats
+    assert out["127.0.0.1_state"] is None
+
+
+@pytest.mark.parametrize("why", ["blocked", "danger"])
+def test_maximum_refuses_them_where_blocked_or_dangerous(run_ike, site, why):
+    if why == "blocked":
+        out = run(run_ike, site, "maximum", opts={"127.0.0.1": {"workers": True}})
+    else:
+        out = run(run_ike, site, "maximum", before=DANGER)
     r = out["127.0.0.1"]
     assert r["first"] == "error" and r["second"] == "error", r
     assert r["shared"] == "error", r
     assert r["sw"].startswith("refused"), r
     stats = out["127.0.0.1_stats"]
     assert stats["workers"] >= 2, stats          # the shared and the service worker (the dedicated ones: the policy)
-    assert out["127.0.0.1_state"] == "serious"           # the octagon says so, in orange
+    # the octagon: orange where the user's block breaks the app (with the
+    # repair of that block); on a page of the lists opened anyway nothing to
+    # repair (the warning was the user's to go through)
+    assert out["127.0.0.1_state"] == ("serious" if why == "blocked" else None), out
 
 
-def test_maximum_allows_them_for_one_site_only(run_ike, site):
+def test_a_block_is_for_one_site_only(run_ike, site):
     out = run(run_ike, site, "maximum", hosts=("127.0.0.1", "localhost"),
-              opts={"127.0.0.1": {"workers": False, "repaired": ["workers"]}})
+              opts={"localhost": {"workers": True}})
     allowed, other = out["127.0.0.1"], out["localhost"]
     assert allowed["first"] == ["echo one", "echo two"] and allowed["shared"] == "shared hi", allowed
     assert allowed["sw"] == "sw hi", allowed
@@ -308,7 +337,8 @@ def steps(ike, qapp, out):
 
 
 def test_repair_puts_the_cause_first_and_undo(run_ike, site):
-    out = run_ike(ALLOW % (site, site), settings={"shield_level": "maximum", "https_only": False}, timeout=150)
+    out = run_ike(ALLOW % (site, site), settings={"shield_level": "maximum", "https_only": False,
+                                                 "site_opts": {"127.0.0.1": {"workers": True}}}, timeout=150)
     assert out["before_state"] == "serious" and out["keys"] == ["workers"], out
     assert out["anim"] == "serious", out
     assert "background workers" in out["panel"]["note"], out                # the probable cause, in words
@@ -318,7 +348,7 @@ def test_repair_puts_the_cause_first_and_undo(run_ike, site):
     assert out["after_state"] is None and out["ended"] == "resolved", out
     assert out["opts"].get("workers") is False and out["repaired"] == ["workers"], out
     assert out["after"]["first"] == ["echo one", "echo two"], out["after"]
-    assert out["undone"] is None, out
+    assert out["undone"] == {"workers": True}, out        # the user's block is back
 
 
 REPAIR = r'''
@@ -345,22 +375,28 @@ def steps(ike, qapp, out):
 
 @pytest.mark.parametrize("level", ["maximum"])
 def test_repair_finds_the_workers_not_the_fingerprinting(run_ike, level):
-    out = run_ike(REPAIR, settings={"shield_level": level}, timeout=60)
+    out = run_ike(REPAIR, settings={"shield_level": level,
+                                    "site_opts": {"web.example.com": {"workers": True}}}, timeout=60)
     assert "workers" in out["candidates"] and out["candidates"].index("workers") == \
         out["candidates"].index("fp") + 1, out
     assert out["state"] == "found" and out["culprits"] == ["workers"], out
 
 
-def test_kontrol_and_lower_levels_offer_no_worker_repair(run_ike):
+def test_only_a_users_block_is_offered_to_the_repair(run_ike):
     out = run_ike(r'''
 def steps(ike, qapp, out):
     from ike import repair
-    for lv in ("balanced", "strict", "maximum"):
-        ike.config["shield_level"] = lv
-        out[lv] = "workers" in repair.active(ike.config, "web.example.com")
+    for blocked in (False, True):
+        if blocked:
+            ike.config.set_site_opt("web.example.com", "workers", True)
+        for lv in ("balanced", "strict", "maximum"):
+            ike.config["shield_level"] = lv
+            out[lv + str(blocked)] = "workers" in repair.active(ike.config, "web.example.com")
     yield 10
 ''', timeout=60)
-    assert (out["balanced"], out["strict"], out["maximum"]) == (False, False, True), out
+    # only the user's own block is a protection the repair can turn off
+    assert [out[k] for k in ("balancedFalse", "strictFalse", "maximumFalse")] == [False, False, False], out
+    assert [out[k] for k in ("balancedTrue", "strictTrue", "maximumTrue")] == [False, True, True], out
 
 
 PAGES = LOAD + r"""
@@ -419,8 +455,8 @@ def steps(ike, qapp, out):
     win = ike.windows[0]
     a = win.current_view()
     yield from load(a, "http://127.0.0.1:%d/page", "kontrol", out)     # its shared worker keeps running
-    # the site goes to Maximum (the panel's own way), the first tab stays open
-    ike.config["site_levels"]["127.0.0.1"] = "maximum"
+    # the user blocks the site's workers (the shield's own way), the first tab stays open
+    ike.config.set_site_opt("127.0.0.1", "workers", True)
     ike.shields.apply_settings()
     b = win.add_tab(QUrl("about:blank"))
     yield 500
@@ -440,11 +476,12 @@ def steps(ike, qapp, out):
 '''
 
 
-def test_a_level_raised_meanwhile_gives_no_running_worker(run_ike, site):
-    """3.2 of the owner's brief: a shared worker started at Kontrol keeps
-    running while a tab of its site is open; a page of that site at Maximum
-    must not join it (the engine would connect without asking for its file,
-    so the request check would never see it)."""
+def test_a_block_meanwhile_gives_no_running_worker(run_ike, site):
+    """3.2 of the owner's brief: a shared worker started before keeps running
+    while a tab of its site is open; a page of that site where they now stay
+    out (the user's block, a safety warning) must not join it (the engine
+    would connect without asking for its file, so the request check would
+    never see it), nor take back its service worker."""
     out = run_ike(TRANSITION % (site, site), settings={"shield_level": "strict", "https_only": False}, timeout=150)
     assert out["kontrol"]["shared"] == "shared hi", out["kontrol"]
     assert out["maximum"]["shared"] == "error", out["maximum"]
@@ -453,3 +490,43 @@ def test_a_level_raised_meanwhile_gives_no_running_worker(run_ike, site):
     assert out["message"] == ["TypeError", "Failed to register a ServiceWorker for scope ('%s/x/') with script "
                               "('%s/sw.js'): An unknown error occurred when fetching the script." % (origin, origin),
                               True], out["message"]
+
+
+QUIET = LOAD + r'''
+def steps(ike, qapp, out):
+    win = ike.windows[0]
+    view = win.current_view()
+    p = win.shield_panel
+    yield from load(view, "http://127.0.0.1:%d/page", "ran", out)
+    win.shield_menu.aboutToShow.emit()
+    out["line"] = [p.workers_line.isVisibleTo(p), p.workers_line.text(), p.workers_btn.text()]
+    out["octagon"] = [win.shield_btn.interference.state, win.interference_state()[0]]
+    p.workers_btn.click()                                  # "Block them on this site"
+    out["blocked_opt"] = ike.config.site_opt("127.0.0.1", "workers")
+    yield from load(view, "http://127.0.0.1:%d/page?b", "blocked", out)
+    win.shield_menu.aboutToShow.emit()
+    out["line_blocked"] = [p.workers_line.isVisibleTo(p), p.workers_line.text(), p.workers_btn.text()]
+    p.workers_btn.click()                                  # "Allow them again"
+    out["allowed_opt"] = ike.config.site_opt("127.0.0.1", "workers")
+    yield from load(view, "http://127.0.0.1:%d/page?a", "again", out)
+    # a page of a safety warning: no line, nothing to choose (they stay out)
+    ike.shields.pages_allowed.add("127.0.0.1")
+    ike.shields.apply_settings()
+    yield from load(view, "http://127.0.0.1:%d/page?d", "danger", out)
+    win.shield_menu.aboutToShow.emit()
+    out["line_danger"] = p.workers_line.isVisibleTo(p)
+'''
+
+
+def test_the_quiet_line_in_the_shield(run_ike, site):
+    out = run_ike(QUIET % ((site,) * 4), settings={"shield_level": "maximum", "https_only": False}, timeout=200)
+    assert out["ran"]["shared"] == "shared hi", out["ran"]
+    assert out["line"][0] is True and "background programs" in out["line"][1], out
+    assert out["line"][2] == "Block them on this site", out
+    assert out["octagon"] == [None, None], out           # the octagon does not light up for it
+    assert out["blocked_opt"] is True, out
+    assert out["blocked"]["shared"] == "error" and out["blocked"]["sw"].startswith("refused"), out["blocked"]
+    assert out["line_blocked"][0] is True and "blocked" in out["line_blocked"][1], out
+    assert out["line_blocked"][2] == "Allow them again", out
+    assert out["allowed_opt"] is None and out["again"]["shared"] == "shared hi", out
+    assert out["danger"]["shared"] == "error" and out["line_danger"] is False, out

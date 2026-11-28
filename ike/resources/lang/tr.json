@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Tehlike: I.K.E. bu sitede güvenliğiniz için gerçek bir risk buldu. Sayfanın üstündeki uyarıyı okuyun.",
 "A protection may interfere with some features of this site.": "Bir koruma bu sitenin bazı özelliklerini etkileyebilir.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Bir koruma bu sitenin düzgün çalışmasını engelleyebilir. “Bu siteyi onar” seçeneğini kullanın.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. bu sayfa yüklenirken bir sorun bulmadı. Bu, sitenin güvenli olduğunu kanıtlamaz."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. bu sayfa yüklenirken bir sorun bulmadı. Bu, sitenin güvenli olduğunu kanıtlamaz.",
+"This site uses background programs: it works better, but protects you a little less.": "Bu site arka plan programları kullanıyor: daha iyi çalışır ama sizi biraz daha az korur.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Bu sitenin arka plan programları engellendi: daha fazla koruma, ama site çalışmayabilir.",
+"Block them on this site": "Bu sitede engelle",
+"Allow them again": "Yeniden izin ver"
 }
 }

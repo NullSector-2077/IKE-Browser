@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "خطر: وجد I.K.E. خطرًا حقيقيًا على سلامتك في هذا الموقع. اقرأ التحذير أعلى الصفحة.",
 "A protection may interfere with some features of this site.": "قد تتعارض إحدى الحمايات مع بعض ميزات هذا الموقع.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "قد تمنع إحدى الحمايات هذا الموقع من العمل بشكل صحيح. استخدم “إصلاح هذا الموقع”.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "لم يجد I.K.E. أي مشكلة أثناء تحميل هذه الصفحة. هذا لا يثبت أن الموقع آمن."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "لم يجد I.K.E. أي مشكلة أثناء تحميل هذه الصفحة. هذا لا يثبت أن الموقع آمن.",
+"This site uses background programs: it works better, but protects you a little less.": "يستخدم هذا الموقع برامج تعمل في الخلفية: يعمل بشكل أفضل، لكن حمايتك أقل قليلًا.",
+"This site's background programs are blocked: more protection, but the site may not work.": "البرامج التي تعمل في خلفية هذا الموقع محظورة: حماية أكثر، لكن قد لا يعمل الموقع.",
+"Block them on this site": "حظرها على هذا الموقع",
+"Allow them again": "السماح بها مجددًا"
 }
 }

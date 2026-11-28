@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Veszély: az I.K.E. valódi kockázatot talált az ön biztonságára ezen a webhelyen. Olvassa el az oldal fölötti figyelmeztetést.",
 "A protection may interfere with some features of this site.": "Egy védelem zavarhatja a webhely néhány funkcióját.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Egy védelem megakadályozhatja, hogy a webhely megfelelően működjön. Használja a „Webhely javítása” funkciót.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "Az I.K.E. nem talált semmi rendellenest az oldal betöltése közben. Ez nem bizonyítja, hogy a webhely biztonságos."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "Az I.K.E. nem talált semmi rendellenest az oldal betöltése közben. Ez nem bizonyítja, hogy a webhely biztonságos.",
+"This site uses background programs: it works better, but protects you a little less.": "Ez a webhely háttérprogramokat használ: jobban működik, de egy kicsit kevésbé véd.",
+"This site's background programs are blocked: more protection, but the site may not work.": "A webhely háttérprogramjai le vannak tiltva: több védelem, de a webhely lehet, hogy nem működik.",
+"Block them on this site": "Letiltás ezen a webhelyen",
+"Allow them again": "Újbóli engedélyezés"
 }
 }

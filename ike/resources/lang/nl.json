@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Gevaar: I.K.E. heeft op deze site een echt risico voor je veiligheid gevonden. Lees de waarschuwing boven de pagina.",
 "A protection may interfere with some features of this site.": "Een bescherming kan sommige functies van deze site hinderen.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Een bescherming kan verhinderen dat deze site goed werkt. Gebruik “Deze site repareren”.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. heeft niets verdachts gevonden tijdens het laden van deze pagina. Dit bewijst niet dat de site veilig is."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. heeft niets verdachts gevonden tijdens het laden van deze pagina. Dit bewijst niet dat de site veilig is.",
+"This site uses background programs: it works better, but protects you a little less.": "Deze site gebruikt achtergrondprogramma's: hij werkt beter, maar beschermt je iets minder.",
+"This site's background programs are blocked: more protection, but the site may not work.": "De achtergrondprogramma's van deze site zijn geblokkeerd: meer bescherming, maar de site werkt misschien niet.",
+"Block them on this site": "Op deze site blokkeren",
+"Allow them again": "Weer toestaan"
 }
 }

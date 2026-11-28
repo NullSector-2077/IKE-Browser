@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Opasnost: I.K.E. je pronašao stvaran rizik za vašu sigurnost na ovoj web stranici. Pročitajte upozorenje iznad stranice.",
 "A protection may interfere with some features of this site.": "Zaštita može ometati neke funkcije ove web stranice.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Zaštita može spriječiti ispravan rad ove web stranice. Koristite „Popravi ovu web stranicu”.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. nije pronašao ništa sumnjivo tokom učitavanja ove stranice. To ne dokazuje da je web stranica sigurna."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. nije pronašao ništa sumnjivo tokom učitavanja ove stranice. To ne dokazuje da je web stranica sigurna.",
+"This site uses background programs: it works better, but protects you a little less.": "Ova web stranica koristi pozadinske programe: radi bolje, ali vas štiti malo manje.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Pozadinski programi ove web stranice su blokirani: više zaštite, ali stranica možda neće raditi.",
+"Block them on this site": "Blokiraj ih na ovoj stranici",
+"Allow them again": "Ponovo ih dozvoli"
 }
 }

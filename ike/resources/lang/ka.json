@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "საფრთხე: I.K.E.-მ ამ საიტზე თქვენი უსაფრთხოებისთვის რეალური რისკი აღმოაჩინა. წაიკითხეთ გაფრთხილება გვერდის ზემოთ.",
 "A protection may interfere with some features of this site.": "დაცვამ შეიძლება ხელი შეუშალოს ამ საიტის ზოგიერთ ფუნქციას.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "დაცვამ შეიძლება ხელი შეუშალოს ამ საიტის გამართულ მუშაობას. გამოიყენეთ „ამ საიტის შეკეთება“.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E.-მ ამ გვერდის ჩატვირთვისას საეჭვო ვერაფერი აღმოაჩინა. ეს არ ამტკიცებს, რომ საიტი უსაფრთხოა."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E.-მ ამ გვერდის ჩატვირთვისას საეჭვო ვერაფერი აღმოაჩინა. ეს არ ამტკიცებს, რომ საიტი უსაფრთხოა.",
+"This site uses background programs: it works better, but protects you a little less.": "ეს საიტი იყენებს ფონურ პროგრამებს: ის უკეთ მუშაობს, მაგრამ ცოტა ნაკლებად გიცავთ.",
+"This site's background programs are blocked: more protection, but the site may not work.": "ამ საიტის ფონური პროგრამები დაბლოკილია: მეტი დაცვა, მაგრამ საიტმა შეიძლება არ იმუშაოს.",
+"Block them on this site": "დაბლოკეთ ისინი ამ საიტზე",
+"Allow them again": "კვლავ დაუშვით ისინი"
 }
 }

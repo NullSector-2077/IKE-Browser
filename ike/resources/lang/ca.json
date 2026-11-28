@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Perill: I.K.E. ha trobat un risc real per a la teva seguretat en aquest lloc web. Llegeix l'avís que hi ha a sobre de la pàgina.",
 "A protection may interfere with some features of this site.": "Una protecció pot interferir amb algunes funcions d'aquest lloc web.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Una protecció pot impedir que aquest lloc web funcioni correctament. Fes servir «Repara aquest lloc web».",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. no ha trobat res d'estrany mentre es carregava aquesta pàgina. Això no demostra que el lloc web sigui segur."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. no ha trobat res d'estrany mentre es carregava aquesta pàgina. Això no demostra que el lloc web sigui segur.",
+"This site uses background programs: it works better, but protects you a little less.": "Aquest lloc web fa servir programes en segon pla: funciona millor, però et protegeix una mica menys.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Els programes en segon pla d'aquest lloc web estan blocats: més protecció, però pot ser que el lloc no funcioni.",
+"Block them on this site": "Bloca'ls en aquest lloc",
+"Allow them again": "Torna a permetre'ls"
 }
 }

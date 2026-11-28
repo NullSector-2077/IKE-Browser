@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Hatari: I.K.E. kimegundua hatari halisi kwa usalama wako kwenye tovuti hii. Soma onyo lililo juu ya ukurasa.",
 "A protection may interfere with some features of this site.": "Ulinzi fulani unaweza kutatiza baadhi ya vipengele vya tovuti hii.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Ulinzi fulani unaweza kuzuia tovuti hii isifanye kazi ipasavyo. Tumia “Tengeneza tovuti hii”.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. hakijapata tatizo lolote wakati ukurasa huu ukipakiwa. Hii haithibitishi kwamba tovuti ni salama."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. hakijapata tatizo lolote wakati ukurasa huu ukipakiwa. Hii haithibitishi kwamba tovuti ni salama.",
+"This site uses background programs: it works better, but protects you a little less.": "Tovuti hii inatumia programu za nyuma: inafanya kazi vizuri zaidi, lakini ulinzi wako unapungua kidogo.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Programu za nyuma za tovuti hii zimezuiwa: ulinzi zaidi, lakini huenda tovuti isifanye kazi.",
+"Block them on this site": "Zizuie kwenye tovuti hii",
+"Allow them again": "Ziruhusu tena"
 }
 }

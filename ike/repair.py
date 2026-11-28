@@ -25,11 +25,12 @@ PROTECTIONS = (
     ("ads", "Ad and tracker blocking"),
     ("cookies", "Cross-site cookie blocking"),
     ("fp", "Fingerprinting protection"),
-    # 1.1.32: at Maximum a site that needs its own workers (WhatsApp,
-    # Telegram) loses only them, not its fingerprinting protection. Right
-    # after "fp": the worker rule acts only while "fp" is on, so the search
-    # always tries "fp" first (alone or in an earlier group) and finds the
-    # workers, never "fp", guilty
+    # 1.1.32: a site whose own workers the user blocked (the shield) and that
+    # needs them (WhatsApp, Telegram) loses only that block, not its
+    # fingerprinting protection. Right after "fp": the worker rule acts only
+    # while "fp" is on, so the search always tries "fp" first (alone or in an
+    # earlier group) and finds the workers, never "fp", guilty. Never on a
+    # page of a safety warning: there they stay out whatever the repairs say
     ("workers", "Blocking of the site's own background workers"),
     # 1.1.32: two more a page can depend on, tried by the search like the others
     ("dark", "Dark mode on this site"),
@@ -56,8 +57,8 @@ def active(cfg, host):
         out.append("cookies")
     if lv >= 2 and opt(host, "fp") is not False:
         out.append("fp")
-    if lv >= 4 and opt(host, "fp") is not False and opt(host, "workers") is not False:
-        out.append("workers")           # refused at Maximum only (1.1.32)
+    if lv >= 3 and opt(host, "fp") is not False and opt(host, "workers") is True:
+        out.append("workers")           # blocked by the user on the site (1.1.32)
     if _dark_on(cfg, host):
         out.append("dark")
     if cfg["webrtc_hide_ip"] and opt(host, "webrtc") is not False:
@@ -109,6 +110,11 @@ def set_off(cfg, host, key, off):
             lst.remove(host)
         elif not off and host not in lst:
             lst.append(host)
+        return
+    if key == "workers":
+        # the protection here is the user's own block (True): back on is the
+        # block again, off lets the site's own workers run (1.1.32)
+        cfg.set_site_opt(host, key, False if off else True)
         return
     value = "allow" if key == "cookies" else False
     cfg.set_site_opt(host, key, value if off else None)

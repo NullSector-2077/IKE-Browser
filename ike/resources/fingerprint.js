@@ -291,13 +291,14 @@
   }
   var strict = lv >= 3;
   var maximum = lv >= 4;
-  // Maximum keeps the sites' own workers out (1.1.25): no service worker, no
-  // shared worker, no dedicated worker from a file without the protection.
-  // Kontrol lets them run (1.1.32, the web compatibility campaign: WhatsApp
-  // and Telegram need them), and so does Maximum on a site whose workers the
-  // user allowed (the shield, "Repair this site": CFG.nowk). Only the site's
-  // own files can be in them; every worker a page's script can make from its
-  // own text (blob:, data:) keeps the protection at every level.
+  // The sites' own workers (service workers, shared workers, dedicated
+  // workers from the site's files) run at Kontrol and Maximum (1.1.32: the web
+  // compatibility campaign, then the owner's decision for Maximum: "i siti
+  // devono funzionare, almeno quelli fidati"), except where they stay out
+  // (CFG.wkout): a site where the user blocked them (the shield), or a page of
+  // one of I.K.E.'s safety warnings (shields.py worker_danger). Only the
+  // site's own files can be in them; every worker a page's script can make
+  // from its own text (blob:, data:) keeps the protection at every level.
   // Reports to I.K.E.'s diagnosis of incompatibilities (1.1.32, incompat.py):
   // a console message beginning with the session's report key, which only
   // this closure holds (a page cannot read it, so it cannot report in I.K.E.'s
@@ -311,8 +312,8 @@
     reported[kind] = 1;
     try { RAPPLY(REPORT_LOG, REPORT_CON, [REPORT_KEY + ' ' + kind]); } catch (e) {}
   }
-  var keepWorkersOut = maximum && !(function () {
-    var h = host, list = CFG.nowk || [];
+  var keepWorkersOut = strict && (function () {
+    var h = host, list = CFG.wkout || [];
     while (h) {
       if (list.indexOf(h) >= 0) return true;
       var i = h.indexOf('.');
@@ -3578,7 +3579,7 @@
                   file = fromFile(url, opt.module, hello);
                   var fv = file ? ours(file) : null;
                   if (fv !== null) call = send(fv);
-                  else { file = null; hello = null; }   // the site's file as asked (refused at Maximum)
+                  else { file = null; hello = null; }   // the site's file as asked (refused where they stay out)
                 }
               } else if (isBlob) {
                 var blob = blobs.get(url);
@@ -4092,12 +4093,11 @@
     check(null, true);
   }
 
-  // Maximum (1.1.25; Kontrol too until 1.1.31): no service worker (shields.py
-  // refuses their scripts, whatever frame or worker asks). One registered
-  // before, at a lower level, would still start with the engine's own values:
-  // it is unregistered (the page keeps its controller until it is left, as
-  // with unregister()). Kontrol keeps them (1.1.32): WhatsApp starts from its
-  // service worker.
+  // Where the site's own workers stay out (CFG.wkout, 1.1.32; Maximum and
+  // Kontrol everywhere until 1.1.31): no service worker (shields.py refuses
+  // their scripts, whatever frame or worker asks). One registered before
+  // would still start with the engine's own values: it is unregistered (the
+  // page keeps its controller until it is left, as with unregister()).
   if (keepWorkersOut) {
     try {
       var swScopeOf = getterOf(window.ServiceWorkerRegistration && ServiceWorkerRegistration.prototype, 'scope');

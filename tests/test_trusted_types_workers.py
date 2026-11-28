@@ -377,9 +377,11 @@ def test_workers_start_where_the_page_refuses_the_protections_policy(run_ike, si
         # at most one refusal the page can see (made as the document starts,
         # it usually comes before the page's first script listens)
         assert len(policy_names(r)) <= 1, (level, r)
-        # a worker from a file: Balanced and Kontrol (1.1.32) start it as the
-        # page asked; Maximum never runs it without the protection (refused)
-        assert r["file"] == ("error" if level == "maximum" else "data"), (level, r)
+        # a worker from a file: started as the page asked at every level
+        # (Kontrol 1.1.32, Maximum too by the owner's decision of 2026-11-28;
+        # refused only where the user blocked them or on a page of a safety
+        # warning: tests/test_site_workers.py)
+        assert r["file"] == "data", (level, r)
     # what the site's server is told (report-uri): one refusal in each of the
     # two documents, not one for every worker, and another name in each: not
     # the site's seed ('p' + seed was the same in both)

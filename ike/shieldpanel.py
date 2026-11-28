@@ -394,6 +394,13 @@ class ShieldPanel(QWidget):
         self.diag_note = QLabel(self)
         self.diag_note.setWordWrap(True)
         self.diag_note.setTextFormat(Qt.TextFormat.PlainText)
+        # 1.1.32, the owner's decision: the site's own background workers run at
+        # Kontrol and Maximum; one quiet line for whoever opens the shield (the
+        # octagon does not light up for it) and a per-site choice, remembered
+        self.workers_line = QLabel(self)
+        self.workers_line.setWordWrap(True)
+        self.workers_btn = QPushButton(self)
+        self.workers_btn.clicked.connect(self._toggle_workers)
         self.diag_ok = QPushButton(T("This site works fine"), self)
         self.diag_ok.setToolTip(T("The octagon goes back to normal for this site in this tab"))
         self.diag_ok.clicked.connect(self._site_works)
@@ -437,6 +444,8 @@ class ShieldPanel(QWidget):
         lay.addWidget(self.diag_note)
         lay.addWidget(self.repair_btn)
         lay.addWidget(self.diag_ok)
+        lay.addWidget(self.workers_line)
+        lay.addWidget(self.workers_btn)
         lay.addWidget(self.repaired)
         lay.addWidget(self.repaired_undo)
         lay.addWidget(self.adv_btn)
@@ -538,6 +547,7 @@ class ShieldPanel(QWidget):
         from . import repair
         self.repair_btn.setVisible(web and on and bool(cfg["repair_button"]))
         self.show_diagnosis()
+        self._show_workers(host if web else "", level, st)
         fixed = repair.repaired(cfg, host) if web else []
         self.repaired.setText(T("Repaired: turned off here: %s.") % ", ".join(
             T(repair.NAMES[k]) for k in fixed) if fixed else "")
@@ -586,6 +596,41 @@ class ShieldPanel(QWidget):
             # put forward even where the user hid the button from the panel:
             # it is the one way to the narrow repair the text speaks of
             self.repair_btn.setVisible(bool(self.win.current_host()))
+
+    WORKERS_RUN = _t("This site uses background programs: it works better, but protects you a little less.")
+    WORKERS_BLOCKED = _t("This site's background programs are blocked: more protection, but the site may not work.")
+
+    def _show_workers(self, host, level, st):
+        """The quiet line about the site's own workers (1.1.32): shown only
+        where they ran, or where the user blocked them; never on a page of a
+        safety warning (they stay out there, whatever is chosen here)."""
+        cfg = self.win.app.config
+        sh = self.win.app.shields
+        blocked = bool(host) and cfg.site_opt(host, "workers") is True
+        ran = bool(host) and bool(st.get("workers_open"))
+        show = (bool(host) and rank(level) >= 3 and cfg.site_opt(host, "fp") is not False
+                and (ran or blocked) and not sh.worker_danger(host))
+        self.workers_line.setVisible(show)
+        self.workers_btn.setVisible(show)
+        if show:
+            self.workers_line.setText(T(self.WORKERS_BLOCKED if blocked else self.WORKERS_RUN))
+            self.workers_btn.setText(T("Allow them again") if blocked else T("Block them on this site"))
+
+    def _toggle_workers(self):
+        """Block the site's own workers on this site, or allow them again:
+        remembered for the site, the page loaded again (1.1.32)."""
+        host = self.win.current_host()
+        if not host:
+            return
+        cfg = self.win.app.config
+        if cfg.site_opt(host, "workers") is True:
+            cfg.set_site_opt(host, "workers", None)
+        else:
+            cfg.set_site_opt(host, "workers", True)
+            o = cfg["site_opts"].get(host) or {}
+            if "workers" in (o.get("repaired") or []):
+                o["repaired"] = [k for k in o["repaired"] if k != "workers"]
+        self._apply()
 
     def _site_works(self):
         """The user says the site works: the finding of this tab ends (the

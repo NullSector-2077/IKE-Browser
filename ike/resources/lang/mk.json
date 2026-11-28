@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Опасност: I.K.E. најде вистински ризик за вашата безбедност на овој сајт. Прочитајте го предупредувањето над страницата.",
 "A protection may interfere with some features of this site.": "Заштита може да пречи на некои функции на овој сајт.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Заштита може да го спречи правилното работење на овој сајт. Користете „Поправи го овој сајт“.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. не најде ништо сомнително при вчитувањето на оваа страница. Тоа не докажува дека сајтот е безбеден."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. не најде ништо сомнително при вчитувањето на оваа страница. Тоа не докажува дека сајтот е безбеден.",
+"This site uses background programs: it works better, but protects you a little less.": "Овој сајт користи позадински програми: работи подобро, но ве штити малку помалку.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Позадинските програми на овој сајт се блокирани: повеќе заштита, но сајтот можеби нема да работи.",
+"Block them on this site": "Блокирај ги на овој сајт",
+"Allow them again": "Повторно дозволи ги"
 }
 }

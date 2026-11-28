@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Xavf: I.K.E. bu saytda xavfsizligingiz uchun haqiqiy xavf topdi. Sahifa ustidagi ogohlantirishni oʻqing.",
 "A protection may interfere with some features of this site.": "Himoya bu saytning baʼzi funksiyalariga xalaqit berishi mumkin.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Himoya bu saytning toʻgʻri ishlashiga xalaqit berishi mumkin. “Bu saytni tuzatish” buyrugʻidan foydalaning.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. bu sahifa yuklanayotganda hech qanday muammo topmadi. Bu saytning xavfsiz ekanini isbotlamaydi."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. bu sahifa yuklanayotganda hech qanday muammo topmadi. Bu saytning xavfsiz ekanini isbotlamaydi.",
+"This site uses background programs: it works better, but protects you a little less.": "Bu sayt fon dasturlaridan foydalanadi: u yaxshiroq ishlaydi, lekin sizni biroz kamroq himoya qiladi.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Bu saytning fon dasturlari bloklangan: koʻproq himoya, lekin sayt ishlamasligi mumkin.",
+"Block them on this site": "Bu saytda ularni bloklash",
+"Allow them again": "Ularga yana ruxsat berish"
 }
 }

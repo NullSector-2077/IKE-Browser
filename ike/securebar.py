@@ -121,6 +121,9 @@ class SecureBar(QWidget):
                 sh.lan_allowed.add(n["site"])      # this site only, until I.K.E. closes
         else:
             sh.pages_allowed.add(host)
+        # the site's own workers stay out on that page (1.1.32): fingerprint.js
+        # is told before the page loads
+        sh.apply_settings()
         v.secure_notice = None
         self.hide()
         self.win.sync_interference()

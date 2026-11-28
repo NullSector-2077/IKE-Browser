@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "ஆபத்து: இந்தத் தளத்தில் உங்கள் பாதுகாப்புக்கு உண்மையான அபாயத்தை I.K.E. கண்டறிந்தது. பக்கத்தின் மேலே உள்ள எச்சரிக்கையைப் படியுங்கள்.",
 "A protection may interfere with some features of this site.": "ஒரு பாதுகாப்பு இந்தத் தளத்தின் சில அம்சங்களில் குறுக்கிடக்கூடும்.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "ஒரு பாதுகாப்பு இந்தத் தளம் சரியாக வேலை செய்வதைத் தடுக்கக்கூடும். “இந்தத் தளத்தைச் சரிசெய்” என்பதைப் பயன்படுத்துங்கள்.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "இந்தப் பக்கம் ஏற்றப்படும்போது I.K.E. எந்தப் பிரச்சினையையும் கண்டறியவில்லை. இது தளம் பாதுகாப்பானது என்பதை நிரூபிக்காது."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "இந்தப் பக்கம் ஏற்றப்படும்போது I.K.E. எந்தப் பிரச்சினையையும் கண்டறியவில்லை. இது தளம் பாதுகாப்பானது என்பதை நிரூபிக்காது.",
+"This site uses background programs: it works better, but protects you a little less.": "இந்தத் தளம் பின்னணி நிரல்களைப் பயன்படுத்துகிறது: இது சிறப்பாக வேலை செய்யும், ஆனால் உங்களைச் சற்றுக் குறைவாகவே பாதுகாக்கும்.",
+"This site's background programs are blocked: more protection, but the site may not work.": "இந்தத் தளத்தின் பின்னணி நிரல்கள் தடுக்கப்பட்டுள்ளன: கூடுதல் பாதுகாப்பு, ஆனால் தளம் வேலை செய்யாமல் போகலாம்.",
+"Block them on this site": "இந்தத் தளத்தில் தடு",
+"Allow them again": "மீண்டும் அனுமதி"
 }
 }

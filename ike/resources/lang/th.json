@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "อันตราย: I.K.E. พบความเสี่ยงจริงต่อความปลอดภัยของคุณบนไซต์นี้ โปรดอ่านคำเตือนด้านบนของหน้า",
 "A protection may interfere with some features of this site.": "การป้องกันอาจรบกวนฟีเจอร์บางอย่างของไซต์นี้",
 "A protection may stop this site from working properly. Use “Repair this site”.": "การป้องกันอาจทำให้ไซต์นี้ทำงานไม่ถูกต้อง ใช้ “ซ่อมไซต์นี้”",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. ไม่พบสิ่งผิดปกติขณะโหลดหน้านี้ แต่ไม่ได้หมายความว่าไซต์นี้ปลอดภัย"
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. ไม่พบสิ่งผิดปกติขณะโหลดหน้านี้ แต่ไม่ได้หมายความว่าไซต์นี้ปลอดภัย",
+"This site uses background programs: it works better, but protects you a little less.": "ไซต์นี้ใช้โปรแกรมเบื้องหลัง: ทำงานได้ดีขึ้น แต่ปกป้องคุณน้อยลงเล็กน้อย",
+"This site's background programs are blocked: more protection, but the site may not work.": "โปรแกรมเบื้องหลังของไซต์นี้ถูกบล็อก: ป้องกันได้มากขึ้น แต่ไซต์อาจไม่ทำงาน",
+"Block them on this site": "บล็อกบนไซต์นี้",
+"Allow them again": "อนุญาตอีกครั้ง"
 }
 }

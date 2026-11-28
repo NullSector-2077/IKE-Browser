@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Κίνδυνος: το I.K.E. εντόπισε πραγματικό κίνδυνο για την ασφάλειά σας σε αυτόν τον ιστότοπο. Διαβάστε την προειδοποίηση πάνω από τη σελίδα.",
 "A protection may interfere with some features of this site.": "Μια προστασία μπορεί να επηρεάζει ορισμένες λειτουργίες αυτού του ιστότοπου.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Μια προστασία μπορεί να εμποδίζει τη σωστή λειτουργία αυτού του ιστότοπου. Χρησιμοποιήστε το «Επισκευή αυτού του ιστότοπου».",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "Το I.K.E. δεν εντόπισε κάτι ύποπτο κατά τη φόρτωση αυτής της σελίδας. Αυτό δεν αποδεικνύει ότι ο ιστότοπος είναι ασφαλής."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "Το I.K.E. δεν εντόπισε κάτι ύποπτο κατά τη φόρτωση αυτής της σελίδας. Αυτό δεν αποδεικνύει ότι ο ιστότοπος είναι ασφαλής.",
+"This site uses background programs: it works better, but protects you a little less.": "Αυτός ο ιστότοπος χρησιμοποιεί προγράμματα παρασκηνίου: λειτουργεί καλύτερα, αλλά σας προστατεύει λίγο λιγότερο.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Τα προγράμματα παρασκηνίου αυτού του ιστότοπου είναι αποκλεισμένα: περισσότερη προστασία, αλλά ο ιστότοπος ίσως δεν λειτουργεί.",
+"Block them on this site": "Να αποκλείονται σε αυτόν τον ιστότοπο",
+"Allow them again": "Να επιτρέπονται ξανά"
 }
 }

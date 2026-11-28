@@ -79,7 +79,7 @@ KNOWN = {("plain", "missing"): ["Event", False], ("noblob", "missing"): ["Event"
          ("noblob", "event"): [False] + CHROME["event"][1:]}
 
 
-@pytest.mark.parametrize("level", ["strict"])
+@pytest.mark.parametrize("level", ["strict", "maximum"])
 def test_the_queue_matches_chrome_140(run_ike, site, level):
     out = run_ike(STEPS % site, settings={"shield_level": level, "https_only": False}, timeout=200)
     for key in ("plain", "noblob"):

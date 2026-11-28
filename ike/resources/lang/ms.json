@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Bahaya: I.K.E. menemui risiko sebenar terhadap keselamatan anda pada laman ini. Baca amaran di atas halaman.",
 "A protection may interfere with some features of this site.": "Satu perlindungan mungkin mengganggu sesetengah ciri laman ini.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Satu perlindungan mungkin menghalang laman ini daripada berfungsi dengan betul. Gunakan “Baiki laman ini”.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. tidak menemui sebarang masalah semasa memuatkan halaman ini. Ini tidak membuktikan bahawa laman ini selamat."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. tidak menemui sebarang masalah semasa memuatkan halaman ini. Ini tidak membuktikan bahawa laman ini selamat.",
+"This site uses background programs: it works better, but protects you a little less.": "Laman ini menggunakan program latar: ia berfungsi lebih baik, tetapi perlindungan anda sedikit berkurang.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Program latar laman ini disekat: lebih banyak perlindungan, tetapi laman mungkin tidak berfungsi.",
+"Block them on this site": "Sekat di laman ini",
+"Allow them again": "Benarkan semula"
 }
 }

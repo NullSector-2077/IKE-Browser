@@ -758,8 +758,12 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             # only the visited site's own file (1.1.32, the independent review:
             # a frame of another site, an embedded widget, an ad, stays out at
             # Kontrol too, and is never counted for the site nor offered to it)
+            # 1.1.32, the owner's decision (Maximum too: "i siti devono
+            # funzionare, almeno quelli fidati"): the site's own run at Kontrol
+            # and Maximum, except where the user blocked them on the site (the
+            # shield) or on a page I.K.E.'s safety warnings call dangerous
             own = host_site == first_site
-            if not own or (lv >= 4 and cfg.site_opt(first_host, "workers") is not False):
+            if not own or cfg.site_opt(first_host, "workers") is True or self.s.worker_danger(first_host):
                 info.block(True)       # no worker from a file without the protection (1.1.25)
                 if own:
                     self._count(first_host, "workers")
@@ -1034,6 +1038,7 @@ class Shields(QObject):
         self.blocked_pages = set()      # whole pages the lists stopped, until their error is shown
         self.lan_blocked = {}           # local address a public page tried to open -> that site
         self.lan_allowed = set()        # public sites the user let open local addresses (session)
+        self._lookalikes = {}           # host -> imitates a famous site? (worker_danger, 1.1.32)
         self.profiles = []
         self.user_scripts = None         # set by the application
         self.interceptor = Interceptor(self)
@@ -1564,6 +1569,50 @@ class Shields(QObject):
             if s.fontFamily(kind) != family:
                 s.setFontFamily(kind, family)
 
+    # --- the sites' own workers and I.K.E.'s safety warnings (1.1.32) --------
+    def worker_danger(self, host):
+        """Is `host` a page of one of I.K.E.'s safety warnings? Its own
+        workers stay out there at every level (the owner's decision: they run
+        on the sites "fidati", the ones the safety lists do not call
+        dangerous). The facts the warnings act on, not their bars: a page on
+        the malware and phishing lists opened anyway, a site opened without
+        its secure connection, a public site allowed into the home network, a
+        lookalike of a famous site (Sosia). No list of sites of its own."""
+        host = (host or "").lower()
+        if not host:
+            return False
+        if host in self.pages_allowed or host in self.http_allowed or site_of(host) in self.lan_allowed:
+            return True
+        return self.lookalike_of(host)
+
+    def lookalike_of(self, host):
+        """Sosia's answer for `host` (lookalike.py), kept for the session."""
+        cfg = self.config
+        if not cfg["lookalike_warn"]:
+            return False
+        ok = cfg["lookalike_ok"] or []
+        key = (host, len(ok))
+        hit = self._lookalikes.get(key)
+        if hit is None:
+            try:
+                from . import lookalike
+                hit = bool(lookalike.check(host, allowed=set(ok)))
+            except Exception:
+                hit = False
+            if len(self._lookalikes) > 2000:
+                self._lookalikes.clear()
+            self._lookalikes[key] = hit
+        return hit
+
+    def workers_out_hosts(self):
+        """The hosts whose own workers stay out, for fingerprint.js (its
+        keepWorkersOut): blocked by the user, or pages of a safety warning."""
+        cfg = self.config
+        out = {h for h, o in cfg["site_opts"].items() if o.get("workers") is True}
+        out |= self.pages_allowed | self.http_allowed | self.lan_allowed
+        out |= {k[0] for k, v in self._lookalikes.items() if v}
+        return sorted(out)
+
     def apply_settings(self, profile=None):
         """(Re)apply everything that depends on the configuration."""
         cfg = self.config
@@ -1636,8 +1685,9 @@ class Shields(QObject):
                       "gpc": bool(cfg["send_gpc"]),
                       "nofp": [h for h, o in cfg["site_opts"].items() if o.get("fp") is False],
                       "rk": self.report_key,
-                      # the sites whose own workers the user allowed at Maximum (1.1.32)
-                      "nowk": [h for h, o in cfg["site_opts"].items() if o.get("workers") is False],
+                      # where the site's own workers stay out (1.1.32): blocked by
+                      # the user on the site, or a page of a safety warning
+                      "wkout": self.workers_out_hosts(),
                       "payframes": list(PAYMENT_SITES),
                       "ffua": FIREFOX_UA if cfg["login_compat"] else "",
                       "ffsignin": list(GOOGLE_SIGNIN_HOSTS), "ffsites": list(GOOGLE_SITES),

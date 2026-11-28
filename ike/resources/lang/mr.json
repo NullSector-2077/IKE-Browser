@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "धोका: I.K.E. ला या साइटवर तुमच्या सुरक्षिततेसाठी खरा धोका आढळला. पेजच्या वरची चेतावणी वाचा.",
 "A protection may interfere with some features of this site.": "एखादे संरक्षण या साइटच्या काही वैशिष्ट्यांमध्ये अडथळा आणू शकते.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "एखादे संरक्षण या साइटला नीट चालण्यापासून रोखू शकते. “ही साइट दुरुस्त करा” वापरा.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "हे पेज लोड होत असताना I.K.E. ला काहीही चुकीचे आढळले नाही. यावरून साइट सुरक्षित असल्याचे सिद्ध होत नाही."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "हे पेज लोड होत असताना I.K.E. ला काहीही चुकीचे आढळले नाही. यावरून साइट सुरक्षित असल्याचे सिद्ध होत नाही.",
+"This site uses background programs: it works better, but protects you a little less.": "ही साइट पार्श्वभूमी प्रोग्राम वापरते: ती अधिक चांगली चालते, पण तुमचे संरक्षण थोडे कमी होते.",
+"This site's background programs are blocked: more protection, but the site may not work.": "या साइटचे पार्श्वभूमी प्रोग्राम अडवले आहेत: अधिक संरक्षण, पण साइट कदाचित काम करणार नाही.",
+"Block them on this site": "या साइटवर त्यांना अडवा",
+"Allow them again": "त्यांना पुन्हा परवानगी द्या"
 }
 }

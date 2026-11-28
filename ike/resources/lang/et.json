@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Oht: I.K.E. leidis sellel saidil tõelise ohu sinu turvalisusele. Loe hoiatust lehe kohal.",
 "A protection may interfere with some features of this site.": "Kaitse võib segada selle saidi mõningaid funktsioone.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Kaitse võib takistada selle saidi korralikku toimimist. Kasuta valikut „Paranda see sait“.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. ei leidnud selle lehe laadimisel midagi kahtlast. See ei tõesta, et sait on ohutu."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. ei leidnud selle lehe laadimisel midagi kahtlast. See ei tõesta, et sait on ohutu.",
+"This site uses background programs: it works better, but protects you a little less.": "See sait kasutab taustaprogramme: see töötab paremini, kuid kaitseb sind veidi vähem.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Selle saidi taustaprogrammid on blokeeritud: rohkem kaitset, kuid sait ei pruugi töötada.",
+"Block them on this site": "Blokeeri need sellel saidil",
+"Allow them again": "Luba need uuesti"
 }
 }

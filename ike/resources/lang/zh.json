@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "危险：I.K.E. 在此网站上发现了对你安全的真实风险。请阅读页面上方的警告。",
 "A protection may interfere with some features of this site.": "某项保护可能会干扰此网站的部分功能。",
 "A protection may stop this site from working properly. Use “Repair this site”.": "某项保护可能会导致此网站无法正常工作。请使用“修复此网站”。",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. 在加载此页面时未发现异常。这并不能证明该网站是安全的。"
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. 在加载此页面时未发现异常。这并不能证明该网站是安全的。",
+"This site uses background programs: it works better, but protects you a little less.": "此网站使用后台程序：运行效果更好，但对你的保护会少一些。",
+"This site's background programs are blocked: more protection, but the site may not work.": "此网站的后台程序已被阻止：保护更强，但网站可能无法正常工作。",
+"Block them on this site": "在此网站上阻止",
+"Allow them again": "重新允许"
 }
 }

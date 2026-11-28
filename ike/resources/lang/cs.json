@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Nebezpečí: I.K.E. na tomto webu zjistil skutečné riziko pro vaši bezpečnost. Přečtěte si varování nad stránkou.",
 "A protection may interfere with some features of this site.": "Ochrana může narušovat některé funkce tohoto webu.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Ochrana může bránit správnému fungování tohoto webu. Použijte „Opravit tento web“.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. při načítání této stránky nezjistil nic podezřelého. To neznamená, že je web bezpečný."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. při načítání této stránky nezjistil nic podezřelého. To neznamená, že je web bezpečný.",
+"This site uses background programs: it works better, but protects you a little less.": "Tento web používá programy na pozadí: funguje lépe, ale chrání vás o něco méně.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Programy tohoto webu na pozadí jsou zablokované: více ochrany, ale web nemusí fungovat.",
+"Block them on this site": "Zablokovat je na tomto webu",
+"Allow them again": "Znovu je povolit"
 }
 }

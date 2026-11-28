@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Pavojus: I.K.E. šioje svetainėje rado realią grėsmę jūsų saugumui. Perskaitykite įspėjimą virš puslapio.",
 "A protection may interfere with some features of this site.": "Apsauga gali trukdyti kai kurioms šios svetainės funkcijoms.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Apsauga gali trukdyti šiai svetainei tinkamai veikti. Naudokite „Pataisyti šią svetainę“.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. įkeliant šį puslapį nerado nieko įtartino. Tai neįrodo, kad svetainė yra saugi."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. įkeliant šį puslapį nerado nieko įtartino. Tai neįrodo, kad svetainė yra saugi.",
+"This site uses background programs: it works better, but protects you a little less.": "Ši svetainė naudoja fonines programas: ji veikia geriau, bet jus saugo šiek tiek mažiau.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Šios svetainės foninės programos užblokuotos: daugiau apsaugos, bet svetainė gali neveikti.",
+"Block them on this site": "Blokuoti jas šioje svetainėje",
+"Allow them again": "Vėl jas leisti"
 }
 }

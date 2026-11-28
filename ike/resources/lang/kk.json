@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Қауіп: I.K.E. бұл сайтта қауіпсіздігіңізге нақты қатер тапты. Беттің үстіндегі ескертуді оқыңыз.",
 "A protection may interfere with some features of this site.": "Қорғау бұл сайттың кейбір мүмкіндіктеріне кедергі келтіруі мүмкін.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Қорғау бұл сайттың дұрыс жұмыс істеуіне кедергі келтіруі мүмкін. “Осы сайтты жөндеу” пәрменін пайдаланыңыз.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. осы бетті жүктеу кезінде ешқандай ақау тапқан жоқ. Бұл сайттың қауіпсіз екенін дәлелдемейді."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. осы бетті жүктеу кезінде ешқандай ақау тапқан жоқ. Бұл сайттың қауіпсіз екенін дәлелдемейді.",
+"This site uses background programs: it works better, but protects you a little less.": "Бұл сайт фондық бағдарламаларды пайдаланады: ол жақсырақ жұмыс істейді, бірақ сізді сәл азырақ қорғайды.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Бұл сайттың фондық бағдарламалары бұғатталған: қорғау көбірек, бірақ сайт жұмыс істемеуі мүмкін.",
+"Block them on this site": "Бұл сайтта оларды бұғаттау",
+"Allow them again": "Оларға қайта рұқсат беру"
 }
 }

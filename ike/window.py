@@ -2307,6 +2307,11 @@ class BrowserWindow(WindowFeatures, QMainWindow):
         from .lookalikebar import check_view
         check_view(self.app.config, view)            # Sosia (1.1.14)
         host = view.url().host().lower()
+        if getattr(view, "lookalike", None) and host not in self.app.shields.workers_out_hosts():
+            # a lookalike: the site's own workers stay out there (1.1.32);
+            # the request check already knows, fingerprint.js from now on
+            self.app.shields.lookalike_of(host)
+            self.app.shields.apply_settings()
         if getattr(view, "site_colour_host", None) != host:
             view.site_colour_host = host             # another site: its own colour comes with it
             view.site_colour = None

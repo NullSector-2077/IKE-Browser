@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "خطر: I.K.E. در این سایت خطری واقعی برای امنیت شما پیدا کرد. هشدار بالای صفحه را بخوانید.",
 "A protection may interfere with some features of this site.": "ممکن است یک محافظت با برخی از قابلیت‌های این سایت تداخل داشته باشد.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "ممکن است یک محافظت مانع کار درست این سایت شود. از «تعمیر این سایت» استفاده کنید.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. هنگام بارگیری این صفحه مشکلی پیدا نکرد. این ثابت نمی‌کند که سایت امن است."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. هنگام بارگیری این صفحه مشکلی پیدا نکرد. این ثابت نمی‌کند که سایت امن است.",
+"This site uses background programs: it works better, but protects you a little less.": "این سایت از برنامه‌های پس‌زمینه استفاده می‌کند: بهتر کار می‌کند، اما کمی کمتر از شما محافظت می‌کند.",
+"This site's background programs are blocked: more protection, but the site may not work.": "برنامه‌های پس‌زمینهٔ این سایت مسدود شده‌اند: محافظت بیشتر، اما ممکن است سایت کار نکند.",
+"Block them on this site": "در این سایت مسدود شوند",
+"Allow them again": "دوباره مجاز شوند"
 }
 }

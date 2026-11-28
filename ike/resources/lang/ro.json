@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Pericol: I.K.E. a găsit un risc real pentru siguranța ta pe acest site. Citește avertismentul de deasupra paginii.",
 "A protection may interfere with some features of this site.": "O protecție poate interfera cu unele funcții ale acestui site.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "O protecție poate împiedica acest site să funcționeze corect. Folosește „Repară acest site”.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. nu a găsit nimic suspect în timpul încărcării acestei pagini. Asta nu dovedește că site-ul este sigur."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. nu a găsit nimic suspect în timpul încărcării acestei pagini. Asta nu dovedește că site-ul este sigur.",
+"This site uses background programs: it works better, but protects you a little less.": "Acest site folosește programe de fundal: funcționează mai bine, dar te protejează puțin mai puțin.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Programele de fundal ale acestui site sunt blocate: mai multă protecție, dar site-ul poate să nu funcționeze.",
+"Block them on this site": "Blochează-le pe acest site",
+"Allow them again": "Permite-le din nou"
 }
 }

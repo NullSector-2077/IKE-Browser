@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Briesmas: I.K.E. šajā vietnē atrada reālu risku jūsu drošībai. Izlasiet brīdinājumu virs lapas.",
 "A protection may interfere with some features of this site.": "Aizsardzība var traucēt dažas šīs vietnes funkcijas.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Aizsardzība var traucēt šīs vietnes pareizu darbību. Izmantojiet „Salabot šo vietni“.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. šīs lapas ielādes laikā neatrada neko aizdomīgu. Tas nepierāda, ka vietne ir droša."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. šīs lapas ielādes laikā neatrada neko aizdomīgu. Tas nepierāda, ka vietne ir droša.",
+"This site uses background programs: it works better, but protects you a little less.": "Šī vietne izmanto fona programmas: tā darbojas labāk, bet aizsargā jūs nedaudz mazāk.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Šīs vietnes fona programmas ir bloķētas: vairāk aizsardzības, bet vietne var nedarboties.",
+"Block them on this site": "Bloķēt tās šajā vietnē",
+"Allow them again": "Atkal tās atļaut"
 }
 }

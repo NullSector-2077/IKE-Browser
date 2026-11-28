@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Небезпека: I.K.E. виявив на цьому сайті реальний ризик для вашої безпеки. Прочитайте попередження над сторінкою.",
 "A protection may interfere with some features of this site.": "Захист може заважати деяким функціям цього сайту.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "Захист може заважати нормальній роботі цього сайту. Скористайтеся функцією «Виправити цей сайт».",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. не виявив нічого підозрілого під час завантаження цієї сторінки. Це не доводить, що сайт безпечний."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. не виявив нічого підозрілого під час завантаження цієї сторінки. Це не доводить, що сайт безпечний.",
+"This site uses background programs: it works better, but protects you a little less.": "Цей сайт використовує фонові програми: він працює краще, але захищає вас трохи менше.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Фонові програми цього сайту заблоковано: більше захисту, але сайт може не працювати.",
+"Block them on this site": "Заблокувати їх на цьому сайті",
+"Allow them again": "Знову дозволити їх"
 }
 }

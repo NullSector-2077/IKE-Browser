@@ -1624,6 +1624,10 @@
 "Danger: I.K.E. found a real risk for your safety on this site. Read the warning above the page.": "Gevaar: I.K.E. het 'n werklike risiko vir jou veiligheid op hierdie werf gevind. Lees die waarskuwing bo die bladsy.",
 "A protection may interfere with some features of this site.": "'n Beskerming kan sommige funksies van hierdie werf belemmer.",
 "A protection may stop this site from working properly. Use “Repair this site”.": "'n Beskerming kan verhoed dat hierdie werf behoorlik werk. Gebruik “Herstel hierdie werf”.",
-"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. het niks verkeerd gevind terwyl hierdie bladsy gelaai het nie. Dit bewys nie dat die werf veilig is nie."
+"I.K.E. found nothing wrong while loading this page. This does not prove the site is safe.": "I.K.E. het niks verkeerd gevind terwyl hierdie bladsy gelaai het nie. Dit bewys nie dat die werf veilig is nie.",
+"This site uses background programs: it works better, but protects you a little less.": "Hierdie werf gebruik agtergrondprogramme: dit werk beter, maar beskerm jou 'n bietjie minder.",
+"This site's background programs are blocked: more protection, but the site may not work.": "Hierdie werf se agtergrondprogramme is geblokkeer: meer beskerming, maar die werf werk dalk nie.",
+"Block them on this site": "Blokkeer hulle op hierdie werf",
+"Allow them again": "Laat hulle weer toe"
 }
 }
