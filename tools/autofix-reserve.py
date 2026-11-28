@@ -213,7 +213,7 @@ def _git(workdir, *args, text=True):
 MAX_FILES = 5
 TOTAL_TIMEOUT = REGISTRY.RESERVES_TIMEOUT
 REQUEST_TIMEOUT = 150
-FILES_BUDGET = 60_000          # characters of whole files sent along
+FILES_BUDGET = 400_000         # characters of whole files at most (each provider gets those that fit its own budget)
 MAX_TOKENS = 6000
 # fitting a request to a provider's limit of tokens per minute (fitted, 2026-11-25)
 FIT_SHARE = 0.9                # of the limit a fitted request may take (the estimate is careful already)
@@ -265,7 +265,9 @@ Answer with ONE JSON object and nothing else:
 - Comments can be wrong (the tests and docs decide); a comment next to your fix
   that says the opposite of it is corrected too.
 - At most 5 files, the smallest correct change. Only files that are shown
-  below, and only under ike/, tests/, tools/ or docs/ (%(wrapper)s).
+  below, in full or in an excerpt of the code at the failure (then "find" is
+  copied from that excerpt), and only under ike/, tests/, tools/ or docs/
+  (%(wrapper)s).
 - Never ike-adblock/Cargo.toml or Cargo.lock, the adblock-rust engine itself, Dark
   Reader's files, uBlock Origin's scriptlets, the icon sets, docs/THIRD-PARTY.md
   or any file that comes from others or is generated.
@@ -331,6 +333,18 @@ def chain(env=os.environ):
     variable; tools/ai-providers.py)."""
     out = []
     off = unavailable(env)
+    gemini = env.get(REGISTRY.GEMINI_KEY, "").strip()
+    if gemini and not off & {"Antigravity", "Gemini"}:
+        # Gemini through its own API, under Antigravity's name and quota (2026-11-28: the CLI never ran)
+        named = [m.strip() for m in (env.get(REGISTRY.GEMINI_MODELS_VAR) or "").split(",") if m.strip()]
+        ids = []
+        for m in named + list(REGISTRY.GEMINI_MODELS):
+            mid = REGISTRY.gemini_api_id(m)
+            if mid and mid not in ids:
+                ids.append(mid)
+        ids += [m for m in REGISTRY.discovered(env, "Antigravity") if m not in ids]
+        out += [("Antigravity", REGISTRY.GEMINI_OPENAI, gemini, m, REGISTRY.GEMINI_BUDGET, REGISTRY.GEMINI_TOKENS)
+                for m in ids]
     for name, url, key_var, models_var, default, budget, tokens in PROVIDERS:
         key = env.get(key_var, "").strip()
         if not key:
@@ -747,6 +761,21 @@ def files_shown(workdir, related):
             continue
         out[path] = text
         used += len(text)
+    return out
+
+
+EXCERPT = re.compile(r"^### `([\w./-]+)`, lines \d+-\d+ \(the failure points at line \d+\)$", re.M)
+
+
+def editable_files(shown, context, related):
+    """The files an edit may change: the ones shown in full and the ones whose code at the failure is shown in an
+    excerpt (tools/autofix-context.py). A large file (ike/window.py, 175 KB) never fits whole, and its fix was
+    refused as "not one of the files shown" (the drill, 2026-11-28); the text to replace must still be copied
+    exactly and appear once in the file, and the checks after it are the same."""
+    out = dict(shown)
+    for path in EXCERPT.findall(context or ""):
+        if path in related and path not in out:
+            out[path] = ""
     return out
 
 
@@ -1228,6 +1257,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
     failure, context = read("failure.md"), read("context.md")
     related = [line.strip() for line in read("related.txt").splitlines() if line.strip()]
     shown = files_shown(workdir, related)
+    editable = editable_files(shown, context, related)
     rules = Path(a.prompt).read_text("utf-8") + (SECURITY_RULES if a.security else "") + builder_rules(a.builder) \
         + (AUTO_RULES if a.auto and not a.builder else "") + (TIER_B_RULES if TIER_B["on"] and not a.builder else "")
     keys = [env.get(p[2], "") for p in PROVIDERS]
@@ -1322,7 +1352,7 @@ def main(argv=None, env=os.environ, opener=urllib.request.urlopen):
                 base = [{"role": "system", "content": system}, {"role": "user", "content": user}]
                 try:
                     outcome, said, refused = one_model(url, key, model, base, tokens, deadline, opener,
-                                                       workdir, shown, a, refused, applied, extra)
+                                                       workdir, editable, a, refused, applied, extra)
                 except Exception as e:                    # 1.1.18: a malformed answer never ends the chain
                     if applied:
                         undo(workdir, applied)

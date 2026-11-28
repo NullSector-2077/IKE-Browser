@@ -29,6 +29,13 @@ import pytest
 import test_full_auto as fa
 import test_merge_and_mail as mm
 
+
+@pytest.fixture(autouse=True)
+def _the_agent_cli_on(monkeypatch):
+    """These tests prove the Antigravity CLI's own path; since 2026-11-28 it runs only with AUTOFIX_AGENT_CLI=on
+    (tests/test_gemini_api_first.py proves the default)."""
+    monkeypatch.setenv("AUTOFIX_AGENT_CLI", "on")
+
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
 NOW = dt.datetime(2026, 11, 23, 12, 0, tzinfo=dt.timezone.utc)

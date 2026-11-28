@@ -70,6 +70,8 @@ MESSAGES = {
     "error": "L'agente si è fermato per un errore imprevisto.",
     "unavailable": "Gemini non è gratuito per questa chiave o questo modello (fatturazione), oppure il "
                    "controllo settimanale l'ha segnato non disponibile: Antigravity non è partito.",
+    "api": "Gemini viene interpellato direttamente con la sua API, tra le riserve (lo strumento Antigravity non "
+           "funziona nella stanza chiusa del controllo).",
     "rotated": "Questo tentativo comincia da un altro fornitore gratuito (un tentativo precedente non è "
                "bastato): Antigravity non è partito, provano le riserve.",
     # part 2 of AUTOMAT: the budget of the free quotas (tools/ai-quota.py)
@@ -387,6 +389,15 @@ def main(argv=None):
     ap.add_argument("--quota-pending", help="the plan's list of the real updates still pending (open pull requests "
                                             "whose checks are not green, and the memory's rows)")
     a = ap.parse_args(argv)
+    if (os.environ.get("AUTOFIX_AGENT_CLI") or "").strip().lower() != "on":
+        # 2026-11-28: the Antigravity CLI never worked in the closed room (it looks up other names, refused by the
+        # firewall: "temporary", then a timeout of 8 minutes a model). Gemini is asked through its own API by the
+        # reserves instead (tools/autofix-reserve.py chain), first when the order says so
+        Path(a.status).write_text(json.dumps({"result": "rotated", "model": "", "message": MESSAGES["api"],
+                                              "detail": "Antigravity"}, ensure_ascii=False), "utf-8")
+        print("Outcome: Gemini is asked through its API by the reserves (the CLI only with AUTOFIX_AGENT_CLI=on)",
+              flush=True)
+        return 0
     key = os.environ.get("GEMINI_API_KEY", "")
     workdir, out = Path(a.workdir), Path(a.out)
     out.mkdir(parents=True, exist_ok=True)

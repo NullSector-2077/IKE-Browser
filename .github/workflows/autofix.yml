@@ -933,6 +933,10 @@ jobs:
         id: agent
         timeout-minutes: 20
         env:
+          # Gemini through its own API, first among the reserves when the order says so (2026-11-28: the
+          # Antigravity CLI never ran in the closed room; tools/autofix-agent.py hands over to this step)
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AUTOFIX_MODEL: ${{ vars.AUTOFIX_MODEL }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -1077,7 +1081,7 @@ jobs:
           # start from the clean checkout; what they answer is applied as text,
           # never run, and checked by the same checker before it is kept.
           if [ "$result" != "refused" ] && [ -z "$changed" ]; then
-            if [ -n "$GROQ_API_KEY$ZAI_API_KEY$OPENROUTER_API_KEY" ]; then
+            if [ -n "$GEMINI_API_KEY$GROQ_API_KEY$ZAI_API_KEY$OPENROUTER_API_KEY" ]; then
               refused=""
               if [ -s "$out/refused.md" ]; then refused="--refused $out/refused.md"; fi
               # AUTOMAT part 2: the inner loop (strict format, cheap checks, the errors back to the same
@@ -1772,6 +1776,9 @@ jobs:
           fi
           # WP10 (b): a fix for Arch's next packages merges only when it passes on testing too
           if [ "$KIND" = "arch-testing" ]; then retry gh workflow run arch-testing.yml --ref "$PUSH_BRANCH"; fi
+          # the verified merge looks at the new commit at once: GitHub starts no pull_request run on a pull
+          # request in conflict with main, so only the refresh gets its tests going (the drill, 2026-11-28)
+          if [ "$old" != "$new" ]; then retry gh workflow run automerge.yml --ref main -f sha="$new" || true; fi
           # AUTOMAT part 2: ChatGPT's pull request whose fix was adopted is told where it went, and closed
           if printf '%s' "$ADOPT" | grep -Eq '^[0-9]{1,8}$'; then
             retry gh pr comment "$ADOPT" --body "Nota informativa, non serve fare niente: la modifica di questa pull request è stata ricontrollata come una correzione delle AI e portata sul ramo \`$PUSH_BRANCH\` (commit ${new}). Lì girano tutti i test; entra in \`main\` da sola solo se supera anche \"niente peggiora\" e due AI revisori indipendenti. Questa pull request viene chiusa: il lavoro continua nella pull request di quel ramo." || true
