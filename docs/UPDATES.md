@@ -3,11 +3,12 @@
 | What | How it updates |
 |---|---|
 | Filter lists | daily, by I.K.E. (Settings → Updates) |
-| Chrome version presented to sites | the engine's own version (1.1.14), so it follows the system's `qt6-webengine` (at Strict and Maximum only its major number, 140.0.0.0, since 1.1.18); the current stable Chrome is checked daily (Google's public version list) only to show the engine's age in Help -> About |
+| Dark Reader's lists (the Dark Engine's fixes for single sites) | daily, by I.K.E. itself (`ike/darklists.py`, checked before use); a copy comes with each release |
+| Chrome version presented to sites | the engine's own version (1.1.14), so it follows the system's `qt6-webengine` (at Kontrol and Maximum only its major number, 140.0.0.0, since 1.1.18); the current stable Chrome is checked daily (Google's public version list) only to show the engine's age in Help -> About |
 | User scripts | daily, from their update address |
 | Web engine (Qt WebEngine) | with the system (`sudo pacman -Syu`); GitHub tests I.K.E. on every new version of Arch's packages it runs on (docs/MAINTENANCE.md, "Arch Linux's own packages") |
 | I.K.E. itself, AdBlock engine included | signed update channel on GitHub Releases, described below; installed automatically by default (1.1.13), once a day at most, used at the next start |
-| Components inside I.K.E. (AdBlock engine, uBlock Origin scriptlets) | checked daily and prepared as a tested candidate by GitHub Actions on a separate branch; merged once its tests are green, then signed and published by the owner ([MAINTENANCE.md](MAINTENANCE.md)) |
+| Components inside I.K.E. (AdBlock engine and its Rust crates, uBlock Origin scriptlets, Brave's debounce list, KDE's Breeze icons; `components.json`) | checked daily and prepared as a tested candidate by GitHub Actions on a separate branch; merged once its tests are green, then signed and published by the owner ([MAINTENANCE.md](MAINTENANCE.md)) |
 
 ## The I.K.E. update channel
 
@@ -125,9 +126,9 @@ once Arch ships the fix, so later releases stop naming it.
 
 ## The signing key
 
-Generated once by the owner, on the owner's computer (fish shell):
+Generated once by the owner, on the owner's computer:
 
-```fish
+```sh
 mkdir -p ~/.ike-signing; chmod 700 ~/.ike-signing
 openssl genpkey -algorithm ed25519 -aes-256-cbc -out ~/.ike-signing/ike-update.key
 chmod 600 ~/.ike-signing/ike-update.key
@@ -151,8 +152,9 @@ committed.
 On the owner's computer, from a clone of the repository, once the pull request
 that raised the version is merged into `main` and its tests have passed:
 
-```fish
-cd ~/IKE-Browser; git switch main; git pull
+```sh
+cd IKE-Browser            # the owner's clone of the repository
+git switch main; git pull
 python3 tools/publish.py
 ```
 
@@ -171,7 +173,7 @@ GitHub only builds and tests; the key never leaves the owner's computer.
 
 By hand, step by step (what the command does):
 
-```fish
+```sh
 makepkg -Csf
 python3 tools/make-release.py
 gh release create v<version> dist/release-<version>/* \

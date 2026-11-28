@@ -5,8 +5,9 @@ ordinary Chrome/Chromium, natively (engine switches) rather than by injected
 JavaScript, without replacing or forking Qt WebEngine, without weakening any
 protection, and maintained automatically by AUTOMAT?
 
-Status: study only. Experimental branch `claude/sharp-faraday-bp7cvq`; nothing
-merged, nothing changed in I.K.E.'s code. Tools: `tools/engine-probe/`.
+Status: adopted in 1.1.30 (CHANGELOG.md, tests/test_engine_privacy_129.py).
+The probe tools named below (`tools/engine-probe/`) were study material and
+were not kept in the repository.
 
 ## Setup (verified)
 

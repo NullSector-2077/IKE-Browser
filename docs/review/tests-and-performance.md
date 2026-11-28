@@ -82,7 +82,7 @@ both, start-up 0.28 s against 0.27 s. (Absolute figures differ a little
 between the two sessions; only figures of the same session are compared.)
 
 These numbers describe a small container without a GPU. They say that the
-versions do not differ, not how fast I.K.E. is on the owner's computer.
+versions do not differ, not how fast I.K.E. is on a real computer.
 
 ## 1.1.25 fingerprinting
 
@@ -176,8 +176,7 @@ with no protection. 20 at once: about 50-65 ms more than with no
 protection, where round 2 cost 110-150 ms more: the workers' scripts are
 now fetched side by side, not one after the other by the page.
 
-Not tried: the owner's computer (a real GPU; Ivy Bridge), Speedometer (not
-reachable here). These figures say what differs between the two copies on
+Not tried: a computer with a real GPU, Speedometer (not reachable here). These figures say what differs between the two copies on
 this machine, not how fast I.K.E. is.
 
 ## 1.1.24, the frame guard
@@ -276,7 +275,7 @@ custom element callbacks wrapped, left for a later version.
 
 ## 1.1.23, Dark Reader and Brave
 
-The owner's measurement, Speedometer 3.1 on his own computer: Brave with the
+A measurement with Speedometer 3.1 on a real computer: Brave with the
 Dark Reader extension scores more than I.K.E. with Dark Reader, and I.K.E.
 with the engine's own dark mode scores more than Brave with Dark Reader. The
 question: does I.K.E.'s way of giving Dark Reader to a page cost more than
@@ -518,7 +517,7 @@ while the mouse moves over the tabs; nothing runs at rest (the rest rows).
 ## 1.1.23, Speedometer: the engine and the protection
 
 The owner's question: Brave is much faster than I.K.E. on Speedometer 3.1,
-both without dark mode (on the owner's computer, both at their strongest
+both without dark mode (on a real computer, both at their strongest
 protection: Brave 47.4, I.K.E. at Maximum 33.3). How much of it is I.K.E.?
 
 **How it was measured.** A container with 4 shared cores and no GPU
@@ -559,7 +558,7 @@ What the steps show:
   distribution's GCC flags, also without them. The loss is in the synchronous part of the steps (JavaScript, DOM,
   style and layout inside the step: 908 ms against 1,512 ms for the whole
   set), more than in the part after it (448 against 671 ms): the same
-  pattern the owner saw between Brave and I.K.E. (NewsSite-Next 1.87 times
+  pattern seen between Brave and I.K.E. (NewsSite-Next 1.87 times
   there, 1.95 times between Chrome and the bare Qt window here). Nothing in
   I.K.E. can change it; it follows Qt's and Arch's builds.
 - **B -> C (settings): none** (C scored slightly more than B, within the
@@ -928,7 +927,7 @@ site in another process), frames grabbed every 15 ms for 3 s; the one white
 case, an empty page in dark mode, is dark since 1.1.19
 (`test_dark_blank.py`). Scrolling smoothness cannot be measured here
 (software drawing caps every mode at about 37 frames a second): it is
-measured on the owner's computer.
+measured on a real computer.
 
 ## 1.1.18, before and after
 
@@ -983,10 +982,10 @@ What the comparison showed:
 - I.K.E.'s own protections cost 2-4 % of the Speedometer score here (plain Qt
   WebEngine 12.0, I.K.E. Off 12.3, Balanced 11.8, Strict 11.8, Maximum 11.7 in
   one series of 5 iterations each). A gap of about 29 % against another
-  browser on the owner's computer cannot come from them; the engine's Chromium
+  browser on a real computer cannot come from them; the engine's Chromium
   version and its graphics path are the other candidates, to be checked on
   that computer (chrome://gpu in I.K.E., `pacman -Q qt6-webengine`).
-- On the owner's computer (CachyOS, 2026-11-20; I.K.E. 1.1.17 as installed,
+- On a real computer (2026-11-20; I.K.E. 1.1.17 as installed,
   Speedometer 3.0, 10 iterations, compared with a reference Chromium browser on the same computer):
 
   | Speedometer 3.0 | I.K.E., Dark Reader | reference | I.K.E., engine dark mode |
@@ -1307,4 +1306,4 @@ them:
   the checked address (the proxy looks the name up); the redirect and address
   checks still apply.
 - These numbers come from a container without a GPU; they compare the two
-  versions, they do not say how fast I.K.E. is on the owner's computer.
+  versions, they do not say how fast I.K.E. is on a real computer.

@@ -7,9 +7,10 @@ they are needed. The full catalogue, 30 scenarios with their detection signal,
 what AUTOMAT does today, the gap, the prepared response, the tier and the
 drill, is in [`scenarios.json`](scenarios.json). The jams already met (the
 small stops of 2026-11-24 and 2026-11-25) and the response to each are in
-[`JAMS.md`](JAMS.md). `stubdiff-prototype.py` is the
-prototype of the PyQt stub diff (section 3, recipe 1); it is not used by any
-workflow yet.
+[`JAMS.md`](JAMS.md). The PyQt stub diff of section 3, recipe 1, is built:
+`tools/upstream-diff.py` (`stub_names`, tests/test_qt_stubdiff.py); its first
+prototype was removed. This plan is a snapshot of 2026-11-25: what was built
+since is in docs/MAINTENANCE.md.
 
 Sources were read on 2026-11-25. Pages that could not be reached from the
 analysis environment (docs.python.org, www.qt.io, github.com) were used
