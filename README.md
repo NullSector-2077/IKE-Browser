@@ -11,7 +11,8 @@ The interface, protections, password manager and updater are I.K.E.'s own code
 provided and kept up to date by Arch Linux. I.K.E. is made for KDE Plasma on
 Arch Linux and CachyOS and works on the other Arch-based desktops.
 
-**Version 1.1.30** - see [CHANGELOG.md](CHANGELOG.md).
+**Version 1.1.30** - see [CHANGELOG.md](CHANGELOG.md). What is marked *(next
+version)* below is already in this repository and comes with the next release.
 
 ## Install (Arch Linux, CachyOS)
 
@@ -41,13 +42,30 @@ profiles: `ike-browser --profile NAME`.
 ## Features
 
 **Protection**
-- A shield inside the address bar with five levels — Off, Compatibility,
-  Balanced, Kontrol (called Strict until 1.1.28), Maximum — set globally or per site, with counters for ads,
-  trackers, scripts, third-party cookies, HTTPS upgrades and removed tracking
-  parameters.
+- **The shield**, inside the address bar at its end: an octagon with the
+  letter of the level in its own colour (C yellow, B green, K the light blue of
+  the logo's K, M pink; a white X when protection is off for the site), and
+  beside it the number of ads and scripts blocked on the page, in the logo's
+  lettering, with a "+N" that rises when more are blocked. Five levels — Off,
+  Compatibility, Balanced (the default), Kontrol (called Strict up to 1.1.28),
+  Maximum — for every site or for one site. A click opens its panel:
+  - the site, a button that turns every protection on or off for it, and how
+    many trackers and ads were blocked on the page, kind by kind (ads and
+    trackers, scripts, cross-site cookies, HTTPS upgrades, tracking parameters
+    removed);
+  - the level for this site, with what it does, and the default for all sites;
+  - "Repair this site…" (and "Undo the repair");
+  - "Advanced controls": ads and trackers blocked or allowed, cookies (as the
+    level sets them, cross-site blocked, all blocked, all allowed), and
+    switches for fingerprinting protection, HTTPS, blocking the site's scripts
+    and dark mode on this site; the site's permissions, with a button that
+    resets them;
+  - the switches "Protected time zone" and "Common English language", each
+    explained by its ⓘ;
+  - "Protection settings…".
 - Content blocking with EasyList, EasyPrivacy, uBlock filters, the Malicious
   URL Blocklist, the Phishing URL Blocklist (pages that imitate a bank, a shop
-  or a mail service to steal passwords) and EasyList Italy (any other list by its address), network
+  or a mail service to steal passwords; *next version*) and EasyList Italy (any other list by its address), network
   and cosmetic filters, your own filters. Lists update daily. YouTube video ads
   are removed by the lists' scriptlets; an ad that still starts is muted,
   hidden and skipped.
@@ -58,15 +76,22 @@ profiles: `ike-browser --profile NAME`.
 - Cookie banners refused and hidden automatically.
 - Fingerprinting protection (from Balanced, the default): canvas, WebGL, audio
   and the number of CPU cores change from site to site and from session to
-  session; at Balanced also the plugins, the WebGL extensions and the graphics
-  card (a common model of the same maker chosen per site instead of the exact
-  one). Kontrol and Maximum give everyone the same values instead: one WebGL
-  identity (no card name, a fixed list of extensions, fixed limits never
-  above the real ones), Chrome's own PDF plugins in an order of the site's
-  own, a common network speed, screen, fonts, memory and voices; their canvas noise is only
-  where a drawing has edges (never in plain colours); a worker a site starts
-  from a file of its own gets the same protection, and they start no service
-  worker and no shared worker from a site's file.
+  session, so that Cover Your Tracks reports "a randomized fingerprint"; a
+  common network speed, and `window.chrome` and the permission answers shaped
+  as Chrome's. At Balanced also the plugins, the WebGL extensions and the
+  graphics card (a common model of the same maker chosen per site instead of
+  the exact one). Kontrol and Maximum give everyone the same values instead:
+  one WebGL identity (no card name, a fixed list of extensions, fixed limits
+  never above the real ones), Chrome's own PDF plugins in an order of the
+  site's own, a common screen, fonts, memory and voices, generic Client Hints
+  and no WebGPU; their canvas noise is only where a drawing has edges (never
+  in plain colours); a worker a site starts from a file of its own gets the
+  same protection, and they start no service worker and no shared worker from
+  a site's file. Maximum also tells sites English only, with dates and numbers
+  written the American way.
+- The engine's advertising measurement (Attribution Reporting, Topics) is
+  off; WebRTC does not show your local IP addresses (Settings → Privacy);
+  HTTP/3 is on, as in Chrome, and connections are kept apart for each site.
 - **Protected time zone** (the shield, off by default): every site sees the
   time zone UTC, in pages, frames and every kind of worker alike; I.K.E.'s
   own menus and its new tab clock keep yours. Some sites will show wrong
@@ -117,22 +142,29 @@ profiles: `ike-browser --profile NAME`.
   other sites its page loaded, the permissions you gave it, each with a switch
   and its count; "Clear" deletes what is on and says what went. A switch cleans
   the site by itself when its last tab is closed.
-- **Common English language**: sites are told American English, the most
-  common language, at every level; I.K.E.'s own menus keep yours.
+- **Common English language** (the shield, off by default): sites are told
+  American English, the most common language, at every level; I.K.E.'s own
+  menus keep yours. Fully after a restart.
+- Bars above the page when something is not safe, each with its own way on: a
+  site that could not be reached over HTTPS ("Continue without protection"),
+  a public page that asks for the home network ("Allow for this site"), a page
+  on the protection lists ("Continue anyway").
 
 **Browsing**
 - Horizontal or vertical tabs (vertical ones also with only their icons), tab groups, workspaces, containers with separate
   cookies, split view, suspension of inactive tabs, private windows, profiles.
-- Bookmarks bar; bookmarks that do not fit are listed under a » button.
+- Bookmarks bar; bookmarks that do not fit are listed under a double-arrow
+  button at its end.
 - Password vault (AES-256-GCM, scrypt key), offered in a menu when you click
   into a form of the page (not inside embedded frames), generator, CSV import
   and export; passkeys on FIDO2 security keys. The vault locks itself after
   15 minutes without using I.K.E. (or 5, 30, 60, never) and when the screen
-  locks or the computer sleeps.
+  locks or the computer sleeps *(next version)*.
 - Spell checking while typing, with Hunspell's dictionaries on this computer
-  (install the `hunspell-*` package of your language, e.g. `hunspell-it`).
+  (install the `hunspell-*` package of your language, e.g. `hunspell-it`)
+  *(next version)*.
 - The history kept always (the default) or only for 1, 3, 6 months, 1 or 2
-  years (Settings → Privacy). Print preview before printing.
+  years (Settings → Privacy). Print preview before printing *(next version)*.
 - User scripts (Greasemonkey / Tampermonkey / Violentmonkey style), installed
   from a file, an address or by opening a `.user.js` link, updated daily. Each
   script gets only the functions its `@grant` lines ask for and reaches only
@@ -166,15 +198,24 @@ profiles: `ike-browser --profile NAME`.
   (all sites, or one); the lock in the address bar opens the site's panel
   (connection, permissions, cookies, protection, zoom, autoplay).
 - Command bar (F2): menu commands, open tabs, bookmarks, history and settings in
-  one search. Optional mouse gestures (off by default).
+  one search. Optional mouse gestures (off by default; for the touchpad see
+  Appearance).
 - **I.K.E. extensions** (☰ → I.K.E. extensions, or Settings → I.K.E.
   extensions): the features that come with I.K.E., each with its own on/off
   switch (user scripts, page dark mode, skipping video ads, cookie banners,
   passwords, page watcher, split view, floating video, translation,
   containers, site resources, weather, command bar, Plasma integration), and
   two that are off until you choose them: automatic scrolling with the middle
-  button, and opening the selected text with the middle button.
+  button, and opening the selected text with the middle button. They are
+  listed under five headings: Privacy and security, Browsing and appearance,
+  Audio and video, Productivity, System and resources.
 - I.K.E.'s own pages for sites that cannot be reached, with "Try again".
+- A short welcome at the first start, shown once: the language, how much
+  I.K.E. blocks, the search engine and, if you want, I.K.E. as the default
+  browser ("Skip" keeps everything as it is).
+- DRM video (Widevine) installed on request into I.K.E.'s own folder
+  (Settings); Help → About shows which video and audio formats the engine
+  plays.
 - Quiet permission questions (on by default; Settings → Site permissions): a site
   asking for notifications, the location, the camera or the microphone shows
   a small sign in the address bar; a click answers. Notifications asked for
@@ -193,10 +234,12 @@ profiles: `ike-browser --profile NAME`.
   of precipitation; units of your choice: °C or °F, wind in km/h, mph, m/s or
   knots, pressure in hPa, mbar, inHg or mmHg); tiles of
   your bookmarks or of the sites you visit most (up to 32, sixteen per row on
-  a wide window); the trackers and ads blocked
-  this month; your own photo as its background if you like (kept on the
-  computer, never uploaded).
-- A greeting and short friendly messages on the new tab page, worked out in the
+  a wide window), an "Add" tile for a site of your choice and tiles you can
+  hide; the trackers and ads blocked this month, its figures in the logo's
+  lettering; I.K.E.'s own photo of the Earth as its background, or your own
+  photo (kept on the computer, never uploaded), or none.
+- A greeting and short friendly messages on the new tab page (I.K.E.'s own
+  "thoughts", written letter by letter, tips and curious facts), worked out in the
   page itself; to avoid repeating itself, I.K.E. keeps in its own settings only
   the dates of the first and last visit of the new tab page, the days of use, the
   streak, the usual hour, the version last seen and the messages shown lately
@@ -204,11 +247,16 @@ profiles: `ike-browser --profile NAME`.
   all of it is off with the switch in Settings → New tab page. Holidays are
   greeted only for the traditions you choose there (none at first).
 - Toolbar buttons shown, hidden and moved to either side of the address bar
-  ("Customise toolbar"); Back, Forward, Home and Reload keep their place at the
-  start, and the shield its place inside the address bar, at its end. In a narrow
-  window the buttons that do not fit are listed under a » button. Buttons you
-  can add (off at first): Zoom, Manage bookmarks, Print or save as PDF, Send to
-  device (KDE Connect) and Site resources.
+  ("Customise toolbar", or a long press on a button); Back, Forward, Reload and
+  Home keep their place at the start, the shield its place inside the address
+  bar, at its end, and "Bookmark this page" right after it. At first the
+  toolbar has Dark mode, Private window, the broom ("Clear this site's
+  data"), Screenshot (the visible part, Ctrl+Shift+S, the whole page or a
+  selected area), Split view, Downloads and Reader mode. In a narrow window the
+  buttons that do not fit are listed under a double-arrow button. Buttons you
+  can add (off at first): Floating video, Zoom, Manage bookmarks, Print or
+  save as PDF, Send to device (KDE Connect) and Site resources. Held Ctrl or
+  Alt shows each button's key.
 - The ☰ menu: new tab, window and private window, then eleven categories (Tabs
   and windows, Web page, Edit, File and downloads, Audio and video, Bookmarks
   and history, Privacy and security, Browser appearance, I.K.E. extensions,
@@ -251,15 +299,23 @@ profiles: `ike-browser --profile NAME`.
 
 **Appearance and languages**
 - Follows the system theme by default; icon themes installed on the computer or
-  the bundled Lucide, Phosphor and Breeze (KDE's own icons, there even where
-  KDE's icon theme is not installed) sets; light or dark interface.
+  the bundled I.K.E., Lucide, Phosphor, Phosphor Bold and Breeze (KDE's own
+  icons, there even where KDE's icon theme is not installed) sets; light or
+  dark interface.
 - Other interface themes: five ready-made ones (I.K.E., Night, Paper, Forest,
   High contrast) and your own, with your choice of background, text, accent,
   toolbar and tab colours and of the font family and size.
 - A modern finish in the theme's own colours: a line under the current tab
   that glides to the next one, long tab titles that fade out instead of
-  ending in "…", a rounded address field, suggestions with the sites' icons,
-  a zoom sign in the address field.
+  ending in "…", suggestions with the sites' icons, a zoom sign in the
+  address field, a light tint of the site's colour on the toolbar, a dot on
+  background tabs not seen yet, a picture of a tab when the mouse rests on it.
+- The address of the link under the mouse in a small box at the page's
+  corner (the page never moves); short messages in Plasma's style; a file that
+  starts downloading flies to the Downloads button, which shows a ring while
+  it downloads; no white flash between pages *(next version)*.
+- Touchpad: two fingers swipe back and forward, with an arrow that shows the
+  swipe coming, and a pinch zooms.
 - Light interface effects (short fades, a loading mark on tabs, icons and bars
   that fade in, a speaker that pulses while a tab plays sound) that follow the
   desktop's reduced-motion setting and can be switched off.
@@ -329,12 +385,12 @@ and never with anything about its users ([docs/MAINTENANCE.md](docs/MAINTENANCE.
   itself once a day, like the filter lists, and checked before use (1.1.27):
   a change of the lists no longer makes a new version of I.K.E.
 - The components inside I.K.E. — the AdBlock engine, the uBlock Origin
-  scriptlets, Dark Reader's lists, Brave's debounce list and KDE's Breeze
-  icons — are checked for new versions every day by
-  GitHub Actions (and the engine's Rust crates against known
-  vulnerabilities), which
-  prepares a tested candidate release; it is merged once its tests are green,
-  then signed and published by the owner
+  scriptlets, Brave's debounce list and KDE's Breeze icons — are checked for
+  new versions every day by GitHub Actions (and the engine's Rust crates
+  against known vulnerabilities), which prepares a tested candidate release;
+  it is merged once its tests are green, then signed and published by the
+  owner (Dark Reader's lists are checked too, but the browser fetches them
+  itself)
   ([docs/MAINTENANCE.md](docs/MAINTENANCE.md)).
 
 ## Repository layout
@@ -347,7 +403,7 @@ and never with anything about its users ([docs/MAINTENANCE.md](docs/MAINTENANCE.
 | `vendor/adblock/` | loader for the engine module |
 | `launcher/` | the `/usr/bin/ike-browser` launcher (C) |
 | `data/` | desktop entry, icons, update channel configuration |
-| `docs/` | building, updates, maintenance, security, translating, testing, third-party components |
+| `docs/` | building, updates, maintenance, security, translating, testing, third-party components, the Dark Engine (`DARK-ENGINE.md`), reviews (`review/`) and the automatic maintenance (`automat/`) |
 | `licenses/` | licences of bundled third-party components |
 | `tools/` | release and maintenance scripts |
 | `tests/` | automatic tests (pytest) |
@@ -373,7 +429,7 @@ I.K.E. stands on the work of these projects, each under its own licence:
 | Qt, Qt WebEngine (Chromium), PyQt6 | the window and the web engine, from the system | LGPL-3.0 / BSD / GPL-3.0 |
 | Lucide, Phosphor Icons | icon sets | ISC / MIT |
 | [Breeze icons](https://invent.kde.org/frameworks/breeze-icons) by KDE | icon set (the icons I.K.E. uses) | LGPL-3.0 |
-| Orbitron | the lettering of the logo, the shield's numbers and the new tab page's figures | SIL OFL 1.1 |
+| Orbitron | the lettering of the logo, the number beside the shield and the new tab page's figures | SIL OFL 1.1 |
 
 The filter lists are not shipped: the browser downloads them from their
 maintainers. The same list is in Help -> About; the complete one, with every
