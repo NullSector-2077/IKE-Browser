@@ -147,6 +147,9 @@ class Context:
         self.host = host
         self.active = repair.active(app.config, host)
         self.video_site = host in app.shields.video_hosts() if hasattr(app.shields, "video_hosts") else False
+        from .config import rank
+        self.level = rank(app.config.level_for(host))          # 0 off ... 4 Maximum
+        self.danger = bool(app.shields.worker_danger(host))    # a page of a safety warning
 
 
 # ---- the detectors ------------------------------------------------------------
@@ -206,9 +209,9 @@ class MaximumWorkers(Detector):
     CAUSE = _t("Probable cause: Maximum blocks this site's background programs, because they cannot be protected.")
 
     def relevant(self, ev, ctx):
-        from .config import rank
-        return (rank(ctx.cfg.level_for(ctx.host)) >= 4 and ev.n("worker:") > 0
-                and not ctx.app.shields.worker_danger(ctx.host))
+        # the site's fingerprinting switch off does not let them in at Maximum either
+        return (getattr(ctx, "level", 0) >= 4 and ev.n("worker:") > 0
+                and not getattr(ctx, "danger", False))
 
     def judge(self, ev, probe, ctx):
         page_worker = ev.n("worker:shared") > 0 or ev.n("worker:dedicated") > 0

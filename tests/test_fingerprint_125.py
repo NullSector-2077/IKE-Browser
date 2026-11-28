@@ -177,8 +177,15 @@ def test_every_place_gives_the_same_identity(run_ike, site, level):
     page = r["page"]
     strict = level in ("strict", "maximum")
     places = {"page": page, "frame": r["frame"], "blob_shared": r["blob_shared"], "file_worker": r["file_worker"]}
-    if strict:
-        # Kontrol and Maximum (1.1.32, the owner's decisions): the site's own service and shared
+    if level == "maximum":
+        # no service worker, no shared worker from a file: their scripts are refused (1.1.25;
+        # again since the owner's decision of 2026-11-28, after the worker guard study)
+        assert r["reg"].startswith("TypeError: Failed to register a ServiceWorker"), r["reg"]
+        assert r["regs"] == 0 and "sw" not in r, r
+        assert r["file_shared"] == "error", r["file_shared"]
+        assert not [p for p, h in seen if p in ("/sw.js", "/shw.js")], seen
+    elif strict:
+        # Kontrol (1.1.32, the owner's decision): the site's own service and shared
         # workers run, with the engine's own values: its brand list in its order and
         # no kernel version, as everywhere; Chrome's full version where the page says
         # only the major one (the difference the owner accepted, see
@@ -267,8 +274,9 @@ def test_a_block_unregisters_an_older_service_worker(run_ike, site):
     """A service worker registered at Balanced would still start with the
     engine's own values where the site's own workers stay out (the user's
     block in the shield, a page of a safety warning): it is unregistered
-    there. Kontrol and Maximum keep it (1.1.32: WhatsApp starts from its
-    service worker; Maximum by the owner's decision of 2026-11-28)."""
+    there. Kontrol keeps it (1.1.32: WhatsApp starts from its service worker);
+    Maximum unregisters it, as 1.1.31 did (the owner's decision of 2026-11-28,
+    after the worker guard study)."""
     port, seen = site
     out = run_ike(STEPS % port, settings={"shield_level": "balanced"}, timeout=180)
     assert json.loads(out["r1"])["regs"] == 1
@@ -276,12 +284,16 @@ def test_a_block_unregisters_an_older_service_worker(run_ike, site):
     assert out["regs"] == 1, out                          # kept at Balanced
     out = run_ike(STEPS_OLD_WORKER % port, settings={"shield_level": "strict"}, keep_profile=True, timeout=120)
     assert out["regs"] == 1, out                          # kept at Kontrol
-    out = run_ike(STEPS_OLD_WORKER % port, settings={"shield_level": "maximum"}, keep_profile=True, timeout=120)
-    assert out["regs"] == 1, out                          # kept at Maximum
-    out = run_ike(STEPS_OLD_WORKER % port, settings={"shield_level": "maximum",
+    out = run_ike(STEPS_OLD_WORKER % port, settings={"shield_level": "strict",
                                                      "site_opts": {"127.0.0.1": {"workers": True}}},
                   keep_profile=True, timeout=120)
-    assert out["regs"] == 0, out                          # the user's block
+    assert out["regs"] == 0, out                          # the user's block at Kontrol
+    out = run_ike(STEPS % port, settings={"shield_level": "balanced"}, keep_profile=True, timeout=180)
+    assert json.loads(out["r1"])["regs"] == 1              # registered again at Balanced
+    out = run_ike(STEPS_OLD_WORKER % port, settings={"shield_level": "maximum",
+                                                     "site_opts": {"127.0.0.1": {"workers": False}}},
+                  keep_profile=True, timeout=120)
+    assert out["regs"] == 0, out                          # Maximum, whatever was chosen at Kontrol
 
 
 # ---- WebGL ---------------------------------------------------------------------------------------

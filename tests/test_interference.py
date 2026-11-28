@@ -36,8 +36,9 @@ def steps(ike, qapp, out):
     from ike import incompat as I
 
     class Ctx:
-        def __init__(self, active=("fp", "workers"), video=False):
+        def __init__(self, active=("fp", "workers"), video=False, level=3, danger=False):
             self.host, self.active, self.video_site = "app.example", list(active), video
+            self.level, self.danger = level, danger
 
     def ev(trusted=(), weak=()):
         e = I.Evidence()
@@ -66,6 +67,12 @@ def steps(ike, qapp, out):
     out["page_worker_sparse"] = judge(ev(["worker:shared"]), sparse)
     out["copy_and_sw_sparse"] = judge(ev(["worker:service"], ["protected_worker_refused"]), sparse)
     out["workers_at_kontrol"] = judge(ev(["worker:dedicated"]), empty, Ctx(active=("fp",)))
+    # Maximum (2026-11-28): refused whatever was chosen; the one choice put forward is Kontrol
+    out["max_empty"] = judge(ev(["worker:shared"]), empty, Ctx(active=("fp",), level=4))
+    out["max_content"] = judge(ev(["worker:dedicated"]), full, Ctx(active=("fp",), level=4))
+    out["max_sw_fine"] = judge(ev(["worker:service"]), full, Ctx(active=("fp",), level=4))
+    out["max_danger"] = judge(ev(["worker:shared"]), empty, Ctx(active=("fp",), level=4, danger=True))
+    out["max_fp_off"] = judge(ev(["worker:shared"]), empty, Ctx(active=(), level=4))
     out["own_script_empty"] = judge(ev(["own:script"]), empty)
     out["own_script_fine"] = judge(ev(["own:script"]), full)
     out["own_script_video"] = judge(ev(["own:script"]), empty, Ctx(video=True))
@@ -115,6 +122,11 @@ def test_detectors_and_the_life_of_a_finding(run_ike):
     assert out["sw_alone_fine"] is None, out
     assert out["weak_alone"] is None and out["nothing"] is None, out
     assert out["workers_at_kontrol"] is None, out
+    assert out["max_empty"] == ["workers_max", ["kontrol"], "serious"], out
+    assert out["max_content"] == ["workers_max", ["kontrol"], "attention"], out
+    assert out["max_sw_fine"] is None and out["max_danger"] is None, out
+    # the site's fingerprinting switch off does not let them in at Maximum: the same cause
+    assert out["max_fp_off"] == ["workers_max", ["kontrol"], "serious"], out
     assert out["own_script_fine"] is None and out["own_script_video"] is None, out
     assert out["player_video"] is None, out
     # an empty app whose service worker alone was refused: the blank page is the sign

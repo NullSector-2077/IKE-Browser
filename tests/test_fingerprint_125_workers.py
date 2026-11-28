@@ -152,11 +152,16 @@ def test_workers_from_files_are_protected(run_ike, site, level):
     bad = {k: (v if not isinstance(v, dict) else differ(v, page)) for k, v in places.items()}
     bad = {k: v for k, v in bad.items() if v}
     assert not bad, (level, json.dumps(bad)[:3000])
-    # Kontrol (1.1.32) and Maximum (the owner's decision of 2026-11-28): the
-    # site's own shared and service workers run, with the engine's values
-    # (docs/SECURITY.md); every other worker above keeps the page's
-    assert isinstance(r["workers"]["sharedFile"], dict), r["workers"]["sharedFile"]
-    assert not str(r["sw"]["reg"]).startswith("ERR"), r["sw"]
+    if level == "maximum":
+        # a shared worker from a file and a service worker: not started (1.1.25;
+        # again since the owner's decision of 2026-11-28, after the worker guard study)
+        assert r["workers"]["sharedFile"] == "ERR error event", r["workers"]["sharedFile"]
+        assert r["sw"]["reg"].startswith("ERR TypeError"), r["sw"]
+    else:
+        # Kontrol (1.1.32): the site's own shared and service workers run, with the
+        # engine's values (docs/SECURITY.md); every other worker above keeps the page's
+        assert isinstance(r["workers"]["sharedFile"], dict), r["workers"]["sharedFile"]
+        assert not str(r["sw"]["reg"]).startswith("ERR"), r["sw"]
 
 
 def test_balanced_workers_from_files_are_unchanged(run_ike, site):
@@ -186,10 +191,15 @@ def test_file_workers_keep_their_own_address(run_ike, site):
 
 @pytest.mark.parametrize("level", ["maximum", "strict", "balanced"])
 def test_a_policy_against_blob_workers(run_ike, site, level):
-    """worker-src 'self' refuses the blob address: Kontrol and Maximum (1.1.32)
-    start the site's own file in its place, Balanced as before."""
+    """worker-src 'self' refuses the blob address: at Maximum the worker is
+    refused (never started from the file without the protection; again since
+    the owner's decision of 2026-11-28); Kontrol (1.1.32) starts the site's own
+    file in its place, Balanced as before."""
     got = run(run_ike, site, [("c", "http://localhost:%d/csp.html")], level, gl=False)["c"]
-    assert got["got"] == "data", got
+    if level == "maximum":
+        assert got["got"] == "Event", got
+    else:
+        assert got["got"] == "data", got
 
 
 def test_known_answers(run_ike, site):
