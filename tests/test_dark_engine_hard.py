@@ -70,6 +70,10 @@ PAGES = {
       <div class="band"><div id="band" class="inner">Band</div></div>
       <div class="band" style="--band-bg: var(--theme-undefined-x, #fff)"><div id="band2" class="inner">Band 2</div></div>
       <div id="tile" class="tile">Tile</div>""",
+    "gradvar": """<!doctype html><style>body{background:#fff;color:#111;margin:0}
+      .p1{background-image:linear-gradient(0deg,#fff,#fff),var(--panel-picture,none);height:60px}
+      .p2{background-image:linear-gradient(0deg,var(--u-panel,#fff),var(--u-panel,#fff)),var(--other-picture,none);height:60px}
+      </style><div id="p1" class="p1">Panel one</div><div id="p2" class="p2">Panel two</div>""",
     "late": """<!doctype html><style>body{background:#fff;color:#111;margin:0}</style><style id="js"></style>
       <div id="a" class="a" style="height:40px">a</div><div id="b" class="b" style="height:40px">b</div>
       <div id="c" class="c" style="height:40px">c</div>
@@ -140,6 +144,8 @@ READS = {
                   "own:s('own').backgroundColor}",
     "fallback": "function s(i){return getComputedStyle(document.getElementById(i)).backgroundColor;}"
                 "return {band:s('band'),band2:s('band2'),tile:s('tile')}",
+    "gradvar": "function s(i){return getComputedStyle(document.getElementById(i)).backgroundImage;}"
+               "return {p1:s('p1'),p2:s('p2')}",
     "late": "function s(i){return getComputedStyle(document.getElementById(i)).backgroundColor;}"
             "return {a:s('a'),b:s('b'),c:s('c')}",
     "frame": "var p=document.getElementById('fr').contentDocument.getElementById('x');"
@@ -206,6 +212,10 @@ def test_hard_cases(run_ike, site):
     assert light(p["own"]) < 0.3 and p["own"] != p["band"], p                  # the page's own value still wins
     p = out["fallback"]                                                         # var(--undefined, #fff)
     assert light(p["band"]) < 0.3 and light(p["band2"]) < 0.3 and light(p["tile"]) < 0.3, p
+    p = out["gradvar"]                                    # a gradient next to a variable in the same value
+    for k in ("p1", "p2"):
+        first = re.search(r"rgba?\([^)]*\)", p[k]).group(0)
+        assert light(first) < 0.3, p
     p = out["late"]                                    # insertRule with no node changed, a style's text changed
     assert light(p["a"]) < 0.3 and light(p["b"]) < 0.3 and light(p["c"]) < 0.3, p
     p = out["frame"]

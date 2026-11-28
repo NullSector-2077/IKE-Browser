@@ -176,7 +176,11 @@ def main():
     for e in d.get("onpicture", []):
         lines.append("   light text on a picture: %r %s at %s colour %s, over %s: %s"
                      % (e["text"], e["el"], e["rect"], e["color"], e["under"], e["picture"]))
+    classes = set()
+    for e in d.get("lowcontrast", []):
+        classes.update(c for c in e["under"]["layer"].split("::")[0].split(".")[1:] if c)
     lines.extend(owner_check._in_unreadable(d.get("unreadable", []), wanted))
+    lines.extend(owner_check._sources(d.get("unreadable", []), classes))
     (out / "diagnose.txt").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
     print("\nSaved in", out, "(diagnose.txt, screen.png). Close this I.K.E. window and start I.K.E. again as usual.")
