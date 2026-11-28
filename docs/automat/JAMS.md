@@ -215,6 +215,16 @@ next to the code it guards.
 - **Done**: a failing commit that the automatic fix itself wrote goes to the
   next attempt at once (`tools/autofix-plan.py`, `own_attempt`).
 
+### 16. A failure of main fixed by a person kept the drill paused (2026-11-27)
+
+- **Sign**: the drill's second attempt asked nobody: "paused for real updates
+  first: ... pending (automation/autofix-main)".
+- **Cause**: main's tests had failed that evening (a flaky test); the automatic
+  fix opened a row for `automation/autofix-main`; a person's pull request then
+  fixed main, so no automatic fix ever ended the row.
+- **Done**: that row ends when main's newest finished Tests run passed after it
+  (`tools/ai-quota.py` `main_green_since`), whoever fixed main.
+
 ## Prepared responses (what Claude does, in order)
 
 | Situation | First step | Never |
