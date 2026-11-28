@@ -34,6 +34,16 @@
 - **Print preview**: Print… (Ctrl+P, the menus, the page's menu) shows the
   pages as they will be printed first, then the system's print window from
   its Print button (tests/test_print_preview.py).
+- **No white frame between two pages** (the owner saw one on a fast site,
+  with and without dark mode): the page's backdrop colour is given again when
+  the new page starts and when its address changes, so that the renderer of
+  another site gets it from its first frame (`ike/webview.py`).
+- **Dark Engine: a background of a gradient and a colour is darkened** (a
+  panel of a site stayed white in 1.1.30): Chromium reads a layer without a
+  picture as `initial` in the list (`background: linear-gradient(#fff, #fff),
+  rgba(0,0,0,.03)`); written back so, the whole dark declaration was not valid
+  and the page's light one stayed. Such a layer is now written as `none`
+  (tests/test_dark_engine_hard.py).
 
 ## 1.1.30
 
