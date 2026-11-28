@@ -2,6 +2,18 @@
 
 ## 1.1.31
 
+- **Sign-in pages no longer wait for ever for passkeys** (the owner: "we must
+  find a solution"): Arch's Qt WebEngine never answers a page that asks
+  whether passkeys can be used (`PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()`,
+  `isConditionalMediationAvailable()`; no build answers `getClientCapabilities()`),
+  at every level, in Falkon too. From Compatibility up I.K.E. answers as
+  Chromium 140 answers on Linux (measured with Chrome for Testing
+  140.0.7339.207): no passkey built into the computer, the browser's list of
+  passkeys available, and the same capabilities in the same order; on
+  Google's sites, where I.K.E. is a Firefox, the first two as Firefox answers
+  them, and its list of capabilities is not made up. Security keys work as
+  before (I.K.E.'s own windows). Off still changes nothing in a page
+  (`ike/resources/fingerprint.js`, tests/test_passkeys.py).
 - **Cloudflare's checks pass again at Balanced, Kontrol and Maximum** (the
   owner saw Turnstile fail at every level but Compatibility; Brave at its
   highest protection passed). Found by switching I.K.E.'s protections off one

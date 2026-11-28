@@ -217,6 +217,15 @@
     };
     FIREFOX = googleSite(host) || (CFG.ffsignin || []).indexOf(lower(location.hostname)) >= 0;
   }
+  // Chromium 140's passkey capabilities on Linux, in its order (see passkeys)
+  var PASSKEY_CAPS = [['conditionalCreate', true], ['conditionalGet', true], ['extension:appid', true],
+    ['extension:appidExclude', true], ['extension:credBlob', true], ['extension:credProps', true],
+    ['extension:credentialProtectionPolicy', true], ['extension:enforceCredentialProtectionPolicy', true],
+    ['extension:getCredBlob', true], ['extension:hmacCreateSecret', true], ['extension:largeBlob', true],
+    ['extension:minPinLength', true], ['extension:payment', false], ['extension:prf', true],
+    ['hybridTransport', false], ['passkeyPlatformAuthenticator', false], ['relatedOrigins', true],
+    ['signalAllAcceptedCredentials', true], ['signalCurrentUserDetails', true], ['signalUnknownCredential', true],
+    ['userVerifyingPlatformAuthenticator', false]];
   var RANK = { off: 0, compatibility: 1, balanced: 2, strict: 3, maximum: 4 };
   var lv = RANK[levelFor(host)];
   if (lv === undefined) lv = 2;
@@ -230,7 +239,8 @@
       h = h.slice(i + 1);
     }
   })();
-  // Global Privacy Control is the only page-visible change in Compatibility.
+  // Global Privacy Control and the passkey answers (see passkeys) are the
+  // only page-visible changes in Compatibility.
   if (CFG.gpc && lv < 2) {
     try {
       Object.defineProperty(Navigator.prototype, 'globalPrivacyControl', {
@@ -240,15 +250,20 @@
   }
   if (lv < 2) {
     // Compatibility, or the fingerprint protection off for this site: no
-    // protection, but Google's sites still see Firefox, as in the headers
+    // protection, but Google's sites still see Firefox, as in the headers,
+    // and the passkey questions are answered (1.1.31: a sign-in page waited
+    // for ever at every level)
+    try {
+      wrap(Function.prototype, 'toString', function (orig) {
+        return function () {
+          var s = natives.get(this);
+          return s !== undefined ? s : RAPPLY(orig, this, []);
+        };
+      });
+      passkeys(window);
+    } catch (e) {}
     if (FIREFOX) {
       try {
-        wrap(Function.prototype, 'toString', function (orig) {
-          return function () {
-            var s = natives.get(this);
-            return s !== undefined ? s : RAPPLY(orig, this, []);
-          };
-        });
         firefoxIdentity(window);
       } catch (e) {}
     }
@@ -1441,6 +1456,40 @@
       });
     } catch (e) {}
   }
+  // Passkeys (1.1.31): Arch's Qt WebEngine never settles the promises of
+  // PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(),
+  // isConditionalMediationAvailable() and getClientCapabilities() (other
+  // builds answer the first two; none the third), so a sign-in page that
+  // waits for them waits for ever. They are answered as Chromium 140 answers
+  // them on Linux (measured, Chrome for Testing 140.0.7339.207): no platform
+  // authenticator, conditional mediation available (a conditional request
+  // then waits, as in Chromium with no passkey saved: Qt shows no list), and
+  // the same capabilities, in the same order. Security keys are unchanged
+  // (passwords.handle_webauthn). Where I.K.E. is a Firefox (Google's
+  // sites) the first two answers are Firefox's on Linux as well; Firefox's
+  // own list of capabilities is not Chromium's, and none is made up there.
+  function passkeys(w) {
+    try {
+      var PKC = w.PublicKeyCredential, PR = w.Promise, RESOLVE = PR && PR.resolve, WO = w.Object;
+      if (typeof PKC !== 'function' || !RESOLVE) return;
+      var answer = function (v) { return RAPPLY(RESOLVE, PR, [v]); };
+      wrap(PKC, 'isUserVerifyingPlatformAuthenticatorAvailable', function () {
+        return function () { return answer(false); };
+      });
+      wrap(PKC, 'isConditionalMediationAvailable', function () {
+        return function () { return answer(true); };
+      });
+      if (!FIREFOX) wrap(PKC, 'getClientCapabilities', function () {
+        return function () {
+          var o = new WO();
+          for (var i = 0; i < PASSKEY_CAPS.length; i++) {
+            DEFPROP(o, PASSKEY_CAPS[i][0], { value: PASSKEY_CAPS[i][1], writable: true, enumerable: true, configurable: true });
+          }
+          return answer(o);
+        };
+      });
+    } catch (e) {}
+  }
   // A current Firefox on Linux, in one realm (1.1.27): its navigator's texts,
   // its own oscpu and buildID, and none of Chromium's userAgentData or
   // window.chrome. The getters read as the engine's own (natives).
@@ -2400,6 +2449,7 @@
       if (strict) maskFonts(w);
       return;
     }
+    passkeys(w);
     if (FIREFOX) firefoxIdentity(w);
     else {
       chromeObject(w);
