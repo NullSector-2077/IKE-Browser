@@ -1,0 +1,893 @@
+{
+ "researched_on": "2026-11-25",
+ "verified_meaning": "true = value read today on the provider's primary page (URL given); false = third-party, inference, or not found on primary pages",
+ "providers": {
+  "gemini": {
+   "env": "GEMINI_API_KEY",
+   "base_url": "https://generativelanguage.googleapis.com/v1beta",
+   "api_note": {
+    "value": "generateContent is called 'legacy' (still supported); Interactions API is the default",
+    "verified": true,
+    "source": "https://aistudio.google.com/llms.txt"
+   },
+   "list_models": {
+    "value": "GET /v1beta/models (inputTokenLimit/outputTokenLimit); does not show free-tier eligibility or quota",
+    "verified": false
+   },
+   "quota_scope": {
+    "value": "per project, per model; new key in same project does not help",
+    "verified": true,
+    "source": "https://ai.google.dev/gemini-api/docs/rate-limits"
+   },
+   "models": [
+    {
+     "id": "gemini-4-hydrogen",
+     "free": true,
+     "context": 1048576,
+     "max_output": 65536,
+     "max_output_long_decode": 1048576,
+     "verified": true,
+     "sources": [
+      "https://ai.google.dev/gemini-api/docs/pricing",
+      "https://ai.google.dev/gemini-api/docs/models/gemini-4-hydrogen",
+      "https://ai.google.dev/gemini-api/docs/changelog"
+     ],
+     "note": "GA 2026-11-12, 'Available on the free tier'"
+    },
+    {
+     "id": "gemini-3.8-flash",
+     "free": true,
+     "context": 1048576,
+     "max_output": 65536,
+     "verified": true,
+     "sources": [
+      "https://ai.google.dev/gemini-api/docs/pricing",
+      "https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash"
+     ]
+    },
+    {
+     "id": "gemini-3.6-flash",
+     "free": true,
+     "context": 1048576,
+     "max_output": 65536,
+     "verified": true,
+     "sources": [
+      "https://ai.google.dev/gemini-api/docs/pricing",
+      "https://ai.google.dev/gemini-api/docs/models/gemini-3.6-flash"
+     ]
+    },
+    {
+     "id": "gemini-3.5-flash-lite",
+     "free": true,
+     "context": 1048576,
+     "max_output": 65536,
+     "verified": true,
+     "sources": [
+      "https://ai.google.dev/gemini-api/docs/pricing",
+      "https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite"
+     ]
+    },
+    {
+     "id": "gemini-3.1-flash-lite",
+     "free": true,
+     "context": 1048576,
+     "max_output": 65536,
+     "earliest_shutdown": "2027-05-07",
+     "replacement": "gemini-3.5-flash-lite",
+     "verified": true,
+     "sources": [
+      "https://ai.google.dev/gemini-api/docs/pricing",
+      "https://ai.google.dev/gemini-api/docs/deprecations"
+     ]
+    },
+    {
+     "id": "gemini-3-flash-preview",
+     "free": true,
+     "context": 1048576,
+     "max_output": 65536,
+     "preview": true,
+     "verified": true,
+     "sources": [
+      "https://ai.google.dev/gemini-api/docs/pricing",
+      "https://ai.google.dev/gemini-api/docs/models/gemini-3-flash-preview"
+     ]
+    },
+    {
+     "id": "gemini-2.5-flash-lite",
+     "free": true,
+     "context": 1048576,
+     "max_output": 65536,
+     "restricted": "existing users only",
+     "verified": true,
+     "sources": [
+      "https://ai.google.dev/gemini-api/docs/models"
+     ]
+    },
+    {
+     "id": "gemini-2.5-flash",
+     "free": true,
+     "deprecated": true,
+     "auto_route_from": "2026-12-01",
+     "routes_to": "gemini-3.5-flash-lite",
+     "verified": true,
+     "sources": [
+      "https://ai.google.dev/gemini-api/docs/models"
+     ]
+    },
+    {
+     "id": "gemini-2.5-pro",
+     "free": true,
+     "deprecated": true,
+     "auto_route_from": "2026-12-01",
+     "routes_to": "gemini-3.8-flash",
+     "verified": true,
+     "sources": [
+      "https://ai.google.dev/gemini-api/docs/deprecations"
+     ]
+    },
+    {
+     "id": "gemini-4-carbon",
+     "free": false,
+     "verified": true,
+     "sources": [
+      "https://ai.google.dev/gemini-api/docs/pricing"
+     ]
+    },
+    {
+     "id": "gemini-4-argon",
+     "free": false,
+     "verified": true,
+     "sources": [
+      "https://ai.google.dev/gemini-api/docs/pricing"
+     ]
+    },
+    {
+     "id": "gemini-4-neon",
+     "free": false,
+     "verified": true,
+     "sources": [
+      "https://ai.google.dev/gemini-api/docs/pricing"
+     ]
+    },
+    {
+     "id": "gemini-3.1-pro-preview",
+     "free": false,
+     "verified": true,
+     "sources": [
+      "https://ai.google.dev/gemini-api/docs/pricing"
+     ]
+    }
+   ],
+   "recommended_for_automat": [
+    "gemini-4-hydrogen",
+    "gemini-3.8-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash-lite"
+   ],
+   "limits": {
+    "rpm": null,
+    "rpd": null,
+    "tpm": null,
+    "tpd": null,
+    "concurrency": null,
+    "verified": true,
+    "note": "Primary page publishes NO free-tier numbers for text models: 'can be viewed in Google AI Studio' (https://aistudio.google.com/rate-limit). TPM counts input tokens. Some models may have TPD. Preview/experimental more restricted.",
+    "source": "https://ai.google.dev/gemini-api/docs/rate-limits"
+   },
+   "reset": {
+    "time": "00:00",
+    "zone": "America/Los_Angeles",
+    "verified": true,
+    "source": "https://ai.google.dev/gemini-api/docs/rate-limits",
+    "quote": "Requests per day (RPD) quotas reset at midnight Pacific time.",
+    "per_minute_window": {
+     "value": "not documented; Google's gemini-cli waits 60 s on PerMinute",
+     "verified": false
+    }
+   },
+   "rate_limit_signals": {
+    "generateContent_429": {
+     "value": "HTTP 429, status RESOURCE_EXHAUSTED: 'exceeded one of the API's rate limits (RPM, TPM, RPD, spend, etc.)' - docs give no field to tell which",
+     "verified": true,
+     "source": "https://aistudio.google.com/docs/api-errors.md?generate-content=true"
+    },
+    "per_minute": {
+     "value": [
+      "details[QuotaFailure].violations[].quotaId contains 'PerMinute' (e.g. GenerateRequestsPerMinutePerProjectPerModel-FreeTier, metric generativelanguage.googleapis.com/generate_content_free_tier_requests)",
+      "RetryInfo.retryDelay <= 300s",
+      "message 'Please retry in Xs'"
+     ],
+     "verified": false,
+     "source": "google-gemini/gemini-cli googleQuotaErrors.ts + test @08e9a20f (official Google code, not docs)"
+    },
+    "per_day": {
+     "value": [
+      "quotaId contains 'PerDay' or 'Daily' (check before retryDelay)",
+      "message contains 'limit: 0' (no quota for model/tier)",
+      "retryDelay > 300s"
+     ],
+     "verified": false,
+     "source": "gemini-cli code (official Google code, not docs); exact daily quotaId string not seen in Google text"
+    },
+    "interactions_api_codes": {
+     "value": {
+      "rate_limit_exceeded": "429 per-minute/per-second -> backoff",
+      "quota_exceeded": "429 daily quota -> wait until reset",
+      "too_many_requests": "429 burst -> backoff",
+      "service_unavailable": "503",
+      "payment_required": "402 don't retry"
+     },
+     "verified": true,
+     "source": "https://ai.google.dev/gemini-api/docs/api-errors"
+    },
+    "terminal": {
+     "value": [
+      "400 FAILED_PRECONDITION free tier not available in your country",
+      "402 RESOURCE_EXHAUSTED prepay depleted",
+      "403 PERMISSION_DENIED key/project restricted or not free-tier eligible"
+     ],
+     "verified": true,
+     "source": "https://aistudio.google.com/docs/api-errors.md?generate-content=true"
+    }
+   },
+   "retry": {
+    "value": {
+     "retry_on": [
+      408,
+      429,
+      500,
+      502,
+      503,
+      504
+     ],
+     "never_retry": [
+      400,
+      402,
+      403
+     ],
+     "schedule": "1s,2s,4s,8s + jitter, max attempts",
+     "sdk_python": "auto-retries up to 4 times, ~1s initial, 60s max",
+     "500": "input too long -> reduce or switch model",
+     "503": "capacity -> switch model or wait",
+     "504": "raise client timeout"
+    },
+    "verified": true,
+    "sources": [
+     "https://ai.google.dev/gemini-api/docs/troubleshooting",
+     "https://aistudio.google.com/docs/api-errors.md?generate-content=true"
+    ]
+   },
+   "deprecation": {
+    "value": "announced in release notes; dates are 'earliest possible'; exact date communicated with advance notice; no fixed period",
+    "verified": true,
+    "sources": [
+     "https://ai.google.dev/gemini-api/docs/deprecations",
+     "https://ai.google.dev/gemini-api/docs/changelog"
+    ]
+   },
+   "data_use": {
+    "value": "Free tier 'Used to improve our products: Yes', human review; EEA/CH/UK: paid data terms apply also to unpaid quota; 'You may use only Paid Services when making API Clients available to users in the EEA, Switzerland, or the UK'; business use only, 18+",
+    "verified": true,
+    "source": "https://ai.google.dev/gemini-api/terms"
+   }
+  },
+  "antigravity": {
+   "free_plan": {
+    "value": "Individuals $0/month: baseline agent quota refreshed weekly + weekly rate limit; no numbers; quota depends on agent work; subject to change",
+    "verified": true,
+    "sources": [
+     "https://antigravity.google/pricing/",
+     "https://antigravity.google/docs/plans/"
+    ]
+   },
+   "free_models_now": {
+    "value": [
+     "Gemini 4 Hydrogen",
+     "Gemini 3.8 Flash",
+     "Claude Sonnet 4.6 (thinking)",
+     "Claude Opus 4.6 (thinking)",
+     "GPT-OSS-120b"
+    ],
+    "verified": true,
+    "source": "https://antigravity.google/pricing/"
+   },
+   "leaving_2026_11_30": {
+    "value": [
+     "Gemini 3.8 Flash",
+     "Claude Sonnet 4.6 (thinking)",
+     "Claude Opus 4.6 (thinking)",
+     "GPT-OSS-120b",
+     "Gemini 4 Argon (not on Free)"
+    ],
+    "verified": true,
+    "sources": [
+     "https://antigravity.google/pricing/",
+     "https://antigravity.google/docs/models/"
+    ]
+   },
+   "replacement": {
+    "value": "No named replacement; Free keeps Gemini 4 Hydrogen, the default model for Free accounts",
+    "verified": true,
+    "source": "https://antigravity.google/docs/models/"
+   },
+   "recommended_for_automat": [
+    "Gemini 4 Hydrogen"
+   ],
+   "usage": {
+    "value": "/usage shows remaining quota per model group; group shares a weekly limit and a five-hour limit",
+    "verified": true,
+    "source": "https://antigravity.google/docs/cli/commands/usage/"
+   },
+   "byok": {
+    "value": "not supported for extra rate limits",
+    "verified": true,
+    "source": "https://antigravity.google/docs/plans/"
+   }
+  },
+  "groq": {
+   "env": "GROQ_API_KEY",
+   "base_url": "https://api.groq.com/openai/v1",
+   "list_models": {
+    "value": "GET /openai/v1/models returns all active models",
+    "verified": true,
+    "source": "https://console.groq.com/docs/models"
+   },
+   "quota_scope": {
+    "value": "organization level, per model",
+    "verified": true,
+    "source": "https://console.groq.com/docs/rate-limits"
+   },
+   "models": [
+    {
+     "id": "openai/gpt-oss-120b",
+     "tier": "production",
+     "context": 131072,
+     "max_output": 65536,
+     "limits": {
+      "rpm": 30,
+      "rpd": 1000,
+      "tpm": 8000,
+      "tpd": 200000
+     },
+     "verified": true
+    },
+    {
+     "id": "openai/gpt-oss-20b",
+     "tier": "production",
+     "context": 131072,
+     "max_output": 65536,
+     "limits": {
+      "rpm": 30,
+      "rpd": 1000,
+      "tpm": 8000,
+      "tpd": 200000
+     },
+     "verified": true
+    },
+    {
+     "id": "qwen/qwen3.8-27b",
+     "tier": "preview",
+     "context": 131072,
+     "max_output": 16384,
+     "limits": {
+      "rpm": 30,
+      "rpd": 1000,
+      "tpm": 8000,
+      "tpd": 200000
+     },
+     "verified": true
+    },
+    {
+     "id": "openai/gpt-oss-safeguard-20b",
+     "tier": "preview",
+     "context": 131072,
+     "max_output": 65536,
+     "limits": {
+      "rpm": 3,
+      "rpd": 1000,
+      "tpm": 2000,
+      "tpd": 200000
+     },
+     "verified": true
+    },
+    {
+     "id": "llama-3.3-70b-versatile",
+     "tier": "enterprise only (ContactSales)",
+     "verified": true
+    },
+    {
+     "id": "llama-3.1-8b-instant",
+     "tier": "enterprise only (ContactSales)",
+     "verified": true
+    }
+   ],
+   "limits_note": {
+    "value": "Table on rate-limits page (30/1K/8K/200K) is labelled 'base limits for the Developer plan' but models page lists Developer plan at 1K RPM/250K TPM, so the table matches the free plan; exact values on console Settings -> Limits. Some orgs also have ITPM/OTPM.",
+    "verified": true,
+    "sources": [
+     "https://console.groq.com/docs/rate-limits",
+     "https://console.groq.com/docs/models"
+    ]
+   },
+   "recommended_for_automat": [
+    "openai/gpt-oss-120b",
+    "qwen/qwen3.8-27b",
+    "openai/gpt-oss-20b"
+   ],
+   "reset": {
+    "time": null,
+    "zone": null,
+    "verified": false,
+    "note": "not stated; x-ratelimit-reset-requests (RPD) is a duration like 2m59.56s -> continuous replenishment (inference)",
+    "source": "https://console.groq.com/docs/rate-limits"
+   },
+   "rate_limit_signals": {
+    "headers": {
+     "value": {
+      "x-ratelimit-limit-requests": "RPD",
+      "x-ratelimit-remaining-requests": "RPD",
+      "x-ratelimit-reset-requests": "RPD (duration)",
+      "x-ratelimit-limit-tokens": "TPM",
+      "x-ratelimit-remaining-tokens": "TPM",
+      "x-ratelimit-reset-tokens": "TPM (duration)",
+      "retry-after": "seconds, only on 429"
+     },
+     "verified": true,
+     "source": "https://console.groq.com/docs/rate-limits"
+    },
+    "per_minute": {
+     "value": [
+      "429 with x-ratelimit-remaining-tokens == 0 (TPM)",
+      "message 'per minute (RPM)' / 'per minute (TPM)' (RPM has no header)"
+     ],
+     "verified": false,
+     "note": "header part verified; message format not on official pages"
+    },
+    "per_day": {
+     "value": [
+      "x-ratelimit-remaining-requests == 0 (RPD)",
+      "message 'per day (RPD)' / 'per day (TPD)' (TPD has no header)"
+     ],
+     "verified": false,
+     "note": "header part verified; message format not on official pages"
+    }
+   },
+   "retry": {
+    "value": {
+     "429": "throttle and respect limits; use retry-after",
+     "498": "flex capacity exceeded, try later",
+     "500": "retry later",
+     "502": "temporary, retry",
+     "503": "wait before retrying",
+     "413": "request body too large, shrink",
+     "billing": "server errors are not charged"
+    },
+    "verified": true,
+    "source": "https://console.groq.com/docs/errors",
+    "sdk": {
+     "value": "groq-python: 2 retries, 0.5-8s, honours retry-after only if <=60s",
+     "verified": false,
+     "source": "groq/groq-python @55066d94 (official code)"
+    }
+   },
+   "deprecation": {
+    "value": "email to affected users + deprecations page; transition; optional auto-upgrade; errors after shutdown; preview models may go at short notice; observed 4-8 weeks notice",
+    "verified": true,
+    "source": "https://console.groq.com/docs/deprecations"
+   },
+   "data_use": {
+    "value": "not retained by default, never used for training (first pass, search excerpt)",
+    "verified": false,
+    "source": "https://console.groq.com/docs/your-data"
+   }
+  },
+  "zai": {
+   "env": "ZAI_API_KEY",
+   "base_url": {
+    "value": "https://api.z.ai/api/paas/v4",
+    "verified": true,
+    "source": "https://docs.z.ai/api-reference/introduction"
+   },
+   "key_note": {
+    "value": "Since 2026-10-16 key type decides billing; use a Standard API Key; changing endpoint does not change billing type",
+    "verified": true,
+    "source": "https://docs.z.ai/devpack/notice/api-key-management"
+   },
+   "list_models": {
+    "value": null,
+    "verified": false,
+    "note": "no models endpoint documented; api.z.ai not reachable to probe"
+   },
+   "models": [
+    {
+     "id": "glm-4.7-flash",
+     "free": true,
+     "context": 200000,
+     "max_output": 128000,
+     "verified": true,
+     "sources": [
+      "https://docs.z.ai/guides/overview/pricing",
+      "https://docs.z.ai/guides/llm/glm-4.7"
+     ]
+    },
+    {
+     "id": "glm-4.5-flash",
+     "free": true,
+     "context": null,
+     "max_output": null,
+     "verified": true,
+     "note": "free per pricing page; specs not read",
+     "sources": [
+      "https://docs.z.ai/guides/overview/pricing"
+     ]
+    },
+    {
+     "id": "glm-5.3-flash",
+     "free": false,
+     "price": "$0.15 in / $0.50 out per 1M",
+     "verified": true,
+     "sources": [
+      "https://docs.z.ai/guides/overview/pricing"
+     ]
+    }
+   ],
+   "recommended_for_automat": [
+    "glm-4.7-flash",
+    "glm-4.5-flash"
+   ],
+   "limits": {
+    "rpm": null,
+    "rpd": null,
+    "tpm": null,
+    "tpd": null,
+    "concurrency": null,
+    "verified": true,
+    "note": "No numbers on docs; concurrency varies by user/plan, excess requests fail or queue; live values at https://z.ai/manage-apikey/rate-limits (console). '1 concurrent' for free Flash is third-party only.",
+    "source": "https://docs.z.ai/guides/overview/concept-param"
+   },
+   "reset": {
+    "time": null,
+    "zone": null,
+    "verified": false,
+    "note": "next_flush_time in 1308/1310/1316-1321 messages; zone not stated"
+   },
+   "error_codes": {
+    "verified": true,
+    "source": "https://docs.z.ai/api-reference/api-code",
+    "shape": "{\"error\":{\"code\":\"<string>\",\"message\":\"...\"}}",
+    "codes": {
+     "1113": {
+      "http": 429,
+      "msg": "Insufficient balance or no resource package. Please recharge.",
+      "action": "terminal"
+     },
+     "1211": {
+      "http": 400,
+      "msg": "Unknown Model, please check the model code.",
+      "action": "terminal (model retired/wrong)"
+     },
+     "1221": {
+      "http": 400,
+      "msg": "API has been taken offline",
+      "action": "terminal"
+     },
+     "1234": {
+      "http": 500,
+      "msg": "Network error ... please try again later",
+      "action": "retry"
+     },
+     "1261": {
+      "http": 400,
+      "msg": "Prompt too long",
+      "action": "shrink input"
+     },
+     "1301": {
+      "http": 400,
+      "msg": "unsafe or sensitive content",
+      "action": "do not retry same prompt"
+     },
+     "1302": {
+      "http": 429,
+      "msg": "Rate limit reached for requests",
+      "action": "backoff, serialise"
+     },
+     "1303": {
+      "http": null,
+      "msg": "NOT LISTED on official page",
+      "action": "treat like 1302 (assumption)"
+     },
+     "1305": {
+      "http": 429,
+      "msg": "The service may be temporarily overloaded, please try again later",
+      "action": "backoff, then other provider"
+     },
+     "1308": {
+      "http": 429,
+      "msg": "Usage limit reached for {number} {unit}. Your limit will reset at {next_flush_time}",
+      "action": "terminal until reset"
+     },
+     "1309": {
+      "http": 429,
+      "msg": "GLM Coding Plan package has expired",
+      "action": "terminal"
+     },
+     "1310": {
+      "http": 429,
+      "msg": "Weekly/Monthly Limit Exhausted. Your limit will reset at {next_flush_time}",
+      "action": "terminal until reset"
+     },
+     "1311": {
+      "http": 429,
+      "msg": "subscription plan does not include access to model",
+      "action": "terminal"
+     },
+     "1313": {
+      "http": 429,
+      "msg": "usage pattern does not comply with the Fair Usage Policy; request frequency limited; submit a request to restore",
+      "action": "terminal, needs human"
+     },
+     "1314-1321": {
+      "http": 429,
+      "msg": "enterprise package expired / enterprise-only key / 5-hour or 7-day usage limit without extra-usage balance, resets at {next_flush_time}",
+      "action": "terminal until reset"
+     }
+    },
+    "streaming": "abnormal stop: no error code, see finish_reason"
+   },
+   "retry": {
+    "value": {
+     "retry": [
+      "1302",
+      "1305",
+      "1234",
+      "HTTP 500"
+     ],
+     "never": [
+      "1113",
+      "1211",
+      "1221",
+      "1261",
+      "1301",
+      "1308",
+      "1309",
+      "1310",
+      "1311",
+      "1313",
+      "1314-1321"
+     ]
+    },
+    "verified": false,
+    "note": "derived from official messages; docs give no backoff numbers"
+   },
+   "deprecation": {
+    "value": "no policy page found; releases at https://docs.z.ai/release-notes/new-released",
+    "verified": false
+   },
+   "data_use": {
+    "value": "API DPA not read",
+    "verified": false
+   }
+  },
+  "openrouter": {
+   "env": "OPENROUTER_API_KEY",
+   "base_url": "https://openrouter.ai/api/v1",
+   "list_models": {
+    "value": "GET /api/v1/models (no auth); free = id ends ':free' and pricing.prompt == pricing.completion == '0'; check top_provider.max_completion_tokens, supported_parameters, expiration_date",
+    "verified": true,
+    "source": "https://openrouter.ai/api/v1/models"
+   },
+   "quota_scope": {
+    "value": "account; extra keys/accounts do not change limits ('we govern capacity globally'); docs say different models have different limits, blog says one per-minute limiter for all free models",
+    "verified": true,
+    "sources": [
+     "https://openrouter.ai/docs/api-reference/limits",
+     "https://openrouter.ai/blog/tutorials/llm-api-rate-limits/"
+    ]
+   },
+   "free_models_2026_11_25": {
+    "verified": true,
+    "source": "https://openrouter.ai/api/v1/models",
+    "models": [
+     {
+      "id": "inclusionai/ling-3.2-flash:free",
+      "context": 1048576,
+      "max_output": 262144,
+      "tools": true
+     },
+     {
+      "id": "particle-ai/particle-1:free",
+      "context": 1048576,
+      "max_output": 131072,
+      "tools": true,
+      "note": "agentic coding model"
+     },
+     {
+      "id": "baidu/ernie-5.5-flash-preview:free",
+      "context": 1024000,
+      "max_output": 921600,
+      "tools": true,
+      "note": "preview"
+     },
+     {
+      "id": "nvidia/nemotron-3.5-super-vl:free",
+      "context": 1000000,
+      "max_output": 131072,
+      "tools": true
+     },
+     {
+      "id": "nvidia/nemotron-3.5-lightning:free",
+      "context": 1000000,
+      "max_output": 65536,
+      "tools": true
+     },
+     {
+      "id": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "context": 1000000,
+      "max_output": 65536,
+      "tools": true
+     },
+     {
+      "id": "recursive/flint-v1.0:free",
+      "context": 262144,
+      "max_output": 235929,
+      "tools": true,
+      "note": "for coding agents, 2.5B active"
+     },
+     {
+      "id": "google/gemma-4-31b-it:free",
+      "context": 262144,
+      "max_output": 32768,
+      "tools": true
+     },
+     {
+      "id": "google/gemma-4-26b-a4b-it:free",
+      "context": 262144,
+      "max_output": 32768,
+      "tools": true
+     },
+     {
+      "id": "liquid/lfm-3-1.7b:free",
+      "context": 262144,
+      "max_output": 8192,
+      "tools": true,
+      "note": "too small; data may be retained/used"
+     },
+     {
+      "id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "context": 256000,
+      "max_output": 65536,
+      "tools": true
+     },
+     {
+      "id": "openrouter/free",
+      "context": 200000,
+      "max_output": null,
+      "tools": true,
+      "note": "router, random free model"
+     }
+    ],
+    "no_longer_free": [
+     "openai/gpt-oss-120b:free",
+     "qwen/qwen3-coder:free",
+     "deepseek/deepseek-r1-0528:free"
+    ]
+   },
+   "recommended_for_automat": [
+    "particle-ai/particle-1:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "inclusionai/ling-3.2-flash:free",
+    "google/gemma-4-31b-it:free",
+    "baidu/ernie-5.5-flash-preview:free"
+   ],
+   "limits": {
+    "rpm": 20,
+    "rpd": 50,
+    "rpd_if_10_credits_purchased": 1000,
+    "tpm": null,
+    "tpd": null,
+    "concurrency": null,
+    "verified": true,
+    "source": "https://openrouter.ai/docs/api-reference/limits",
+    "notes": [
+     "negative balance can block free models",
+     "per-minute limit not reported by /api/v1/key"
+    ]
+   },
+   "reset": {
+    "time": "00:00",
+    "zone": "UTC",
+    "verified": true,
+    "source": "https://openrouter.ai/docs/api-reference/limits",
+    "quote": "Free-model requests left in the current UTC day"
+   },
+   "key_status": {
+    "value": {
+     "endpoint": "GET /api/v1/key",
+     "use": "data.free_model_daily_requests.{used,limit,remaining}",
+     "is_free_tier": "whether the user has paid for credits before",
+     "rate_limit": "deprecated, ignore",
+     "usage_and_limit_fields": "credits (USD)",
+     "burst": "per-IP burst limit on this endpoint, no X-RateLimit headers"
+    },
+    "verified": true,
+    "source": "https://openrouter.ai/docs/api-reference/limits"
+   },
+   "rate_limit_signals": {
+    "official_429": {
+     "value": "{\"error\":{\"code\":429,\"message\":\"Rate limit exceeded\",\"metadata\":{\"error_type\":\"rate_limit_exceeded\"}}}; OpenRouter-side free-model 429 carries X-RateLimit-Limit/Remaining/Reset headers; upstream 429 carries metadata.provider_code; Retry-After only if every provider gave a retry hint",
+     "verified": true,
+     "source": "https://openrouter.ai/docs/api-reference/limits"
+    },
+    "per_minute": {
+     "value": [
+      "error.metadata.limit_source == 'openrouter_free_tier_per_minute'",
+      "message 'Rate limit exceeded: free-models-per-min.'",
+      "error.metadata.headers.X-RateLimit-Reset (unix ms)"
+     ],
+     "verified": false,
+     "note": "from OpenRouter's own blog (2026-11-11), not reference docs"
+    },
+    "per_day": {
+     "value": [
+      "GET /api/v1/key free_model_daily_requests.remaining == 0 (verified)",
+      "error.metadata.limit_source == 'openrouter_free_tier_daily' (blog sample code only)"
+     ],
+     "verified": false
+    },
+    "upstream": {
+     "value": [
+      "limit_source == 'upstream_provider_shared_pool' (blog)",
+      "error.metadata.provider_code / provider_name (docs)",
+      "no reset header"
+     ],
+     "verified": false
+    },
+    "error_type": {
+     "value": {
+      "rate_limit_exceeded": 429,
+      "provider_overloaded": 503,
+      "provider_unavailable": 502,
+      "context_length_exceeded": 400,
+      "payment_required": 402,
+      "server": 500
+     },
+     "verified": true,
+     "source": "https://openrouter.ai/docs/api_reference/errors-and-debugging"
+    }
+   },
+   "retry": {
+    "value": {
+     "429": "backoff, honour Retry-After; on free: wait X-RateLimit-Reset",
+     "503": "no provider meets routing requirements / overloaded; Retry-After may be present",
+     "502": "model down / invalid response",
+     "402_in_flight": "wait Retry-After",
+     "mid_stream": "SSE chunk with finish_reason 'error'"
+    },
+    "verified": true,
+    "sources": [
+     "https://openrouter.ai/docs/api-reference/limits",
+     "https://openrouter.ai/docs/api_reference/errors-and-debugging"
+    ]
+   },
+   "fallback_warning": {
+    "value": "a paid model in a models[] fallback array is billed; keep only :free models or use openrouter/free alone",
+    "verified": true,
+    "source": "https://openrouter.ai/docs/guides/routing/model-variants/free"
+   },
+   "privacy": {
+    "value": "providers that log/train are not used unless the model-training toggle is on in privacy settings; otherwise the request errors",
+    "verified": true,
+    "source": "https://openrouter.ai/docs/faq"
+   },
+   "deprecation": {
+    "value": "expiration_date field in /models (none set on free models today); no fixed notice",
+    "verified": true,
+    "source": "https://openrouter.ai/api/v1/models"
+   },
+   "headers": {
+    "value": "Authorization: Bearer required; HTTP-Referer / X-OpenRouter-Title optional attribution",
+    "verified": false
+   }
+  }
+ }
+}
