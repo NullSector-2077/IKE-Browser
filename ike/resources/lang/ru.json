@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "Этот сеанс, сайты, которые пытались больше всех",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Ничто из этого не покидает ваш компьютер. Числа этого сеанса начинаются заново при запуске I.K.E.",
 "Nothing blocked yet in this session.": "В этом сеансе пока ничего не заблокировано.",
-"The site's own background workers": "Собственные фоновые процессы сайта",
+"Blocking of the site's own background workers": "Блокировка собственных фоновых процессов сайта",
 "Background workers blocked": "Заблокированные фоновые процессы",
 "Site's own workers allowed": "Собственные процессы сайта разрешены",
 "This level blocks the site's own background workers: the site may not work.": "Этот уровень блокирует собственные фоновые процессы сайта: сайт может не работать.",

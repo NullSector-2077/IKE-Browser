@@ -9,8 +9,8 @@ browserleaks.com and CreepJS, the owner's decisions of 2026-11-24):
   "Google Chrome", 140.0.0.0 and 6.0.0;
 - Maximum starts no service worker and no shared worker from a site's own
   file (their script is refused in the engine), and a service worker
-  registered before at a lower level is unregistered (Strict too until
-  1.1.30; since 1.1.32 Kontrol lets the site's own run: tests/test_site_workers.py);
+  registered before at a lower level is unregistered (Kontrol too until
+  1.1.31; since 1.1.32 Kontrol lets the site's own run: tests/test_site_workers.py);
 - Strict and Maximum: Chrome's own five PDF plugins (the two invented ones had
   no type: "missing mimetype"); the network in JavaScript and in the client
   hints is one common set; the languages are the first one and its base, as

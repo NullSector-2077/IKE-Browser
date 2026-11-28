@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "Αυτή η συνεδρία, οι ιστότοποι που προσπάθησαν περισσότερο",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Τίποτα από αυτά δεν φεύγει από τον υπολογιστή σας. Οι αριθμοί αυτής της συνεδρίας ξεκινούν ξανά όταν ξεκινά το I.K.E.",
 "Nothing blocked yet in this session.": "Τίποτα δεν έχει αποκλειστεί ακόμη σε αυτή τη συνεδρία.",
-"The site's own background workers": "Οι δικές του διεργασίες παρασκηνίου του ιστότοπου",
+"Blocking of the site's own background workers": "Αποκλεισμός των δικών του διεργασιών παρασκηνίου του ιστότοπου",
 "Background workers blocked": "Διεργασίες παρασκηνίου αποκλείστηκαν",
 "Site's own workers allowed": "Επιτρέπονται οι δικές του διεργασίες του ιστότοπου",
 "This level blocks the site's own background workers: the site may not work.": "Αυτό το επίπεδο αποκλείει τις δικές του διεργασίες παρασκηνίου του ιστότοπου: ο ιστότοπος ίσως δεν λειτουργεί.",

@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "Den här sessionen, webbplatserna som försökte mest",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Inget av detta lämnar din dator. Siffrorna för den här sessionen börjar om när I.K.E. startar.",
 "Nothing blocked yet in this session.": "Inget blockerat ännu i den här sessionen.",
-"The site's own background workers": "Webbplatsens egna bakgrundsprocesser",
+"Blocking of the site's own background workers": "Blockering av webbplatsens egna bakgrundsprocesser",
 "Background workers blocked": "Bakgrundsprocesser blockerade",
 "Site's own workers allowed": "Webbplatsens egna processer tillåtna",
 "This level blocks the site's own background workers: the site may not work.": "Den här nivån blockerar webbplatsens egna bakgrundsprocesser: webbplatsen kanske inte fungerar.",

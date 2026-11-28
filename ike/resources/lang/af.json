@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "Hierdie sessie, die werwe wat die meeste probeer het",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Niks hiervan verlaat jou rekenaar nie. Die syfers van hierdie sessie begin weer wanneer I.K.E. begin.",
 "Nothing blocked yet in this session.": "Nog niks in hierdie sessie geblokkeer nie.",
-"The site's own background workers": "Die webwerf se eie agtergrondprosesse",
+"Blocking of the site's own background workers": "Blokkering van die webwerf se eie agtergrondprosesse",
 "Background workers blocked": "Agtergrondprosesse geblokkeer",
 "Site's own workers allowed": "Die webwerf se eie prosesse toegelaat",
 "This level blocks the site's own background workers: the site may not work.": "Hierdie vlak blokkeer die webwerf se eie agtergrondprosesse: die webwerf werk dalk nie.",

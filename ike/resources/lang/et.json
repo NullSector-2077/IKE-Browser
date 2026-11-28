@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "See seanss, saidid, mis proovisid kõige rohkem",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Midagi sellest ei lahku sinu arvutist. Selle seansi arvud algavad uuesti, kui I.K.E. käivitub.",
 "Nothing blocked yet in this session.": "Selles seansis pole veel midagi blokeeritud.",
-"The site's own background workers": "Saidi enda taustaprotsessid",
+"Blocking of the site's own background workers": "Saidi enda taustaprotsesside blokeerimine",
 "Background workers blocked": "Taustaprotsessid blokeeritud",
 "Site's own workers allowed": "Saidi enda protsessid lubatud",
 "This level blocks the site's own background workers: the site may not work.": "See tase blokeerib saidi enda taustaprotsessid: sait ei pruugi töötada.",

@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "இந்த அமர்வு, அதிகம் முயன்ற தளங்கள்",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "இவற்றில் எதுவும் உங்கள் கணினியை விட்டு வெளியேறாது. I.K.E. தொடங்கும்போது இந்த அமர்வின் எண்கள் மீண்டும் தொடங்கும்.",
 "Nothing blocked yet in this session.": "இந்த அமர்வில் இன்னும் எதுவும் தடுக்கப்படவில்லை.",
-"The site's own background workers": "தளத்தின் சொந்த பின்னணி வொர்க்கர்கள்",
+"Blocking of the site's own background workers": "தளத்தின் சொந்த பின்னணி வொர்க்கர்களைத் தடுத்தல்",
 "Background workers blocked": "தடுக்கப்பட்ட பின்னணி வொர்க்கர்கள்",
 "Site's own workers allowed": "தளத்தின் சொந்த வொர்க்கர்கள் அனுமதிக்கப்பட்டன",
 "This level blocks the site's own background workers: the site may not work.": "இந்த நிலை தளத்தின் சொந்த பின்னணி வொர்க்கர்களைத் தடுக்கிறது: தளம் வேலை செய்யாமல் போகலாம்.",

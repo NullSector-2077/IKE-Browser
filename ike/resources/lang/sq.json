@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "Ky sesion, sajtet që provuan më shumë",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Asgjë nga kjo nuk largohet nga kompjuteri juaj. Shifrat e këtij sesioni nisin nga e para kur niset I.K.E.",
 "Nothing blocked yet in this session.": "Ende asgjë e bllokuar në këtë sesion.",
-"The site's own background workers": "Proceset e sfondit të vetë sajtit",
+"Blocking of the site's own background workers": "Bllokimi i proceseve të sfondit të vetë sajtit",
 "Background workers blocked": "Procese sfondi të bllokuara",
 "Site's own workers allowed": "Proceset e vetë sajtit të lejuara",
 "This level blocks the site's own background workers: the site may not work.": "Ky nivel bllokon proceset e sfondit të vetë sajtit: sajti mund të mos funksionojë.",

@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "Esta sesión, los sitios que más lo intentaron",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nada de esto sale de tu ordenador. Las cifras de esta sesión vuelven a empezar cuando se inicia I.K.E.",
 "Nothing blocked yet in this session.": "Todavía no se ha bloqueado nada en esta sesión.",
-"The site's own background workers": "Los procesos en segundo plano del sitio",
+"Blocking of the site's own background workers": "Bloqueo de los procesos en segundo plano del sitio",
 "Background workers blocked": "Procesos en segundo plano bloqueados",
 "Site's own workers allowed": "Procesos propios del sitio permitidos",
 "This level blocks the site's own background workers: the site may not work.": "Este nivel bloquea los procesos en segundo plano del sitio: puede que el sitio no funcione.",

@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "Ez a munkamenet, a legtöbbet próbálkozó oldalak",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Ebből semmi sem hagyja el a számítógépét. A munkamenet számai újraindulnak, amikor az I.K.E. elindul.",
 "Nothing blocked yet in this session.": "Ebben a munkamenetben még semmi sincs letiltva.",
-"The site's own background workers": "A webhely saját háttérfolyamatai",
+"Blocking of the site's own background workers": "A webhely saját háttérfolyamatainak tiltása",
 "Background workers blocked": "Letiltott háttérfolyamatok",
 "Site's own workers allowed": "A webhely saját folyamatai engedélyezve",
 "This level blocks the site's own background workers: the site may not work.": "Ez a szint letiltja a webhely saját háttérfolyamatait: a webhely lehet, hogy nem működik.",

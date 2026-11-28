@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "هذه الجلسة، المواقع التي حاولت أكثر",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "لا شيء من هذا يغادر حاسوبك. تبدأ أرقام هذه الجلسة من جديد عند بدء I.K.E.",
 "Nothing blocked yet in this session.": "لم يُحظر شيء بعد في هذه الجلسة.",
-"The site's own background workers": "العمليات الخلفية الخاصة بالموقع",
+"Blocking of the site's own background workers": "حظر العمليات الخلفية الخاصة بالموقع",
 "Background workers blocked": "عمليات خلفية محظورة",
 "Site's own workers allowed": "عمليات الموقع الخاصة مسموح بها",
 "This level blocks the site's own background workers: the site may not work.": "هذا المستوى يحظر العمليات الخلفية الخاصة بالموقع: قد لا يعمل الموقع.",

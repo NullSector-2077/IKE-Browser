@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "Bu sessiya, ən çox cəhd edən saytlar",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Bunların heç biri kompüterinizdən çıxmır. Bu sessiyanın rəqəmləri I.K.E. başlayanda yenidən başlayır.",
 "Nothing blocked yet in this session.": "Bu sessiyada hələ heç nə bloklanmayıb.",
-"The site's own background workers": "Saytın öz fon işçiləri",
+"Blocking of the site's own background workers": "Saytın öz fon işçilərinin bloklanması",
 "Background workers blocked": "Bloklanmış fon işçiləri",
 "Site's own workers allowed": "Saytın öz işçilərinə icazə verildi",
 "This level blocks the site's own background workers: the site may not work.": "Bu səviyyə saytın öz fon işçilərini bloklayır: sayt işləməyə bilər.",

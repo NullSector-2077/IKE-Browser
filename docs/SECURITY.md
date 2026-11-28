@@ -148,6 +148,16 @@ routes useless; it cannot stop a script written against it:
   from its own text keeps the protection. Balanced has always let them run
   (the same values); Maximum refuses them, except on a site where the user
   allowed them (the bar above the page, the shield, "Repair this site").
+  Only the site the user visits: a frame of another site (a widget, an ad)
+  gets no free worker at Kontrol either, nor is offered to the user. Known
+  limits (the independent review of 1.1.32): a dedicated worker whose
+  protected copy the policy refused is started from the site's file inside
+  the same Worker object, so the first such worker of each document hands
+  its messages and errors to the page as events of the protection's
+  (`isTrusted` false); and a script of the page that adds a `<meta>` policy
+  refusing blob workers makes that document's later file workers start from
+  the site's own file (a `<meta>` cannot be told from the server's policy).
+  Either way only the site's own files run there.
 - **The refusal can be seen by such a site's server**: the report it asked for
   (`report-uri`) names the refused policy (a random name) and gives
   `userscript` as the source, so a site that allows only its own policies by

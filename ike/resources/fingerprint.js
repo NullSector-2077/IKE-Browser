@@ -344,6 +344,16 @@
     var three = HOSTED.test(h) || (p[p.length - 1].length === 2 && SLD[p[p.length - 2]] === 1);
     return p.slice(three ? -3 : -2).join('.');
   }
+  // A frame of another site than the page's (an embedded widget, an ad): at
+  // Kontrol its workers stay out as at Maximum (1.1.32, the independent
+  // review): only the site the user visits gets its own workers; the request
+  // check refuses the frame's worker scripts the same way (shields.py).
+  if (strict && !keepWorkersOut) {
+    try {
+      var frameHost = location.hostname;
+      if (frameHost && siteOf(lower(frameHost)) !== siteOf(lower(host))) keepWorkersOut = true;
+    } catch (e) {}
+  }
   // SHA-256, for the values derived from the session's key (1.1.18,
   // independent review): the key itself never reaches anything a page can
   // call or read, and what a page can learn on one site (its noise, the
@@ -3271,7 +3281,37 @@
       RAPPLY(RND_GET, CRYPTO, [RND]);
       return 'ike-hello-' + a + '-' + RND[0];
     };
-    var argsOf = function (list) { var a = []; for (var i = 0; i < list.length; i++) a[i] = list[i]; return a; };
+    // A message posted before the hello is cloned at once, as the engine
+    // does it (1.1.32, the independent review: kept as given, it was
+    // serialised later, so a change made after posting reached the worker,
+    // a transferred buffer stayed usable and an object that cannot be cloned
+    // threw nothing): the copy and its transferred objects wait, the
+    // originals are detached now, and a clone error is thrown now, in the
+    // engine's words.
+    var nClone = w.structuredClone, NDOMEx = w.DOMException, IS_ARRAY = Array.isArray;
+    var NTypeError = w.TypeError, TYPEERR_P = NTypeError && NTypeError.prototype;
+    var CLONE_WHERE = "'structuredClone' on 'Window'", POST_WHERE = "'postMessage' on 'Worker'";
+    var argsOf = function (list) {
+      var msg = list[0], opt = list.length > 1 ? list[1] : undefined, tr = [];
+      if (opt !== undefined && opt !== null) {
+        if (RAPPLY(IS_ARRAY, Array, [opt])) tr = opt;
+        else if (typeof opt === 'object' || typeof opt === 'function') { var t = opt.transfer; if (t !== undefined) tr = t; }
+      }
+      var c;
+      try {
+        c = RAPPLY(nClone, w, [{ m: msg, t: tr }, { transfer: tr }]);
+      } catch (e) {
+        var ex = e;
+        try {
+          var m = `${e.message}`, at = sindex(m, CLONE_WHERE);
+          if (at >= 0) m = sslice(m, 0, at) + POST_WHERE + sslice(m, at + CLONE_WHERE.length);
+          ex = RAPPLY(IS_PROTO, TYPEERR_P, [e]) ? new NTypeError(m) : new NDOMEx(m, `${e.name}`);
+        } catch (x) {}
+        clean(ex);
+        throw ex;
+      }
+      return [c.m, c.t];
+    };
     var flush = function (st, to) {
       var q = st.q;
       st.q = [];
@@ -3292,11 +3332,13 @@
         }]);
         RAPPLY(eAdd, made, ['error', function (e) {
           // only the refusal of the protected copy (its report came first,
-          // securitypolicyviolation below): any other error is the page's
-          if (st.ok || st.real || st.dead || !blobRefused) return;
+          // securitypolicyviolation below): any other error is the page's.
+          // Held back even when the page terminated the worker meanwhile
+          // (the engine reports nothing for a terminated worker: review)
+          if (st.ok || st.real || !blobRefused) return;
           RAPPLY(eStop, e, []);
           RAPPLY(ePrevent, e, []);
-          blobRefused = true;
+          if (st.dead) return;
           var real;
           try { real = nConstruct(target, asked, target); } catch (x) {
             st.dead = true;
@@ -3360,6 +3402,9 @@
     var SPV = w.SecurityPolicyViolationEvent && w.SecurityPolicyViolationEvent.prototype;
     var vBlocked = getterOf(SPV, 'blockedURI'), vSource = getterOf(SPV, 'sourceFile');
     var vDirective = getterOf(SPV, 'effectiveDirective'), vSample = getterOf(SPV, 'sample');
+    var vDisposition = getterOf(SPV, 'disposition');
+    var WORKER_DIRECTIVES = Object.create(null);
+    ['worker-src', 'child-src', 'script-src', 'script-src-elem', 'default-src'].forEach(function (k) { WORKER_DIRECTIVES[k] = 1; });
     if (vBlocked && vSource) {
       try {
         RAPPLY(eAdd, w, ['securitypolicyviolation', function (e) {
@@ -3373,7 +3418,11 @@
             // (innerHTML, the Worker proxy) name "userscript" too and stay
             // the page's (the review)
             var d = vDirective ? `${RAPPLY(vDirective, e, [])}` : '';
-            if (strict && RAPPLY(vBlocked, e, []) === 'blob') blobRefused = true;
+            // the document refuses blob workers for good: only an enforced
+            // policy of workers (not a report-only one, not another
+            // directive: the independent review)
+            if (strict && RAPPLY(vBlocked, e, []) === 'blob' && vDisposition &&
+                RAPPLY(vDisposition, e, []) === 'enforce' && WORKER_DIRECTIVES[d] === 1) blobRefused = true;
             if ((strict && RAPPLY(vBlocked, e, []) === 'blob') ||
                 (d === 'trusted-types' && ttName && vSample && RAPPLY(vSample, e, []) === ttName) ||
                 (d === 'require-trusted-types-for' && ttRefused)) RAPPLY(eStop, e, []);
@@ -3876,7 +3925,7 @@
     check(null, true);
   }
 
-  // Maximum (1.1.25; Strict too until 1.1.30): no service worker (shields.py
+  // Maximum (1.1.25; Kontrol too until 1.1.31): no service worker (shields.py
   // refuses their scripts, whatever frame or worker asks). One registered
   // before, at a lower level, would still start with the engine's own values:
   // it is unregistered (the page keeps its controller until it is left, as

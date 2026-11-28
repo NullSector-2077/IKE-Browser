@@ -30,7 +30,7 @@ PROTECTIONS = (
     # after "fp": the worker rule acts only while "fp" is on, so the search
     # always tries "fp" first (alone or in an earlier group) and finds the
     # workers, never "fp", guilty
-    ("workers", "The site's own background workers"),
+    ("workers", "Blocking of the site's own background workers"),
     ("https", "HTTPS upgrade"),
     ("consent", "Cookie banner refusal"),
     ("params", "Tracking parameter and referrer cleaning"),

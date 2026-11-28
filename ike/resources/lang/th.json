@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "เซสชันนี้ เว็บไซต์ที่พยายามมากที่สุด",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "ไม่มีสิ่งใดในนี้ออกจากคอมพิวเตอร์ของคุณ ตัวเลขของเซสชันนี้จะเริ่มใหม่เมื่อ I.K.E. เริ่มทำงาน",
 "Nothing blocked yet in this session.": "ยังไม่มีสิ่งใดถูกบล็อกในเซสชันนี้",
-"The site's own background workers": "เวิร์กเกอร์เบื้องหลังของเว็บไซต์เอง",
+"Blocking of the site's own background workers": "การบล็อกเวิร์กเกอร์เบื้องหลังของเว็บไซต์เอง",
 "Background workers blocked": "เวิร์กเกอร์เบื้องหลังที่ถูกบล็อก",
 "Site's own workers allowed": "อนุญาตเวิร์กเกอร์ของเว็บไซต์เอง",
 "This level blocks the site's own background workers: the site may not work.": "ระดับนี้บล็อกเวิร์กเกอร์เบื้องหลังของเว็บไซต์เอง: เว็บไซต์อาจไม่ทำงาน",
