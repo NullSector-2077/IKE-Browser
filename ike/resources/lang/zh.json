@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "I.K.E. 闲置以下时长后锁定密码库",
 "%d minutes": "%d 分钟",
 "Lock the vault when the screen is locked or the computer sleeps": "屏幕锁定或电脑睡眠时锁定密码库",
-"Print preview": "打印预览"
+"Print preview": "打印预览",
+"What I.K.E. stopped for you, counted on this computer only.": "I.K.E. 为你拦下的内容，仅在这台计算机上统计。",
+"This session, by kind": "本次会话，按类型",
+"This session, the sites that tried most": "本次会话，尝试最多的网站",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "这些内容都不会离开你的计算机。本次会话的数字会在 I.K.E. 启动时重新开始。",
+"Nothing blocked yet in this session.": "本次会话中尚未拦截任何内容。"
 }
 }

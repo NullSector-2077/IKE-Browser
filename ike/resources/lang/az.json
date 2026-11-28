@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "I.K.E. bu müddət istifadə olunmayanda seyfi kilidlə:",
 "%d minutes": "%d dəqiqə",
 "Lock the vault when the screen is locked or the computer sleeps": "Ekran kilidlənəndə və ya kompüter yuxu rejiminə keçəndə seyfi kilidlə",
-"Print preview": "Çapa önbaxış"
+"Print preview": "Çapa önbaxış",
+"What I.K.E. stopped for you, counted on this computer only.": "I.K.E.-nin sizin üçün dayandırdıqları, yalnız bu kompüterdə sayılır.",
+"This session, by kind": "Bu sessiya, növə görə",
+"This session, the sites that tried most": "Bu sessiya, ən çox cəhd edən saytlar",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Bunların heç biri kompüterinizdən çıxmır. Bu sessiyanın rəqəmləri I.K.E. başlayanda yenidən başlayır.",
+"Nothing blocked yet in this session.": "Bu sessiyada hələ heç nə bloklanmayıb."
 }
 }

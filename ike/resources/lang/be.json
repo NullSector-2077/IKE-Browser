@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Блакіраваць сховішча, калі I.K.E. не выкарыстоўваецца",
 "%d minutes": "%d хвілін",
 "Lock the vault when the screen is locked or the computer sleeps": "Блакіраваць сховішча, калі экран заблакіраваны або камп’ютар спіць",
-"Print preview": "Папярэдні прагляд друку"
+"Print preview": "Папярэдні прагляд друку",
+"What I.K.E. stopped for you, counted on this computer only.": "Што I.K.E. спыніў для вас, падлічана толькі на гэтым камп'ютары.",
+"This session, by kind": "Гэты сеанс, па відах",
+"This session, the sites that tried most": "Гэты сеанс, сайты, якія спрабавалі найбольш",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Нічога з гэтага не пакідае ваш камп'ютар. Лічбы гэтага сеанса пачынаюцца нанова пры запуску I.K.E.",
+"Nothing blocked yet in this session.": "У гэтым сеансе яшчэ нічога не заблакавана."
 }
 }

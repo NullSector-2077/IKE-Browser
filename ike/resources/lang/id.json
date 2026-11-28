@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Kunci brankas jika I.K.E. tidak dipakai selama",
 "%d minutes": "%d menit",
 "Lock the vault when the screen is locked or the computer sleeps": "Kunci brankas saat layar terkunci atau komputer tidur",
-"Print preview": "Pratinjau cetak"
+"Print preview": "Pratinjau cetak",
+"What I.K.E. stopped for you, counted on this computer only.": "Yang dihentikan I.K.E. untuk Anda, dihitung hanya di komputer ini.",
+"This session, by kind": "Sesi ini, menurut jenis",
+"This session, the sites that tried most": "Sesi ini, situs yang paling banyak mencoba",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Tidak ada dari ini yang keluar dari komputer Anda. Angka sesi ini dimulai lagi saat I.K.E. dijalankan.",
+"Nothing blocked yet in this session.": "Belum ada yang diblokir di sesi ini."
 }
 }

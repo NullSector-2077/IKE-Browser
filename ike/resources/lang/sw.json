@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Funga hifadhi wakati I.K.E. haitumiki kwa",
 "%d minutes": "Dakika %d",
 "Lock the vault when the screen is locked or the computer sleeps": "Funga hifadhi wakati skrini imefungwa au kompyuta inalala",
-"Print preview": "Hakiki ya kuchapisha"
+"Print preview": "Hakiki ya kuchapisha",
+"What I.K.E. stopped for you, counted on this computer only.": "Kile ambacho I.K.E. kimekuzuilia, kimehesabiwa kwenye kompyuta hii pekee.",
+"This session, by kind": "Kipindi hiki, kwa aina",
+"This session, the sites that tried most": "Kipindi hiki, tovuti zilizojaribu zaidi",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Hakuna chochote kati ya haya kinachoondoka kwenye kompyuta yako. Takwimu za kipindi hiki huanza upya I.K.E. inapoanza.",
+"Nothing blocked yet in this session.": "Bado hakuna kilichozuiwa katika kipindi hiki."
 }
 }

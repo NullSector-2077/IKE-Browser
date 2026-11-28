@@ -247,7 +247,8 @@ MEASURE = """(function () {
 NARROWEST = 830
 CASES = ((1100, 760, 1.0), (1650, 1140, 1.5), (2200, 1520, 2.0), (NARROWEST, 1000, 1.0), (NARROWEST, 760, 1.0),
          (760, 760, 1.0), (1100, 760, 1.5))
-SHOWN = {"1100x760-1.0", "1650x1140-1.5", "2200x1520-2.0", "%dx1000-1.0" % NARROWEST}
+SHOWN = {"1100x760-1.0", "1650x1140-1.5", "2200x1520-2.0", "%dx1000-1.0" % NARROWEST,
+         "%dx760-1.0" % NARROWEST}           # 1.1.31: the smaller clock and weather leave room there too
 
 # every language: the label of the weather, a long city and the details, through the page's own ikeWeather()
 EVERY = """(function () {

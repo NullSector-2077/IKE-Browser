@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Блокировать хранилище, если I.K.E. не используется",
 "%d minutes": "%d минут",
 "Lock the vault when the screen is locked or the computer sleeps": "Блокировать хранилище при блокировке экрана или переходе компьютера в спящий режим",
-"Print preview": "Предварительный просмотр печати"
+"Print preview": "Предварительный просмотр печати",
+"What I.K.E. stopped for you, counted on this computer only.": "Что I.K.E. остановил для вас, подсчитано только на этом компьютере.",
+"This session, by kind": "Этот сеанс, по видам",
+"This session, the sites that tried most": "Этот сеанс, сайты, которые пытались больше всех",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Ничто из этого не покидает ваш компьютер. Числа этого сеанса начинаются заново при запуске I.K.E.",
+"Nothing blocked yet in this session.": "В этом сеансе пока ничего не заблокировано."
 }
 }

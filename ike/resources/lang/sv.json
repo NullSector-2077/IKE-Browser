@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Lås valvet när I.K.E. inte har använts på",
 "%d minutes": "%d minuter",
 "Lock the vault when the screen is locked or the computer sleeps": "Lås valvet när skärmen låses eller datorn går i viloläge",
-"Print preview": "Förhandsgranskning"
+"Print preview": "Förhandsgranskning",
+"What I.K.E. stopped for you, counted on this computer only.": "Vad I.K.E. har stoppat åt dig, räknat bara på den här datorn.",
+"This session, by kind": "Den här sessionen, efter typ",
+"This session, the sites that tried most": "Den här sessionen, webbplatserna som försökte mest",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Inget av detta lämnar din dator. Siffrorna för den här sessionen börjar om när I.K.E. startar.",
+"Nothing blocked yet in this session.": "Inget blockerat ännu i den här sessionen."
 }
 }

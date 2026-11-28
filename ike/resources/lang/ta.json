@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "I.K.E. இவ்வளவு நேரம் பயன்படுத்தப்படாவிட்டால் பெட்டகத்தைப் பூட்டு",
 "%d minutes": "%d நிமிடங்கள்",
 "Lock the vault when the screen is locked or the computer sleeps": "திரை பூட்டப்படும்போது அல்லது கணினி உறங்கும்போது பெட்டகத்தைப் பூட்டு",
-"Print preview": "அச்சு முன்னோட்டம்"
+"Print preview": "அச்சு முன்னோட்டம்",
+"What I.K.E. stopped for you, counted on this computer only.": "I.K.E. உங்களுக்காக நிறுத்தியவை, இந்தக் கணினியில் மட்டும் எண்ணப்பட்டவை.",
+"This session, by kind": "இந்த அமர்வு, வகைப்படி",
+"This session, the sites that tried most": "இந்த அமர்வு, அதிகம் முயன்ற தளங்கள்",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "இவற்றில் எதுவும் உங்கள் கணினியை விட்டு வெளியேறாது. I.K.E. தொடங்கும்போது இந்த அமர்வின் எண்கள் மீண்டும் தொடங்கும்.",
+"Nothing blocked yet in this session.": "இந்த அமர்வில் இன்னும் எதுவும் தடுக்கப்படவில்லை."
 }
 }

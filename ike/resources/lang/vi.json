@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Khóa kho khi không dùng I.K.E. trong",
 "%d minutes": "%d phút",
 "Lock the vault when the screen is locked or the computer sleeps": "Khóa kho khi màn hình bị khóa hoặc máy tính ngủ",
-"Print preview": "Xem trước khi in"
+"Print preview": "Xem trước khi in",
+"What I.K.E. stopped for you, counted on this computer only.": "Những gì I.K.E. đã chặn cho bạn, chỉ được đếm trên máy tính này.",
+"This session, by kind": "Phiên này, theo loại",
+"This session, the sites that tried most": "Phiên này, các trang thử nhiều nhất",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Không có gì trong số này rời khỏi máy tính của bạn. Số liệu của phiên này bắt đầu lại khi I.K.E. khởi động.",
+"Nothing blocked yet in this session.": "Chưa có gì bị chặn trong phiên này."
 }
 }

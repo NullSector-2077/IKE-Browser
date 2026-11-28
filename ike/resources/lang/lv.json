@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Aizslēgt glabātuvi, ja I.K.E. netiek lietots",
 "%d minutes": "%d minūtes",
 "Lock the vault when the screen is locked or the computer sleeps": "Aizslēgt glabātuvi, kad ekrāns tiek bloķēts vai dators pāriet miega režīmā",
-"Print preview": "Drukas priekšskatījums"
+"Print preview": "Drukas priekšskatījums",
+"What I.K.E. stopped for you, counted on this computer only.": "Ko I.K.E. jūsu labā apturēja, skaitīts tikai šajā datorā.",
+"This session, by kind": "Šī sesija, pēc veida",
+"This session, the sites that tried most": "Šī sesija, vietnes, kas mēģināja visvairāk",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nekas no šī neatstāj jūsu datoru. Šīs sesijas skaitļi sākas no jauna, kad I.K.E. tiek palaists.",
+"Nothing blocked yet in this session.": "Šajā sesijā vēl nekas nav bloķēts."
 }
 }

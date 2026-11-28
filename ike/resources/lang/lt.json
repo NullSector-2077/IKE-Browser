@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Užrakinti saugyklą, kai I.K.E. nenaudojama",
 "%d minutes": "%d min.",
 "Lock the vault when the screen is locked or the computer sleeps": "Užrakinti saugyklą, kai užrakinamas ekranas arba kompiuteris užmiega",
-"Print preview": "Spaudinio peržiūra"
+"Print preview": "Spaudinio peržiūra",
+"What I.K.E. stopped for you, counted on this computer only.": "Ką I.K.E. sustabdė už jus, skaičiuojama tik šiame kompiuteryje.",
+"This session, by kind": "Šis seansas, pagal rūšį",
+"This session, the sites that tried most": "Šis seansas, daugiausia bandžiusios svetainės",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Niekas iš to nepalieka jūsų kompiuterio. Šio seanso skaičiai prasideda iš naujo, kai paleidžiama I.K.E.",
+"Nothing blocked yet in this session.": "Šiame seanse dar nieko neužblokuota."
 }
 }

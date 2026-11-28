@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "Zamknout trezor, když se I.K.E. nepoužívá",
 "%d minutes": "%d minut",
 "Lock the vault when the screen is locked or the computer sleeps": "Zamknout trezor, když je obrazovka zamčená nebo počítač spí",
-"Print preview": "Náhled tisku"
+"Print preview": "Náhled tisku",
+"What I.K.E. stopped for you, counted on this computer only.": "Co pro vás I.K.E. zastavil, počítáno jen na tomto počítači.",
+"This session, by kind": "Tato relace, podle druhu",
+"This session, the sites that tried most": "Tato relace, stránky, které se snažily nejvíc",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nic z toho neopouští váš počítač. Čísla této relace začínají znovu při spuštění I.K.E.",
+"Nothing blocked yet in this session.": "V této relaci zatím nebylo nic zablokováno."
 }
 }

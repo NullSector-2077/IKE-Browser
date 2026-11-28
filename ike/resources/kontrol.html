@@ -1,0 +1,53 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>I.K.E. Kontrol</title>
+<style>
+/* 1.1.31: ike:kontrol, what I.K.E. blocked, counted on this computer only (the owner's choice of style:
+   a panel of I.K.E.'s own, its bars traces of the logo's circuit ending in a small octagonal pad) */
+:root{--bg:{{bg}};--fg:{{fg}};--mute:{{mute}};--card:{{card}};--line:{{line}};--acc:{{acc}};--k:{{k}}}
+{{cyberfont}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.35 system-ui,"Noto Sans",sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:34px 28px}
+.head{display:flex;align-items:center;gap:22px;margin-bottom:26px;flex-wrap:wrap}
+.head img{width:88px;height:88px;flex:none}
+.title{font:600 32px "IKE Cyber",sans-serif;letter-spacing:.06em}
+.title .kk{color:var(--k)}
+.sub{color:var(--mute);margin-top:4px}
+.level{margin-left:auto;text-align:end;font-family:"IKE Cyber",sans-serif}
+.level b{display:block;font-size:22px;color:var(--k);font-weight:500}
+.level span{font-size:11px;color:var(--mute)}
+.cut{clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px)}
+.readouts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:22px}
+.ro{position:relative;background:var(--card);border:1px solid var(--line);padding:16px 18px 14px}
+.ro::before{content:"";position:absolute;left:0;top:0;width:40px;height:3px;background:var(--k)}
+.ro b{display:block;font:500 30px "IKE Cyber",sans-serif;color:var(--k);font-variant-numeric:tabular-nums}
+.ro span{font:11px "IKE Cyber",sans-serif;color:var(--mute);letter-spacing:.04em}
+.panel{background:var(--card);border:1px solid var(--line);padding:14px 18px 10px;margin-bottom:16px}
+.panel h2{margin:0 0 10px;font:600 12px "IKE Cyber",sans-serif;letter-spacing:.08em;color:var(--k)}
+.row{display:grid;grid-template-columns:minmax(120px,240px) 1fr 80px;align-items:center;gap:16px;padding:6px 0}
+.row .site{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row b{text-align:end;font:500 14px "IKE Cyber",sans-serif;font-variant-numeric:tabular-nums}
+/* a trace of the circuit and its pad */
+.trace{position:relative;display:block;height:12px;margin-inline-end:6px}
+.trace::before{content:"";position:absolute;inset-inline:0;top:5px;height:2px;background:color-mix(in srgb,var(--fg) 13%,transparent)}
+.trace i{position:absolute;inset-inline-start:0;top:4px;height:4px;background:var(--acc)}
+.trace i::after{content:"";position:absolute;inset-inline-end:-5px;top:-3px;width:10px;height:10px;background:var(--acc);
+ clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%)}
+.empty{color:var(--mute);padding:6px 0 8px}
+.note{color:var(--mute);font-size:12px;margin-top:8px}
+/* the traces light up from nothing when the page opens, with the interface's effects only */
+@keyframes ike-trace-in{from{transform:scaleX(0)}to{transform:none}}
+.fx .trace i{transform-origin:left;animation:ike-trace-in .45s ease-out both}
+[dir="rtl"] .fx .trace i{transform-origin:right}
+@media (prefers-reduced-motion:reduce){.fx .trace i{animation:none}}
+@media (max-width:640px){.row{grid-template-columns:1fr 60px}.row .trace{grid-column:1 / -1;grid-row:2}}
+</style></head>
+<body class="{{fx}}"><div class="wrap">
+<div class="head"><img src="ike:logo" alt=""><div><div class="title">I.K.E. <span class="kk">K</span>ONTROL</div>
+<div class="sub">{{sub}}</div></div>
+<div class="level"><b>{{level}}</b><span>{{level_label}}</span></div></div>
+<div class="readouts">{{readouts}}</div>
+<div class="panel cut"><h2>{{kinds_title}}</h2>{{kinds}}</div>
+<div class="panel cut"><h2>{{sites_title}}</h2>{{sites}}</div>
+<div class="note">{{note}}</div>
+</div></body></html>

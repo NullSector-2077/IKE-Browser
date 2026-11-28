@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "قفل الخزنة عند عدم استخدام I.K.E. لمدة",
 "%d minutes": "%d دقيقة",
 "Lock the vault when the screen is locked or the computer sleeps": "قفل الخزنة عند قفل الشاشة أو عند سكون الحاسوب",
-"Print preview": "معاينة الطباعة"
+"Print preview": "معاينة الطباعة",
+"What I.K.E. stopped for you, counted on this computer only.": "ما أوقفه I.K.E. من أجلك، محسوبًا على هذا الحاسوب فقط.",
+"This session, by kind": "هذه الجلسة، حسب النوع",
+"This session, the sites that tried most": "هذه الجلسة، المواقع التي حاولت أكثر",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "لا شيء من هذا يغادر حاسوبك. تبدأ أرقام هذه الجلسة من جديد عند بدء I.K.E.",
+"Nothing blocked yet in this session.": "لم يُحظر شيء بعد في هذه الجلسة."
 }
 }

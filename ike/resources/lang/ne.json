@@ -1604,6 +1604,11 @@
 "Lock the vault when I.K.E. is not used for": "यति समय I.K.E. प्रयोग नगरिए भल्ट लक गर्नुहोस्",
 "%d minutes": "%d मिनेट",
 "Lock the vault when the screen is locked or the computer sleeps": "स्क्रिन लक हुँदा वा कम्प्युटर स्लिपमा जाँदा भल्ट लक गर्नुहोस्",
-"Print preview": "प्रिन्ट पूर्वावलोकन"
+"Print preview": "प्रिन्ट पूर्वावलोकन",
+"What I.K.E. stopped for you, counted on this computer only.": "I.K.E. ले तपाईंका लागि रोकेका कुरा, यही कम्प्युटरमा मात्र गनिएको।",
+"This session, by kind": "यो सत्र, प्रकार अनुसार",
+"This session, the sites that tried most": "यो सत्र, सबैभन्दा धेरै प्रयास गर्ने साइटहरू",
+"Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "यसमध्ये केही पनि तपाईंको कम्प्युटर बाहिर जाँदैन। I.K.E. सुरु हुँदा यस सत्रका अङ्कहरू फेरि सुरु हुन्छन्।",
+"Nothing blocked yet in this session.": "यो सत्रमा अहिलेसम्म केही पनि रोकिएको छैन।"
 }
 }
