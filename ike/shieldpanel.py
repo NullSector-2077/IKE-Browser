@@ -341,16 +341,18 @@ class ShieldPanel(QWidget):
         self.repaired_undo = QPushButton(T("Undo the repair"), self)
         self.repaired_undo.clicked.connect(self._undo_repair)
         # the protected time zone (1.1.24, timezone.py): for every site, after a restart
+        # 1.1.29: each explanation in the ⓘ after its switch, as in Settings (two
+        # lines of text under them made the closed panel taller than the room
+        # below the shield on a small screen, tests/test_engines_110.py)
+        from .dialogs import InfoButton
         self.zone = Switch(T("Protected time zone"), self)
-        self.zone_hint = QLabel(T("Sites see the time zone UTC, not yours. Some sites will show "
-                                  "wrong times. After a restart."), self)
-        self.zone_hint.setWordWrap(True)
+        self.zone_hint = InfoButton(T("Sites see the time zone UTC, not yours. Some sites will show "
+                                      "wrong times. After a restart."), self)
         self.zone.clicked.connect(self._zone_changed)
         # common English (1.1.29): sites are told en-US at every level
         self.english = Switch(T("Common English language"), self)
-        self.english_hint = QLabel(T("Sites see American English, the most common language, not "
-                                     "yours. I.K.E. keeps your language. Fully after a restart."), self)
-        self.english_hint.setWordWrap(True)
+        self.english_hint = InfoButton(T("Sites see American English, the most common language, not "
+                                         "yours. I.K.E. keeps your language. Fully after a restart."), self)
         self.english.clicked.connect(self._english_changed)
         settings = QPushButton(T("Protection settings…"), self)
         sep = QFrame(self)
@@ -379,10 +381,13 @@ class ShieldPanel(QWidget):
         lay.addWidget(sep)
         lay.addWidget(QLabel(T("Default for all sites"), self))
         lay.addWidget(self.global_level)
-        lay.addWidget(self.zone)
-        lay.addWidget(self.zone_hint)
-        lay.addWidget(self.english)
-        lay.addWidget(self.english_hint)
+        for switch, info in ((self.zone, self.zone_hint), (self.english, self.english_hint)):
+            row = QHBoxLayout()
+            row.setSpacing(4)
+            row.addWidget(switch)
+            row.addWidget(info, 0, Qt.AlignmentFlag.AlignVCenter)
+            row.addStretch(1)
+            lay.addLayout(row)
         lay.addWidget(settings)
         self.master.clicked.connect(self._master_clicked)
         self.adv_btn.toggled.connect(self._adv_toggled)

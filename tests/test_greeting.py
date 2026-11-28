@@ -529,10 +529,20 @@ def steps(ike, qapp, out):
     view = win.current_view()
     yield 1500
     res = {}
+    # the new tab page ready first (on a slow runner 1.5 s was not enough: the
+    # measure then ran on a page without the greeting and answered nothing)
+    for _ in range(100):
+        ready = yield from js(view, "!!(document.getElementById('greet-t') && document.getElementById('greet-l')"
+                                    " && document.querySelector('.nt-settings .name')"
+                                    " && document.querySelector('.nt-photo .name'))")
+        if ready:
+            break
+        yield 200
+    out["ready"] = ready
     for width in (800, 500):
         win.resize(width, 700)
         yield 700
-        code = """(function () {
+        code = """(function () { try {
           var packs = %s, bad = [], t = document.getElementById('greet-t'), l = document.getElementById('greet-l'),
               g = document.getElementById('greet'), s = document.querySelector('.nt-settings'), n = 0;
           for (var code in packs) {
@@ -556,7 +566,7 @@ def steps(ike, qapp, out):
               n++;
             }
           }
-          return [window.innerWidth, bad, n]; })()""" % json.dumps(PACKS)
+          return [window.innerWidth, bad, n]; } catch (e) { return [window.innerWidth, ['error', String(e)], 0]; } })()""" % json.dumps(PACKS)
         res[width] = yield from js(view, code)
     out["fit"] = res
 '''
@@ -573,7 +583,10 @@ def test_the_greeting_stays_clear_of_settings_in_every_language(run_ike):
         packs[f.stem] = {"titles": [strings[t] for _k, t in greeting.GREETINGS], "lines": lines,
                          "labels": [strings["Settings"], strings["Background photo"]]}
     assert len(packs) >= 59
-    out = run_ike(STEPS_FIT.replace("PACKS", repr(packs)), timeout=180)
-    for width, (inner, bad, n) in out["fit"].items():
+    out = run_ike(STEPS_FIT.replace("PACKS", repr(packs)), timeout=240)
+    assert out["ready"], "the new tab page never showed its greeting"
+    for width, got in out["fit"].items():
+        assert got, (width, "no answer from the page")
+        inner, bad, n = got
         assert inner <= int(width) and not bad and n > 59 * 60, (width, bad[:5], n)
     assert re.fullmatch(r"\d+", str(len(packs)))
