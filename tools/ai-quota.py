@@ -793,12 +793,26 @@ class Budget:
         p[field] = str(why)[:120]
         p[field + "_at"] = self.moment()
 
+    def last_seen(self, provider, kind, window):
+        """The limit the provider itself said most recently (its headers, its 429's own numbers) in the days
+        AUTOMAT's memory keeps, or None. 2026-11-27, the owner: what AUTOMAT learns of a provider's real quota
+        replaces the estimate of tools/ai-quota.json for the next days too, not only for the day it was read."""
+        for day in sorted(self.state.get("days") or {}, reverse=True):
+            row = ((self.state["days"][day].get("providers") or {}).get(provider) or {})
+            obs = (row.get("observed") or {}).get(kind) or {}
+            if obs.get("window") == window and isinstance(obs.get("limit"), int) and not isinstance(
+                    obs.get("limit"), bool) and obs["limit"] > 0:
+                return obs["limit"]
+        return None
+
     def day_limit(self, provider, kind):
-        """Today's limit of requests or tokens: what the provider's own headers said, else the data file."""
+        """Today's limit of requests or tokens: what the provider's own headers or errors said (today, else the
+        latest day that said it), else the data file."""
         obs = (self._p(provider).get("observed") or {}).get(kind) or {}
         if obs.get("window") == "day" and isinstance(obs.get("limit"), int) and obs["limit"] > 0:
             return obs["limit"]
-        return self.conf(provider).get("%s_per_day" % kind)
+        seen = self.last_seen(provider, kind, "day")
+        return seen if seen is not None else self.conf(provider).get("%s_per_day" % kind)
 
     def remaining(self, provider):
         """{"requests": n or None, "tokens": n or None} left today (None: no daily limit known)."""
@@ -830,7 +844,8 @@ class Budget:
         obs = (self._p(provider).get("observed") or {}).get(kind) or {}
         if obs.get("window") == "minute" and isinstance(obs.get("limit"), int) and obs["limit"] > 0:
             return obs["limit"]
-        return self.conf(provider).get("%s_per_minute" % kind)
+        seen = self.last_seen(provider, kind, "minute")
+        return seen if seen is not None else self.conf(provider).get("%s_per_minute" % kind)
 
     # --- real updates first (the owner's decision of 2026-11-24) ---
     def account(self, provider, info):
