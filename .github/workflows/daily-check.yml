@@ -4,15 +4,22 @@
 # Also: did Arch Linux's own packages (qt6-webengine, python, PyQt...) change
 # since the last green "Arch Linux" run on main? Then that run starts on main
 # (job start-arch): compatibility to verify, not an update and not a release.
+# And did a package of that closure enter Arch's [testing] in the last
+# ARCH_TESTING_HOURS? Then "Arch Linux (testing)" starts on main (job
+# start-arch-testing, tools/check-components.py arch_testing_news).
 # A builder of a customised component (Dark Reader's lists, uBlock Origin's
-# scriptlets) that refuses a new upstream version is a component
-# incompatibility, said in the issue for a person (1.1.20). And the filter
+# scriptlets, KDE's Breeze icons) that refuses a new upstream version is a
+# component incompatibility, said in the issue (1.1.20): the component stays at
+# the version in use; for uBlock Origin the daily maintenance starts the
+# builders' path. And the filter
 # lists I.K.E. turns on by default are loaded into main's AdBlock engine and
 # read for their scriptlets (job lists): their findings go into the issue too,
 # in five classes (tools/filter-lists.py, WP8), and into the maintenance ledger
-# once each; a finding an AI may analyse starts one analysis on an isolated
-# branch, and AI work that found no free provider is started again (job
-# ai-work, tools/ai-work.py, WP9).
+# once each (job ledger); a finding an AI may analyse starts one analysis on an
+# isolated branch, and AI work that found no free provider is started again
+# (job ai-work, tools/ai-work.py, WP9). Every open pull request of the
+# automation is judged again once a day, and what its last verdict left for the
+# next day is started (job judge-again, tools/automerge.py --daily).
 name: Daily component check
 
 on:

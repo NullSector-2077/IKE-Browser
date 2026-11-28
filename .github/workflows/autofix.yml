@@ -1,13 +1,16 @@
 # When the tests, the daily component check, the daily maintenance or the
 # tests on Arch Linux's own packages ("Arch Linux": only a failure of Arch
-# alone, with "Tests" green on the same commit) fail on the automation's own
-# branches, prepare a fix as a draft pull request. Never
-# a push to main and never a release; a green fix of a small change goes into
-# main only through the rules of tools/automerge.py (automerge.yml), anything
-# else waits for a person.
+# alone, with "Tests" green on the same commit) fail on main or on the automation's
+# own branches, prepare a fix: on the failed branch itself for a candidate (the
+# daily one included), for a failure of main on automation/autofix-main, each
+# with its draft pull request. Never a push to main and
+# never a release; a fix goes into main only through the rules of
+# tools/automerge.py (automerge.yml) when it is fully verified; what is not yet
+# stays open as "retrying" and is tried again every day (AUTOMAT: nothing waits
+# for a person).
 #
 #   plan     (no AI)   what failed, where the fix goes, the end of the logs
-#   fix      (AI)      the Antigravity agent, then the reserves Groq and
+#   fix      (AI)      the Antigravity agent, then the reserves Groq, Z.AI and
 #                      OpenRouter one at a time, with no GitHub credentials:
 #                      they can only leave a patch and a summary; each fix is
 #                      checked before the next one is asked
@@ -15,13 +18,19 @@
 #                      refuses the patch; lint; the version for a fix of main
 #   publish  (no AI)   pushes the fix to its automation branch, opens or
 #                      updates the draft pull request and starts the tests
-#   report   (no AI)   when nothing could be fixed: one issue "Automatic fix
-#                      needs you: <workflow>" for the owner, with a ready
-#                      message for ChatGPT (checked by chatgpt-guard.yml)
+#   report   (no AI)   only for what no AI may fix (the plan's action "issue": a
+#                      security finding with no safe fix, GitHub, a setting or
+#                      a workflow): one issue "ATTENZIONE E' RICHIESTO IL TUO
+#                      INTERVENTO PER FARE INTERVENIRE CHAT GPT NELL' AUTOFIX!!!
+#                      (<workflow>)" for the owner, with a ready message for
+#                      ChatGPT (checked by chatgpt-guard.yml), or "GitHub or the
+#                      runner failed: <workflow>"; anything else goes to the
+#                      maintenance ledger as "retrying", no issue
 #   security-update (no AI) a RustSec advisory with a fixed version (WP6,
 #                      2026-11-22): cargo update on the isolated branch
 #                      automation/update/security-<id> made from main, checked
-#                      with cargo-deny, a draft pull request for the owner
+#                      with cargo-deny, a draft pull request that the verified
+#                      merge (tools/automerge.py) merges when fully verified
 #
 # Security findings (security.yml hands them over) are fixed only on isolated
 # branches (automation/update/security-*), never on main; there the guard runs
@@ -44,8 +53,9 @@
 # (testing) on an isolated candidate (automation/update/<id>,
 # automation/builder/<id>, automation/update/arch-testing-<date>) is fixed on that
 # branch, up to FIX_ATTEMPTS of tools/ai-providers.py, each attempt a fresh
-# context starting with the next free provider; at the cap the branch is kept
-# and the owner told once. builder/<id>/<date> (from the daily maintenance): an
+# context starting with the next free provider; the cap is per day: at the cap
+# the branch stays open as "retrying" and the fix goes on the next day.
+# builder/<id>/<date> (from the daily maintenance): an
 # AI re-anchors I.K.E.'s existing patches in a builder that refused a new
 # upstream version (check-autofix-patch.py --builder, tools/builder-anchor.py).
 # A fix that changes what ships raises the version when main's is published,
@@ -54,9 +64,10 @@
 # person (WP12), never pushed.
 #
 # AUTOMAT part 2 (2026-11-23):
-#   recipes  (no AI)   in the job fix, before any AI: a fix that already solved this very error, a symbol
-#                      the upstream change renamed, a builder's patch re-anchored
-#                      (tools/automat-recipes.py); an AI is asked only when none applies or its result fails
+#   recipes  (no AI)   in the job fix, before any AI: a fix that already solved this very error, or a
+#                      symbol the upstream change renamed (tools/automat-recipes.py; the third recipe, a
+#                      builder's patch re-anchored, left with Dark Reader's engine in 1.1.30); an AI is
+#                      asked only when none applies or its result fails
 #   budget             every call is counted against the provider's free quota (tools/ai-quota.py and
 #                      its data tools/ai-quota.json; today's use on the data branch automat/memory): a
 #                      provider spent today is not asked, and a fix is not started unless two other
@@ -82,7 +93,9 @@
 # form (tools/tier-b.py): a workflow where nothing but a pinned version changes, checked once more
 # before the push. Off, the default: an AI never changes a workflow.
 #
-# At most two automatic fixes for one failure on main (tools/autofix-plan.py). Needs the
+# At most two automatic fixes a day for one failure on main, the automatic fix's branch, the daily
+# candidate and the security branches (FIX_ATTEMPTS_MAIN, tools/autofix-plan.py MAX_ATTEMPTS), again
+# the next day; FIX_ATTEMPTS (4) a day on the isolated candidates. Needs the
 # repository secret GEMINI_API_KEY; the repository variable AUTOFIX_MODEL may
 # choose the model (empty: the CLI's default). See docs/MAINTENANCE.md.
 name: Automatic fix

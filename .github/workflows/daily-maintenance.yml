@@ -2,9 +2,13 @@
 # (the full chain, 2026-11-22: tools/update-candidates.py): each component, or
 # small coherent group, that has a new version gets its own branch
 # automation/update/<id> made from the current main (the engine, its crates, a
-# new pyo3 or major crate, uBlock Origin's scriptlets, Dark Reader's lists
-# (weekly), the test packages in three groups, every pin of the workflows by tools/ci-pins.py, the
-# PKGBUILD's dependencies by tools/pkgbuild-sync.py), its own draft pull
+# new pyo3 or major crate, uBlock Origin's scriptlets, KDE's Breeze icons,
+# Brave's debounce list and every other entry of components.json, the test
+# packages in three groups, every pin of the workflows by tools/ci-pins.py, the
+# PKGBUILD's dependencies by tools/pkgbuild-sync.py; the low-risk ones, the
+# crates, test-tools, test-libs and the pins ci-*, on Mondays only: WEEKLY and
+# WEEKLY_DAY of tools/update-candidates.py; Dark Reader's lists never, the
+# browser fetches them itself), its own draft pull
 # request, and Tests, Security and Arch Linux on it. A failure there goes to the
 # automatic fix of that branch (autofix.yml); when everything is green and
 # verified tools/automerge.py merges it, and release-ready.yml tells the owner.

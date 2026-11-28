@@ -9,8 +9,9 @@
 # Then the tests of main run and release-ready.yml tells the owner a version
 # is ready to sign; signing and publishing stay with the owner.
 # The rules are tools/automerge.py read from main, never from the pull
-# request: no agent merges its own work. Anything short of fully verified
-# waits, with one comment naming the owner (and the ledger says why). A fix of
+# request: no agent merges its own work. Anything short of fully verified is
+# not merged: one informational comment says why and what happens next, the
+# ledger says "retrying", and it is tried again (AUTOMAT, below). A fix of
 # ChatGPT is only marked ready, and a person's pull request is not touched:
 # both wait for the owner's order (CLAUDE.md).
 #
@@ -20,10 +21,13 @@
 #
 # Everything automatic and verified converges into main (2026-11-22, the
 # owner's decision): several verified merges go into the same unpublished
-# version (a second raise on top waits for a person); a verified candidate
+# version (a second raise on top is refreshed: main merged in, the version
+# files and CHANGELOG moved to main's unpublished version); a verified candidate
 # behind main is refreshed first (main merged into its own branch, CHANGELOG
-# and version files resolved as decided, any other conflict left for a person;
-# pushed with this job's token to that branch only, never to main) and its
+# and version files resolved as decided, any other conflict taken from main on
+# a branch the daily maintenance does not rebuild, a candidate it rebuilds made
+# again from main; pushed to that branch only, with the owner's
+# IKE_WORKFLOW_TOKEN when set, else this job's token, never to main) and its
 # Tests, Security and Arch Linux start again; after every merge the other
 # open pull requests of the automation are judged again (a dispatch each).
 #
