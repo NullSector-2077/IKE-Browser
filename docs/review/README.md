@@ -19,6 +19,7 @@ work, a review of the whole code and a security audit.
 | [dependencies.md](dependencies.md) | Python, Rust, Qt / Chromium and bundled components: versions, advisories, licences |
 | [tests-and-performance.md](tests-and-performance.md) | Tests run, tests that could not be run, measurements before and after |
 | [remaining-work.md](remaining-work.md) | Remaining work and next phases; where the Linux / Windows strategy, the component manager and the codec questions are treated |
+| [worker-guard-study.md](worker-guard-study.md) | Feasibility study of a "worker guard" (DevTools protocol through a hidden page) to protect the sites' own workers from outside Qt WebEngine: what works, why it is not adopted (a privileged channel that cannot be narrowed), what is reused, Brave compared |
 | [web-compat-2026-11.md](web-compat-2026-11.md) | Web compatibility campaign of 2026-11-28 (1.1.30): 44 sites and the web technologies at every level, compared with Chromium 140 and Brave; why WhatsApp and Telegram break at Kontrol and Maximum; proposed solutions (investigation only) |
 
 ## Initial state (1.0.0, before this work)

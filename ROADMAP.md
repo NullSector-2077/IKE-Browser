@@ -66,6 +66,24 @@ are agreed with the project owner; do not reopen them without asking.
 
 ## Owner's decisions
 
+- 2026-11-28, **no worker guard; Kontrol and Maximum told apart again**
+  (the owner, after two feasibility studies, docs/review/worker-guard-study.md):
+  no privileged DevTools channel or equivalent component, official Qt
+  WebEngine only, security before anti-fingerprinting. Workers per level:
+  Compatibility and Balanced unchanged; **Kontrol** protects every worker that
+  can be protected and lets the site's own unprotectable ones run (service
+  workers, shared workers, a file worker whose protected copy the site's policy
+  refuses), says clearly that they may show real values, and the user can block
+  them on a site and undo it; **Maximum** protects every worker that can be
+  protected and refuses the others, as 1.1.31 did, with 1.1.32's code: no
+  exception lets them in at Maximum (a "workers allowed" choice made at Kontrol
+  stays stored and counts only at Kontrol), the level is never lowered by
+  itself; "Repair this site" at Maximum explains the cause and may offer
+  "Switch this site to Kontrol" as the user's own choice. This replaces the
+  decision of 2026-11-28 that let the sites' own workers run at Maximum.
+  The same brief: performance work measured against 1.1.32, a graphic review
+  of the new tab page (widget menus as the toolbar's, buttons) and of the
+  print preview, each shown to the owner before it is adopted.
 - 2026-11-28, **"Ripara sito" becomes a diagnosis centre, and the octagon
   has four colours** (the owner's brief "Evoluzione strutturale della
   compatibilità, delle protezioni e di «Ripara sito»" and its two additions):
