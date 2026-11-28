@@ -29,6 +29,9 @@ GONE_MENUS = {"More", "File", "Edit", "View", "Tools", "History", "Bookmarks", "
 # I.K.E., the I.K.E. Dark Engine is the dark mode for pages)
 GONE_CHOICES = {"Dark Reader (can be set per site, immediate)"}
 # the one-line descriptions of the pages that were split (new ones replace them)
+# shown only when the AdBlock engine could not be loaded: the inventory was recorded on a computer
+# without the engine, the test runs with it too (GitHub Actions, the installed package, Arch)
+ENGINE_ONLY = {"The I.K.E. AdBlock engine could not be loaded: only basic domain blocking is active."}
 GONE_ABOUTS = {
     "Colours, icons, tabs, toolbar and the dark mode of pages.",
     "How I.K.E. works with your computer: desktop, video, memory and translation.",
@@ -107,7 +110,7 @@ def test_nothing_reachable_was_lost(run_ike):
         return i
     items = [{json.dumps(choices_kept(i)) for p in inv["settings"] for i in p["items"]} for inv in (BEFORE, after)]
     lost = {json.loads(i)[1] if json.loads(i)[0] == "label" else i for i in items[0] - items[1]}
-    assert lost <= GONE_ABOUTS, sorted(lost - GONE_ABOUTS)
+    assert lost - ENGINE_ONLY <= GONE_ABOUTS, sorted(lost - ENGINE_ONLY - GONE_ABOUTS)
     assert after["extensions"] == BEFORE["extensions"]
     assert after["settings_icon"] == [28, 28]
     # the ☰ menu: no "More", at most two levels (a category, then its entries)
