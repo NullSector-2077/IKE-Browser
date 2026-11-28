@@ -197,6 +197,24 @@
     "task": "rust"
    }
   ],
+  "automation/update/drill-qt@0a6a2ce5339349a6": [
+   {
+    "attempt": 2,
+    "date": "2026-11-28",
+    "detail": "",
+    "files": [
+     "ike/window.py"
+    ],
+    "model": "particle-ai/particle-1:free",
+    "outcome": "published",
+    "patch": "diff --git a/ike/window.py b/ike/window.py\nindex ef2145c..12a22b4 100644\n--- a/ike/window.py\n+++ b/ike/window.py\n@@ -1517,7 +1517,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):\n             prefix = \"\ud83d\udca4 \"\n         elif view.page().isAudioMuted():\n             prefix = \"\ud83d\udd07 \"\n-        elif view.page().isRecentlyAudible():\n+        elif view.page().recentlyAudible():\n             prefix = \"\ud83d\udd0a \"\n         tip = title\n         g = self.groups.get(view.group) if view.group else None\n",
+    "ph": "470332443ac9c6c0",
+    "provider": "OpenRouter",
+    "sig": "0a6a2ce5339349a6",
+    "summary": "Il browser non partiva pi\u00f9: una correzione precedente aveva rinominato una funzione del motore web (recentlyAudible in isRecentlyAudible), ma la versione di PyQt6 installata usa ancora il nome vecchio. Per questo quasi tutti i test fallivano con \"il browser \u00e8 terminato senza risu",
+    "task": "multi-file"
+   }
+  ],
   "automation/update/drill-qt@0ac137be54f2612a": [
    {
     "attempt": 1,
@@ -371,13 +389,12 @@
    {
     "attempt": 1,
     "date": "2026-11-28",
-    "detail": "",
+    "detail": "its tests failed after it (error 0a6a2ce5339349a6)",
     "files": [
      "ike/window.py"
     ],
     "model": "renamed-symbol",
-    "outcome": "published",
-    "patch": "diff --git a/ike/window.py b/ike/window.py\nindex 12a22b4..ef2145c 100644\n--- a/ike/window.py\n+++ b/ike/window.py\n@@ -1517,7 +1517,7 @@ class BrowserWindow(WindowFeatures, QMainWindow):\n             prefix = \"\ud83d\udca4 \"\n         elif view.page().isAudioMuted():\n             prefix = \"\ud83d\udd07 \"\n-        elif view.page().recentlyAudible():\n+        elif view.page().isRecentlyAudible():\n             prefix = \"\ud83d\udd0a \"\n         tip = title\n         g = self.groups.get(view.group) if view.group else None\n",
+    "outcome": "tests-failed",
     "ph": "45bae370dc40c1b3",
     "provider": "Recipe",
     "sig": "e287ba69b64bf497",
@@ -552,10 +569,10 @@
    "since": "2026-11-28"
   },
   "automation/update/drill-qt": {
-   "at": "2026-11-28T18:24:47Z",
+   "at": "2026-11-28T19:10:50Z",
    "date": "2026-11-28",
    "n": 0,
-   "sig": "e287ba69b64bf497",
+   "sig": "0a6a2ce5339349a6",
    "since": "2026-11-28"
   },
   "automation/update/lists-2026-11-22": {

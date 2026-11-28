@@ -452,30 +452,30 @@
    }
   },
   "2026-11-28": {
-   "answered": 10,
+   "answered": 11,
    "answered_for": {
     "automation/autofix-main": 3,
-    "automation/update/drill-qt": 7
+    "automation/update/drill-qt": 8
    },
    "no_provider": 0,
    "providers": {
     "Antigravity": {
      "by": {
       "automation/update/drill-qt": {
-       "requests": 10,
-       "tokens": 0
+       "requests": 17,
+       "tokens": 483345
       }
      },
      "classes": {
       "4": {
-       "requests": 10,
-       "tokens": 0
+       "requests": 17,
+       "tokens": 483345
       }
      },
      "observed": {},
-     "requests": 10,
+     "requests": 17,
      "spent": "",
-     "tokens": 0
+     "tokens": 483345
     },
     "Groq": {
      "by": {
@@ -514,26 +514,26 @@
      "account": "free",
      "by": {
       "automation/update/drill-qt": {
-       "requests": 6,
-       "tokens": 245994
+       "requests": 7,
+       "tokens": 283236
       }
      },
      "classes": {
       "4": {
-       "requests": 6,
-       "tokens": 245994
+       "requests": 7,
+       "tokens": 283236
       }
      },
      "observed": {
       "requests": {
        "limit": 50,
-       "mark": 6,
+       "mark": 7,
        "window": "day"
       }
      },
-     "requests": 6,
+     "requests": 7,
      "spent": "",
-     "tokens": 245994
+     "tokens": 283236
     },
     "Z.AI": {
      "by": {
@@ -562,7 +562,7 @@
      "tokens": 359904
     }
    },
-   "runs": 10
+   "runs": 11
   }
  },
  "schema": 1
