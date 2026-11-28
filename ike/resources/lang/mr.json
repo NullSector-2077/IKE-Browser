@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "हे सत्र, सर्वाधिक प्रयत्न करणाऱ्या साइट्स",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "यापैकी काहीही तुमच्या संगणकाबाहेर जात नाही. I.K.E. सुरू झाल्यावर या सत्राचे आकडे पुन्हा सुरू होतात.",
 "Nothing blocked yet in this session.": "या सत्रात अद्याप काहीही अवरोधित केलेले नाही.",
-"The site's own background workers": "साइटचे स्वतःचे पार्श्वभूमी वर्कर",
+"Blocking of the site's own background workers": "साइटचे स्वतःचे पार्श्वभूमी वर्कर अडवणे",
 "Background workers blocked": "पार्श्वभूमी वर्कर अडवले",
 "Site's own workers allowed": "साइटच्या स्वतःच्या वर्करना परवानगी",
 "This level blocks the site's own background workers: the site may not work.": "हा स्तर साइटचे स्वतःचे पार्श्वभूमी वर्कर अडवतो: साइट कदाचित काम करणार नाही.",

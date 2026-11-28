@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "Táto relácia, stránky, ktoré sa najviac snažili",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nič z toho neopúšťa váš počítač. Čísla tejto relácie začínajú odznova pri spustení I.K.E.",
 "Nothing blocked yet in this session.": "V tejto relácii zatiaľ nebolo nič zablokované.",
-"The site's own background workers": "Vlastné procesy webu na pozadí",
+"Blocking of the site's own background workers": "Blokovanie vlastných procesov webu na pozadí",
 "Background workers blocked": "Zablokované procesy na pozadí",
 "Site's own workers allowed": "Povolené vlastné procesy webu",
 "This level blocks the site's own background workers: the site may not work.": "Táto úroveň blokuje vlastné procesy webu na pozadí: web nemusí fungovať.",

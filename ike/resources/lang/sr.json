@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "Ова сесија, сајтови који су највише покушавали",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Ништа од овога не напушта ваш рачунар. Бројеви ове сесије почињу изнова када се I.K.E. покрене.",
 "Nothing blocked yet in this session.": "У овој сесији још ништа није блокирано.",
-"The site's own background workers": "Сопствени позадински процеси сајта",
+"Blocking of the site's own background workers": "Блокирање сопствених позадинских процеса сајта",
 "Background workers blocked": "Блокирани позадински процеси",
 "Site's own workers allowed": "Дозвољени сопствени процеси сајта",
 "This level blocks the site's own background workers: the site may not work.": "Овај ниво блокира сопствене позадинске процесе сајта: сајт можда неће радити.",

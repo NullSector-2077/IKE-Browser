@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "Sesi ini, laman yang paling banyak mencuba",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Tiada satu pun daripada ini meninggalkan komputer anda. Angka sesi ini bermula semula apabila I.K.E. dimulakan.",
 "Nothing blocked yet in this session.": "Belum ada apa-apa disekat dalam sesi ini.",
-"The site's own background workers": "Proses latar milik laman",
+"Blocking of the site's own background workers": "Penyekatan proses latar milik laman",
 "Background workers blocked": "Proses latar disekat",
 "Site's own workers allowed": "Proses milik laman dibenarkan",
 "This level blocks the site's own background workers: the site may not work.": "Tahap ini menyekat proses latar milik laman: laman mungkin tidak berfungsi.",

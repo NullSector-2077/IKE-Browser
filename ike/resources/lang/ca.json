@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "Aquesta sessió, els llocs que més ho han intentat",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Res d'això surt del teu ordinador. Les xifres d'aquesta sessió tornen a començar quan s'inicia I.K.E.",
 "Nothing blocked yet in this session.": "Encara no s'ha blocat res en aquesta sessió.",
-"The site's own background workers": "Els processos en segon pla del lloc",
+"Blocking of the site's own background workers": "Bloqueig dels processos en segon pla del lloc",
 "Background workers blocked": "Processos en segon pla blocats",
 "Site's own workers allowed": "Processos propis del lloc permesos",
 "This level blocks the site's own background workers: the site may not work.": "Aquest nivell bloca els processos en segon pla del lloc: pot ser que el lloc no funcioni.",

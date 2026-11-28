@@ -39,15 +39,22 @@
   dedicated worker whose protected copy the policy refuses gets the site's
   own file inside the same Worker object (the messages posted meanwhile are
   delivered, the refusal is not shown to the page), and the document's later
-  workers start from the file at once. Every worker a page's script makes
-  from its own text keeps the protection. What these workers can read is in
+  workers start from the file at once (only for a policy the page enforces:
+  one that only reports changes nothing). Every worker a page's script makes
+  from its own text keeps the protection, and a frame of another site gets no
+  free worker. Messages the page posts meanwhile are copied at once, as the
+  engine does (a later change of the data, a transferred buffer, an object
+  that cannot be copied behave exactly as in Chromium; found by the
+  independent review). What these workers can read is in
   docs/SECURITY.md. The shield counts them ("Site's own workers allowed").
 - **Maximum says when it refuses a site's own workers**: a bar above the
   page ("This level blocks the site's own background workers: the site may
   not work.") with "Allow them on this site", the same note and button in
   the shield, and the count of refused workers. Allowing them is remembered
   with the site's repairs ("Undo the repair" takes it back) and changes
-  nothing else; the other sites stay as they are. "Repair this site" knows
+  nothing else; the other sites stay as they are. The button answers half a
+  second after the bar appears (a click meant for the page cannot allow
+  them), and the bar never shows while "Repair this site" runs. "Repair this site" knows
   the workers as a protection of their own, tried right after the
   fingerprinting protection, so on WhatsApp it now turns off only the
   workers, not the whole fingerprinting protection

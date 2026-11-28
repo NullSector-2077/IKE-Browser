@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "Bu oturum, en çok deneyen siteler",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Bunların hiçbiri bilgisayarınızdan çıkmaz. Bu oturumun sayıları I.K.E. başladığında yeniden başlar.",
 "Nothing blocked yet in this session.": "Bu oturumda henüz hiçbir şey engellenmedi.",
-"The site's own background workers": "Sitenin kendi arka plan işlemleri",
+"Blocking of the site's own background workers": "Sitenin kendi arka plan işlemlerinin engellenmesi",
 "Background workers blocked": "Engellenen arka plan işlemleri",
 "Site's own workers allowed": "Sitenin kendi işlemlerine izin verildi",
 "This level blocks the site's own background workers: the site may not work.": "Bu düzey sitenin kendi arka plan işlemlerini engeller: site çalışmayabilir.",

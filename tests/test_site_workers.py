@@ -81,6 +81,87 @@ FILES = {
 }
 
 
+# The independent review of 1.1.32: what the queue of a worker that waits for
+# its hello must keep exact, a policy that only reports, a frame of another
+# site, a module worker first. The canvas hash tells a protected worker (the
+# page's noise) from one with the engine's own values.
+HASH = r"""
+function hash2d(make) {
+  var c = make(120, 30), x = c.getContext('2d');
+  x.textBaseline = 'top'; x.font = '14px Arial'; x.fillStyle = '#f60'; x.fillRect(5, 1, 60, 20);
+  x.fillStyle = '#069'; x.fillText('I.K.E. fp test', 2, 10);
+  var px = x.getImageData(0, 0, 120, 30).data, h = 0;
+  for (var i = 0; i < px.length; i++) h = (h * 31 + px[i]) | 0;
+  return h;
+}
+"""
+QUEUE = r"""<!doctype html><title>q</title><body><script>
+var R = {pageErrors: 0};
+(async function () {
+  // data changed after posting, a buffer transferred, an object that cannot be cloned
+  R.copy = await new Promise(function (ok) {
+    var w = new Worker('/qw.js'), a = [1], ab = new ArrayBuffer(8);
+    w.onmessage = function (e) { ok({got: e.data, detachedAtOnce: R.detached}); };
+    w.onerror = function () { R.pageErrors++; ok('error'); };
+    w.postMessage({a: a, n: ab.byteLength}, [ab]);
+    R.detached = ab.byteLength;
+    a[0] = 2;
+    try { w.postMessage(function () {}); R.cloneError = 'none'; } catch (e) { R.cloneError = e.name; }
+    setTimeout(function () { ok('timeout'); }, 6000);
+  });
+  // terminated before the switch: the page hears nothing
+  await new Promise(function (ok) {
+    var w = new Worker('/qw.js');
+    w.onerror = function () { R.pageErrors++; };
+    w.terminate();
+    setTimeout(ok, 1500);
+  });
+  window.result = JSON.stringify(R);
+})();
+</script></body>"""
+RO = r"""<!doctype html><title>ro</title><body><script>""" + HASH + r"""
+var R = {page: hash2d(function (w, h) { var c = document.createElement('canvas'); c.width = w; c.height = h; return c; })};
+function one() {
+  return new Promise(function (ok) {
+    var w = new Worker('/hw.js'); w.onmessage = function (e) { ok(e.data); }; w.onerror = function () { ok('error'); };
+    setTimeout(function () { ok('timeout'); }, 6000);
+  });
+}
+(async function () { R.first = await one(); R.second = await one(); R.third = await one(); window.result = JSON.stringify(R); })();
+</script></body>"""
+MOD = r"""<!doctype html><title>m</title><body><script>
+var R = {};
+(async function () {
+  R.module = await new Promise(function (ok) {
+    var w = new Worker('/mw.js', {type: 'module'}); w.onmessage = function (e) { ok(e.data); }; w.onerror = function () { ok('error'); };
+    w.postMessage('hi');
+    setTimeout(function () { ok('timeout'); }, 6000);
+  });
+  window.result = JSON.stringify(R);
+})();
+</script></body>"""
+TOP = r"""<!doctype html><title>top</title><body><script>
+var R = {};
+window.addEventListener('message', function (e) { R.frame = e.data; window.result = JSON.stringify(R); });
+var f = document.createElement('iframe'); f.src = 'http://localhost:' + location.port + '/inner.html'; document.body.appendChild(f);
+</script></body>"""
+INNER = r"""<!doctype html><title>inner</title><script>
+var done = function (v) { parent.postMessage(v, '*'); };
+try { var s = new SharedWorker('/shw.js'); s.port.onmessage = function (e) { done(e.data); };
+      s.onerror = function () { done('error'); }; s.port.start(); s.port.postMessage('hi'); }
+catch (e) { done('throw ' + e.name); }
+setTimeout(function () { done('timeout'); }, 6000);
+</script>"""
+FILES.update({
+    "/qw.js": "onmessage = function (e) { postMessage(e.data); };",
+    "/hw.js": HASH + "postMessage(hash2d(function (w, h) { return new OffscreenCanvas(w, h); }));",
+    "/mw.js": "self.onmessage = function (e) { self.postMessage('module ' + e.data); };",
+    "/queue": QUEUE, "/ro": RO, "/mod": MOD, "/top": TOP, "/inner.html": INNER,
+})
+# the policy each page sends (WhatsApp's and Telegram's kind: workers only from the site's own files)
+POLICY = {"/ro": ("Content-Security-Policy-Report-Only", "worker-src 'self'"), "/top": None, "/inner.html": None}
+
+
 @pytest.fixture
 def site():
     class H(http.server.BaseHTTPRequestHandler):
@@ -89,8 +170,9 @@ def site():
             body = (FILES.get(path) or PAGE).encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/javascript" if path.endswith(".js") else "text/html")
-            # WhatsApp's and Telegram's kind of policy: workers only from the site's own files
-            self.send_header("Content-Security-Policy", "worker-src 'self'")
+            policy = POLICY.get(path, ("Content-Security-Policy", "worker-src 'self'"))
+            if policy:
+                self.send_header(*policy)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -189,6 +271,11 @@ def steps(ike, qapp, out):
     yield from load(view, "http://127.0.0.1:%d/page", "before", out)
     yield 300
     out["bar"] = win.workers_bar.isVisible()
+    win.workers_bar.hide()
+    win.workers_bar.show_for(view)                        # as if it had just appeared
+    win.workers_bar.ok.click()                            # at once: inert (a click meant for the page)
+    out["early"] = dict(ike.config["site_opts"].get("127.0.0.1") or {})
+    yield 700
     win.workers_bar.ok.click()                            # "Allow them on this site"
     yield 300
     out["opts"] = dict(ike.config["site_opts"].get("127.0.0.1") or {})     # a copy: undone below
@@ -202,6 +289,7 @@ def steps(ike, qapp, out):
 def test_allow_button_and_undo(run_ike, site):
     out = run_ike(ALLOW % (site, site), settings={"shield_level": "maximum", "https_only": False}, timeout=150)
     assert out["bar"] is True
+    assert "workers" not in out["early"], out          # the first half second: nothing allowed
     assert out["opts"].get("workers") is False and out["repaired"] == ["workers"], out
     assert out["after"]["first"] == ["echo one", "echo two"], out["after"]
     assert out["undone"] is None, out
@@ -247,3 +335,53 @@ def steps(ike, qapp, out):
     yield 10
 ''', timeout=60)
     assert (out["balanced"], out["strict"], out["maximum"]) == (False, False, True), out
+
+
+PAGES = LOAD + r"""
+def steps(ike, qapp, out):
+    view = ike.windows[0].current_view()
+    for key, url in %s:
+        yield from load(view, url, key, out)
+        yield 300
+        out[key + "_stats"] = ike.shields.site_stats("127.0.0.1")
+"""
+
+
+def pages(run_ike, port, level, keys):
+    urls = [(k, "http://127.0.0.1:%d/%s" % (port, k)) for k in keys]
+    return run_ike(PAGES % json.dumps(urls), settings={"shield_level": level, "https_only": False}, timeout=150)
+
+
+def test_the_queue_keeps_the_engines_semantics(run_ike, site):
+    """Kontrol: a message posted before the switch is cloned at once (a change
+    made after posting does not reach the worker, a transferred buffer is
+    detached at once, an object that cannot be cloned throws at once), and a
+    worker terminated before the switch reports nothing (the review)."""
+    r = pages(run_ike, site, "strict", ["queue"])["queue"]
+    assert r["copy"]["got"]["a"] == [1] and r["copy"]["got"]["n"] == 8, r
+    assert r["copy"]["detachedAtOnce"] == 0, r
+    assert r["cloneError"] == "DataCloneError", r
+    assert r["pageErrors"] == 0, r
+
+
+def test_a_report_only_policy_keeps_the_protection(run_ike, site):
+    """A policy that only reports refuses nothing: every file worker keeps the
+    protection (the page's canvas noise), the first one and the next ones."""
+    r = pages(run_ike, site, "strict", ["ro"])["ro"]
+    assert r["first"] == r["second"] == r["third"] == r["page"], r
+
+
+def test_a_module_worker_first(run_ike, site):
+    r = pages(run_ike, site, "strict", ["mod"])["mod"]
+    assert r["module"] == "module hi", r
+
+
+@pytest.mark.parametrize("level", ["strict", "maximum"])
+def test_a_frame_of_another_site_gets_no_free_worker(run_ike, site, level):
+    """Kontrol lets only the visited site's own workers run: a frame of another
+    site (localhost inside 127.0.0.1) does not get its shared worker, which
+    is neither counted for the site nor offered to it."""
+    out = pages(run_ike, site, level, ["top"])
+    assert out["top"]["frame"] in ("error", "timeout"), out["top"]
+    st = out["top_stats"]
+    assert st["workers_open"] == 0 and st["workers"] == 0, st

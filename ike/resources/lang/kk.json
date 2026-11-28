@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "Осы сеанс, ең көп әрекеттенген сайттар",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Мұның ешқайсысы компьютеріңізден шықпайды. Осы сеанстың сандары I.K.E. іске қосылғанда қайта басталады.",
 "Nothing blocked yet in this session.": "Осы сеанста әлі ештеңе бұғатталмаған.",
-"The site's own background workers": "Сайттың өз фондық процестері",
+"Blocking of the site's own background workers": "Сайттың өз фондық процестерін бұғаттау",
 "Background workers blocked": "Бұғатталған фондық процестер",
 "Site's own workers allowed": "Сайттың өз процестеріне рұқсат берілді",
 "This level blocks the site's own background workers: the site may not work.": "Бұл деңгей сайттың өз фондық процестерін бұғаттайды: сайт жұмыс істемеуі мүмкін.",

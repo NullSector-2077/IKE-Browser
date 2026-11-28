@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "本次会话，尝试最多的网站",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "这些内容都不会离开你的计算机。本次会话的数字会在 I.K.E. 启动时重新开始。",
 "Nothing blocked yet in this session.": "本次会话中尚未拦截任何内容。",
-"The site's own background workers": "网站自己的后台工作线程",
+"Blocking of the site's own background workers": "阻止网站自己的后台工作线程",
 "Background workers blocked": "已阻止的后台工作线程",
 "Site's own workers allowed": "已允许网站自己的工作线程",
 "This level blocks the site's own background workers: the site may not work.": "此级别会阻止网站自己的后台工作线程：网站可能无法正常工作。",

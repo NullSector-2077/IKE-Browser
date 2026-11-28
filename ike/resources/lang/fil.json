@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "Ang session na ito, ang mga site na pinakamaraming sumubok",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Wala rito ang umaalis sa iyong computer. Ang mga bilang ng session na ito ay magsisimula muli kapag nagsimula ang I.K.E.",
 "Nothing blocked yet in this session.": "Wala pang na-block sa session na ito.",
-"The site's own background workers": "Ang sariling mga background worker ng site",
+"Blocking of the site's own background workers": "Pagharang sa sariling mga background worker ng site",
 "Background workers blocked": "Naharang na mga background worker",
 "Site's own workers allowed": "Pinayagan ang sariling worker ng site",
 "This level blocks the site's own background workers: the site may not work.": "Hinaharang ng antas na ito ang sariling mga background worker ng site: maaaring hindi gumana ang site.",

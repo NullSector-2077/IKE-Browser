@@ -1610,7 +1610,7 @@
 "This session, the sites that tried most": "Þessi lota, vefirnir sem reyndu mest",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Ekkert af þessu fer úr tölvunni þinni. Tölur þessarar lotu byrja upp á nýtt þegar I.K.E. ræsist.",
 "Nothing blocked yet in this session.": "Ekkert hefur verið lokað á í þessari lotu enn.",
-"The site's own background workers": "Eigin bakgrunnsferli vefsvæðisins",
+"Blocking of the site's own background workers": "Lokun á eigin bakgrunnsferlum vefsvæðisins",
 "Background workers blocked": "Bakgrunnsferli lokuð",
 "Site's own workers allowed": "Eigin ferli vefsvæðisins leyfð",
 "This level blocks the site's own background workers: the site may not work.": "Þetta stig lokar á eigin bakgrunnsferli vefsvæðisins: vefsvæðið virkar hugsanlega ekki.",

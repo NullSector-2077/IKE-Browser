@@ -68,12 +68,21 @@ class WorkersBar(QWidget):
     def show_for(self, view):
         """Show or hide the bar for the page now in front."""
         self.view = view
-        if not refused_here(self.win.app, view) or getattr(view, "workers_bar_closed", None) == view.url():
+        rep = getattr(getattr(self.win, "repair_bar", None), "repair", None)
+        if (not refused_here(self.win.app, view) or getattr(view, "workers_bar_closed", None) == view.url()
+                or (rep is not None and rep.state in ("ask", "level"))):
+            # never while "Repair this site" runs: its changes live in memory
+            # only, and allowing would save them (1.1.32, the independent review)
             self.hide()
             return
         if not self.isVisible():
             from . import polish
             polish.fade_child(self, self.win.app.config)
+            # the bar comes when the page asks for a worker: a click meant
+            # for the page a moment before must not allow them (the review)
+            self.ok.setEnabled(False)
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(500, lambda: self.ok.setEnabled(True))
         self.show()
 
     def _allow(self):

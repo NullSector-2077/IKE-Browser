@@ -346,7 +346,7 @@ _FULL_VERSION = (b"sec-ch-ua-full-version", b"sec-ch-ua-full-version-list")
 # a downlink of about 9.5 while the headers said 100 and about 1.7.
 _NETWORK_HINTS = {b"rtt": b"50", b"downlink": b"10", b"ect": b"4g"}
 
-# Maximum (1.1.25, owner's decision of 2026-11-24; Strict too until 1.1.30):
+# Maximum (1.1.25, owner's decision of 2026-11-24; Kontrol too until 1.1.31):
 # no service worker and no shared worker from a site's own file. The engine gives them
 # its own values, never the profile's (the real kernel, the engine's full
 # version, other languages, the real graphics card), and no script of
@@ -742,9 +742,14 @@ class Interceptor(QWebEngineUrlRequestInterceptor):
             # fields, anti-fraud checks): never blocked or changed (1.1.14)
             return
         if lv >= 3 and rtype in _WORKER_SCRIPTS and cfg.site_opt(first_host, "fp") is not False:
-            if lv >= 4 and cfg.site_opt(first_host, "workers") is not False:
+            # only the visited site's own file (1.1.32, the independent review:
+            # a frame of another site, an embedded widget, an ad, stays out at
+            # Kontrol too, and is never counted for the site nor offered to it)
+            own = host_site == first_site
+            if not own or (lv >= 4 and cfg.site_opt(first_host, "workers") is not False):
                 info.block(True)       # no worker from a file without the protection (1.1.25)
-                self._count(first_host, "workers")
+                if own:
+                    self._count(first_host, "workers")
                 return
             self._count(first_host, "workers_open")     # the site's own, with the engine's values (1.1.32)
         if cfg["login_compat"]:
