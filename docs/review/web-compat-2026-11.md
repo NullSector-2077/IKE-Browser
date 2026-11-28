@@ -254,7 +254,10 @@ I.K.E. for now; to check again from a home connection.
 `PublicKeyCredential.getClientCapabilities()`,
 `isConditionalMediationAvailable()` and
 `isUserVerifyingPlatformAuthenticatorAvailable()` never settle, at every level
-and in bare Qt WebEngine; Chromium 140 answers at once. A sign-in page that
+and in bare Qt WebEngine, with Arch's `qt6-webengine 6.140.0` (measured again
+with an 8 s wait); with the pip build of PyQt6-WebEngine the Cloudflare
+session saw the last two answer (false, true) and only
+`getClientCapabilities()` never settle. Chromium 140 answers all three at once. A sign-in page that
 waits for them before showing its form would stay empty. None of the tested
 sign-in pages (Google, Microsoft, PayPal, Facebook, Instagram, Claude)
 was affected; it is also a way to tell Qt WebEngine apart from Chrome.
