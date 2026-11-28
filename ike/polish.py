@@ -2255,15 +2255,20 @@ class RoundHoverStyle(QProxyStyle):
 
 
 class SlimBarStyle(QProxyStyle):
-    """The navigation and bookmarks bars a little lower (1.1.30, the owner:
-    "slightly, not too much"): one pixel less of the bar's own margin and
-    frame above and below; the buttons, the icons and the address field keep
-    their size. Set on the bar itself, never on its buttons."""
+    """The navigation and bookmarks bars low (1.1.30, the owner: "slightly,
+    not too much"; 1.1.32, the owner: as low as looks right, with a slight
+    margin above and below, his choice "A" of the preview): no frame and at
+    most 2 px of margin around the tallest item, so with Breeze the bars are
+    40 and 34 px (46 and 40 in 1.1.31, 5 px above and below the buttons). The
+    buttons, the icons and the address field keep their size. Set on the bar
+    itself, never on its buttons."""
 
     def pixelMetric(self, metric, opt=None, widget=None):
         v = super().pixelMetric(metric, opt, widget)
-        if metric in (QStyle.PixelMetric.PM_ToolBarItemMargin, QStyle.PixelMetric.PM_ToolBarFrameWidth):
-            return max(0, v - 1)
+        if metric == QStyle.PixelMetric.PM_ToolBarItemMargin:
+            return min(v, 2)
+        if metric == QStyle.PixelMetric.PM_ToolBarFrameWidth:
+            return 0
         return v
 
 

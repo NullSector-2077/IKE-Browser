@@ -35,6 +35,11 @@
   (`ike/shields.py`, `ike/resources/fingerprint.js`, `ike/workersbar.py`,
   `ike/shieldpanel.py`, `ike/repair.py`; tests/test_site_workers.py, five
   new texts in every language pack).
+- **Lower navigation and bookmarks bars** (the owner chose "A" from a
+  preview): only the empty room above and below the buttons goes (2 px left
+  instead of 5): with KDE's Breeze the address bar's row is 40 px (46) and the
+  bookmarks bar 34 px (40). Buttons, icons and the address field keep their
+  size (`ike/polish.py` `SlimBarStyle`).
 - **A reusable web compatibility suite** (tests/compat/, outside the
   automatic tests, GitHub Actions and AUTOMAT): real sites at every level
   with their own checks, a local page of web technologies (workers,
