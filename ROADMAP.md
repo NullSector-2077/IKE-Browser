@@ -248,6 +248,12 @@ are agreed with the project owner; do not reopen them without asking.
   field test after 1.1.30 (#208); then one AI caller in place of five
   (simplification D). Waiting for the owner: the weekly Claude session for
   tier B; the start-up rescue path in ike_boot.py.
+- AUTOMAT block 1 (2026-11-24, branch `automation/block1-priority`, merged):
+  real updates may use all of the free quota, background work (the drill,
+  the CI's updates) only the day's leftovers and never while a real update
+  is pending, OpenRouter's free models as one budget, the merged candidate
+  branches deleted and a weekly branch sweep (two independent reviews'
+  findings fixed); the providers' reset times are not verified.
 - **Kept for the owner's decision**: `experiment/file-workers` (workers
   started from a file) and `feature/engine-identity-check` (a weekly check of
   the engine's identity in the signing notice), never merged.
