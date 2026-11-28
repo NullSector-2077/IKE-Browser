@@ -245,7 +245,10 @@ def ask_gemini(key, model, system, user, opener, reserve, timeout=150, meter=Non
             meter(402 if reserve.billing_in(said) else e.code, e.headers, None, said[:2000])
         if reserve.billing_in(said):
             raise reserve.Stop("unavailable", "HTTP %d, billing" % e.code, 0)
-        raise reserve.Stop(reserve.classify(e.code), "HTTP %d" % e.code, 0)
+        # the provider's own words in the log, as the reserve does (tools/autofix-reserve.py error_words), never
+        # the key
+        words = reserve.redact(reserve.error_words(said), [key])
+        raise reserve.Stop(reserve.classify(e.code), "HTTP %d" % e.code + (": " + words if words else ""), 0)
     except Exception as e:
         raise reserve.Stop("temporary", type(e).__name__)
     try:
