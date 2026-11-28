@@ -225,6 +225,41 @@ next to the code it guards.
 - **Done**: that row ends when main's newest finished Tests run passed after it
   (`tools/ai-quota.py` `main_green_since`), whoever fixed main.
 
+### 17. A fix in conflict with main got no tests at all (the drill, 2026-11-28, PR #208)
+
+- **Sign**: after "autofix: attempt 1" the drill's pull request showed only "ChatGPT fix guard" (skipped);
+  no Tests, Security or Arch run started, and nothing happened for an hour.
+- **Cause**: the fix's commit adds a CHANGELOG line (main's version was published); main's CHANGELOG had
+  changed at the top (1.1.31's notes), so the pull request conflicted with main. GitHub starts no
+  `pull_request` run on a pull request in conflict, and the verified merge refreshed a candidate only once
+  it was fully verified: nothing would ever judge it.
+- **Done**: the automatic fix asks the verified merge at once after its push (`automerge.yml`, `sha`); a
+  pull request of the automation in conflict with main is refreshed first, verified or not
+  (`tools/automerge.py` `conflicts_with_main`), and its tests start on the refreshed commit.
+- **Guard**: `tests/test_merge_and_mail.py`,
+  `test_a_candidate_in_conflict_with_main_is_refreshed_before_any_check`.
+- **Rule**: a pull request with no checks on its last commit is first a question about GitHub's
+  mergeability, never a reason to re-run.
+
+### 18. The reserves could never fix a large file (the drill, 2026-11-28, #231)
+
+- **Sign**: "answer not usable: ike/window.py is not one of the files shown", attempt after attempt.
+- **Cause**: the reserves get whole files up to 60 000 characters; `ike/window.py` (175 KB) never fits, and
+  an edit was accepted only in a file shown whole, although the code at the failure was in the excerpt.
+- **Done**: a file whose excerpt at the failure is shown may be edited too (`editable_files`); the text to
+  replace must still appear exactly once, the checks after it are the same.
+- **Guard**: `tests/test_reserve_excerpt_edits.py`.
+
+### 19. A limit of one model's answers stopped a whole provider (Groq, 2026-11-28, #234)
+
+- **Sign**: "Groq: not asked: even the smallest request ... is larger than its limit per minute (1000 tokens)".
+- **Cause**: one model's 429 said "output tokens per minute (OTPM): Limit 1000"; it was learned as Groq's
+  limit of tokens a minute and kept for the next days, and since no request fitted it, Groq was never asked
+  again, so its headers could not correct it.
+- **Done**: an output limit is not learned; the headers' readings come before a learned value.
+- **Guard**: `tests/test_groq_output_limit.py`.
+- **Rule**: a learned limit that makes a provider unaskable must be one that a later answer can correct.
+
 ## Prepared responses (what Claude does, in order)
 
 | Situation | First step | Never |

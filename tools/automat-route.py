@@ -116,8 +116,8 @@ def order(task, names=NAMES, rates=None, limits=None, attempt=1, failed=()):
     """The providers of names in the order this task asks them.
 
     rates: {(provider, task): [merged, failed]} of AUTOMAT's memory; failed: the providers that already
-    failed this very error; attempt: 1, 2, ... (with no memory of the error, attempt n starts one
-    further down)."""
+    failed this very error; attempt: 1, 2, ... (only when AUTOMAT's memory could not be read, attempt n
+    starts one further down: main() passes 1 with the memory)."""
     conf = routing(limits)
     names = [n for n in names if n]
     prior = [n for n in conf["strong" if hard(task) else "fast"] if n in names]
@@ -186,14 +186,19 @@ def main(argv=None):
         failure = ""
     task = task_type(failure, mode=a.mode if a.mode in ("lists", "builder") else "")
     rates, failed = {}, set()
+    attempt = int(a.attempt) if a.attempt.isdigit() else 1
     mem = _tool("automat-memory")
-    if a.memory:
+    if a.memory and Path(a.memory).is_file():
         memory = mem.load(a.memory)
         rates = mem.rates(memory)
         failed = mem.failed_providers(memory, a.component, mem.signature(failure))
+        # with AUTOMAT's memory only the providers that really failed this very error move down: the number of
+        # the attempt also counts a recipe's attempt and an attempt that asked nobody, and on the drill of
+        # 2026-11-28 attempt 2 (after a recipe) skipped Gemini's agent, which had not tried at all
+        attempt = 1
     limits = _tool("ai-quota").load_limits(a.limits)
     names = [n for n in a.names.split(",") if n in NAMES]
-    ranked = order(task, names, rates, limits, int(a.attempt) if a.attempt.isdigit() else 1, failed)
+    ranked = order(task, names, rates, limits, attempt, failed)
     print("task=%s" % task)
     print("hard=%s" % ("true" if hard(task) else "false"))
     print("order=%s" % ",".join(ranked))
