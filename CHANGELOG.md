@@ -28,7 +28,10 @@
   `data:` worker an address with a character beyond Latin-1, got a worker
   without the protection until now and gets an error or a protected worker;
   and the page no longer sees the protection's own refusals (in an empty
-  frame it always saw one, from "userscript").
+  frame it always saw one, from "userscript"), while its own Trusted Types
+  errors and events still reach it. Two older ways to an unprotected inline
+  worker found by the review are still open (docs/SECURITY.md, "Known
+  limits of the noise").
 - **The noise's seed is no longer handed to such a page**: the protection's
   policy was named 'p' + the site's seed, and a site that refuses it reads the
   name in the refusal (`securitypolicyviolation`'s `sample`, and the report its
