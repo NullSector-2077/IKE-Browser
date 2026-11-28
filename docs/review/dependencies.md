@@ -26,7 +26,7 @@ than the distribution's. On a system that is not updated, the engine is old.
 | pyo3 | 0.30.1 (was 0.23.5) | MIT OR Apache-2.0 | 0.23.5: RUSTSEC-2025-0020 and RUSTSEC-2026-0177, in functions the module does not call; none for 0.30.1 | Upgraded in 1.0.3 |
 | Other Rust crates (86, through adblock-rust, pyo3 and serde_json) | pinned by `Cargo.lock` | MIT, Apache-2.0, MPL-2.0, Unicode-3.0, Unlicense (one of the choices), LLVM exception | `cargo audit`: 0 vulnerabilities in 89 crates | Listed in `docs/THIRD-PARTY.md` |
 | uBlock Origin scriptlets | built from a pinned commit by `tools/build-ubo-scriptlets.mjs` | GPL-3.0 | — | Data file, checked daily |
-| Dark Reader | bundled script | MIT | — | Optional page dark mode; Qt's own is the default. Known not to be reliable (ROADMAP) |
+| Dark Reader | its lists only since 1.1.30 (`darkreader-data.json`), read by the I.K.E. Dark Engine | MIT | — | The engine itself left I.K.E. in 1.1.30 |
 | Lucide, Phosphor icons | bundled SVG | ISC, MIT | — | |
 | Orbitron | not shipped: only shapes drawn from it | SIL OFL 1.1 | — | Approved brand artwork |
 

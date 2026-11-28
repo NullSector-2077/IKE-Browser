@@ -129,9 +129,8 @@ def test_the_bundled_copy_is_one_the_browser_accepts():
     data = json.loads(BUNDLED.read_text("utf-8"))
     assert list(data) == ["version", "lists_commit", "lists_date", "fixes", "dark_sites", "detector_hints"]
     assert darklists.check(data, data) == ""
-    # the engine left in 1.1.30; darkmode.js (unused) stays until it leaves tools/fix-guard.py PROTECTED_JS, a
-    # change of the guard's own list made by a person
-    assert [p.name for p in sorted(BUNDLED.parent.glob("dark*.js"))] == ["darkmode.js"]
+    # the engine left in 1.1.30, and its last helper, darkmode.js, on 2026-11-28 (the owner's clean-up)
+    assert [p.name for p in sorted(BUNDLED.parent.glob("dark*.js"))] == []
 
 
 @pytest.mark.skipif(not os.environ.get("IKE_TEST_NETWORK") or not shutil.which("git"),

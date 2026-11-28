@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""The Dark Engine's diagnosis on the page the owner is looking at, in the owner's
-own I.K.E. (signed in, scrolled to the part that looks wrong), not in a fresh
+"""The Dark Engine's diagnosis on the page you are looking at, in your own
+running I.K.E. (signed in, scrolled to the part that looks wrong), not in a fresh
 private profile as owner_check.py does.
 
 I.K.E. is started for this once with its remote debugging on, which I.K.E. allows

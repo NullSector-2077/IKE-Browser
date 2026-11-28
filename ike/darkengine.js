@@ -1,4 +1,4 @@
-// I.K.E. Dark Engine (EXPERIMENT, off by default; loaded by ike/darkengine.py). I.K.E.'s own
+// I.K.E. Dark Engine (the page dark mode since 1.1.30; loaded by ike/darkengine.py). I.K.E.'s own
 // dark mode for pages: one pass over the page's style sheets and inline styles,
 // one generated override style sheet per source sheet, then only the nodes and
 // sheets added later, in batches. No re-analysis of the whole page.

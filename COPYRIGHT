@@ -34,7 +34,7 @@ next to this one:
   NOTICE.ubo-scriptlets    uBlock Origin scriptlets: copyright, licence
                            (GPL-3.0-or-later, the text in LICENSE) and where
                            their corresponding source is
-  LICENSE.darkreader       Dark Reader (MIT)
+  LICENSE.darkreader       Dark Reader's lists (darkreader-data.json; MIT)
   LICENSE.lucide           Lucide icons (ISC; parts from Feather, MIT)
   LICENSE.phosphor         Phosphor Icons (MIT)
   LICENSE.breeze-icons     KDE's Breeze icons (LGPL-3.0-or-later: Breeze's
