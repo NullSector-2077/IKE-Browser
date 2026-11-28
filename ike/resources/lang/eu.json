@@ -1609,6 +1609,11 @@
 "This session, by kind": "Saio hau, motaren arabera",
 "This session, the sites that tried most": "Saio hau, gehien saiatu diren guneak",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Honetatik ezer ez da zure ordenagailutik ateratzen. Saio honetako zenbakiak berriro hasten dira I.K.E. abiaraztean.",
-"Nothing blocked yet in this session.": "Oraindik ez da ezer blokeatu saio honetan."
+"Nothing blocked yet in this session.": "Oraindik ez da ezer blokeatu saio honetan.",
+"The site's own background workers": "Gunearen atzeko planoko prozesuak",
+"Background workers blocked": "Atzeko planoko prozesuak blokeatuta",
+"Site's own workers allowed": "Gunearen prozesuak baimenduta",
+"This level blocks the site's own background workers: the site may not work.": "Maila honek gunearen atzeko planoko prozesuak blokeatzen ditu: baliteke guneak ez funtzionatzea.",
+"Allow them on this site": "Baimendu gune honetan"
 }
 }

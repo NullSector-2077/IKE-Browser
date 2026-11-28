@@ -1609,6 +1609,11 @@
 "This session, by kind": "Šī sesija, pēc veida",
 "This session, the sites that tried most": "Šī sesija, vietnes, kas mēģināja visvairāk",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nekas no šī neatstāj jūsu datoru. Šīs sesijas skaitļi sākas no jauna, kad I.K.E. tiek palaists.",
-"Nothing blocked yet in this session.": "Šajā sesijā vēl nekas nav bloķēts."
+"Nothing blocked yet in this session.": "Šajā sesijā vēl nekas nav bloķēts.",
+"The site's own background workers": "Vietnes pašas fona procesi",
+"Background workers blocked": "Bloķētie fona procesi",
+"Site's own workers allowed": "Vietnes pašas procesi atļauti",
+"This level blocks the site's own background workers: the site may not work.": "Šis līmenis bloķē vietnes pašas fona procesus: vietne var nedarboties.",
+"Allow them on this site": "Atļaut tos šajā vietnē"
 }
 }

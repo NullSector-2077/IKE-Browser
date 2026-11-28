@@ -1609,6 +1609,11 @@
 "This session, by kind": "یہ سیشن، قسم کے لحاظ سے",
 "This session, the sites that tried most": "یہ سیشن، سب سے زیادہ کوشش کرنے والی سائٹس",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "اس میں سے کچھ بھی آپ کے کمپیوٹر سے باہر نہیں جاتا۔ I.K.E. شروع ہونے پر اس سیشن کے اعداد دوبارہ شروع ہوتے ہیں۔",
-"Nothing blocked yet in this session.": "اس سیشن میں ابھی تک کچھ بلاک نہیں ہوا۔"
+"Nothing blocked yet in this session.": "اس سیشن میں ابھی تک کچھ بلاک نہیں ہوا۔",
+"The site's own background workers": "سائٹ کے اپنے پس منظر ورکر",
+"Background workers blocked": "روکے گئے پس منظر ورکر",
+"Site's own workers allowed": "سائٹ کے اپنے ورکر کی اجازت",
+"This level blocks the site's own background workers: the site may not work.": "یہ سطح سائٹ کے اپنے پس منظر ورکر روکتی ہے: ہو سکتا ہے سائٹ کام نہ کرے۔",
+"Allow them on this site": "اس سائٹ پر انہیں اجازت دیں"
 }
 }

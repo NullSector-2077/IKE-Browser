@@ -14,6 +14,44 @@
   them, and its list of capabilities is not made up. Security keys work as
   before (I.K.E.'s own windows). Off still changes nothing in a page
   (`ike/resources/fingerprint.js`, tests/test_passkeys.py).
+- **WhatsApp and Telegram work at Kontrol** (the owner: they worked only at
+  Compatibility and Balanced; WhatsApp turned into a white page after a
+  change of level). The web compatibility campaign of 2026-11-28
+  (docs/review/web-compat-2026-11.md: I.K.E. built with makepkg and
+  installed in Arch, 44 sites at the four levels against Chromium 140 and
+  Brave) proved the cause by lifting one rule at a time: since 1.1.25
+  Kontrol and Maximum refused the sites' own service workers, shared
+  workers and workers from their files, and unregistered older service
+  workers; and where a site's policy refuses blob: workers (WhatsApp,
+  Telegram, Google's apps, GitHub) the protected copy of a dedicated worker
+  was refused a moment after the Worker object was made, so the fallback
+  never ran and the site had no worker at all. WhatsApp's QR code was never
+  drawn, Telegram Web K was an empty page (white without dark mode); the
+  Dark Engine was not involved. Now Kontrol lets the site's own workers run
+  (only the site's files can be in them) and keeps older service workers; a
+  dedicated worker whose protected copy the policy refuses gets the site's
+  own file inside the same Worker object (the messages posted meanwhile are
+  delivered, the refusal is not shown to the page), and the document's later
+  workers start from the file at once. Every worker a page's script makes
+  from its own text keeps the protection. What these workers can read is in
+  docs/SECURITY.md. The shield counts them ("Site's own workers allowed").
+- **Maximum says when it refuses a site's own workers**: a bar above the
+  page ("This level blocks the site's own background workers: the site may
+  not work.") with "Allow them on this site", the same note and button in
+  the shield, and the count of refused workers. Allowing them is remembered
+  with the site's repairs ("Undo the repair" takes it back) and changes
+  nothing else; the other sites stay as they are. "Repair this site" knows
+  the workers as a protection of their own, tried right after the
+  fingerprinting protection, so on WhatsApp it now turns off only the
+  workers, not the whole fingerprinting protection
+  (`ike/shields.py`, `ike/resources/fingerprint.js`, `ike/workersbar.py`,
+  `ike/shieldpanel.py`, `ike/repair.py`; tests/test_site_workers.py, five
+  new texts in every language pack).
+- **A reusable web compatibility suite** (tests/compat/, outside the
+  automatic tests, GitHub Actions and AUTOMAT): real sites at every level
+  with their own checks, a local page of web technologies (workers,
+  WebAssembly, WebGL, codecs, DASH/HLS/Widevine, WebRTC, storage, upload and
+  download) and the same checks in Chromium or Brave.
 - **Cloudflare's checks pass again at Balanced, Kontrol and Maximum** (the
   owner saw Turnstile fail at every level but Compatibility; Brave at its
   highest protection passed). Found by switching I.K.E.'s protections off one

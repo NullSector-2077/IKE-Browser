@@ -1609,6 +1609,11 @@
 "This session, by kind": "ეს სესია, სახეობის მიხედვით",
 "This session, the sites that tried most": "ეს სესია, საიტები, რომლებიც ყველაზე მეტად ცდილობდნენ",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "ამათგან არაფერი ტოვებს თქვენს კომპიუტერს. ამ სესიის რიცხვები თავიდან იწყება I.K.E.-ის გაშვებისას.",
-"Nothing blocked yet in this session.": "ამ სესიაში ჯერ არაფერია დაბლოკილი."
+"Nothing blocked yet in this session.": "ამ სესიაში ჯერ არაფერია დაბლოკილი.",
+"The site's own background workers": "საიტის საკუთარი ფონური პროცესები",
+"Background workers blocked": "დაბლოკილი ფონური პროცესები",
+"Site's own workers allowed": "საიტის საკუთარი პროცესები დაშვებულია",
+"This level blocks the site's own background workers: the site may not work.": "ეს დონე ბლოკავს საიტის საკუთარ ფონურ პროცესებს: საიტმა შეიძლება არ იმუშაოს.",
+"Allow them on this site": "დაუშვით ისინი ამ საიტზე"
 }
 }

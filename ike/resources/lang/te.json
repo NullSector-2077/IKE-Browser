@@ -1609,6 +1609,11 @@
 "This session, by kind": "ఈ సెషన్, రకం ప్రకారం",
 "This session, the sites that tried most": "ఈ సెషన్, ఎక్కువగా ప్రయత్నించిన సైట్‌లు",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "వీటిలో ఏదీ మీ కంప్యూటర్‌ను దాటి వెళ్లదు. I.K.E. ప్రారంభమైనప్పుడు ఈ సెషన్ సంఖ్యలు మళ్లీ మొదలవుతాయి.",
-"Nothing blocked yet in this session.": "ఈ సెషన్‌లో ఇంకా ఏదీ నిరోధించబడలేదు."
+"Nothing blocked yet in this session.": "ఈ సెషన్‌లో ఇంకా ఏదీ నిరోధించబడలేదు.",
+"The site's own background workers": "సైట్ స్వంత బ్యాక్‌గ్రౌండ్ వర్కర్లు",
+"Background workers blocked": "నిరోధించిన బ్యాక్‌గ్రౌండ్ వర్కర్లు",
+"Site's own workers allowed": "అనుమతించిన సైట్ స్వంత వర్కర్లు",
+"This level blocks the site's own background workers: the site may not work.": "ఈ స్థాయి సైట్ స్వంత బ్యాక్‌గ్రౌండ్ వర్కర్లను నిరోధిస్తుంది: సైట్ పని చేయకపోవచ్చు.",
+"Allow them on this site": "ఈ సైట్‌లో వాటిని అనుమతించు"
 }
 }

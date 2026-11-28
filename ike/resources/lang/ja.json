@@ -1609,6 +1609,11 @@
 "This session, by kind": "このセッション、種類別",
 "This session, the sites that tried most": "このセッション、最も多く試みたサイト",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "これらはいずれもコンピューターの外に出ません。このセッションの数は I.K.E. の起動時にリセットされます。",
-"Nothing blocked yet in this session.": "このセッションではまだ何もブロックされていません。"
+"Nothing blocked yet in this session.": "このセッションではまだ何もブロックされていません。",
+"The site's own background workers": "サイト自身のバックグラウンドワーカー",
+"Background workers blocked": "ブロックしたバックグラウンドワーカー",
+"Site's own workers allowed": "許可したサイト自身のワーカー",
+"This level blocks the site's own background workers: the site may not work.": "このレベルはサイト自身のバックグラウンドワーカーをブロックします: サイトが動作しない可能性があります。",
+"Allow them on this site": "このサイトで許可する"
 }
 }

@@ -1609,6 +1609,11 @@
 "This session, by kind": "Questa sessione, per tipo",
 "This session, the sites that tried most": "Questa sessione, i siti che ci hanno provato di più",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Niente di tutto questo lascia il tuo computer. I numeri di questa sessione ripartono da zero all'avvio di I.K.E.",
-"Nothing blocked yet in this session.": "Ancora niente di bloccato in questa sessione."
+"Nothing blocked yet in this session.": "Ancora niente di bloccato in questa sessione.",
+"The site's own background workers": "I worker in background del sito",
+"Background workers blocked": "Worker in background bloccati",
+"Site's own workers allowed": "Worker del sito consentiti",
+"This level blocks the site's own background workers: the site may not work.": "Questo livello blocca i worker in background del sito: il sito potrebbe non funzionare.",
+"Allow them on this site": "Consentili su questo sito"
 }
 }

@@ -1609,6 +1609,11 @@
 "This session, by kind": "Гэты сеанс, па відах",
 "This session, the sites that tried most": "Гэты сеанс, сайты, якія спрабавалі найбольш",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Нічога з гэтага не пакідае ваш камп'ютар. Лічбы гэтага сеанса пачынаюцца нанова пры запуску I.K.E.",
-"Nothing blocked yet in this session.": "У гэтым сеансе яшчэ нічога не заблакавана."
+"Nothing blocked yet in this session.": "У гэтым сеансе яшчэ нічога не заблакавана.",
+"The site's own background workers": "Уласныя фонавыя працэсы сайта",
+"Background workers blocked": "Заблакаваныя фонавыя працэсы",
+"Site's own workers allowed": "Уласныя працэсы сайта дазволены",
+"This level blocks the site's own background workers: the site may not work.": "Гэты ўзровень блакуе ўласныя фонавыя працэсы сайта: сайт можа не працаваць.",
+"Allow them on this site": "Дазволіць іх на гэтым сайце"
 }
 }

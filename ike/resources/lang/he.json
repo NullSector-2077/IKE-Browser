@@ -1609,6 +1609,11 @@
 "This session, by kind": "הפעלה זו, לפי סוג",
 "This session, the sites that tried most": "הפעלה זו, האתרים שניסו הכי הרבה",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "שום דבר מזה לא יוצא מהמחשב שלך. המספרים של הפעלה זו מתחילים מחדש כש-I.K.E. מופעל.",
-"Nothing blocked yet in this session.": "עדיין לא נחסם דבר בהפעלה זו."
+"Nothing blocked yet in this session.": "עדיין לא נחסם דבר בהפעלה זו.",
+"The site's own background workers": "תהליכי הרקע של האתר עצמו",
+"Background workers blocked": "תהליכי רקע חסומים",
+"Site's own workers allowed": "תהליכי האתר עצמו מותרים",
+"This level blocks the site's own background workers: the site may not work.": "רמה זו חוסמת את תהליכי הרקע של האתר עצמו: ייתכן שהאתר לא יעבוד.",
+"Allow them on this site": "לאפשר אותם באתר זה"
 }
 }

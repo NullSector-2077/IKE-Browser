@@ -1609,6 +1609,11 @@
 "This session, by kind": "Phiên này, theo loại",
 "This session, the sites that tried most": "Phiên này, các trang thử nhiều nhất",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Không có gì trong số này rời khỏi máy tính của bạn. Số liệu của phiên này bắt đầu lại khi I.K.E. khởi động.",
-"Nothing blocked yet in this session.": "Chưa có gì bị chặn trong phiên này."
+"Nothing blocked yet in this session.": "Chưa có gì bị chặn trong phiên này.",
+"The site's own background workers": "Tiến trình nền của chính trang",
+"Background workers blocked": "Tiến trình nền bị chặn",
+"Site's own workers allowed": "Đã cho phép tiến trình của chính trang",
+"This level blocks the site's own background workers: the site may not work.": "Mức này chặn các tiến trình nền của chính trang: trang có thể không hoạt động.",
+"Allow them on this site": "Cho phép trên trang này"
 }
 }

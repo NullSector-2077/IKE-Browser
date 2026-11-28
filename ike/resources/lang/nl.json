@@ -1609,6 +1609,11 @@
 "This session, by kind": "Deze sessie, per soort",
 "This session, the sites that tried most": "Deze sessie, de sites die het vaakst probeerden",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Niets hiervan verlaat je computer. De cijfers van deze sessie beginnen opnieuw wanneer I.K.E. start.",
-"Nothing blocked yet in this session.": "Nog niets geblokkeerd in deze sessie."
+"Nothing blocked yet in this session.": "Nog niets geblokkeerd in deze sessie.",
+"The site's own background workers": "De eigen achtergrondprocessen van de site",
+"Background workers blocked": "Achtergrondprocessen geblokkeerd",
+"Site's own workers allowed": "Eigen processen van de site toegestaan",
+"This level blocks the site's own background workers: the site may not work.": "Dit niveau blokkeert de eigen achtergrondprocessen van de site: de site werkt misschien niet.",
+"Allow them on this site": "Op deze site toestaan"
 }
 }

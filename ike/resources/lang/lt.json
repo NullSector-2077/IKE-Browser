@@ -1609,6 +1609,11 @@
 "This session, by kind": "Šis seansas, pagal rūšį",
 "This session, the sites that tried most": "Šis seansas, daugiausia bandžiusios svetainės",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Niekas iš to nepalieka jūsų kompiuterio. Šio seanso skaičiai prasideda iš naujo, kai paleidžiama I.K.E.",
-"Nothing blocked yet in this session.": "Šiame seanse dar nieko neužblokuota."
+"Nothing blocked yet in this session.": "Šiame seanse dar nieko neužblokuota.",
+"The site's own background workers": "Svetainės pačios foniniai procesai",
+"Background workers blocked": "Užblokuoti foniniai procesai",
+"Site's own workers allowed": "Svetainės procesai leidžiami",
+"This level blocks the site's own background workers: the site may not work.": "Šis lygis blokuoja svetainės pačios foninius procesus: svetainė gali neveikti.",
+"Allow them on this site": "Leisti juos šioje svetainėje"
 }
 }

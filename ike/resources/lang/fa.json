@@ -1609,6 +1609,11 @@
 "This session, by kind": "این نشست، بر اساس نوع",
 "This session, the sites that tried most": "این نشست، سایت‌هایی که بیشتر تلاش کردند",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "هیچ‌کدام از این‌ها از رایانهٔ شما خارج نمی‌شود. اعداد این نشست با شروع I.K.E. از نو شروع می‌شوند.",
-"Nothing blocked yet in this session.": "هنوز در این نشست چیزی مسدود نشده است."
+"Nothing blocked yet in this session.": "هنوز در این نشست چیزی مسدود نشده است.",
+"The site's own background workers": "فرایندهای پس‌زمینهٔ خود سایت",
+"Background workers blocked": "فرایندهای پس‌زمینهٔ مسدودشده",
+"Site's own workers allowed": "فرایندهای خود سایت مجاز شد",
+"This level blocks the site's own background workers: the site may not work.": "این سطح فرایندهای پس‌زمینهٔ خود سایت را مسدود می‌کند: ممکن است سایت کار نکند.",
+"Allow them on this site": "در این سایت مجاز شوند"
 }
 }

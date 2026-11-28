@@ -1609,6 +1609,11 @@
 "This session, by kind": "Esta sesión, por tipo",
 "This session, the sites that tried most": "Esta sesión, os sitios que máis o intentaron",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nada disto sae do teu ordenador. As cifras desta sesión comezan de novo cando se inicia I.K.E.",
-"Nothing blocked yet in this session.": "Aínda non se bloqueou nada nesta sesión."
+"Nothing blocked yet in this session.": "Aínda non se bloqueou nada nesta sesión.",
+"The site's own background workers": "Os procesos en segundo plano do sitio",
+"Background workers blocked": "Procesos en segundo plano bloqueados",
+"Site's own workers allowed": "Procesos propios do sitio permitidos",
+"This level blocks the site's own background workers: the site may not work.": "Este nivel bloquea os procesos en segundo plano do sitio: pode que o sitio non funcione.",
+"Allow them on this site": "Permitilos neste sitio"
 }
 }

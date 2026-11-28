@@ -1609,6 +1609,11 @@
 "This session, by kind": "Denne økten, etter type",
 "This session, the sites that tried most": "Denne økten, nettstedene som prøvde mest",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Ingenting av dette forlater datamaskinen din. Tallene for denne økten starter på nytt når I.K.E. starter.",
-"Nothing blocked yet in this session.": "Ingenting blokkert ennå i denne økten."
+"Nothing blocked yet in this session.": "Ingenting blokkert ennå i denne økten.",
+"The site's own background workers": "Nettstedets egne bakgrunnsprosesser",
+"Background workers blocked": "Bakgrunnsprosesser blokkert",
+"Site's own workers allowed": "Nettstedets egne prosesser tillatt",
+"This level blocks the site's own background workers: the site may not work.": "Dette nivået blokkerer nettstedets egne bakgrunnsprosesser: nettstedet virker kanskje ikke.",
+"Allow them on this site": "Tillat dem på dette nettstedet"
 }
 }

@@ -1609,6 +1609,11 @@
 "This session, by kind": "Această sesiune, după tip",
 "This session, the sites that tried most": "Această sesiune, site-urile care au încercat cel mai mult",
 "Nothing of this leaves your computer. The figures of this session start again when I.K.E. starts.": "Nimic din toate acestea nu părăsește computerul tău. Cifrele acestei sesiuni pornesc din nou când pornește I.K.E.",
-"Nothing blocked yet in this session.": "Nimic blocat încă în această sesiune."
+"Nothing blocked yet in this session.": "Nimic blocat încă în această sesiune.",
+"The site's own background workers": "Procesele de fundal ale site-ului",
+"Background workers blocked": "Procese de fundal blocate",
+"Site's own workers allowed": "Procesele proprii ale site-ului permise",
+"This level blocks the site's own background workers: the site may not work.": "Acest nivel blochează procesele de fundal ale site-ului: site-ul poate să nu funcționeze.",
+"Allow them on this site": "Permite-le pe acest site"
 }
 }

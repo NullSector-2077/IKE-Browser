@@ -271,6 +271,23 @@
   }
   var strict = lv >= 3;
   var maximum = lv >= 4;
+  // Maximum keeps the sites' own workers out (1.1.25): no service worker, no
+  // shared worker, no dedicated worker from a file without the protection.
+  // Kontrol lets them run (1.1.31, the web compatibility campaign: WhatsApp
+  // and Telegram need them), and so does Maximum on a site whose workers the
+  // user allowed (the shield, "Repair this site": CFG.nowk). Only the site's
+  // own files can be in them; every worker a page's script can make from its
+  // own text (blob:, data:) keeps the protection at every level.
+  var keepWorkersOut = maximum && !(function () {
+    var h = host, list = CFG.nowk || [];
+    while (h) {
+      if (list.indexOf(h) >= 0) return true;
+      var i = h.indexOf('.');
+      if (i < 0) return false;
+      h = h.slice(i + 1);
+    }
+    return false;
+  })();
 
   // ---- seed: random per browser session, different for every site ----------
   function hash(str) {
@@ -2237,11 +2254,14 @@
     }
     return out;
   }
-  function preludeFor(address, ownSeed, run) {
+  // hello: a message the worker posts before anything else, so the page's
+  // protection knows the protected copy started (Kontrol, see adopt below)
+  function preludeFor(address, ownSeed, run, hello) {
     var sd = seed;
     if (ownSeed) { RAPPLY(RND_GET, CRYPTO, [RND]); sd = RND[0] || 1; }
     var at = ascii(RAPPLY(JSON_STR, JSON, [address]));
-    var p = WP_HEAD + WCFG + WP_TAIL + sd + ',' + at + (run ? ')(' + at + ');\n' : ');\n');
+    var p = (hello ? 'postMessage(' + RAPPLY(JSON_STR, JSON, [hello]) + ');' : '') +
+      WP_HEAD + WCFG + WP_TAIL + sd + ',' + at + (run ? ')(' + at + ');\n' : ');\n');
     while (p.length % 3) p += ' ';               // so it can be joined to base64 data
     return p;
   }
@@ -3100,9 +3120,12 @@
     // and the script's own "use strict"; review round 3: the page read it
     // before, and waited for it), a module by import() after a prelude
     // module (MODULE_TOP). If that cannot be done (a content security policy
-    // refuses blob workers) the worker is started as the page asked, and the
-    // request check refuses its script at these levels
-    // (shields._WORKER_SCRIPTS): it never runs without the protection.
+    // refuses blob workers) the worker is started as the page asked: at
+    // Maximum the request check refuses its script (shields._WORKER_SCRIPTS),
+    // so it never runs without the protection; at Kontrol (1.1.31) it runs
+    // the site's own file (see adopt below): where a site refuses blob
+    // workers no script of the page can make one either, so only the site's
+    // own code can be in it.
     var UPR = U && U.prototype, uHref = getterOf(UPR, 'href'), uOrigin = getterOf(UPR, 'origin');
     var uProto = getterOf(UPR, 'protocol'), baseOf = getterOf(w.Node && w.Node.prototype, 'baseURI');
     var later = function (u) { RAPPLY(nLater, w, [function () { RAPPLY(rawRevoke, U, [u]); }, 30000]); };
@@ -3112,19 +3135,19 @@
     // (review round 3: location.origin let a sandboxed frame start one)
     var ownOrigin = null;
     try { ownOrigin = `${w.origin}`; } catch (e) {}
-    function fromFile(url, module) {
+    function fromFile(url, module, hello) {
       var x = nConstruct(U, [url, RAPPLY(baseOf, w.document, [])]), pr = RAPPLY(uProto, x, []);
       if ((pr !== 'http:' && pr !== 'https:') || RAPPLY(uOrigin, x, []) !== ownOrigin) return null;
       var abs = RAPPLY(uHref, x, []), js = { type: 'text/javascript' };
       if (module) {
-        var pre = RAPPLY(rawCreate, U, [new NBlob([preludeFor(abs, true)], js)]);
+        var pre = RAPPLY(rawCreate, U, [new NBlob([preludeFor(abs, true, false, hello)], js)]);
         var top = RAPPLY(rawCreate, U, [new NBlob([MODULE_TOP[0] + RAPPLY(JSON_STR, JSON, [pre]) + MODULE_TOP[1] +
           RAPPLY(JSON_STR, JSON, [abs]) + MODULE_TOP[2]], js)]);
         PATCHED.set(top, abs);
         later(pre); later(top);
         return top;
       }
-      var made = RAPPLY(rawCreate, U, [new NBlob([preludeFor(abs, false, true)], js)]);
+      var made = RAPPLY(rawCreate, U, [new NBlob([preludeFor(abs, false, true, hello)], js)]);
       PATCHED.set(made, abs);
       later(made);
       return made;
@@ -3159,6 +3182,109 @@
         }]);
       } catch (e) {}
     }
+    // Kontrol (1.1.31, the web compatibility campaign): the engine refuses a
+    // blob worker the site's policy does not allow only after the Worker
+    // object is made (an "error" event a moment later, never an exception),
+    // so the fallback to the page's own address below never ran, and
+    // WhatsApp and Telegram (worker-src without blob:) got no worker at all.
+    // A worker started from the protected copy is watched until its prelude
+    // says hello: the messages the page posts meanwhile wait; if the copy
+    // is refused instead, the site's own file is started and takes its
+    // place inside the same object (its messages and errors come out of the
+    // object the page holds, what was posted goes to it), the refusal's
+    // error is not the page's, and the document's further workers start
+    // from the file at once. Not at Maximum, where the file is refused.
+    var blobRefused = false;
+    var PENDING = hardMap();
+    var WPP = w.Worker && w.Worker.prototype, nPost = WPP && WPP.postMessage, nTerm = WPP && WPP.terminate;
+    var MEP = w.MessageEvent && w.MessageEvent.prototype, NMessageEvent = w.MessageEvent;
+    var mData = getterOf(MEP, 'data'), mPorts = getterOf(MEP, 'ports');
+    var eLineOf = getterOf(EEP, 'lineno'), eColOf = getterOf(EEP, 'colno');
+    var newHello = function () {
+      RAPPLY(RND_GET, CRYPTO, [RND]);
+      var a = RND[0];
+      RAPPLY(RND_GET, CRYPTO, [RND]);
+      return 'ike-hello-' + a + '-' + RND[0];
+    };
+    var argsOf = function (list) { var a = []; for (var i = 0; i < list.length; i++) a[i] = list[i]; return a; };
+    var flush = function (st, to) {
+      var q = st.q;
+      st.q = [];
+      for (var i = 0; i < q.length; i++) { try { RAPPLY(nPost, to, q[i]); } catch (e) {} }
+    };
+    function adopt(made, hello, target, asked) {
+      var st = { q: [], ok: false, real: null, dead: false };
+      PENDING.set(made, st);
+      try {
+        RAPPLY(eAdd, made, ['message', function (e) {
+          if (st.ok || st.real) return;
+          var d;
+          try { d = RAPPLY(mData, e, []); } catch (x) { return; }
+          if (d !== hello) return;
+          RAPPLY(eStop, e, []);
+          st.ok = true;
+          flush(st, made);
+        }]);
+        RAPPLY(eAdd, made, ['error', function (e) {
+          // only the refusal of the protected copy (its report came first,
+          // securitypolicyviolation below): any other error is the page's
+          if (st.ok || st.real || st.dead || !blobRefused) return;
+          RAPPLY(eStop, e, []);
+          RAPPLY(ePrevent, e, []);
+          blobRefused = true;
+          var real;
+          try { real = nConstruct(target, asked, target); } catch (x) {
+            st.dead = true;
+            try { RAPPLY(eFire, made, [new NEvent('error', { cancelable: true })]); } catch (y) {}
+            return;
+          }
+          st.real = real;
+          var pass = function (type) {
+            RAPPLY(eAdd, real, [type, function (m) {
+              try {
+                var ports = RAPPLY(mPorts, m, []), list = [];
+                for (var i = 0; i < ports.length; i++) list[i] = ports[i];
+                RAPPLY(eFire, made, [new NMessageEvent(type, { data: RAPPLY(mData, m, []), ports: list })]);
+              } catch (x) {}
+            }]);
+          };
+          pass('message');
+          pass('messageerror');
+          RAPPLY(eAdd, real, ['error', function (x) {
+            try {
+              var again = new NErrorEvent('error', { message: `${RAPPLY(eMsg, x, [])}`, filename: RAPPLY(eFile, x, []),
+                lineno: RAPPLY(eLineOf, x, []), colno: RAPPLY(eColOf, x, []), cancelable: true });
+              if (!RAPPLY(eFire, made, [again])) RAPPLY(ePrevent, x, []);
+            } catch (y) {}
+          }]);
+          flush(st, real);
+        }]);
+      } catch (e) {}
+    }
+    if (strict && !keepWorkersOut && WPP && nPost && nTerm) {
+      wrap(WPP, 'postMessage', function (orig) {
+        return function () {
+          var st = arguments.length ? PENDING.get(this) : undefined;
+          if (st && !st.ok) {
+            if (st.real) return RAPPLY(orig, st.real, arguments);
+            if (!st.dead) st.q[st.q.length] = argsOf(arguments);
+            return;
+          }
+          return RAPPLY(orig, this, arguments);
+        };
+      });
+      wrap(WPP, 'terminate', function (orig) {
+        return function () {
+          var st = PENDING.get(this);
+          if (st) {
+            st.dead = true;
+            st.q = [];
+            if (st.real) RAPPLY(orig, st.real, []);
+          }
+          return RAPPLY(orig, this, arguments);
+        };
+      });
+    }
     // a content security policy that refuses the blob address: its report of
     // the protection's own attempt is not the page's (review round 3, N-6);
     // the worker the page asked for is then refused (see above). The same
@@ -3182,6 +3308,7 @@
             // (innerHTML, the Worker proxy) name "userscript" too and stay
             // the page's (the review)
             var d = vDirective ? `${RAPPLY(vDirective, e, [])}` : '';
+            if (strict && RAPPLY(vBlocked, e, []) === 'blob') blobRefused = true;
             if ((strict && RAPPLY(vBlocked, e, []) === 'blob') ||
                 (d === 'trusted-types' && ttName && vSample && RAPPLY(vSample, e, []) === ttName) ||
                 (d === 'require-trusted-types-for' && ttRefused)) RAPPLY(eStop, e, []);
@@ -3222,15 +3349,22 @@
             var url = tt !== null ? tt : `${first}`;
             var opt = workerOptions(args[1], args.length > 1);
             var send = function (u) { return opt.given ? [u, opt.value] : [u]; };
-            var call = send(tt !== null ? first : url), asked = call;
+            var call = send(tt !== null ? first : url), asked = call, hello = null;
             var inline = sslice(url, 0, 5) === 'blob:' || lower(sslice(url, 0, 5)) === 'data:';
             try {
               if (tt !== null && asAsked()) {
                 // nothing to add: the worker the page asked for (a file of the
                 // site's at Strict and above: refused by the request check)
               } else if (strict && name === 'Worker' && sslice(url, 0, 5) !== 'blob:' && lower(sslice(url, 0, 5)) !== 'data:') {
-                file = fromFile(url, opt.module);
-                if (file) call = send(tt !== null ? asTrusted(file) : file);
+                if (!keepWorkersOut && blobRefused) {
+                  // Kontrol: this document's policy refuses the protected
+                  // copy: the site's own file, as the page asked (see adopt)
+                } else {
+                  hello = keepWorkersOut ? null : newHello();
+                  file = fromFile(url, opt.module, hello);
+                  if (file) call = send(tt !== null ? asTrusted(file) : file);
+                  else hello = null;
+                }
               } else if (sslice(url, 0, 5) === 'blob:') {
                 var blob = blobs.get(url);
                 if (!blob) {
@@ -3285,6 +3419,7 @@
               }
               clean(e); throw e;
             }
+            if (file && hello) adopt(made, hello, target, asked);
             if (file) sameErrors(made, file);
             return made;
           }
@@ -3658,11 +3793,13 @@
     check(null, true);
   }
 
-  // Strict and Maximum (1.1.25): no service worker (shields.py refuses their
-  // scripts, whatever frame or worker asks). One registered before, at a lower
-  // level, would still start with the engine's own values: it is unregistered
-  // (the page keeps its controller until it is left, as with unregister()).
-  if (strict) {
+  // Maximum (1.1.25; Strict too until 1.1.30): no service worker (shields.py
+  // refuses their scripts, whatever frame or worker asks). One registered
+  // before, at a lower level, would still start with the engine's own values:
+  // it is unregistered (the page keeps its controller until it is left, as
+  // with unregister()). Kontrol keeps them (1.1.31): WhatsApp starts from its
+  // service worker.
+  if (keepWorkersOut) {
     try {
       var SWC = window.ServiceWorkerContainer && ServiceWorkerContainer.prototype;
       var SWR = window.ServiceWorkerRegistration && ServiceWorkerRegistration.prototype;
